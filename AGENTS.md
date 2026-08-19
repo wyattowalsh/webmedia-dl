@@ -23,15 +23,15 @@
   - `uv.lock` (and `uv` installed) → `uv sync`
 - To activate dependency installs, add the corresponding manifest/lockfile. If you introduce a package manager whose lockfile isn't listed above (e.g. Bun) or a Python stack needing `uv`, update the startup update script accordingly.
 
-### Agent tooling: wyattowalsh/agents skills + MCPHub
+### Agent tooling: wyattowalsh/agents bundle (skills + its own MCPHub)
 
-The startup update script also restores two user-requested global tools (both non-fatal / `|| true`, so they never block pod boot). Fresh VMs do not persist `$HOME`, so these are reinstalled on each boot by the update script:
+The startup update script restores the `wyattowalsh/agents` skill bundle globally for Cursor (non-fatal / `|| true`, so it never blocks pod boot). Fresh VMs do not persist `$HOME`, so it is reinstalled on each boot:
 
-- **`wyattowalsh/agents` skills** — installed with `npx skills add github:wyattowalsh/agents -g -y -a cursor -s '*'`. All 67 skills land in `~/.agents/skills/` (lock file `~/.agents/.skill-lock.json`) and are registered for the Cursor agent. Verify with `npx skills list -g`. Note: skills discovered from `~/.agents/skills` are picked up at agent-session start, so a session already running when they are (re)installed will not see them until the next session.
-- **MCPHub (`@samanhappy/mcphub`)** — installed into a user prefix (`~/.npm-global`) to avoid the root-owned global npm prefix (`/usr/lib/node_modules`, which causes `EACCES`). The update script symlinks `~/.npm-global/bin/mcphub` into the nvm global bin dir (`$(dirname "$(command -v npm)")`, already on `PATH`) so `mcphub` resolves in any fresh shell without editing `~/.bashrc`.
+- **`wyattowalsh/agents` skills** — installed with `npx skills add github:wyattowalsh/agents -g -y -a cursor -s '*'`. Skills land in `~/.agents/skills/` (lock file `~/.agents/.skill-lock.json`) and are registered for the Cursor agent. Verify with `npx skills list -g`. Note: skills discovered from `~/.agents/skills` are picked up at agent-session start, so a session already running when they are (re)installed will not see them until the next session.
 
-MCPHub run/verify notes (see also the [CLI guide](https://docs.mcphub.app/features/cli)):
+**MCPHub is intentionally NOT installed as a standalone/global package here.** It does not need its own hub — MCPHub is owned by the `wyattowalsh/agents` repo, and you connect to that one. Key facts (see the repo's `mcp/mcphub/README.md`, `scripts/mcphub/`, `.cursor/mcp.json`, and the `mcphub-operator` skill):
 
-- Start the hub: `PORT=<port> mcphub` (no-arg `mcphub` starts the server; a subcommand runs the CLI). It serves a dashboard + HTTP API and prints a one-time generated admin password to its log on first run.
-- The CLI drives a running hub over HTTP: `mcphub login --url http://localhost:<port> --username admin --password <generated>`, then `mcphub servers add|list`, `mcphub tools list`, etc.
-- Calling a tool requires a **bearer key** (`mcphub keys create --name <n> --access-type all`), not the admin JWT. The one-shot `mcphub call ...` does not perform the MCP streamable-HTTP `initialize` handshake, so a direct tool call must first `initialize` (to obtain an `mcp-session-id`), send `notifications/initialized`, then `tools/call` against `/mcp/<server>` (or `/mcp/$smart`).
+- The agents repo runs the hub on demand via `npx @samanhappy/mcphub@<pinned>` (e.g. `1.0.24`) bound loopback-only on `127.0.0.1:46683`, using `mcp/mcphub/mcp_settings.json` — there is no `npm install -g` step.
+- Clients (Cursor) connect to `http://127.0.0.1:46683/mcp/<group>` (default group: `harness`) with `Authorization: Bearer ${MCPHUB_BEARER_TOKEN}`, either via the repo's `.cursor/mcp.json` (`type: http`) or the `scripts/mcphub/remote-stdio.sh` bridge in the repo's root `mcp.json` (the bridge auto-starts the hub via `scripts/mcphub/ensure-running.sh`, so no separate start command is needed).
+- Secrets are **local, not external**: `ADMIN_PASSWORD`, `JWT_SECRET`, and `MCPHUB_BEARER_TOKEN` are generated locally into `.env.mcphub` (`mcp/mcphub/README.md` shows the `secrets.token_urlsafe` recipe). The hub is loopback-only and single-user.
+- Several `harness` servers are keyless (DDGS, Fetch, Wikipedia, DeepWiki, llms.txt catalog); others (Brave, Context7, Tavily, Exa, …) need API keys in `.env.mcphub` and stay disabled without them. The hub itself starts and authenticates regardless. This repo's design is macOS-first (`just mcphub-up`, launchd), but the core `npx @samanhappy/mcphub` hub also comes up on Linux.
