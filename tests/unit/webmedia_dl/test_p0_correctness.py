@@ -326,3 +326,55 @@ def test_required_export_failure_skips_dependents(tmp_path: Path) -> None:
         for event in queue.events_for(job.job_id)
         if event.type.value == "operation.completed"
     ]
+
+
+def test_repo_root_missing_layout(monkeypatch: pytest.MonkeyPatch) -> None:
+    from webmedia_dl import paths as paths_mod
+
+    original = paths_mod.Path.is_file
+
+    def hide_pyproject(self: Path) -> bool:
+        if self.name == "pyproject.toml":
+            return False
+        return original(self)
+
+    monkeypatch.setattr(paths_mod.Path, "is_file", hide_pyproject)
+    with pytest.raises(FileNotFoundError, match="repository root"):
+        paths_mod.repo_root()
+
+
+def test_runtime_root_falls_back_without_packaged_dir(monkeypatch: pytest.MonkeyPatch) -> None:
+    from webmedia_dl import paths as paths_mod
+
+    original = paths_mod.Path.is_dir
+
+    def hide_runtime(self: Path) -> bool:
+        if self.name == "runtime" and self.parent.name == "webmedia_dl":
+            return False
+        return original(self)
+
+    monkeypatch.setattr(paths_mod.Path, "is_dir", hide_runtime)
+    assert paths_mod.runtime_root() == paths_mod.repo_root() / "resources"
+
+
+def test_runtime_file_falls_back_to_checkout_resources(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from webmedia_dl import paths as paths_mod
+
+    monkeypatch.setattr(paths_mod, "runtime_root", lambda: tmp_path / "absent")
+    found = paths_mod.runtime_file("export-presets.json")
+    assert found == paths_mod.repo_root() / "resources" / "export-presets.json"
+    missing = paths_mod.runtime_file("does-not-exist.json")
+    assert missing == tmp_path / "absent" / "does-not-exist.json"
+
+
+def test_worker_data_dir_uses_platformdirs(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from webmedia_dl import paths as paths_mod
+
+    monkeypatch.setattr(paths_mod, "user_data_dir", lambda *_args, **_kwargs: str(tmp_path / "xdg"))
+    path = paths_mod.worker_data_dir()
+    assert path == tmp_path / "xdg"
+    assert path.is_dir()

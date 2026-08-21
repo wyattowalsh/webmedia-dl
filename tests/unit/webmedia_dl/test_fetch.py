@@ -128,6 +128,29 @@ def test_bound_fetch_transport_error_becomes_discovery_error() -> None:
         )
 
 
+def test_bound_fetch_stream_truncate_skips_chunk_when_budget_exhausted() -> None:
+    profile = get_profile("personal-full")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        def body():
+            yield b"12345678"
+            yield b"EXTRA"
+
+        return httpx.Response(200, content=body(), headers={"content-type": "text/html"})
+
+    client = httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True)
+    status, _content_type, body = bound_fetch(
+        "https://example.com/page",
+        profile=profile,
+        max_bytes=8,
+        on_overflow="truncate",
+        client=client,
+        should_stop=lambda: None,
+    )
+    assert status == 200
+    assert body == b"12345678"
+
+
 def test_authorize_url_rejects_non_https_and_hostless() -> None:
     from webmedia_dl.network_policy import authorize_destination, authorize_url
 

@@ -125,3 +125,49 @@ def test_default_http_get_uses_profile_byte_bound(monkeypatch: pytest.MonkeyPatc
     assert headers["content-type"] == "video/mp4"
     assert seen["url"] == "https://cdn.example.com/a.mp4"
     assert seen["on_overflow"] == "error"
+
+
+def test_ytdlp_resolves_ext_template_output(tmp_path: Path) -> None:
+    def run(argv: list[str], _cwd: Path) -> tuple[int, bytes, bytes]:
+        template = argv[argv.index("--output") + 1]
+        dest = Path(str(template).replace("%(ext)s", "mp4"))
+        dest.write_bytes(b"ok")
+        return 0, b"", b""
+
+    runtime = ProviderRuntime(which=lambda name: "/usr/bin/yt-dlp", run=run)
+    result = runtime.execute(
+        ProviderRequest(
+            provider_id="ytdlp",
+            capability_id="acquire.ytdlp",
+            typed_inputs={
+                "url": "https://example.com/v",
+                "output": str(tmp_path / "clip.%(ext)s"),
+            },
+        ),
+        tmp_path,
+    )
+    assert result.output_path is not None
+    assert result.output_path.name == "clip.mp4"
+    assert result.output_path.read_bytes() == b"ok"
+
+
+def test_ytdlp_ext_template_falls_back_to_created_file(tmp_path: Path) -> None:
+    def run(argv: list[str], _cwd: Path) -> tuple[int, bytes, bytes]:
+        dest = tmp_path / "other.webm"
+        dest.write_bytes(b"created")
+        return 0, b"", b""
+
+    runtime = ProviderRuntime(which=lambda name: "/usr/bin/yt-dlp", run=run)
+    result = runtime.execute(
+        ProviderRequest(
+            provider_id="ytdlp",
+            capability_id="acquire.ytdlp",
+            typed_inputs={
+                "url": "https://example.com/v",
+                "output": str(tmp_path / "clip.%(ext)s"),
+            },
+        ),
+        tmp_path,
+    )
+    assert result.output_path is not None
+    assert result.output_path.name == "other.webm"

@@ -440,6 +440,21 @@ def test_submit_dest_and_companion_requires_job(tmp_path: Path, png_bytes: bytes
     assert json.loads(nxt.stdout)["job"]["error"]
 
 
+def test_paste_speak_drm_and_missing_drop_fail_closed(tmp_path: Path) -> None:
+    locator = "https://cdn.example.com/widevine-stream.mpd"
+    pasted = runner.invoke(app, ["paste", locator, "--data-dir", str(tmp_path / "paste")])
+    assert pasted.exit_code == 1
+    assert json.loads(pasted.stdout)["job"]["error"]
+    spoken = runner.invoke(app, ["speak", locator, "--data-dir", str(tmp_path / "speak")])
+    assert spoken.exit_code == 1
+    assert json.loads(spoken.stdout)["job"]["error"]
+    missing = runner.invoke(
+        app,
+        ["drop", str(tmp_path / "missing.png"), "--data-dir", str(tmp_path / "drop")],
+    )
+    assert missing.exit_code != 0
+
+
 def test_serve_rejects_non_loopback_host() -> None:
     from webmedia_dl.cli import serve
 

@@ -41,3 +41,7 @@
   cwd. watchOS/tvOS speak intents use companion transport; Mac restores Files
   bookmarks and activates `WCSessionDelegate`; share extensions ship App Group
   entitlements; `companion capture <locator>` accepts a positional URL.
+- Packaged runtime falls back to checkout resources without a `runtime/` tree;
+  live recording fails closed on HTTP 400 playlists, empty segments, and
+  nested/audio stop; CLI paste/speak DRM locators and missing drops exit 1;
+  export policy errors still publish the original source.

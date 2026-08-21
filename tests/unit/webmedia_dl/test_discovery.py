@@ -1,9 +1,12 @@
 from uuid import uuid4
 
+import pytest
+
 from webmedia_dl.candidates import build_graph
 from webmedia_dl.discovery import candidates_from_manifest_json, discover
 from webmedia_dl.domain.enums import IntakeKind, MediaKind, Surface
 from webmedia_dl.domain.models import MediaSource
+from webmedia_dl.errors import DiscoveryError
 from webmedia_dl.policy.profiles import get_profile
 
 HTML = """
@@ -170,3 +173,28 @@ def test_manifest_jsonl_skips_malformed_lines() -> None:
     assert "https://cdn.example.com/a.mp4" in urls
     assert "https://cdn.example.com/b.webm" in urls
     assert source.normalized_url in urls
+
+
+def test_page_discovery_http_error_non_html_and_jsonld_podcast() -> None:
+    profile = get_profile("personal-full")
+    with pytest.raises(DiscoveryError, match="HTTP 403"):
+        discover(_source(), profile, fetch=lambda url: (403, "text/html", b"no"))
+    with pytest.raises(DiscoveryError, match="fetch function"):
+        discover(_source(), profile)
+    sniffed = discover(
+        _source(),
+        profile,
+        fetch=lambda url: (200, "application/octet-stream", b"\x00\x01not-html"),
+    )
+    assert sniffed[0].evidence_refs == ["intake:bytes"]
+    html = """
+    <html>
+      <script type="application/ld+json">{not-json</script>
+      <script type="application/ld+json">
+        {"@type": "PodcastEpisode", "contentUrl": "https://cdn.example.com/episode"}
+      </script>
+    </html>
+    """
+    candidates = discover(_source(), profile, html=html)
+    kinds = {item.retrieval_urls[0]: item.media_kind for item in candidates if item.retrieval_urls}
+    assert kinds["https://cdn.example.com/episode"] is MediaKind.AUDIO

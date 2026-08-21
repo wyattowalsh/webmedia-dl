@@ -176,3 +176,35 @@ def test_pause_and_resume_job_endpoints(tmp_path: Path, png_bytes: bytes) -> Non
     resumed = client.post(f"/v1/jobs/{job_id}/resume", headers=headers)
     assert resumed.status_code == 200
     assert resumed.json()["state"] in {"completed", "failed", "accepted"}
+
+
+def test_lifespan_starts_dispatcher(tmp_path: Path) -> None:
+    app = create_app(tmp_path, enable_dispatcher=True)
+    with TestClient(app) as client:
+        response = client.get("/health")
+        assert response.status_code == 200
+        assert response.json()["status"] == "ok"
+
+
+def test_sealed_companion_requires_pairing(tmp_path: Path) -> None:
+    from webmedia_dl.envelope import seal_payload
+
+    app = create_app(tmp_path)
+    token = load_or_create_token(tmp_path)
+    client = TestClient(app)
+    headers = {"Authorization": f"Bearer {token}"}
+    created = client.post("/v1/pair", headers=headers)
+    pairing_id = created.json()["pairing_id"]
+    confirmed = client.post("/v1/pair/confirm", headers=headers, json={"pairing_id": pairing_id})
+    session_key = confirmed.json()["session_key"]
+    sealed = seal_payload(
+        session_key,
+        {"kind": "status", "nativeCommand": None, "subprocessWorker": False},
+    )
+    missing_key = client.post(
+        "/v1/companion",
+        json={"pairing_id": pairing_id, **sealed},
+        headers=headers,
+    )
+    assert missing_key.status_code == 400
+    assert "confirmed pairing" in missing_key.json()["detail"]

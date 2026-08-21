@@ -5,7 +5,14 @@ import pytest
 
 from webmedia_dl.artifacts import ArtifactStore
 from webmedia_dl.capabilities import load_platform_matrix, registry
-from webmedia_dl.domain.enums import ArtifactRole, DestinationKind, IntakeKind, JobState, MediaKind
+from webmedia_dl.domain.enums import (
+    ArtifactRole,
+    DestinationKind,
+    IntakeKind,
+    JobState,
+    MediaKind,
+    Surface,
+)
 from webmedia_dl.domain.models import (
     Artifact,
     ExportIntent,
@@ -388,6 +395,16 @@ def test_policy_resources_match_runtime() -> None:
     assert "watchos" in matrix
     ids = {item.capability_id for item in registry()}
     assert "acquire.gallery_dl" in ids
+
+
+def test_registry_skips_platforms_missing_from_matrix(monkeypatch: pytest.MonkeyPatch) -> None:
+    from webmedia_dl import capabilities as cap_mod
+
+    monkeypatch.setattr(cap_mod, "load_platform_matrix", lambda: {"cli": ["cli"]})
+    items = cap_mod.registry()
+    assert items
+    for item in items:
+        assert item.platforms == [Surface.CLI]
 
 
 def test_magick_convert_uses_format_prefix(tmp_path: Path) -> None:

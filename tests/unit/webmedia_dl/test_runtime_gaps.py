@@ -362,6 +362,26 @@ def test_cancel_stops_in_flight_subprocess(tmp_path: Path) -> None:
     assert finished["ok"] is True
 
 
+def test_pause_stops_in_flight_subprocess(tmp_path: Path) -> None:
+    runtime = ProviderRuntime()
+    finished = {"code": None}
+
+    def worker() -> None:
+        code, _out, _err = runtime._tracked_run(
+            [sys.executable, "-c", "import time; time.sleep(30)"],
+            tmp_path,
+        )
+        finished["code"] = code
+
+    thread = threading.Thread(target=worker)
+    thread.start()
+    time.sleep(0.25)
+    runtime.pause_running()
+    thread.join(timeout=5)
+    assert not thread.is_alive()
+    assert finished["code"] not in {0, None}
+
+
 def test_execute_raises_when_cancel_flag_set(tmp_path: Path) -> None:
     from webmedia_dl.errors import CancelledError
     from webmedia_dl.providers import ProviderRequest
