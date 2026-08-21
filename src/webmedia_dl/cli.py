@@ -18,6 +18,7 @@ from webmedia_dl.domain.models import ExportIntent
 from webmedia_dl.errors import CancelledError, WebMediaError
 from webmedia_dl.export import load_presets
 from webmedia_dl.names import CLI_NAME, DISPLAY_NAME, PERSONAL_ALIAS
+from webmedia_dl.packaging import write_extension_zips
 from webmedia_dl.pipeline import Pipeline
 from webmedia_dl.policy.profiles import builtin_profiles
 from webmedia_dl.settings import Settings
@@ -455,6 +456,37 @@ def pair_confirm(
                 "confirmed": record.confirmed,
                 "session_key": record.session_key,
                 "expires_at": record.expires_at.isoformat(),
+            },
+            indent=2,
+        )
+    )
+
+
+@app.command("package-extensions")
+def package_extensions_cmd(
+    dest: Annotated[Path | None, typer.Option("--dest")] = None,
+) -> None:
+    """Write reproducible loopback extension zips. Does not submit to browser stores."""
+    written = write_extension_zips(dest_root=dest)
+    typer.echo(json.dumps({"store_submission": "BLOCKED", "archives": written}, indent=2))
+
+
+@app.command()
+def updates() -> None:
+    """Report update policy. Providers and stores are never auto-installed."""
+    from webmedia_dl import __version__
+
+    typer.echo(
+        json.dumps(
+            {
+                "product": DISPLAY_NAME,
+                "version": __version__,
+                "auto_install": False,
+                "providers_auto_install": False,
+                "telemetry_default": False,
+                "app_store": "BLOCKED",
+                "browser_stores": "BLOCKED",
+                "signing_notarization": "BLOCKED",
             },
             indent=2,
         )

@@ -16,7 +16,7 @@ public struct WebMediaDLiPadOSSubmitURLIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let client = WebMediaDLLoopbackClient()
-        _ = client.submitRequest(locator: locator, surface: .ipados)
+        _ = try await client.submit(locator: locator, surface: .ipados)
         return .result()
     }
 }

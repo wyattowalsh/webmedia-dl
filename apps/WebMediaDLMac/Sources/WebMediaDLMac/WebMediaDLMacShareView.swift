@@ -18,7 +18,9 @@ public struct WebMediaDLMacShareView: View {
             Text(intake.locator)
                 .accessibilityLabel("Shared locator")
             Button("Send to WebMedia DL") {
-                _ = client.submitRequest(locator: intake.locator, surface: .macos)
+                Task {
+                    _ = try? await client.submit(locator: intake.locator, surface: .macos)
+                }
             }
             .accessibilityLabel("Send to WebMedia DL")
             if intake.canPublishToPhotos {

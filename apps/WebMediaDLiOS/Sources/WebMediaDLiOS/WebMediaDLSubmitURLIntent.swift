@@ -16,7 +16,7 @@ public struct WebMediaDLSubmitURLIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let client = WebMediaDLLoopbackClient()
-        _ = client.submitRequest(locator: locator, surface: .ios)
+        _ = try await client.submit(locator: locator, surface: .ios)
         let intake = WebMediaDLShareIntake(locator: locator)
         _ = intake.canPublishToPhotos
         return .result()

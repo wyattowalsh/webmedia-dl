@@ -102,16 +102,41 @@ def plan_export(job_id: UUID, source: Artifact, intent: ExportIntent) -> ExportP
         else:
             operations.append(
                 Operation(
+                    operation_id="remux",
+                    op_type="ffmpeg.remux",
+                    capability_id="process.ffmpeg.remux",
+                    input_artifact_ids=[source.artifact_id],
+                    output_role=ArtifactRole.DERIVATIVE,
+                    loss_class=LossClass.CONTAINER_ONLY,
+                    validator_ids=["hash-changed", "container-match"],
+                    typed_inputs={"container": preference},
+                )
+            )
+            operations.append(
+                Operation(
                     operation_id="transcode",
                     op_type="ffmpeg.transcode",
                     capability_id="process.ffmpeg.transcode",
-                    input_artifact_ids=[source.artifact_id],
+                    input_artifact_ids=["remux"],
                     output_role=ArtifactRole.DERIVATIVE,
                     loss_class=LossClass.LOSSY_TRANSCODE,
                     validator_ids=["container-match"],
                     typed_inputs={"container": preference},
                 )
             )
+    elif resolved.allow_lossy and not image_like:
+        operations.append(
+            Operation(
+                operation_id="transcode",
+                op_type="ffmpeg.transcode",
+                capability_id="process.ffmpeg.transcode",
+                input_artifact_ids=[source.artifact_id],
+                output_role=ArtifactRole.DERIVATIVE,
+                loss_class=LossClass.LOSSY_TRANSCODE,
+                validator_ids=["container-match"],
+                typed_inputs={"container": source.container or "mp4"},
+            )
+        )
     if image_like and preference is None:
         operations.append(
             Operation(

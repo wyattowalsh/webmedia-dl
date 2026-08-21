@@ -183,3 +183,24 @@ def test_companion_cli_status(tmp_path: Path) -> None:
     payload = json.loads(result.stdout)
     assert payload["kind"] == "status"
     assert payload["paused"] is False
+
+
+def test_updates_never_auto_installs() -> None:
+    result = runner.invoke(app, ["updates"])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["auto_install"] is False
+    assert payload["providers_auto_install"] is False
+    assert payload["app_store"] == "BLOCKED"
+
+
+def test_package_extensions_writes_fixed_zips(tmp_path: Path) -> None:
+    dest = tmp_path / "ext"
+    result = runner.invoke(app, ["package-extensions", "--dest", str(dest)])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["store_submission"] == "BLOCKED"
+    assert len(payload["archives"]) == 6
+    for item in payload["archives"]:
+        assert Path(item["path"]).is_file()
+        assert item["sha256"]

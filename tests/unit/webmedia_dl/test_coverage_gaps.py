@@ -139,6 +139,10 @@ def test_lossy_plan_and_gallery_acquisition() -> None:
         ExportIntent(allow_lossy=True, container_preference="mkv"),
     )
     assert any(op.operation_id == "transcode" for op in plan.operations)
+    ids = [op.operation_id for op in plan.operations]
+    assert ids.index("remux") < ids.index("transcode")
+    transcode = next(op for op in plan.operations if op.operation_id == "transcode")
+    assert "remux" in transcode.input_artifact_ids
     gallery = MediaCandidate(
         source_id=uuid4(),
         media_kind=MediaKind.GALLERY,

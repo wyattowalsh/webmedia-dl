@@ -190,7 +190,12 @@ def create_app(data_dir: Path | None = None, *, enable_dispatcher: bool = False)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="Unknown job") from exc
         events = [event.model_dump(mode="json") for event in pipeline.queue.events_for(job_id)]
-        return {"job": job.model_dump(mode="json"), "events": events}
+        artifact_ids: list[str] = []
+        for item in pipeline.history_entries():
+            if item["job_id"] == str(job_id):
+                artifact_ids = list(item.get("artifact_ids") or [])
+                break
+        return {"job": job.model_dump(mode="json"), "events": events, "artifact_ids": artifact_ids}
 
     @app.get("/v1/jobs", dependencies=[Depends(require_auth)])
     def list_jobs() -> list[dict]:

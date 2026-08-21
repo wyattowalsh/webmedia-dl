@@ -18,6 +18,8 @@ uv run webmedia-dl pause --queue --data-dir /tmp/webmedia-dl-demo
 uv run webmedia-dl resume --queue --data-dir /tmp/webmedia-dl-demo
 uv run webmedia-dl drop ./photo.png --data-dir /tmp/webmedia-dl-demo
 uv run webmedia-dl paste https://example.com/photo.png --data-dir /tmp/webmedia-dl-demo
+uv run webmedia-dl package-extensions --dest /tmp/webmedia-dl-extensions
+uv run webmedia-dl updates
 uv run webmedia-dl support-bundle --data-dir /tmp/webmedia-dl-demo
 uv run webmedia-dl plan https://example.com/watch --data-dir /tmp/webmedia-dl-demo
 uv run pytest

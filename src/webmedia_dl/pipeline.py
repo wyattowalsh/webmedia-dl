@@ -322,41 +322,57 @@ class Pipeline:
 
         produced: list[tuple[Any, Path]] = []
         export_errors: list[WebMediaError] = []
-        for artifact in sources:
-            self._check_control(job.job_id)
-            try:
-                export_plan = plan_export(job.job_id, artifact, job.intent)
-                self.queue.emit(
-                    job.job_id,
-                    EventType.EXPORT_PLANNED,
-                    {"operations": [item.operation_id for item in export_plan.operations]},
-                )
-                export_dir = staging / artifact.artifact_id.replace(":", "_")[:40]
-                export_dir.mkdir(parents=True, exist_ok=True)
-                produced.extend(
-                    execute_export_plan(
-                        export_plan,
-                        job_id=job.job_id,
-                        source=artifact,
-                        source_path=self.store.resolve(artifact),
-                        store=self.store,
-                        runtime=self.runtime,
-                        staging=export_dir,
-                        queue=self.queue,
-                        authorize=self._authorize,
-                        check_control=lambda: self._check_control(job.job_id),
+        stored_stage = checkpoint.get("stage")
+        if stored_stage in {"exported", "validating", "publishing"}:
+            for artifact_id in checkpoint.get("produced_ids") or []:
+                try:
+                    recorded = self.store.get(str(artifact_id))
+                    produced.append((recorded, self.store.resolve(recorded)))
+                except KeyError:
+                    continue
+        if not produced:
+            for artifact in sources:
+                self._check_control(job.job_id)
+                try:
+                    export_plan = plan_export(job.job_id, artifact, job.intent)
+                    self.queue.emit(
+                        job.job_id,
+                        EventType.EXPORT_PLANNED,
+                        {"operations": [item.operation_id for item in export_plan.operations]},
                     )
-                )
-            except (PauseRequested, CancelledError):
-                raise
-            except WebMediaError as exc:
-                export_errors.append(exc)
-                self.queue.emit(
-                    job.job_id,
-                    EventType.OPERATION_FAILED,
-                    {"artifact_id": artifact.artifact_id, "message": str(exc)},
-                )
-                produced.append((artifact, self.store.resolve(artifact)))
+                    export_dir = staging / artifact.artifact_id.replace(":", "_")[:40]
+                    export_dir.mkdir(parents=True, exist_ok=True)
+                    produced.extend(
+                        execute_export_plan(
+                            export_plan,
+                            job_id=job.job_id,
+                            source=artifact,
+                            source_path=self.store.resolve(artifact),
+                            store=self.store,
+                            runtime=self.runtime,
+                            staging=export_dir,
+                            queue=self.queue,
+                            authorize=self._authorize,
+                            check_control=lambda: self._check_control(job.job_id),
+                        )
+                    )
+                except (PauseRequested, CancelledError):
+                    raise
+                except WebMediaError as exc:
+                    export_errors.append(exc)
+                    self.queue.emit(
+                        job.job_id,
+                        EventType.OPERATION_FAILED,
+                        {"artifact_id": artifact.artifact_id, "message": str(exc)},
+                    )
+                    produced.append((artifact, self.store.resolve(artifact)))
+            self._save_acquire_checkpoint(
+                job,
+                sources,
+                acquired_kinds,
+                stage="exported",
+                produced_ids=[item.artifact_id for item, _path in produced],
+            )
 
         self._check_control(job.job_id)
         self.queue.set_state(job.job_id, JobState.VALIDATING)
@@ -707,15 +723,16 @@ class Pipeline:
         acquired_kinds: set[str],
         *,
         stage: str,
+        produced_ids: list[str] | None = None,
     ) -> None:
-        self.queue.put_checkpoint(
-            job.job_id,
-            {
-                "stage": stage,
-                "source_ids": [item.artifact_id for item in sources],
-                "acquired_kinds": sorted(acquired_kinds),
-            },
-        )
+        payload = {
+            "stage": stage,
+            "source_ids": [item.artifact_id for item in sources],
+            "acquired_kinds": sorted(acquired_kinds),
+        }
+        if produced_ids is not None:
+            payload["produced_ids"] = produced_ids
+        self.queue.put_checkpoint(job.job_id, payload)
 
     def handle_companion(self, payload: dict[str, Any]) -> dict[str, Any]:
         from webmedia_dl.continuity import validate_companion_message

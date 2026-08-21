@@ -16,10 +16,12 @@ public struct WebMediaDLiPadOSShareView: View {
             Text(intake.locator)
                 .accessibilityLabel("Shared locator")
             Button("Send to paired Mac") {
-                _ = WebMediaDLLoopbackClient().submitRequest(
-                    locator: intake.locator,
-                    surface: .ipados
-                )
+                Task {
+                    _ = try? await WebMediaDLLoopbackClient().submit(
+                        locator: intake.locator,
+                        surface: .ipados
+                    )
+                }
             }
             .accessibilityLabel("Send to paired Mac")
         }

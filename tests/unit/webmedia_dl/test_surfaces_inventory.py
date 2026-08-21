@@ -91,6 +91,18 @@ def test_apple_app_shells_exist() -> None:
     assert "Refresh history" in vision
     assert "Job history" in ipad
     assert "Job history" in vision
+    mac_share = (
+        root / "apps/WebMediaDLMac/Sources/WebMediaDLMac/WebMediaDLMacShareView.swift"
+    ).read_text(encoding="utf-8")
+    ios_share = (
+        root / "apps/WebMediaDLiOS/Sources/WebMediaDLiOS/WebMediaDLiOSShareView.swift"
+    ).read_text(encoding="utf-8")
+    assert ".submit(" in mac_share
+    assert ".submit(" in ios_share
+    mac_intent = (
+        root / "apps/WebMediaDLMac/Sources/WebMediaDLMac/WebMediaDLMacSubmitURLIntent.swift"
+    ).read_text(encoding="utf-8")
+    assert "await client.submit" in mac_intent
 
 
 def test_browser_extension_trees() -> None:

@@ -281,6 +281,7 @@
     "src/webmedia_dl/live.py",
     "src/webmedia_dl/names.py",
     "src/webmedia_dl/network_policy.py",
+    "src/webmedia_dl/packaging.py",
     "src/webmedia_dl/pairing.py",
     "src/webmedia_dl/paths.py",
     "src/webmedia_dl/pipeline.py",
