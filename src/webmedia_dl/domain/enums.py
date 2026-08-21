@@ -100,6 +100,8 @@ class EventType(StrEnum):
     PUBLISHED = "publication.committed"
     JOB_FAILED = "job.failed"
     JOB_COMPLETED = "job.completed"
+    JOB_CANCELLED = "job.cancelled"
+    PROBE_RECORDED = "media.probed"
 
 
 class CookieAccess(StrEnum):

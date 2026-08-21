@@ -2,14 +2,47 @@
 
 from __future__ import annotations
 
+import json
+from functools import lru_cache
 from uuid import UUID
 
-from webmedia_dl.domain.enums import ArtifactRole, LossClass
+from webmedia_dl.domain.enums import ArtifactRole, LossClass, MediaKind
 from webmedia_dl.domain.models import Artifact, ExportIntent, ExportPlan, Operation
 from webmedia_dl.errors import ProviderPolicyError
+from webmedia_dl.paths import repo_root
+
+IMAGE_CONTAINERS = {"jpg", "jpeg", "png", "webp", "avif", "gif", "tif", "tiff"}
+
+
+@lru_cache(maxsize=1)
+def load_presets() -> dict[str, dict[str, object]]:
+    path = repo_root() / "resources" / "export-presets.json"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _resolved_intent(intent: ExportIntent) -> ExportIntent:
+    presets = load_presets()
+    preset = presets.get(intent.preset_id, {})
+    allow_lossy = intent.allow_lossy or bool(preset.get("allow_lossy"))
+    container = intent.container_preference or preset.get("container_preference")
+    include_original = (
+        intent.include_original
+        if "include_original" not in preset
+        else bool(preset.get("include_original", True))
+    )
+    if container == intent.container_preference and allow_lossy == intent.allow_lossy:
+        return intent.model_copy(update={"include_original": include_original})
+    return intent.model_copy(
+        update={
+            "allow_lossy": allow_lossy,
+            "container_preference": str(container) if container else intent.container_preference,
+            "include_original": include_original,
+        }
+    )
 
 
 def plan_export(job_id: UUID, source: Artifact, intent: ExportIntent) -> ExportPlan:
+    resolved = _resolved_intent(intent)
     operations = [
         Operation(
             operation_id="keep-original",
@@ -22,8 +55,24 @@ def plan_export(job_id: UUID, source: Artifact, intent: ExportIntent) -> ExportP
             typed_inputs={},
         )
     ]
-    if intent.container_preference and intent.container_preference != source.container:
-        if not intent.allow_lossy:
+    preference = resolved.container_preference
+    if preference and preference != source.container:
+        if source.media_kind is MediaKind.IMAGE and preference.lower() in IMAGE_CONTAINERS:
+            operations.append(
+                Operation(
+                    operation_id="image-convert",
+                    op_type="imagemagick.convert",
+                    capability_id="process.imagemagick.convert",
+                    input_artifact_ids=[source.artifact_id],
+                    output_role=ArtifactRole.DERIVATIVE,
+                    loss_class=LossClass.NONE
+                    if not resolved.allow_lossy
+                    else LossClass.LOSSY_TRANSCODE,
+                    validator_ids=["hash-changed", "container-match"],
+                    typed_inputs={"container": preference},
+                )
+            )
+        elif not resolved.allow_lossy:
             operations.append(
                 Operation(
                     operation_id="remux",
@@ -33,7 +82,7 @@ def plan_export(job_id: UUID, source: Artifact, intent: ExportIntent) -> ExportP
                     output_role=ArtifactRole.DERIVATIVE,
                     loss_class=LossClass.CONTAINER_ONLY,
                     validator_ids=["hash-changed", "container-match"],
-                    typed_inputs={"container": intent.container_preference},
+                    typed_inputs={"container": preference},
                 )
             )
         else:
@@ -46,14 +95,28 @@ def plan_export(job_id: UUID, source: Artifact, intent: ExportIntent) -> ExportP
                     output_role=ArtifactRole.DERIVATIVE,
                     loss_class=LossClass.LOSSY_TRANSCODE,
                     validator_ids=["container-match"],
-                    typed_inputs={"container": intent.container_preference},
+                    typed_inputs={"container": preference},
                 )
             )
+    if source.media_kind is MediaKind.IMAGE and preference is None:
+        operations.append(
+            Operation(
+                operation_id="image-orient",
+                op_type="imagemagick.convert",
+                capability_id="process.imagemagick.convert",
+                input_artifact_ids=[source.artifact_id],
+                output_role=ArtifactRole.PREVIEW,
+                loss_class=LossClass.REVERSIBLE_METADATA,
+                validator_ids=["hash-match", "size-match"],
+                typed_inputs={"container": source.container or "png"},
+                optional=True,
+            )
+        )
     if any(op.loss_class == LossClass.FORBIDDEN for op in operations):
         msg = "Forbidden loss class cannot be planned."
         raise ProviderPolicyError(msg)
     return ExportPlan(
         job_id=job_id,
         operations=operations,
-        publish_source=intent.include_original,
+        publish_source=resolved.include_original,
     )

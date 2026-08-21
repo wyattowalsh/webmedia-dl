@@ -42,7 +42,8 @@ def test_submit_with_html_and_data_dir(tmp_path: Path, png_bytes: bytes) -> None
     result = runner.invoke(app, ["submit", str(media), "--data-dir", str(tmp_path / "data")])
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
-    assert payload["state"] == "completed"
+    assert payload["job"]["state"] == "completed"
+    assert payload["events"]
 
 
 def test_policy_profiles() -> None:
@@ -54,11 +55,55 @@ def test_policy_profiles() -> None:
     assert payload["personal-full"]["telemetry_default"] is False
 
 
+def test_pair_create_and_confirm(tmp_path: Path) -> None:
+    data = tmp_path / "data"
+    created = runner.invoke(app, ["pair", "create", "--data-dir", str(data)])
+    assert created.exit_code == 0
+    payload = json.loads(created.stdout)
+    assert payload["confirmed"] is False
+    confirmed = runner.invoke(
+        app, ["pair", "confirm", payload["pairing_id"], "--data-dir", str(data)]
+    )
+    assert confirmed.exit_code == 0
+    body = json.loads(confirmed.stdout)
+    assert body["confirmed"] is True
+    assert body["session_key"]
+
+
 def test_alias_note() -> None:
     result = runner.invoke(app, ["alias-note"])
     assert result.exit_code == 0
     assert PERSONAL_ALIAS in result.stdout
     assert CLI_NAME in result.stdout
+
+
+def test_plan_command_local_file(tmp_path: Path, png_bytes: bytes) -> None:
+    media = tmp_path / "hero.png"
+    media.write_bytes(png_bytes)
+    result = runner.invoke(app, ["plan", str(media), "--data-dir", str(tmp_path / "data")])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["acquired"] is False
+    assert payload["preferred"]["kind"] == "image"
+
+
+def test_cancel_command(tmp_path: Path, png_bytes: bytes) -> None:
+    from webmedia_dl.domain.enums import Surface
+    from webmedia_dl.domain.models import Job
+    from webmedia_dl.intake import normalize_source
+    from webmedia_dl.pipeline import Pipeline
+
+    data = tmp_path / "data"
+    pipeline = Pipeline(data_dir=data)
+    media = tmp_path / "queued.png"
+    media.write_bytes(png_bytes)
+    source = normalize_source(str(media), surface=Surface.CLI, policy_profile_id="personal-full")
+    job = Job(source=source, policy_profile_id="personal-full", worker_id="local-macos")
+    pipeline.queue.put_job(job)
+    result = runner.invoke(app, ["cancel", str(job.job_id), "--data-dir", str(data)])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["state"] == "cancelled"
 
 
 def test_migrate_scan(tmp_path: Path) -> None:

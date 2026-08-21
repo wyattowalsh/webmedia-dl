@@ -17,8 +17,13 @@ public struct WebMediaDLiOSRootView: View {
                     TextField("Share or paste a URL", text: $locator)
                         .textInputAutocapitalization(.never)
                         .accessibilityLabel("Media URL")
-                    Button("Send to paired Mac") {}
-                        .accessibilityLabel("Send to paired Mac")
+                    Button("Send to paired Mac") {
+                        Task {
+                            status = (try? await client.submit(locator: locator, surface: .ios))
+                                ?? "Pairing required"
+                        }
+                    }
+                    .accessibilityLabel("Send to paired Mac")
                 }
                 Section("Status") {
                     Text(status)
@@ -27,6 +32,7 @@ public struct WebMediaDLiOSRootView: View {
                 }
                 Section("History") {
                     Text("Lightweight HTTP jobs stay on-device. Heavy work waits for Mac confirmation.")
+                        .accessibilityLabel("Job history")
                 }
             }
             .navigationTitle("WebMedia DL")

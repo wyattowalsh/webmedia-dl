@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.parse import urljoin, urlparse
 
 from webmedia_dl.domain.enums import MediaKind
-from webmedia_dl.domain.models import MediaCandidate, MediaSource, PolicyProfile
+from webmedia_dl.domain.models import BrowserEvidence, MediaCandidate, MediaSource, PolicyProfile
 from webmedia_dl.errors import DiscoveryError
 from webmedia_dl.identity import host_of, identity_key_for_url
 from webmedia_dl.network_policy import authorize_url
@@ -59,19 +59,27 @@ class _MediaHTMLParser(HTMLParser):
         mapping = dict(attrs)
         if tag == "title":
             self._in_title = True
-        if tag in {"video", "audio", "source", "img"}:
-            src = mapping.get("src") or mapping.get("data-src")
-            if src:
-                kind = (
-                    MediaKind.VIDEO
-                    if tag == "video"
-                    else (
-                        MediaKind.AUDIO
-                        if tag == "audio"
-                        else (MediaKind.IMAGE if tag == "img" else MediaKind.UNKNOWN)
-                    )
+        if tag in {"video", "audio", "source", "img", "picture"}:
+            kind = (
+                MediaKind.VIDEO
+                if tag == "video"
+                else (
+                    MediaKind.AUDIO
+                    if tag == "audio"
+                    else (MediaKind.IMAGE if tag in {"img", "picture"} else MediaKind.UNKNOWN)
                 )
-                self.urls.append((src, kind))
+            )
+            for attr in ("src", "data-src", "poster"):
+                value = mapping.get(attr)
+                if value:
+                    item_kind = MediaKind.IMAGE if attr == "poster" else kind
+                    self.urls.append((value, item_kind))
+            srcset = mapping.get("srcset")
+            if srcset:
+                for part in srcset.split(","):
+                    token = part.strip().split()[0]
+                    if token:
+                        self.urls.append((token, kind))
         if tag == "meta":
             key = mapping.get("property") or mapping.get("name")
             content = mapping.get("content")
@@ -122,12 +130,17 @@ def _candidate(
     )
 
 
+def _usable_url(value: str) -> bool:
+    return bool(value) and not value.lower().startswith("javascript:")
+
+
 def discover(
     source: MediaSource,
     profile: PolicyProfile,
     *,
     fetch: FetchFn | None = None,
     html: str | None = None,
+    evidence: list[BrowserEvidence] | None = None,
 ) -> list[MediaCandidate]:
     if source.local_path:
         path = source.local_path
@@ -147,10 +160,28 @@ def discover(
         ]
     url = source.normalized_url or source.locator
     authorize_url(url, profile)
+    seeded: list[MediaCandidate] = []
+    for item in evidence or []:
+        if not _usable_url(item.url):
+            continue
+        absolute = urljoin(url, item.url)
+        item_kind = item.kind if item.kind is not MediaKind.UNKNOWN else _kind_from_url(absolute)
+        seeded.append(
+            _candidate(
+                source,
+                absolute,
+                item_kind,
+                evidence=["discover:browser-evidence"],
+                drm=detect_drm_signals(absolute),
+            )
+        )
     kind = _kind_from_url(url)
     if kind != MediaKind.PAGE:
         drm = detect_drm_signals(url)
-        return [_candidate(source, url, kind, evidence=["intake:direct"], drm=drm)]
+        return [
+            _candidate(source, url, kind, evidence=["intake:direct"], drm=drm),
+            *seeded,
+        ]
 
     body = html
     if body is None:
@@ -173,15 +204,26 @@ def discover(
     parser.feed(body)
     drm = detect_drm_signals(body)
     title = parser.title or parser.meta.get("og:title")
-    found: list[MediaCandidate] = []
     seen: set[str] = set()
-    meta_image = parser.meta.get("og:image")
-    if meta_image:
-        parser.urls.append((meta_image, MediaKind.IMAGE))
-    og_video = parser.meta.get("og:video") or parser.meta.get("og:video:url")
-    if og_video:
-        parser.urls.append((og_video, MediaKind.VIDEO))
+    for key, kind_hint in (
+        ("og:image", MediaKind.IMAGE),
+        ("og:image:url", MediaKind.IMAGE),
+        ("twitter:image", MediaKind.IMAGE),
+        ("og:video", MediaKind.VIDEO),
+        ("og:video:url", MediaKind.VIDEO),
+        ("og:audio", MediaKind.AUDIO),
+        ("og:audio:url", MediaKind.AUDIO),
+        ("twitter:player:stream", MediaKind.VIDEO),
+    ):
+        meta_url = parser.meta.get(key)
+        if meta_url:
+            parser.urls.append((meta_url, kind_hint))
+    for item in seeded:
+        seen.update(item.retrieval_urls)
+    found: list[MediaCandidate] = list(seeded)
     for raw, guessed in parser.urls:
+        if not _usable_url(raw):
+            continue
         absolute = urljoin(url, raw)
         if absolute in seen:
             continue
@@ -214,7 +256,7 @@ def discover(
             if not isinstance(item, dict):
                 continue
             content_url = item.get("contentUrl") or item.get("url")
-            if isinstance(content_url, str) and content_url.startswith("http"):
+            if isinstance(content_url, str) and _usable_url(content_url):
                 absolute = urljoin(url, content_url)
                 if absolute in seen:
                     continue
@@ -237,6 +279,19 @@ def discover(
                 MediaKind.PAGE,
                 title=title,
                 evidence=["discover:page-without-direct-media"],
+                drm=drm,
+            )
+        )
+    images = [item for item in found if item.media_kind is MediaKind.IMAGE]
+    has_av = any(item.media_kind in {MediaKind.VIDEO, MediaKind.AUDIO} for item in found)
+    if len(images) >= 3 and not has_av:
+        found.append(
+            _candidate(
+                source,
+                url,
+                MediaKind.GALLERY,
+                title=title,
+                evidence=["discover:gallery"],
                 drm=drm,
             )
         )

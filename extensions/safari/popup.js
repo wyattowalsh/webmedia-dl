@@ -14,7 +14,7 @@ button?.addEventListener("click", async () => {
       status.textContent = "No page URL is available.";
       return;
     }
-    await submitToWorker("http://127.0.0.1:8765", tokenInput.value, locator, SURFACE);
+    await submitToWorker("http://127.0.0.1:8765", tokenInput.value, locator, SURFACE, evidence.evidence);
     status.textContent = "Submitted to the local worker.";
   } catch (error) {
     status.textContent = error instanceof Error ? error.message : "Capture failed.";

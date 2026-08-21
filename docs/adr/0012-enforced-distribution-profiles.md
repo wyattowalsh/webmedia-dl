@@ -8,12 +8,24 @@ change: build-webmedia-dl-v1
 
 ## Context
 
-WebMedia DL is a local-first universal media acquisition and export system.
-This decision records a boundary that the implementation must keep.
+WebMedia DL is a local-first universal media acquisition and export system
+for Apple devices and desktop browsers. This record is derived from the
+recovered 2026-08-18 architecture and product brief.
 
 ## Decision
 
-Restricted profiles cannot escalate via pairing.
+A restricted client cannot delegate yt-dlp to a full worker. Mac ownership after confirmed pairing is a new job owner, not silent escalation. Unconfirmed pairing is denied.
+
+The implementation SHALL keep these architecture invariants:
+- A source URL never becomes a filesystem path.
+- A display title never becomes artifact identity.
+- A provider never receives arbitrary user arguments.
+- A source artifact is never mutated after registration.
+- A derivative never publishes before mandatory validation.
+- A worker never executes a capability denied by client or worker profile.
+- A restricted profile never delegates disallowed work to a more capable worker.
+- A browser extension never becomes a generic native command runner.
+- A planned or simulated check never becomes runtime PASS.
 
 ## Consequences
 

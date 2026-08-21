@@ -161,13 +161,23 @@ class ProviderRuntime:
         if request.provider_id == "http-direct":
             return self._http_direct(request, staging)
         argv = self._build_argv(manifest, request, staging)
+        before = {path.resolve() for path in staging.rglob("*") if path.is_file()}
         code, stdout, stderr = self._run(argv, staging)
         output = request.typed_inputs.get("output")
+        output_path = Path(output) if output else None
+        if request.provider_id == "gallery-dl":
+            created = [
+                path
+                for path in staging.rglob("*")
+                if path.is_file() and path.resolve() not in before
+            ]
+            if created:
+                output_path = max(created, key=lambda path: path.stat().st_mtime)
         return ProviderResult(
             exit_code=code,
             stdout=stdout,
             stderr=stderr,
-            output_path=Path(output) if output else None,
+            output_path=output_path,
             argv=tuple(argv),
         )
 

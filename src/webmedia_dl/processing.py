@@ -8,7 +8,7 @@ from uuid import UUID
 from webmedia_dl.artifacts import ArtifactStore
 from webmedia_dl.domain.enums import ArtifactRole, EventType, JobState
 from webmedia_dl.domain.models import Artifact, ExportPlan, Operation
-from webmedia_dl.errors import ProviderPolicyError, ValidationFailed
+from webmedia_dl.errors import ProviderPolicyError, WebMediaError
 from webmedia_dl.providers import ProviderRequest, ProviderRuntime
 from webmedia_dl.queue import QueueStore
 from webmedia_dl.validation import require_pass, validate_artifact
@@ -107,11 +107,13 @@ def execute_export_plan(
                     "artifact_id": derivative.artifact_id,
                 },
             )
-        except (ProviderPolicyError, ValidationFailed) as exc:
+        except WebMediaError as exc:
             queue.emit(
                 job_id,
                 EventType.OPERATION_FAILED,
                 {"operation_id": operation.operation_id, "message": str(exc)},
             )
+            if operation.optional:
+                continue
             raise
     return produced

@@ -16,12 +16,17 @@ def test_apple_app_shells_exist() -> None:
     root = repo_root()
     expected = [
         "apps/WebMediaDLMac/Sources/WebMediaDLMac/WebMediaDLMacApp.swift",
+        "apps/WebMediaDLMac/Sources/WebMediaDLMac/WebMediaDLMacShareView.swift",
         "apps/WebMediaDLiOS/Sources/WebMediaDLiOS/WebMediaDLiOSRootView.swift",
+        "apps/WebMediaDLiOS/Sources/WebMediaDLiOS/WebMediaDLSubmitURLIntent.swift",
         "apps/WebMediaDLiPadOS/Sources/WebMediaDLiPadOS/WebMediaDLiPadOSRootView.swift",
         "apps/WebMediaDLVision/Sources/WebMediaDLVision/WebMediaDLVisionRootView.swift",
         "apps/WebMediaDLWatch/Sources/WebMediaDLWatch/WebMediaDLWatchRootView.swift",
         "apps/WebMediaDLTV/Sources/WebMediaDLTV/WebMediaDLTVRootView.swift",
         "apps/WebMediaDLCore/Sources/WebMediaDLCore/LoopbackClient.swift",
+        "apps/WebMediaDLCore/Sources/WebMediaDLCore/ShareIntake.swift",
+        "apps/WebMediaDLCore/Sources/WebMediaDLCore/ContinuityBridge.swift",
+        "extensions/safari/SafariWebExtensionHandler.swift",
     ]
     for rel in expected:
         path = root / rel
@@ -32,12 +37,20 @@ def test_apple_app_shells_exist() -> None:
             or "WebMediaDLLoopbackClient" in text
             or "Loopback" in text
             or "captureAndStatus" in text
+            or "canPublishToPhotos" in text
+            or "AppIntent" in text
+            or "ShareIntake" in text
         )
     watch = (
         root / "apps/WebMediaDLWatch/Sources/WebMediaDLWatch/WebMediaDLWatchRootView.swift"
     ).read_text(encoding="utf-8")
     assert "Not a subprocess worker" in watch
     assert "yt-dlp" not in watch
+    continuity = (
+        root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/ContinuityBridge.swift"
+    ).read_text(encoding="utf-8")
+    assert "isSubprocessWorker" in continuity
+    assert "false" in continuity.lower() or "Bool { false }" in continuity
     tv = (root / "apps/WebMediaDLTV/Sources/WebMediaDLTV/WebMediaDLTVRootView.swift").read_text(
         encoding="utf-8"
     )

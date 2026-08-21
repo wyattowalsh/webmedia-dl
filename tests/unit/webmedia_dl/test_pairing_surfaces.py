@@ -100,4 +100,6 @@ def test_service_confirm_and_paired_job(tmp_path: Path, png_bytes: bytes) -> Non
         json={"locator": str(media), "surface": "ios"},
     )
     assert paired.status_code == 200
-    assert paired.json()["state"] in {"completed", "failed"}
+    body = paired.json()
+    assert body["job"]["state"] in {"completed", "failed"}
+    assert body["events"]

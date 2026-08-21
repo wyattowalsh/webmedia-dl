@@ -17,7 +17,9 @@
         "validation.recorded",
         "publication.committed",
         "job.failed",
-        "job.completed"
+        "job.completed",
+        "job.cancelled",
+        "media.probed"
       ],
       "title": "EventType",
       "type": "string"

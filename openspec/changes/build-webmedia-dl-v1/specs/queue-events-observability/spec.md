@@ -10,4 +10,4 @@ provider console output as its public API. Default telemetry SHALL be false.
 #### Scenario: completed job has events
 
 - **WHEN** `webmedia-dl submit` completes a local file job
-- **THEN** `job` JSON includes a non-empty `events` list and no telemetry upload
+- **THEN** stdout JSON includes a `job` object and a non-empty `events` list and no telemetry upload

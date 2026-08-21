@@ -7,6 +7,7 @@ from pathlib import Path
 from uuid import UUID
 
 from webmedia_dl.errors import DelegationDenied
+from webmedia_dl.ledger import NonceLedger
 from webmedia_dl.transport import (
     PairingChallenge,
     PairingRecord,
@@ -21,6 +22,7 @@ class PairingStore:
         self.root = root
         self.root.mkdir(parents=True, exist_ok=True)
         self._path = self.root / "pairing.json"
+        self.ledger = NonceLedger(self.root / "nonces.sqlite")
         self._records: dict[str, PairingRecord] = {}
         self._load()
 

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import sys
@@ -33,7 +34,14 @@ REQUIRED = [
     "resources/export-presets.json",
     "src/webmedia_dl/pipeline.py",
     "src/webmedia_dl/cli.py",
+    "src/webmedia_dl/envelope.py",
+    "src/webmedia_dl/probe.py",
     "scripts/pack_inventory.json",
+    "apps/WebMediaDLCore/Sources/WebMediaDLCore/ShareIntake.swift",
+    "apps/WebMediaDLCore/Sources/WebMediaDLCore/ContinuityBridge.swift",
+    "apps/WebMediaDLMac/Sources/WebMediaDLMac/WebMediaDLMacShareView.swift",
+    "apps/WebMediaDLiOS/Sources/WebMediaDLiOS/WebMediaDLSubmitURLIntent.swift",
+    "extensions/safari/SafariWebExtensionHandler.swift",
 ]
 
 CAPABILITIES = [
@@ -64,6 +72,16 @@ FORBIDDEN = [
     r"accepts_user_argv\s*=\s*True",
 ]
 
+RECOVERED_SHA256 = {
+    "START_HERE.md": "e6b77fb739d11f7665f547c34e0067a4d341e016f20a25710cd6444ac1e50742",
+    "docs/planning/build-webmedia-dl-v1/product-brief.md": (
+        "06352bc4e84d0a70e0d2c9acb1d6191f69a558b7c9c445e52008745f816a82b4"
+    ),
+    "docs/planning/build-webmedia-dl-v1/system-architecture.md": (
+        "5d56c524ee4f2457f8d52560c1944bba68df11ddf5b98102f924511926abdffb"
+    ),
+}
+
 
 def fail(errors: list[str]) -> int:
     for item in errors:
@@ -91,6 +109,10 @@ def main() -> int:
     for token in ("WebMedia DL", "webmedia-dl", "PASS", "BLOCKED"):
         if token not in start:
             errors.append(f"START_HERE.md missing {token}")
+    for rel, expected in RECOVERED_SHA256.items():
+        digest = hashlib.sha256((ROOT / rel).read_bytes()).hexdigest()
+        if digest != expected:
+            errors.append(f"recovered file hash mismatch {rel}")
     if (
         "wmdl" in start
         and "personal alias" not in start.lower()

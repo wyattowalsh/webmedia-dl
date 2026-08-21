@@ -3,5 +3,20 @@
     "include_original": true,
     "allow_lossy": false,
     "container_preference": null
+  },
+  "remux-mkv": {
+    "include_original": true,
+    "allow_lossy": false,
+    "container_preference": "mkv"
+  },
+  "transcode-mp4": {
+    "include_original": true,
+    "allow_lossy": true,
+    "container_preference": "mp4"
+  },
+  "image-png": {
+    "include_original": true,
+    "allow_lossy": false,
+    "container_preference": "png"
   }
 }

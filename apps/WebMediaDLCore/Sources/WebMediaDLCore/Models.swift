@@ -1,7 +1,8 @@
 import Foundation
 
 public enum WebMediaDLSurface: String, Codable, Sendable {
-    case macos, ios, ipados, visionos, watchos, tvos, safari, chromium, firefox, cli
+    case macos, ios, ipados, visionos, watchos, tvos
+    case safari, chrome, brave, edge, chromium, firefox, cli
 }
 
 public struct WebMediaDLJob: Codable, Sendable, Identifiable {

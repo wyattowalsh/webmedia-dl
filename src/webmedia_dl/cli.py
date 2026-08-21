@@ -14,6 +14,7 @@ from webmedia_dl.compat import migrate_legacy, scan_legacy
 from webmedia_dl.diagnostics import doctor
 from webmedia_dl.domain.enums import DestinationKind, Surface
 from webmedia_dl.domain.models import ExportIntent
+from webmedia_dl.errors import CancelledError
 from webmedia_dl.names import CLI_NAME, DISPLAY_NAME, PERSONAL_ALIAS
 from webmedia_dl.pipeline import Pipeline
 from webmedia_dl.policy.profiles import builtin_profiles
@@ -70,15 +71,17 @@ def submit(
     cookies: Annotated[
         Path | None, typer.Option("--cookies", help="User-owned Netscape cookie file")
     ] = None,
+    preset: Annotated[str, typer.Option("--preset")] = "original-sacred",
     surface: Annotated[Surface, typer.Option("--surface")] = Surface.CLI,
     pairing_id: Annotated[
         UUID | None, typer.Option("--pairing-id", help="Confirmed Mac pairing id")
     ] = None,
 ) -> None:
     """Share, paste, or select a source. Runs the typed job pipeline."""
-    intent = ExportIntent()
+    intent = ExportIntent(preset_id=preset)
     if dest is not None:
         intent = ExportIntent(
+            preset_id=preset,
             destination_kind=DestinationKind.USER_APPROVED_PATH,
             destination_path=str(dest.resolve()),
             approved_roots=[str(dest.resolve())],
@@ -86,7 +89,11 @@ def submit(
             container_preference=container,
         )
     elif container or allow_lossy:
-        intent = ExportIntent(allow_lossy=allow_lossy, container_preference=container)
+        intent = ExportIntent(
+            preset_id=preset,
+            allow_lossy=allow_lossy,
+            container_preference=container,
+        )
     pipeline = _pipeline(data_dir)
     html_text = html.read_text(encoding="utf-8") if html else None
     cookie_path = str(cookies.expanduser().resolve()) if cookies else None
@@ -98,9 +105,32 @@ def submit(
         cookies=cookie_path,
         pairing_id=pairing_id,
     )
-    typer.echo(job.model_dump_json(indent=2))
+    events = [event.model_dump(mode="json") for event in pipeline.queue.events_for(job.job_id)]
+    typer.echo(
+        json.dumps({"job": job.model_dump(mode="json"), "events": events}, indent=2, default=str)
+    )
     if job.error:
         raise typer.Exit(code=1)
+
+
+@app.command("plan")
+def plan_cmd(
+    locator: Annotated[str, typer.Argument(help="https URL or existing local file")],
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+    html: Annotated[Path | None, typer.Option("--html")] = None,
+    surface: Annotated[Surface, typer.Option("--surface")] = Surface.CLI,
+    preset: Annotated[str, typer.Option("--preset")] = "original-sacred",
+) -> None:
+    """Explain the ranked acquisition and export plan without acquiring media."""
+    pipeline = _pipeline(data_dir)
+    html_text = html.read_text(encoding="utf-8") if html else None
+    payload = pipeline.explain(
+        locator,
+        surface=surface,
+        html=html_text,
+        intent=ExportIntent(preset_id=preset),
+    )
+    typer.echo(json.dumps(payload, indent=2, default=str))
 
 
 @app.command()
@@ -163,6 +193,68 @@ def serve(
     from webmedia_dl.service import serve_worker
 
     serve_worker(data_dir=data_dir, host=host, port=port)
+
+
+@app.command()
+def cancel(
+    job_id: Annotated[UUID, typer.Argument()],
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+) -> None:
+    """Cancel a job that has not finished."""
+    pipeline = _pipeline(data_dir)
+    try:
+        record = pipeline.cancel(job_id)
+    except CancelledError as exc:
+        typer.echo(str(exc))
+        raise typer.Exit(code=1) from exc
+    typer.echo(record.model_dump_json(indent=2))
+
+
+pair_app = typer.Typer(help="Explicit Mac pairing. Transport does not grant capabilities.")
+app.add_typer(pair_app, name="pair")
+
+
+@pair_app.command("create")
+def pair_create(
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+    client_profile: Annotated[str, typer.Option("--client-profile")] = "personal-restricted",
+) -> None:
+    """Create an expiring pairing nonce. The Mac user must confirm it."""
+    pipeline = _pipeline(data_dir)
+    challenge = pipeline.pairing.create(client_profile, pipeline.host_worker.worker_id)
+    typer.echo(
+        json.dumps(
+            {
+                "pairing_id": str(challenge.pairing_id),
+                "nonce": challenge.nonce,
+                "expires_at": challenge.expires_at.isoformat(),
+                "worker_id": challenge.worker_id,
+                "confirmed": False,
+            },
+            indent=2,
+        )
+    )
+
+
+@pair_app.command("confirm")
+def pair_confirm(
+    pairing_id: Annotated[UUID, typer.Argument()],
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+) -> None:
+    """Confirm pairing on the Mac worker. Restricted clients cannot self-confirm."""
+    pipeline = _pipeline(data_dir)
+    record = pipeline.pairing.confirm(pairing_id)
+    typer.echo(
+        json.dumps(
+            {
+                "pairing_id": str(record.pairing_id),
+                "confirmed": record.confirmed,
+                "session_key": record.session_key,
+                "expires_at": record.expires_at.isoformat(),
+            },
+            indent=2,
+        )
+    )
 
 
 @app.command()

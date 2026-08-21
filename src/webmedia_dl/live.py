@@ -7,6 +7,8 @@ from collections.abc import Callable
 from pathlib import Path
 from urllib.parse import urljoin
 
+from tqdm import tqdm
+
 from webmedia_dl.errors import DiscoveryError, DrmRefused
 
 _ENCRYPTED_HLS = re.compile(r"#EXT-X-KEY:.*METHOD=(?!NONE)([A-Z0-9-]+)", re.I)
@@ -80,7 +82,12 @@ def record_clear_stream(
         )
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("wb") as handle:
-        for url in urls[:max_segments]:
+        for url in tqdm(
+            urls[:max_segments],
+            desc="live-record",
+            disable=True,
+            unit="seg",
+        ):
             status, _, data = fetch(url)
             if status >= 400:
                 msg = f"Live segment fetch failed with HTTP {status}."

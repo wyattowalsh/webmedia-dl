@@ -17,11 +17,13 @@ def test_submit_history_job_roundtrip(tmp_path: Path, png_bytes: bytes) -> None:
     submitted = runner.invoke(app, ["submit", str(media), "--data-dir", str(data_dir)])
     assert submitted.exit_code == 0
     job = json.loads(submitted.stdout)
+    assert job["events"]
+    assert job["job"]["state"] == "completed"
     listed = runner.invoke(app, ["history", "--data-dir", str(data_dir)])
     assert listed.exit_code == 0
     history = json.loads(listed.stdout)
-    assert any(item["job_id"] == job["job_id"] for item in history)
-    shown = runner.invoke(app, ["job", job["job_id"], "--data-dir", str(data_dir)])
+    assert any(item["job_id"] == job["job"]["job_id"] for item in history)
+    shown = runner.invoke(app, ["job", job["job"]["job_id"], "--data-dir", str(data_dir)])
     assert shown.exit_code == 0
     detail = json.loads(shown.stdout)
     assert detail["job"]["state"] == "completed"

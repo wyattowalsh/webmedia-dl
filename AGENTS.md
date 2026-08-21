@@ -25,6 +25,7 @@
 | Bundle | `uv run python scripts/validate_bundle.py` |
 | Extension tests | `node --test tests/unit/extensions/*.mjs` |
 | Sync extension trees | `uv run python scripts/sync_browser_extensions.py` |
+| Extension zips | `uv run python scripts/package_extensions.py` |
 | Pack zip | `uv run python scripts/package_bundle.py` |
 
 If `uv` is missing: `curl -LsSf https://astral.sh/uv/install.sh | sh`.

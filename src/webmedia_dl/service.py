@@ -11,9 +11,11 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 
 from webmedia_dl import __version__
+from webmedia_dl.diagnostics import doctor
 from webmedia_dl.domain.enums import Surface
-from webmedia_dl.domain.models import ExportIntent
-from webmedia_dl.errors import DelegationDenied, WebMediaError
+from webmedia_dl.domain.models import BrowserEvidence, ExportIntent
+from webmedia_dl.envelope import open_payload, seal_payload
+from webmedia_dl.errors import CancelledError, DelegationDenied, WebMediaError
 from webmedia_dl.names import DISPLAY_NAME
 from webmedia_dl.pipeline import Pipeline
 from webmedia_dl.settings import Settings
@@ -30,10 +32,36 @@ class SubmitBody(BaseModel):
     local_user_confirmed: bool = False
     pairing_id: UUID | None = None
     session_key: str | None = None
+    evidence: list[BrowserEvidence] = Field(default_factory=list)
+
+
+class PlanBody(BaseModel):
+    locator: str
+    surface: Surface = Surface.CLI
+    html: str | None = None
+    intent: ExportIntent = Field(default_factory=ExportIntent)
+    evidence: list[BrowserEvidence] = Field(default_factory=list)
+    local_user_confirmed: bool = False
+    pairing_id: UUID | None = None
+    session_key: str | None = None
 
 
 class PairConfirmBody(BaseModel):
     pairing_id: UUID
+
+
+class EnvelopeBody(BaseModel):
+    pairing_id: UUID
+    session_key: str
+    payload: dict = Field(default_factory=dict)
+
+
+class OpenEnvelopeBody(BaseModel):
+    pairing_id: UUID
+    session_key: str
+    nonce: str
+    ciphertext: str
+    mac: str
 
 
 def _token_file(data_dir: Path) -> Path:
@@ -93,10 +121,35 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
                 local_user_confirmed=body.local_user_confirmed,
                 pairing_id=pairing_id,
                 session_key=body.session_key or None,
+                evidence=body.evidence or None,
             )
         except WebMediaError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return job.model_dump(mode="json")
+        events = [event.model_dump(mode="json") for event in pipeline.queue.events_for(job.job_id)]
+        return {"job": job.model_dump(mode="json"), "events": events}
+
+    @app.post("/v1/plan")
+    def plan_job(body: PlanBody, auth: dict[str, str] = Depends(require_auth)) -> dict:
+        pairing_id = body.pairing_id
+        if pairing_id is None and auth.get("pairing_id"):
+            pairing_id = UUID(auth["pairing_id"])
+        try:
+            return pipeline.explain(
+                body.locator,
+                surface=body.surface,
+                html=body.html,
+                intent=body.intent,
+                evidence=body.evidence or None,
+                local_user_confirmed=body.local_user_confirmed,
+                pairing_id=pairing_id,
+                session_key=body.session_key or None,
+            )
+        except WebMediaError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @app.get("/v1/doctor", dependencies=[Depends(require_auth)])
+    def doctor_endpoint() -> dict:
+        return doctor(data_dir=root)
 
     @app.get("/v1/jobs/{job_id}", dependencies=[Depends(require_auth)])
     def get_job(job_id: UUID) -> dict:
@@ -134,6 +187,35 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
             "session_key": record.session_key,
             "expires_at": record.expires_at.isoformat(),
         }
+
+    @app.post("/v1/jobs/{job_id}/cancel", dependencies=[Depends(require_auth)])
+    def cancel_job(job_id: UUID) -> dict:
+        try:
+            job = pipeline.cancel(job_id)
+        except (CancelledError, KeyError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return job.model_dump(mode="json")
+
+    @app.post("/v1/pair/envelope", dependencies=[Depends(require_auth)])
+    def wrap_envelope(body: EnvelopeBody) -> dict:
+        try:
+            pipeline.pairing.require_confirmed(body.pairing_id, body.session_key)
+        except DelegationDenied as exc:
+            raise HTTPException(status_code=401, detail=str(exc)) from exc
+        return seal_payload(body.session_key, body.payload)
+
+    @app.post("/v1/pair/envelope/open", dependencies=[Depends(require_auth)])
+    def unwrap_envelope(body: OpenEnvelopeBody) -> dict:
+        try:
+            pipeline.pairing.require_confirmed(body.pairing_id, body.session_key)
+            opened = open_payload(
+                body.session_key,
+                {"nonce": body.nonce, "ciphertext": body.ciphertext, "mac": body.mac},
+                ledger=pipeline.pairing.ledger,
+            )
+        except DelegationDenied as exc:
+            raise HTTPException(status_code=401, detail=str(exc)) from exc
+        return opened
 
     return app
 

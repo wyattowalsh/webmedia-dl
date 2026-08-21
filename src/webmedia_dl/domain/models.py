@@ -304,6 +304,11 @@ class Artifact(StrictModel):
         return self
 
 
+class BrowserEvidence(StrictModel):
+    url: str
+    kind: MediaKind = MediaKind.UNKNOWN
+
+
 class Operation(StrictModel):
     operation_id: str
     op_type: str
@@ -313,6 +318,7 @@ class Operation(StrictModel):
     loss_class: LossClass
     validator_ids: list[str]
     typed_inputs: dict[str, Any] = Field(default_factory=dict)
+    optional: bool = False
 
 
 class ExportPlan(StrictModel):

@@ -60,3 +60,7 @@ class DelegationDenied(WebMediaError):
 
 class CookiePolicyError(WebMediaError):
     code = "cookie.policy"
+
+
+class CancelledError(WebMediaError):
+    code = "job.cancelled"
