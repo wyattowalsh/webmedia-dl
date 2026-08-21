@@ -2,8 +2,8 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 216 tests |
-| `uv run pytest --cov` | PASS | 86.76% (`fail_under` 85) |
+| `uv run pytest` | PASS | 222 tests |
+| `uv run pytest --cov` | PASS | 86.86% (`fail_under` 85) |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
 | `uv run ty check` | PASS | |
@@ -18,7 +18,8 @@
 | Simulated `PASS` | PASS | tests reject planned/simulated PASS |
 | DRM circumvention | PASS | encrypted HLS/DASH refused; probe-detected encryption refuses closed; clear HLS/DASH byte-range slices concatenated |
 | Pairing profile bound | PASS | restricted/browser/watch/tv pairing stays on the client profile; session key required |
-| Cookie grants | PASS | job-bound grants; raw paths rejected; restricted profiles cannot receive grants |
+| Cookie grants | PASS | job-bound grants persist in `cookie-grants.json`; dump-json uses the grant; raw paths rejected |
+| Publish sibling isolation | PASS | a failed validation does not abort other validated destination copies |
 | Live aggregate bound + kinds | PASS | cumulative byte budget; separate VIDEO/AUDIO artifacts; SegmentBase ranges; multi-period occurrences |
 | Container gate | PASS | ffprobe evidence required; filename suffix cannot PASS |
 | Wheel package-extensions | PASS | isolated wheel install writes six extension archives from packaged runtime trees |
@@ -39,12 +40,14 @@
 | Vision share + Files destinations | PASS | share Info.plist principals; `fileImporter` + `bookmarkData`; PhotoKit write stays closed |
 | Typed event payloads | PASS | `EventRecord` rejects stdout/stderr/argv/nativeCommand/cookie paths |
 | Files/clipboard/PhotoKit contracts | PASS | security-scoped bookmark boundary; clipboard URL is never `local_path`; PhotoKit write stays closed |
-| Share sheet extractors | PASS | HTTPS locators stay URL intake; `file://` paths use drop intake; typed share principals |
-| Companion Mac relay | PASS | watchOS/tvOS `transport.send`; Mac `WebMediaDLMacCompanionForwarder`; `nativeCommand` null |
+| Share sheet extractors | PASS | HTTPS locators stay URL intake; `file://` paths use drop intake; awaited `NSItemProvider` load |
+| Companion Mac relay | PASS | watchOS/tvOS `WCSession.transferUserInfo` scaffolding; Mac `forwardSealed`; `nativeCommand` null |
 | HTTP stream stop | PASS | `bound_fetch(..., should_stop=)` aborts mid-stream; cancel discards completed HTTP fetch; pause commits |
 | Wheel install | PASS | isolated `uv` venv import of packaged `runtime/export-presets.json` and `webmedia-dl --help` |
+| CLI names in README | PASS | every Typer command name appears in `README.md` |
+| App Group + pairing clients | PASS | `group.local.webmedia-dl` entitlements; iOS/iPad/vision `startPairing`; speak App Intents |
 | Original planning-pack ZIP byte compare | BLOCKED | zip not in this workspace; 156 overlay files reconstructed |
-| Real WatchConnectivity radio | BLOCKED | queued in-process transport only; no Apple radio on Linux |
+| Real WatchConnectivity radio | BLOCKED | WCSession scaffolding + queued fallback; no Apple radio on Linux |
 | Safari wrapping / signed NSExtension | BLOCKED | source handler conforms to `NSExtensionRequestHandling`; Xcode wrapping is not executed |
 
 Planning overlay files reconstructed from the 2026-08-18 pack inventory except
