@@ -51,4 +51,8 @@
   migration, claim CAS misses, later live-poll DRM, and worker API pairing
   errors fail closed with executed tests. Cancel during acquire, all-kind
   DRM failure, SOURCE validation skip with derivative publish, and ffmpeg
-  probe DRM fail closed with executed tests.
+  probe DRM fail closed with executed tests. Export pause checkpoints,
+  already-acquired kind skip, duplicate failed-kind containment, derivative
+  validation skip with source publish, optional dependent skip, DASH
+  video/audio kind split, live poll stop, and HTML gallery/embed discovery
+  fail closed with executed tests.
