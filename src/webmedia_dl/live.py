@@ -86,15 +86,14 @@ AddPart = Callable[[ManifestPart], None]
 
 
 def inspect_manifest(text: str) -> None:
-    refuse_drm(detect_drm_signals(text))
-    if _DASH_CONTENT_PROTECTION.search(text):
-        msg = "DASH ContentProtection is refused."
-        raise DrmRefused(msg)
-    if (
-        recordable_parts(text, "https://live.invalid/", inspect=False)
-        or "<MPD" in text
-        or "<mpd" in text
-    ):
+    dash = "<MPD" in text or "<mpd" in text
+    if dash:
+        refuse_drm(detect_drm_signals(text))
+        if _DASH_CONTENT_PROTECTION.search(text):
+            msg = "DASH ContentProtection is refused."
+            raise DrmRefused(msg)
+        return
+    if recordable_parts(text, "https://live.invalid/", inspect=False):
         return
     match = _ENCRYPTED_HLS.search(text)
     if match:
@@ -111,9 +110,10 @@ def recordable_segment_urls(text: str, base: str) -> list[str]:
 
 
 def recordable_parts(text: str, base: str, *, inspect: bool = True) -> list[ManifestPart]:
-    if inspect:
+    dash = "<MPD" in text or "<mpd" in text
+    if inspect and dash:
         refuse_drm(detect_drm_signals(text))
-    if "<MPD" in text or "<mpd" in text:
+    if dash:
         if _DASH_CONTENT_PROTECTION.search(text):
             msg = "DASH ContentProtection is refused."
             raise DrmRefused(msg)

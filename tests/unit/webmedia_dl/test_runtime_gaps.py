@@ -259,7 +259,7 @@ def test_live_empty_and_nested_failure(tmp_path: Path) -> None:
         record_clear_stream(master, "https://cdn.example.com/master.m3u8", tmp_path / "y.ts", fetch)
 
 
-def test_export_skips_completed_ops_and_cycles(tmp_path: Path) -> None:
+def test_export_skips_completed_ops_and_cycles(tmp_path: Path, pass_container_probe) -> None:
     src = tmp_path / "source.bin"
     src.write_bytes(b"src")
     store = ArtifactStore(tmp_path / "data")

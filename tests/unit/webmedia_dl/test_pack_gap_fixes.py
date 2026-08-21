@@ -276,7 +276,7 @@ def test_preferred_format_pairs_video_and_audio() -> None:
     assert preferred_format_id(candidate) == "137+140"
 
 
-def test_remux_success_skips_transcode(tmp_path: Path) -> None:
+def test_remux_success_skips_transcode(tmp_path: Path, pass_container_probe) -> None:
     from webmedia_dl.artifacts import ArtifactStore
     from webmedia_dl.domain.models import Job
     from webmedia_dl.export import plan_export

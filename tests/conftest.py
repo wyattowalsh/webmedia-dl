@@ -69,3 +69,24 @@ def ytdlp_run_ok():
 @pytest.fixture
 def ytdlp_run_fail():
     return fake_ytdlp_run(b"partial", acquire_code=2)
+
+
+@pytest.fixture
+def pass_container_probe(monkeypatch):
+    """Executed container evidence for fake ffmpeg/ImageMagick bytes."""
+    from uuid import uuid4
+
+    from webmedia_dl.domain.models import MediaProbe
+
+    def fake(path, **_kwargs):
+        suffix = Path(path).suffix.lstrip(".").lower() or "bin"
+        names = {
+            "mkv": "matroska,webm",
+            "mp4": "mov,mp4,m4a",
+            "m4a": "mov,mp4,m4a",
+        }.get(suffix, suffix)
+        return MediaProbe(candidate_id=uuid4(), container=suffix, format_names=names)
+
+    monkeypatch.setattr("webmedia_dl.validation.probe_media", fake)
+    monkeypatch.setattr("webmedia_dl.processing.probe_media", fake)
+    return fake
