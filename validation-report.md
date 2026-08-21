@@ -2,8 +2,8 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 256 tests |
-| `uv run pytest --cov` | PASS | 89.24% (`fail_under` 85) |
+| `uv run pytest` | PASS | 265 tests |
+| `uv run pytest --cov` | PASS | 90.20% (`fail_under` 85) |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
 | `uv run ty check` | PASS | |
@@ -35,7 +35,7 @@
 | Browser one-tap token | PASS | extension storage persists the worker token after first paste |
 | History schema | PASS | `HistoryEntry` JSON schema + Swift `WebMediaDLHistoryEntry` decoded on all six surfaces |
 | DASH AdaptationSet + live poll | PASS | self-closing Representation inherits AdaptationSet BaseURL/template; dynamic MPD/HLS polls new segments; later ContentProtection/AES-128 stops without fetching protected parts; `startNumber` and `$$` template tokens expand without a phantom `$Number=1` segment |
-| DASH/HLS rendition selection | PASS | highest-bandwidth video Representation; audio-only picks highest audio; HLS master follows highest BANDWIDTH |
+| DASH/HLS rendition selection | PASS | highest-bandwidth video Representation; audio-only picks highest audio; muxed formats prefer a combined id over `137+140` when one stream already has both codecs; HLS master follows highest BANDWIDTH |
 | Multi-period DASH | PASS | each Period keeps its selected video; later Periods are concatenated, not dropped |
 | Sealed companion envelope | PASS | `/v1/companion` opens AES-GCM pairing envelope once and rejects replay |
 | Vision share + Files destinations | PASS | share Info.plist principals; `fileImporter` + `bookmarkData`; PhotoKit write stays closed |

@@ -392,3 +392,31 @@ def test_submit_dest_and_companion_requires_job(tmp_path: Path, png_bytes: bytes
     missing = runner.invoke(app, ["companion", "cancel", "--data-dir", str(tmp_path / "comp")])
     assert missing.exit_code == 1
     assert "job_id" in missing.stdout
+    tagged = runner.invoke(
+        app,
+        [
+            "companion",
+            "status",
+            "--job",
+            "11111111-1111-1111-1111-111111111111",
+            "--data-dir",
+            str(tmp_path / "comp2"),
+        ],
+    )
+    assert tagged.exit_code == 0
+    empty = tmp_path / "empty.html"
+    empty.write_text("<html><body>no media</body></html>", encoding="utf-8")
+    failed = runner.invoke(
+        app,
+        [
+            "submit",
+            "https://example.com/none",
+            "--html",
+            str(empty),
+            "--data-dir",
+            str(tmp_path / "fail"),
+        ],
+    )
+    assert failed.exit_code == 1
+    payload = json.loads(failed.stdout)
+    assert payload["job"]["error"]

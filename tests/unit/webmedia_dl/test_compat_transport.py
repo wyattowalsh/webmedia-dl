@@ -25,6 +25,21 @@ def test_legacy_scan_is_non_destructive(tmp_path: Path) -> None:
     assert ("id-one", "id-two") in ids
     assert ("json-one", "json-two") in ids
     assert applied["index_entries"] == 4
+    dry = migrate_legacy(tmp_path, apply=False)
+    assert dry["status"] == "dry-run"
+    assert dry["migrated"] is False
+    assert marker.read_text(encoding="utf-8") == "# comment\nid-one\nid-two\n"
+    broken = tmp_path / "archive.txt"
+    broken.write_text("{not-json\nid-dup\nid-dup\n# skip\n", encoding="utf-8")
+    named = tmp_path / ".ytdlp-history.json"
+    named.write_text('{"ids": ["keep-me", ""]}', encoding="utf-8")
+    indexed = migrate_legacy(tmp_path, apply=True)
+    sidecar = json.loads((tmp_path / "webmedia-dl-migrated" / "migration.json").read_text())
+    by_name = {Path(item["source_path"]).name: item["ids"] for item in sidecar["archives"]}
+    assert "id-dup" in by_name["archive.txt"]
+    assert by_name["archive.txt"].count("id-dup") == 1
+    assert by_name[".ytdlp-history.json"] == ["keep-me"]
+    assert indexed["migrated"] is True
 
 
 def test_pairing_expiry() -> None:

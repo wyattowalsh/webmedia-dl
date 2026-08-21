@@ -293,6 +293,53 @@ def test_preferred_format_pairs_video_and_audio() -> None:
         ],
     )
     assert preferred_format_id(candidate) == "137+140"
+    muxed = MediaCandidate(
+        source_id=uuid4(),
+        media_kind=MediaKind.VIDEO,
+        identity_key="host:example.com:path:/watch",
+        retrieval_urls=["https://example.com/watch"],
+        alternatives=[
+            FormatAlternative(
+                format_id="18",
+                container="mp4",
+                vcodec="avc1",
+                acodec="mp4a",
+                height=360,
+                bitrate=500_000,
+            ),
+            FormatAlternative(
+                format_id="22",
+                container="mp4",
+                vcodec="avc1",
+                acodec="mp4a",
+                height=720,
+                bitrate=2_000_000,
+            ),
+        ],
+    )
+    assert preferred_format_id(muxed) == "22"
+    same = MediaCandidate(
+        source_id=uuid4(),
+        media_kind=MediaKind.VIDEO,
+        identity_key="host:example.com:path:/watch",
+        retrieval_urls=["https://example.com/watch"],
+        alternatives=[
+            FormatAlternative(format_id="best", container="mp4", vcodec="avc1", height=720),
+            FormatAlternative(format_id="best", container="m4a", acodec="mp4a", bitrate=128000),
+        ],
+    )
+    assert preferred_format_id(same) == "best"
+    gallery = MediaCandidate(
+        source_id=uuid4(),
+        media_kind=MediaKind.GALLERY,
+        identity_key="host:example.com:path:/album",
+        retrieval_urls=["https://example.com/album"],
+        alternatives=[FormatAlternative(format_id="1", container="jpg", height=1200)],
+    )
+    planned = plan_acquisition(uuid4(), gallery, get_profile("personal-full"), cookies="grant-1")
+    ytdlp = next(item for item in planned.strategies if item.strategy_id == "ytdlp")
+    assert ytdlp.typed_inputs["format_id"] == "1"
+    assert ytdlp.typed_inputs["cookie_grant_id"] == "grant-1"
 
 
 def test_remux_success_skips_transcode(tmp_path: Path, pass_container_probe) -> None:

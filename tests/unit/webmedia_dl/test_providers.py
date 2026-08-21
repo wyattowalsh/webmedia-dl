@@ -84,3 +84,44 @@ def test_http_direct(tmp_path: Path, http_runtime: ProviderRuntime) -> None:
     assert result.output_path is not None
     assert result.output_path.suffix == ".png"
     assert result.output_path.read_bytes().startswith(b"\x89PNG")
+
+
+def test_unknown_provider_and_capability_fail_closed(tmp_path: Path) -> None:
+    runtime = ProviderRuntime(which=lambda name: f"/usr/bin/{name}")
+    with pytest.raises(ProviderPolicyError, match="Unknown provider"):
+        runtime.execute(
+            ProviderRequest(
+                provider_id="curl",
+                capability_id="acquire.http",
+                typed_inputs={"url": "https://cdn.example.com/a.mp4"},
+            ),
+            tmp_path,
+        )
+    with pytest.raises(ProviderPolicyError, match="does not expose"):
+        runtime.execute(
+            ProviderRequest(
+                provider_id="http-direct",
+                capability_id="acquire.ytdlp",
+                typed_inputs={"url": "https://cdn.example.com/a.mp4"},
+            ),
+            tmp_path,
+        )
+
+
+def test_default_http_get_uses_profile_byte_bound(monkeypatch: pytest.MonkeyPatch) -> None:
+    from webmedia_dl.providers import default_http_get
+
+    seen: dict[str, object] = {}
+
+    def fake_fetch(url: str, **kwargs: object) -> tuple[int, str, bytes]:
+        seen["url"] = url
+        seen["on_overflow"] = kwargs.get("on_overflow")
+        return 200, "video/mp4", b"ok"
+
+    monkeypatch.setattr("webmedia_dl.providers.bound_fetch", fake_fetch)
+    status, headers, body = default_http_get("https://cdn.example.com/a.mp4")
+    assert status == 200
+    assert body == b"ok"
+    assert headers["content-type"] == "video/mp4"
+    assert seen["url"] == "https://cdn.example.com/a.mp4"
+    assert seen["on_overflow"] == "error"

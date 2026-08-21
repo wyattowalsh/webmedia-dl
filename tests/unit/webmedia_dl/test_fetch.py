@@ -126,3 +126,17 @@ def test_bound_fetch_transport_error_becomes_discovery_error() -> None:
             profile=get_profile("personal-full"),
             client=client,
         )
+
+
+def test_authorize_url_rejects_non_https_and_hostless() -> None:
+    from webmedia_dl.network_policy import authorize_destination, authorize_url
+
+    profile = get_profile("personal-full")
+    with pytest.raises(NetworkPolicyError, match="data"):
+        authorize_url("data:text/plain,x", profile)
+    with pytest.raises(NetworkPolicyError, match="not allowed by profile"):
+        authorize_url("http://example.com/a.mp4", profile)
+    with pytest.raises(NetworkPolicyError, match="host"):
+        authorize_url("https:///nohost", profile)
+    with pytest.raises(NetworkPolicyError, match="approved root"):
+        authorize_destination(Path("/tmp/out"), ["relative-root", "", " "])

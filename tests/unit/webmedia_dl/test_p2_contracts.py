@@ -16,18 +16,22 @@ from webmedia_dl.destinations import (
     SecurityScopedBookmark,
     extract_clipboard_locator,
 )
-from webmedia_dl.domain.enums import DestinationKind, EventType, IntakeKind, Surface
+from webmedia_dl.domain.enums import DestinationKind, EventType, IntakeKind, MediaKind, Surface
 from webmedia_dl.domain.models import EventRecord, ExportIntent
 from webmedia_dl.errors import (
     CancelledError,
+    DiscoveryError,
     IntakeError,
     PauseRequested,
     ProviderPolicyError,
     PublicationError,
 )
 from webmedia_dl.live import (
+    MAX_TIMELINE_SEGMENTS,
+    hls_audio_playlist_urls,
     manifest_is_live,
     record_clear_stream,
+    record_kind_streams,
     recordable_segment_urls,
 )
 from webmedia_dl.providers import ProviderRequest, ProviderRuntime
@@ -266,6 +270,113 @@ def test_adaptationset_without_representation_keeps_segment_list() -> None:
     """
     urls = recordable_segment_urls(text, "https://cdn.example.com/")
     assert urls == ["https://cdn.example.com/only-audio.m4s"]
+
+
+def test_video_only_dash_is_video_kind(tmp_path: Path) -> None:
+    text = """
+    <MPD><Period>
+      <AdaptationSet contentType="video">
+        <SegmentTemplate media="$RepresentationID$.m4s" startNumber="1"/>
+        <Representation id="v1" bandwidth="800000" mimeType="video/mp4"/>
+        <Representation id="bad" bandwidth="nope" mimeType="video/mp4"/>
+      </AdaptationSet>
+    </Period></MPD>
+    """
+    fetched: list[str] = []
+
+    def fetch(url: str) -> tuple[int, str, bytes]:
+        fetched.append(url)
+        if url.endswith("bad.m4s"):
+            raise AssertionError(url)
+        return 200, "video/mp4", b"VID"
+
+    recorded = record_kind_streams(
+        text,
+        "https://cdn.example.com/manifest.mpd",
+        tmp_path / "dash.bin",
+        fetch,
+    )
+    assert recorded == [(MediaKind.VIDEO, tmp_path / "dash.bin")]
+    assert (tmp_path / "dash.bin").read_bytes() == b"VID"
+    assert any(item.endswith("v1.m4s") for item in fetched)
+
+
+def test_dash_open_ended_timeline_is_capped() -> None:
+    text = """
+    <MPD><Period>
+      <SegmentTemplate media="chunk_$Number$.m4s" startNumber="1">
+        <SegmentTimeline>
+          <S t="0" d="90000" r="-1"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+    </Period></MPD>
+    """
+    urls = recordable_segment_urls(text, "https://cdn.example.com/")
+    assert urls == [
+        f"https://cdn.example.com/chunk_{index}.m4s"
+        for index in range(1, MAX_TIMELINE_SEGMENTS + 1)
+    ]
+
+
+def test_dash_invalid_number_format_falls_back_to_decimal() -> None:
+    text = """
+    <MPD><Period>
+      <SegmentTemplate media="seg$Number%zz$.m4s" startNumber="3"/>
+    </Period></MPD>
+    """
+    urls = recordable_segment_urls(text, "https://cdn.example.com/")
+    assert urls == ["https://cdn.example.com/seg3.m4s"]
+
+
+def test_record_clear_stream_replaces_existing_dest(tmp_path: Path) -> None:
+    playlist = "#EXTM3U\n#EXTINF:1,\nseg.ts\n"
+    output = tmp_path / "live.ts"
+    output.write_bytes(b"OLD")
+
+    def fetch(url: str) -> tuple[int, str, bytes]:
+        return 200, "video/MP2T", b"NEW"
+
+    record_clear_stream(playlist, "https://cdn.example.com/live.m3u8", output, fetch)
+    assert output.read_bytes() == b"NEW"
+
+
+def test_hls_audio_media_skips_non_audio_and_duplicates() -> None:
+    text = (
+        "#EXTM3U\n"
+        '#EXT-X-MEDIA:TYPE=VIDEO,URI="v.m3u8"\n'
+        '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac"\n'
+        '#EXT-X-MEDIA:TYPE=AUDIO,URI="a.m3u8"\n'
+        '#EXT-X-MEDIA:TYPE=AUDIO,URI="a.m3u8"\n'
+    )
+    assert hls_audio_playlist_urls(text, "https://cdn.example.com/") == [
+        "https://cdn.example.com/a.m3u8"
+    ]
+
+
+def test_hls_audio_playlist_fetch_failure(tmp_path: Path) -> None:
+    master = (
+        "#EXTM3U\n"
+        '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",URI="audio.m3u8"\n'
+        '#EXT-X-STREAM-INF:BANDWIDTH=1,AUDIO="aac"\n'
+        "video.m3u8\n"
+    )
+
+    def fetch(url: str) -> tuple[int, str, bytes]:
+        if url.endswith("video.m3u8"):
+            return 200, "application/vnd.apple.mpegurl", b"#EXTM3U\n#EXTINF:1,\nv.ts\n"
+        if url.endswith("v.ts"):
+            return 200, "video/MP2T", b"V"
+        if url.endswith("audio.m3u8"):
+            return 404, "", b""
+        return 200, "application/vnd.apple.mpegurl", master.encode()
+
+    with pytest.raises(DiscoveryError, match="audio playlist"):
+        record_kind_streams(
+            master,
+            "https://cdn.example.com/master.m3u8",
+            tmp_path / "live.bin",
+            fetch,
+        )
 
 
 def test_hls_live_poll_appends_new_segments(tmp_path: Path) -> None:
