@@ -51,6 +51,10 @@
 | Probe unavailable | PASS | `probe_media` none records `probe-available:BLOCKED` and still publishes identity-validated sources |
 | Resume missing sources | PASS | acquired kinds with unrestored `source_ids` fail closed instead of a silent empty publish |
 | Packaging directories | PASS | extension zip `rglob` skips directories and includes nested files |
+| Leftover DASH media | PASS | `media=` outside SegmentTemplate is recorded; duplicate leftover URLs are skipped |
+| Supplied live parts | PASS | explicit HLS parts are written; AES-128 inspect still refuses before fetch |
+| Exporting resume | PASS | `stage=exporting` with restored `produced_ids` completes without empty-source fill |
+| Discovery HTML 100% | PASS | empty srcset/poster, meta without content, picture source without MIME, track preload, NDJSON blank lines |
 | URL never a path | PASS | URL intake with `local_path` or `file:` normalized_url raises; extra provider argv is refused |
 | Live aggregate bound + kinds | PASS | cumulative byte budget; separate VIDEO/AUDIO artifacts; audio-only DASH uses the highest-bandwidth audio Representation; SegmentBase ranges including mediaRange; multi-period occurrences; empty recordings and HTTP 400 playlists fail closed; nested/audio `should_stop` aborts before further fetches |
 | DASH AdaptationSet + live poll | PASS | self-closing Representation inherits AdaptationSet BaseURL/template; dynamic MPD/HLS polls new segments; later ContentProtection/AES-128 stops without fetching protected parts; `startNumber` and `$$` template tokens expand without a phantom `$Number=1` segment |
