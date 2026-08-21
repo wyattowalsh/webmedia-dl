@@ -2,7 +2,7 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 51 tests |
+| `uv run pytest` | PASS | 53 tests |
 | `uv run ruff check` | PASS | src/tests/scripts |
 | `uv run ty check` | PASS | |
 | `node --test tests/unit/extensions/*.mjs` | PASS | capture evidence helper |

@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from webmedia_dl.paths import repo_root
 
 
