@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import re
 from io import BytesIO
 from pathlib import Path
 from types import TracebackType
@@ -622,22 +621,36 @@ def test_path_is_under_rejects_dotdot_sibling(tmp_path: Path) -> None:
 def test_readme_lists_every_cli_command() -> None:
     from typer.testing import CliRunner
 
-    from webmedia_dl.cli import app
+    from webmedia_dl.cli import app, pair_app
 
-    command_line = re.compile(r"^│ ([a-z][a-z0-9-]+)  ", re.MULTILINE)
+    def command_names(typer_app) -> list[str]:
+        names: list[str] = []
+        for command in typer_app.registered_commands:
+            raw = command.name
+            if not raw and command.callback is not None:
+                raw = command.callback.__name__.removesuffix("_cmd").replace("_", "-")
+            if raw:
+                names.append(raw)
+        for group in typer_app.registered_groups:
+            if group.name:
+                names.append(group.name)
+        return names
+
     runner = CliRunner()
     readme = (repo_root() / "README.md").read_text(encoding="utf-8")
     root_help = runner.invoke(app, ["--help"])
     assert root_help.exit_code == 0
-    names = command_line.findall(root_help.stdout)
+    names = command_names(app)
     assert "submit" in names
     assert "pair" in names
     for name in names:
         assert name in readme, name
+        assert name in root_help.stdout, name
     pair_help = runner.invoke(app, ["pair", "--help"])
     assert pair_help.exit_code == 0
-    for name in command_line.findall(pair_help.stdout):
+    for name in command_names(pair_app):
         assert name in readme, f"pair {name}"
+        assert name in pair_help.stdout, f"pair {name}"
 
 
 def test_cookie_ledger_merges_and_rejects_relative(tmp_path: Path) -> None:
