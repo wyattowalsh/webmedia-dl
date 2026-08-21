@@ -3,6 +3,8 @@ import shutil
 import zipfile
 from pathlib import Path
 
+import pytest
+import typer
 from typer.testing import CliRunner
 
 from webmedia_dl.cli import app
@@ -420,3 +422,27 @@ def test_submit_dest_and_companion_requires_job(tmp_path: Path, png_bytes: bytes
     assert failed.exit_code == 1
     payload = json.loads(failed.stdout)
     assert payload["job"]["error"]
+    queued = runner.invoke(
+        app,
+        [
+            "submit",
+            "https://example.com/none",
+            "--html",
+            str(empty),
+            "--data-dir",
+            str(tmp_path / "queued-fail"),
+            "--no-wait",
+        ],
+    )
+    assert queued.exit_code == 0
+    nxt = runner.invoke(app, ["run-next", "--data-dir", str(tmp_path / "queued-fail")])
+    assert nxt.exit_code == 1
+    assert json.loads(nxt.stdout)["job"]["error"]
+
+
+def test_serve_rejects_non_loopback_host() -> None:
+    from webmedia_dl.cli import serve
+
+    with pytest.raises(typer.Exit) as exc:
+        serve(data_dir=None, host="8.8.8.8", port=8765)
+    assert exc.value.exit_code == 2

@@ -89,3 +89,39 @@ def test_pipeline_acquires_mixed_image_and_video(tmp_data: Path, png_bytes: byte
     assert len(sources) >= 2
     line = pipeline.store.lineage(sources[0].artifact_id)
     assert line[0].artifact_id == sources[0].artifact_id
+
+
+def test_failed_remux_still_publishes_original(
+    tmp_path: Path, pass_container_probe: object
+) -> None:
+    from webmedia_dl.domain.enums import DestinationKind
+    from webmedia_dl.domain.models import ExportIntent
+
+    dest = tmp_path / "out"
+    dest.mkdir()
+    media = tmp_path / "clip.mp4"
+    media.write_bytes(b"fake-mp4-bytes")
+
+    def run(argv: list[str], _cwd: Path) -> tuple[int, bytes, bytes]:
+        return 1, b"", b"ffmpeg failed"
+
+    pipeline = Pipeline(
+        data_dir=tmp_path / "data",
+        runtime=ProviderRuntime(
+            which=lambda name: "/usr/bin/ffmpeg" if name == "ffmpeg" else None,
+            run=run,
+        ),
+    )
+    job = pipeline.submit(
+        str(media),
+        intent=ExportIntent(
+            destination_kind=DestinationKind.USER_APPROVED_PATH,
+            destination_path=str(dest),
+            approved_roots=[str(dest)],
+            container_preference="mkv",
+        ),
+    )
+    assert job.state is JobState.COMPLETED
+    published = [path for path in dest.rglob("*") if path.is_file()]
+    assert published
+    assert any(path.read_bytes() == b"fake-mp4-bytes" for path in published)

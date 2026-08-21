@@ -94,7 +94,7 @@ def inspect_manifest(text: str) -> None:
             msg = "DASH ContentProtection is refused."
             raise DrmRefused(msg)
         return
-    if recordable_parts(text, "https://live.invalid/", inspect=False):
+    if _clear_hls_parts(text, "https://live.invalid/"):
         return
     match = _ENCRYPTED_HLS.search(text)
     if match:

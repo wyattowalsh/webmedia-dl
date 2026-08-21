@@ -80,3 +80,47 @@ def test_live_segment_http_error_fails_closed(tmp_path: Path) -> None:
 
     with pytest.raises(DiscoveryError, match="HTTP 404"):
         record_clear_stream(playlist, "https://cdn.example.com/live.m3u8", tmp_path / "x.ts", fetch)
+
+
+def test_inspect_manifest_aes128_without_clear_prefix() -> None:
+    with pytest.raises(DrmRefused, match="AES-128"):
+        inspect_manifest('#EXTM3U\n#EXT-X-KEY:METHOD=AES-128,URI="https://example.com/key"\n')
+
+
+def test_hls_map_invalid_byterange_and_blank_lines(tmp_path: Path) -> None:
+    playlist = '#EXTM3U\n\n#EXT-X-MAP:URI="init.mp4",BYTERANGE="nope"\nseg.ts\n'
+    bodies = {
+        "https://cdn.example.com/live/init.mp4": b"INIT",
+        "https://cdn.example.com/live/seg.ts": b"SEG",
+    }
+
+    def fetch(url: str) -> tuple[int, str, bytes]:
+        return 200, "video/mp4", bodies[url]
+
+    output = tmp_path / "live.bin"
+    record_clear_stream(playlist, "https://cdn.example.com/live/index.m3u8", output, fetch)
+    assert output.read_bytes() == b"INITSEG"
+
+
+def test_dash_directory_baseurl_without_slash() -> None:
+    from webmedia_dl.live import recordable_segment_urls
+
+    text = """
+    <MPD><Period>
+      <BaseURL>https://cdn.example.com/dash</BaseURL>
+      <SegmentTemplate media="seg$Number$.m4s" startNumber="1"/>
+    </Period></MPD>
+    """
+    urls = recordable_segment_urls(text, "https://cdn.example.com/manifest.mpd")
+    assert urls == ["https://cdn.example.com/dash/seg1.m4s"]
+
+
+def test_time_token_without_timeline_is_skipped() -> None:
+    from webmedia_dl.live import recordable_segment_urls
+
+    text = """
+    <MPD><Period>
+      <SegmentTemplate media="t_$Time$.m4s" startNumber="1"/>
+    </Period></MPD>
+    """
+    assert recordable_segment_urls(text, "https://cdn.example.com/") == []
