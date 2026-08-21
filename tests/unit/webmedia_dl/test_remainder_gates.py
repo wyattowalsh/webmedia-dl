@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import json
-from typing import Any
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
 import httpx
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 from typer.testing import CliRunner
 
 from webmedia_dl.acquisition import preferred_format_id
@@ -27,6 +28,7 @@ from webmedia_dl.errors import (
     NetworkPolicyError,
     PauseRequested,
     ProviderPolicyError,
+    PublicationError,
 )
 from webmedia_dl.fetch import bound_fetch
 from webmedia_dl.intake import normalize_source
@@ -106,15 +108,20 @@ def test_bound_fetch_closes_owned_client(monkeypatch: pytest.MonkeyPatch) -> Non
     assert created[0].is_closed
 
 
-def test_drop_invalid_container_exits_with_job_error(tmp_path: Path) -> None:
-    media = tmp_path / "clip.mp4"
-    media.write_bytes(b"not-a-real-mp4")
+def test_drop_publish_error_exits_with_job_error(
+    tmp_path: Path, png_bytes: bytes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    media = tmp_path / "hero.png"
+    media.write_bytes(png_bytes)
+
+    def boom(*_args: object, **_kwargs: object) -> None:
+        raise PublicationError("destination refused")
+
+    monkeypatch.setattr("webmedia_dl.pipeline.publish_artifacts", boom)
     result = runner.invoke(app, ["drop", str(media), "--data-dir", str(tmp_path / "data")])
     assert result.exit_code == 1
-    payload = result.stdout.strip()
-    assert payload
-    body = json.loads(payload)
-    assert body["job"]["error"]
+    body = json.loads(result.stdout)
+    assert "refused" in body["job"]["error"]
 
 
 def test_cli_main_invokes_app(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -317,7 +324,7 @@ def test_pipeline_ytdlp_produces_no_source_files(tmp_data: Path) -> None:
     job = pipeline.submit("https://example.com/watch", html=html)
     assert job.state is JobState.FAILED
     assert job.error is not None
-    assert "no source" in job.error.lower() or "yt-dlp" in job.error.lower()
+    assert "exited 0" in job.error
 
 
 def test_queue_pause_claim_and_cancel_intercept(
@@ -334,7 +341,12 @@ def test_queue_pause_claim_and_cancel_intercept(
     pipeline.queue.set_job_flags(job.job_id, cancel_requested=True)
     with pytest.raises(CancelledError, match="cancelled"):
         pipeline.queue.set_state(job.job_id, JobState.DISCOVERING)
-    pipeline.queue.put_checkpoint(job.job_id, ["not-a-dict"])  # type: ignore[arg-type]
+
+    with pipeline.queue.engine.begin() as conn:
+        conn.execute(
+            text("UPDATE job_context SET checkpoint_json = :payload WHERE job_id = :job_id"),
+            {"payload": '["not-a-dict"]', "job_id": str(job.job_id)},
+        )
     assert pipeline.queue.get_context(job.job_id).checkpoint == {}
 
 

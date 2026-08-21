@@ -44,4 +44,9 @@
 - Packaged runtime falls back to checkout resources without a `runtime/` tree;
   live recording fails closed on HTTP 400 playlists, empty segments, and
   nested/audio stop; CLI paste/speak DRM locators and missing drops exit 1;
-  export policy errors still publish the original source.
+  export policy errors still publish the original source. Redirect bounds,
+  unresolved cookie grants, paused `claim_next`, and missing provider binaries
+  fail closed with executed tests. Missing checkpoint artifacts, preview-only
+  exports, `include_original=false`, validation failures, queue schema
+  migration, claim CAS misses, later live-poll DRM, and worker API pairing
+  errors fail closed with executed tests.

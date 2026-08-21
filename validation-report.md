@@ -2,8 +2,8 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 298 tests |
-| `uv run pytest --cov` | PASS | 91.99% (`fail_under` 85) |
+| `uv run pytest` | PASS | 319 tests |
+| `uv run pytest --cov` | PASS | 93.81% (`fail_under` 85) |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
 | `uv run ty check` | PASS | |
@@ -22,7 +22,8 @@
 | Default telemetry | PASS | false in doctor and profiles; `policy-profiles.json` cannot enable DRM circumvention, telemetry, cookie widening, subprocess, or delegation |
 | Publish sibling isolation | PASS | a failed validation or unreadable sibling does not abort other validated destination copies; a failed remux or export policy error still publishes the original source |
 | Packaged runtime fallback | PASS | `runtime_root` / `runtime_file` fall back to checkout `resources/` without a packaged `runtime/` tree; `repo_root` fails closed when `pyproject.toml` is absent |
-| CLI paste/speak/drop fail-closed | PASS | DRM locators exit 1 with `job.error`; missing drop files fail closed without a job |
+| CLI paste/speak/drop fail-closed | PASS | DRM locators exit 1 with `job.error`; missing drop files fail closed; drop publication errors exit 1 |
+| Fetch bounds | PASS | HTML truncate, media overflow error, streaming within-limit, redirect bound, owned client closed |
 | Live aggregate bound + kinds | PASS | cumulative byte budget; separate VIDEO/AUDIO artifacts; audio-only DASH uses the highest-bandwidth audio Representation; SegmentBase ranges including mediaRange; multi-period occurrences; empty recordings and HTTP 400 playlists fail closed; nested/audio `should_stop` aborts before further fetches |
 | DASH AdaptationSet + live poll | PASS | self-closing Representation inherits AdaptationSet BaseURL/template; dynamic MPD/HLS polls new segments; later ContentProtection/AES-128 stops without fetching protected parts; `startNumber` and `$$` template tokens expand without a phantom `$Number=1` segment |
 | Container gate | PASS | ffprobe evidence required; filename suffix cannot PASS; `BLOCKED`/empty evidence cannot publish |
