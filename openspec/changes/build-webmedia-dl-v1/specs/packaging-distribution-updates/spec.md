@@ -2,35 +2,17 @@
 
 ## ADDED Requirements
 
-### Requirement: packaging distribution updates follows the shared typed model
+### Requirement: Named surfaces
 
-The `packaging-distribution-updates` surface SHALL use the shared job, event, capability, policy,
-artifact, and export model. It SHALL NOT introduce a parallel identity scheme
-based on display titles or source URLs-as-paths.
+Public names SHALL be WebMedia DL / `webmedia-dl` / `webmedia_dl` / `WebMediaDL`.
+`wmdl` SHALL NOT be installed as the canonical console script.
 
-#### Scenario: Contracts are schema-valid
+#### Scenario: CLI help uses canonical name
 
-- **WHEN** a `packaging-distribution-updates` payload is produced
-- **THEN** it validates against the corresponding JSON Schema in `schemas/`
+- **WHEN** `webmedia-dl --help` runs
+- **THEN** the usage line contains `webmedia-dl`
 
-### Requirement: Policy and evidence gates
+### Requirement: Reproducible bundle
 
-`packaging-distribution-updates` SHALL honor client and worker policy profiles, SHALL refuse DRM
-circumvention, SHALL NOT enable default telemetry, and SHALL record evidence
-statuses using only `PASS`, `WARN`, `BLOCKED`, or `FAIL`.
-
-#### Scenario: Simulated checks stay non-PASS
-
-- **WHEN** a check is planned or simulated and has not executed
-- **THEN** its status is not `PASS`
-
-### Requirement: Failure containment
-
-Failures in `packaging-distribution-updates` SHALL write only to staging or durable queue state
-until publication. One derivative failure SHALL NOT invalidate unrelated
-artifacts.
-
-#### Scenario: Partial failure is quarantined
-
-- **WHEN** an operation fails
-- **THEN** partial bytes land in quarantine or remain unpublished
+`scripts/package_bundle.py` SHALL write a zip with a fixed timestamp.
+`scripts/validate_bundle.py` SHALL fail if required overlay files or specs are missing.

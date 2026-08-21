@@ -2,35 +2,23 @@
 
 ## ADDED Requirements
 
-### Requirement: export validation publication follows the shared typed model
+### Requirement: Mandatory validation before publish
 
-The `export-validation-publication` surface SHALL use the shared job, event, capability, policy,
-artifact, and export model. It SHALL NOT introduce a parallel identity scheme
-based on display titles or source URLs-as-paths.
+Derivatives and sources SHALL NOT be published to a user-visible destination until
+hash and size gates execute with `PASS`. Planned or simulated checks SHALL NOT be
+recorded as `PASS`.
 
-#### Scenario: Contracts are schema-valid
+#### Scenario: simulated PASS forbidden
 
-- **WHEN** a `export-validation-publication` payload is produced
-- **THEN** it validates against the corresponding JSON Schema in `schemas/`
+- **WHEN** a validation result is constructed with `simulated=true` and `PASS`
+- **THEN** `SimulatedPassError` is raised
 
-### Requirement: Policy and evidence gates
+### Requirement: Transactional destination commit
 
-`export-validation-publication` SHALL honor client and worker policy profiles, SHALL refuse DRM
-circumvention, SHALL NOT enable default telemetry, and SHALL record evidence
-statuses using only `PASS`, `WARN`, `BLOCKED`, or `FAIL`.
+Publication SHALL write to a temporary directory under an approved root and atomically
+replace into the destination. Paths outside approved roots SHALL be denied.
 
-#### Scenario: Simulated checks stay non-PASS
+#### Scenario: outside approved root
 
-- **WHEN** a check is planned or simulated and has not executed
-- **THEN** its status is not `PASS`
-
-### Requirement: Failure containment
-
-Failures in `export-validation-publication` SHALL write only to staging or durable queue state
-until publication. One derivative failure SHALL NOT invalidate unrelated
-artifacts.
-
-#### Scenario: Partial failure is quarantined
-
-- **WHEN** an operation fails
-- **THEN** partial bytes land in quarantine or remain unpublished
+- **WHEN** destination is not under `approved_roots`
+- **THEN** publication fails closed

@@ -2,35 +2,17 @@
 
 ## ADDED Requirements
 
-### Requirement: browser extensions follows the shared typed model
+### Requirement: Evidence capture only
 
-The `browser-extensions` surface SHALL use the shared job, event, capability, policy,
-artifact, and export model. It SHALL NOT introduce a parallel identity scheme
-based on display titles or source URLs-as-paths.
+Safari, Chrome, Brave, Edge, generic Chromium, and Firefox extensions SHALL collect
+page media URLs and POST them to the loopback worker. They SHALL NOT expose a generic
+native command runner. `javascript:` URLs SHALL be ignored.
 
-#### Scenario: Contracts are schema-valid
+#### Scenario: collector returns no native command
 
-- **WHEN** a `browser-extensions` payload is produced
-- **THEN** it validates against the corresponding JSON Schema in `schemas/`
+- **WHEN** `collectMediaEvidence` runs on a document with video and `javascript:` img
+- **THEN** `nativeCommand` is null and the javascript URL is omitted
 
-### Requirement: Policy and evidence gates
+### Requirement: Loopback only
 
-`browser-extensions` SHALL honor client and worker policy profiles, SHALL refuse DRM
-circumvention, SHALL NOT enable default telemetry, and SHALL record evidence
-statuses using only `PASS`, `WARN`, `BLOCKED`, or `FAIL`.
-
-#### Scenario: Simulated checks stay non-PASS
-
-- **WHEN** a check is planned or simulated and has not executed
-- **THEN** its status is not `PASS`
-
-### Requirement: Failure containment
-
-Failures in `browser-extensions` SHALL write only to staging or durable queue state
-until publication. One derivative failure SHALL NOT invalidate unrelated
-artifacts.
-
-#### Scenario: Partial failure is quarantined
-
-- **WHEN** an operation fails
-- **THEN** partial bytes land in quarantine or remain unpublished
+Host permissions SHALL be limited to `http://127.0.0.1:8765/*`.

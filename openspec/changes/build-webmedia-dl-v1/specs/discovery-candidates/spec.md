@@ -2,35 +2,22 @@
 
 ## ADDED Requirements
 
-### Requirement: discovery candidates follows the shared typed model
+### Requirement: Bounded discovery
 
-The `discovery-candidates` surface SHALL use the shared job, event, capability, policy,
-artifact, and export model. It SHALL NOT introduce a parallel identity scheme
-based on display titles or source URLs-as-paths.
+Discovery SHALL produce `MediaCandidate` nodes from direct URLs or bounded HTML
+(size-capped, redirect-capped). It SHALL NOT decide final acquisition.
 
-#### Scenario: Contracts are schema-valid
+#### Scenario: HTML extracts media without using the title as identity
 
-- **WHEN** a `discovery-candidates` payload is produced
-- **THEN** it validates against the corresponding JSON Schema in `schemas/`
+- **WHEN** a page contains `og:image`, `video[src]`, and JSON-LD `contentUrl`
+- **THEN** candidates exist for those URLs and `identity_key` is not the page title
 
-### Requirement: Policy and evidence gates
+### Requirement: Candidate graph grouping
 
-`discovery-candidates` SHALL honor client and worker policy profiles, SHALL refuse DRM
-circumvention, SHALL NOT enable default telemetry, and SHALL record evidence
-statuses using only `PASS`, `WARN`, `BLOCKED`, or `FAIL`.
+Candidates SHALL be grouped by host/identity. Duplicate identities SHALL be recorded
+as conflicts. DRM signals SHALL be attached, not stripped.
 
-#### Scenario: Simulated checks stay non-PASS
+#### Scenario: Graph records DRM conflicts
 
-- **WHEN** a check is planned or simulated and has not executed
-- **THEN** its status is not `PASS`
-
-### Requirement: Failure containment
-
-Failures in `discovery-candidates` SHALL write only to staging or durable queue state
-until publication. One derivative failure SHALL NOT invalidate unrelated
-artifacts.
-
-#### Scenario: Partial failure is quarantined
-
-- **WHEN** an operation fails
-- **THEN** partial bytes land in quarantine or remain unpublished
+- **WHEN** a candidate has DRM signals
+- **THEN** the graph `conflicts` list includes a `drm:` entry

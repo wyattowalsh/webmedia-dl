@@ -2,35 +2,13 @@
 
 ## ADDED Requirements
 
-### Requirement: accessibility ux follows the shared typed model
+### Requirement: Structured expert output, one-tap ordinary path
 
-The `accessibility-ux` surface SHALL use the shared job, event, capability, policy,
-artifact, and export model. It SHALL NOT introduce a parallel identity scheme
-based on display titles or source URLs-as-paths.
+Ordinary submit SHALL be a single command or extension button. Expert inspection
+SHALL be JSON events. Extension UI SHALL include `lang`, a labeled token field,
+a keyboard-focusable button, and `aria-live` status.
 
-#### Scenario: Contracts are schema-valid
+#### Scenario: capture popup markup
 
-- **WHEN** a `accessibility-ux` payload is produced
-- **THEN** it validates against the corresponding JSON Schema in `schemas/`
-
-### Requirement: Policy and evidence gates
-
-`accessibility-ux` SHALL honor client and worker policy profiles, SHALL refuse DRM
-circumvention, SHALL NOT enable default telemetry, and SHALL record evidence
-statuses using only `PASS`, `WARN`, `BLOCKED`, or `FAIL`.
-
-#### Scenario: Simulated checks stay non-PASS
-
-- **WHEN** a check is planned or simulated and has not executed
-- **THEN** its status is not `PASS`
-
-### Requirement: Failure containment
-
-Failures in `accessibility-ux` SHALL write only to staging or durable queue state
-until publication. One derivative failure SHALL NOT invalidate unrelated
-artifacts.
-
-#### Scenario: Partial failure is quarantined
-
-- **WHEN** an operation fails
-- **THEN** partial bytes land in quarantine or remain unpublished
+- **WHEN** `extensions/chromium/popup.html` is inspected
+- **THEN** it has `html lang`, a `label for="token"`, and `role="status"`

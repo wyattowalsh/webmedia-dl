@@ -2,35 +2,12 @@
 
 ## ADDED Requirements
 
-### Requirement: asset store provenance follows the shared typed model
+### Requirement: Content-addressed immutable sources
 
-The `asset-store-provenance` surface SHALL use the shared job, event, capability, policy,
-artifact, and export model. It SHALL NOT introduce a parallel identity scheme
-based on display titles or source URLs-as-paths.
+Source artifacts SHALL be identified as `sha256:<digest>`. After registration, source
+bytes SHALL NOT be mutated. Display titles SHALL NOT be used as artifact ids.
 
-#### Scenario: Contracts are schema-valid
+#### Scenario: mutate source fails
 
-- **WHEN** a `asset-store-provenance` payload is produced
-- **THEN** it validates against the corresponding JSON Schema in `schemas/`
-
-### Requirement: Policy and evidence gates
-
-`asset-store-provenance` SHALL honor client and worker policy profiles, SHALL refuse DRM
-circumvention, SHALL NOT enable default telemetry, and SHALL record evidence
-statuses using only `PASS`, `WARN`, `BLOCKED`, or `FAIL`.
-
-#### Scenario: Simulated checks stay non-PASS
-
-- **WHEN** a check is planned or simulated and has not executed
-- **THEN** its status is not `PASS`
-
-### Requirement: Failure containment
-
-Failures in `asset-store-provenance` SHALL write only to staging or durable queue state
-until publication. One derivative failure SHALL NOT invalidate unrelated
-artifacts.
-
-#### Scenario: Partial failure is quarantined
-
-- **WHEN** an operation fails
-- **THEN** partial bytes land in quarantine or remain unpublished
+- **WHEN** code attempts to overwrite a registered source
+- **THEN** `ArtifactImmutabilityError` is raised

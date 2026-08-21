@@ -2,35 +2,26 @@
 
 ## ADDED Requirements
 
-### Requirement: intake routing follows the shared typed model
+### Requirement: Typed intake without retrieval
 
-The `intake-routing` surface SHALL use the shared job, event, capability, policy,
-artifact, and export model. It SHALL NOT introduce a parallel identity scheme
-based on display titles or source URLs-as-paths.
+Intake SHALL classify and normalize locators into `MediaSource` records. It SHALL NOT
+perform network retrieval. `file:` URLs SHALL be rejected as URL intake.
 
-#### Scenario: Contracts are schema-valid
+#### Scenario: HTTPS paste
 
-- **WHEN** a `intake-routing` payload is produced
-- **THEN** it validates against the corresponding JSON Schema in `schemas/`
+- **WHEN** the CLI receives `https://example.com/a.png`
+- **THEN** the source has `normalized_url` set and `local_path` unset
 
-### Requirement: Policy and evidence gates
+#### Scenario: file scheme rejected
 
-`intake-routing` SHALL honor client and worker policy profiles, SHALL refuse DRM
-circumvention, SHALL NOT enable default telemetry, and SHALL record evidence
-statuses using only `PASS`, `WARN`, `BLOCKED`, or `FAIL`.
+- **WHEN** intake receives `file:///tmp/secret.png` as a URL
+- **THEN** it fails closed with `IntakeError`
 
-#### Scenario: Simulated checks stay non-PASS
+### Requirement: URL is never a filesystem path
 
-- **WHEN** a check is planned or simulated and has not executed
-- **THEN** its status is not `PASS`
+A network locator SHALL NOT be copied into `local_path`.
 
-### Requirement: Failure containment
+#### Scenario: URL plus path is invalid
 
-Failures in `intake-routing` SHALL write only to staging or durable queue state
-until publication. One derivative failure SHALL NOT invalidate unrelated
-artifacts.
-
-#### Scenario: Partial failure is quarantined
-
-- **WHEN** an operation fails
-- **THEN** partial bytes land in quarantine or remain unpublished
+- **WHEN** a `MediaSource` is constructed with both a URL kind and `local_path`
+- **THEN** validation fails

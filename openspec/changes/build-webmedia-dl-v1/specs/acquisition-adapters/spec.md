@@ -2,35 +2,27 @@
 
 ## ADDED Requirements
 
-### Requirement: acquisition adapters follows the shared typed model
+### Requirement: Allowlisted provider argv
 
-The `acquisition-adapters` surface SHALL use the shared job, event, capability, policy,
-artifact, and export model. It SHALL NOT introduce a parallel identity scheme
-based on display titles or source URLs-as-paths.
+Provider runtime SHALL build argv only from typed inputs and an allowlist.
+Arbitrary `extra_args` SHALL be rejected. Format ids SHALL match `^[A-Za-z0-9+._-]+$`.
 
-#### Scenario: Contracts are schema-valid
+#### Scenario: extra_args rejected
 
-- **WHEN** a `acquisition-adapters` payload is produced
-- **THEN** it validates against the corresponding JSON Schema in `schemas/`
+- **WHEN** a provider request includes extra argv
+- **THEN** `ProviderPolicyError` is raised before any process starts
 
-### Requirement: Policy and evidence gates
+#### Scenario: yt-dlp format token
 
-`acquisition-adapters` SHALL honor client and worker policy profiles, SHALL refuse DRM
-circumvention, SHALL NOT enable default telemetry, and SHALL record evidence
-statuses using only `PASS`, `WARN`, `BLOCKED`, or `FAIL`.
+- **WHEN** `format_id` is `137+140`
+- **THEN** argv contains `--format 137+140` and does not contain `--exec`
 
-#### Scenario: Simulated checks stay non-PASS
+### Requirement: No automatic install
 
-- **WHEN** a check is planned or simulated and has not executed
-- **THEN** its status is not `PASS`
+Provider manifests SHALL set `install_automatic` false. Missing binaries SHALL be
+reported as `BLOCKED` by `doctor`, not silently downloaded.
 
-### Requirement: Failure containment
+#### Scenario: doctor does not install yt-dlp
 
-Failures in `acquisition-adapters` SHALL write only to staging or durable queue state
-until publication. One derivative failure SHALL NOT invalidate unrelated
-artifacts.
-
-#### Scenario: Partial failure is quarantined
-
-- **WHEN** an operation fails
-- **THEN** partial bytes land in quarantine or remain unpublished
+- **WHEN** `yt-dlp` is absent
+- **THEN** doctor reports BLOCKED for that provider and does not fetch it

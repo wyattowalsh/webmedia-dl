@@ -2,35 +2,21 @@
 
 ## ADDED Requirements
 
-### Requirement: security privacy policy follows the shared typed model
+### Requirement: No DRM circumvention
 
-The `security-privacy-policy` surface SHALL use the shared job, event, capability, policy,
-artifact, and export model. It SHALL NOT introduce a parallel identity scheme
-based on display titles or source URLs-as-paths.
+Widevine, FairPlay, PlayReady, encrypted HLS, and cenc signals SHALL refuse closed.
 
-#### Scenario: Contracts are schema-valid
+### Requirement: Cookie access is explicit
 
-- **WHEN** a `security-privacy-policy` payload is produced
-- **THEN** it validates against the corresponding JSON Schema in `schemas/`
+Cookies SHALL require `CookieAccess.EXPLICIT_PATH`, an existing absolute file, and
+MUST NOT live inside the repository. Restricted profiles SHALL set cookie access to
+`never`.
 
-### Requirement: Policy and evidence gates
+#### Scenario: repo cookie rejected
 
-`security-privacy-policy` SHALL honor client and worker policy profiles, SHALL refuse DRM
-circumvention, SHALL NOT enable default telemetry, and SHALL record evidence
-statuses using only `PASS`, `WARN`, `BLOCKED`, or `FAIL`.
+- **WHEN** `--cookies` points at a file inside the repo
+- **THEN** `CookiePolicyError` is raised
 
-#### Scenario: Simulated checks stay non-PASS
+### Requirement: No default telemetry or auto-install
 
-- **WHEN** a check is planned or simulated and has not executed
-- **THEN** its status is not `PASS`
-
-### Requirement: Failure containment
-
-Failures in `security-privacy-policy` SHALL write only to staging or durable queue state
-until publication. One derivative failure SHALL NOT invalidate unrelated
-artifacts.
-
-#### Scenario: Partial failure is quarantined
-
-- **WHEN** an operation fails
-- **THEN** partial bytes land in quarantine or remain unpublished
+Policy profiles SHALL forbid `telemetry_default` and automatic provider installation.
