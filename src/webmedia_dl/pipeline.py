@@ -290,7 +290,7 @@ class Pipeline:
                 acquired_kinds.add(chosen[0].media_kind.value)
                 self._save_acquire_checkpoint(job, sources, acquired_kinds, stage="acquired")
             self._check_control(job.job_id)
-        elif stage not in {"acquired", "exporting", "validating", "publishing"}:
+        elif stage not in {"acquired", "exporting", "exported", "validating", "publishing"}:
             last_error: Exception | None = None
             for index, candidate in enumerate(chosen):
                 self._check_control(job.job_id)
@@ -323,14 +323,50 @@ class Pipeline:
         produced: list[tuple[Any, Path]] = []
         export_errors: list[WebMediaError] = []
         stored_stage = checkpoint.get("stage")
-        if stored_stage in {"exported", "validating", "publishing"}:
+        existing_ops: dict[str, tuple[Any, Path]] = {}
+        skip_ops: set[str] = set()
+        for op_id, art_id in (checkpoint.get("operation_artifacts") or {}).items():
+            try:
+                recorded = self.store.get(str(art_id))
+                existing_ops[str(op_id)] = (recorded, self.store.resolve(recorded))
+                skip_ops.add(str(op_id))
+            except KeyError:
+                continue
+        skip_ops.update(str(item) for item in checkpoint.get("completed_operations") or [])
+        if stored_stage in {"exporting", "exported", "validating", "publishing"}:
             for artifact_id in checkpoint.get("produced_ids") or []:
                 try:
                     recorded = self.store.get(str(artifact_id))
                     produced.append((recorded, self.store.resolve(recorded)))
                 except KeyError:
                     continue
-        if not produced:
+        if stored_stage not in {"exported", "validating", "publishing"} or not produced:
+            completed_ops = list(checkpoint.get("completed_operations") or [])
+            op_arts = {
+                str(key): str(value)
+                for key, value in (checkpoint.get("operation_artifacts") or {}).items()
+            }
+            produced_ids = [item.artifact_id for item, _path in produced]
+            if not produced_ids:
+                produced_ids = [item.artifact_id for item in sources]
+
+            def on_progress(operation, artifact) -> None:
+                if operation.operation_id not in completed_ops:
+                    completed_ops.append(operation.operation_id)
+                if artifact is not None:
+                    op_arts[operation.operation_id] = artifact.artifact_id
+                    if artifact.artifact_id not in produced_ids:
+                        produced_ids.append(artifact.artifact_id)
+                self._save_acquire_checkpoint(
+                    job,
+                    sources,
+                    acquired_kinds,
+                    stage="exporting",
+                    produced_ids=list(produced_ids),
+                    completed_operations=list(completed_ops),
+                    operation_artifacts=dict(op_arts),
+                )
+
             for artifact in sources:
                 self._check_control(job.job_id)
                 try:
@@ -354,6 +390,9 @@ class Pipeline:
                             queue=self.queue,
                             authorize=self._authorize,
                             check_control=lambda: self._check_control(job.job_id),
+                            existing=existing_ops,
+                            skip_operation_ids=skip_ops,
+                            on_progress=on_progress,
                         )
                     )
                 except (PauseRequested, CancelledError):
@@ -366,12 +405,22 @@ class Pipeline:
                         {"artifact_id": artifact.artifact_id, "message": str(exc)},
                     )
                     produced.append((artifact, self.store.resolve(artifact)))
+            unique: list[tuple[Any, Path]] = []
+            seen_ids: set[str] = set()
+            for item, path in produced:
+                if item.artifact_id in seen_ids:
+                    continue
+                seen_ids.add(item.artifact_id)
+                unique.append((item, path))
+            produced = unique
             self._save_acquire_checkpoint(
                 job,
                 sources,
                 acquired_kinds,
                 stage="exported",
                 produced_ids=[item.artifact_id for item, _path in produced],
+                completed_operations=list(completed_ops),
+                operation_artifacts=dict(op_arts),
             )
 
         self._check_control(job.job_id)
@@ -724,14 +773,23 @@ class Pipeline:
         *,
         stage: str,
         produced_ids: list[str] | None = None,
+        completed_operations: list[str] | None = None,
+        operation_artifacts: dict[str, str] | None = None,
     ) -> None:
-        payload = {
-            "stage": stage,
-            "source_ids": [item.artifact_id for item in sources],
-            "acquired_kinds": sorted(acquired_kinds),
-        }
+        payload = dict(self.queue.get_context(job.job_id).checkpoint)
+        payload.update(
+            {
+                "stage": stage,
+                "source_ids": [item.artifact_id for item in sources],
+                "acquired_kinds": sorted(acquired_kinds),
+            }
+        )
         if produced_ids is not None:
             payload["produced_ids"] = produced_ids
+        if completed_operations is not None:
+            payload["completed_operations"] = completed_operations
+        if operation_artifacts is not None:
+            payload["operation_artifacts"] = operation_artifacts
         self.queue.put_checkpoint(job.job_id, payload)
 
     def handle_companion(self, payload: dict[str, Any]) -> dict[str, Any]:

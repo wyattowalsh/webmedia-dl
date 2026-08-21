@@ -166,6 +166,9 @@ class ProviderRuntime:
             _terminate_process(proc)
 
     def _tracked_run(self, argv: list[str], staging: Path) -> tuple[int, bytes, bytes]:
+        if self._cancel.is_set():
+            msg = "Provider execution was cancelled."
+            raise CancelledError(msg)
         env = os.environ.copy()
         env["MAGICK_CONFIGURE_PATH"] = str(imagemagick_configure_path())
         proc = subprocess.Popen(
@@ -179,12 +182,22 @@ class ProviderRuntime:
         with self._lock:
             self._procs.append(proc)
         try:
-            stdout, stderr = proc.communicate(timeout=600)
-            return proc.returncode or 0, stdout, stderr
-        except subprocess.TimeoutExpired:
-            _terminate_process(proc)
-            stdout, stderr = proc.communicate()
-            return proc.returncode or 124, stdout, stderr
+            deadline = 600.0
+            waited = 0.0
+            while True:
+                try:
+                    stdout, stderr = proc.communicate(timeout=0.2)
+                    return proc.returncode or 0, stdout, stderr
+                except subprocess.TimeoutExpired:
+                    waited += 0.2
+                    if self._cancel.is_set():
+                        _terminate_process(proc)
+                        stdout, stderr = proc.communicate()
+                        return proc.returncode or 130, stdout, stderr
+                    if waited >= deadline:
+                        _terminate_process(proc)
+                        stdout, stderr = proc.communicate()
+                        return proc.returncode or 124, stdout, stderr
         finally:
             with self._lock:
                 if proc in self._procs:

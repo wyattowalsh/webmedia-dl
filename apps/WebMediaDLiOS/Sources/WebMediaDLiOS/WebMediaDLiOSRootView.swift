@@ -8,6 +8,7 @@ public struct WebMediaDLiOSRootView: View {
     @State private var sessionKey = ""
     @State private var status = "Pair with a Mac to run yt-dlp or ffmpeg jobs."
     @State private var historyText = "Lightweight HTTP jobs stay on-device. Heavy work waits for Mac confirmation."
+    @State private var lastJobId: UUID?
     private let role = WebMediaDLClientRole.pairedClient
 
     public init() {}
@@ -28,12 +29,14 @@ public struct WebMediaDLiOSRootView: View {
                         .accessibilityLabel("Media URL")
                     Button("Send to paired Mac") {
                         Task {
-                            status = (try? await client.submit(
+                            let response = (try? await client.submit(
                                 locator: locator,
                                 surface: .ios,
                                 pairingId: UUID(uuidString: pairingId),
                                 sessionKey: sessionKey.isEmpty ? nil : sessionKey
                             )) ?? "Pairing required"
+                            status = response
+                            lastJobId = WebMediaDLLoopbackClient.jobId(from: response)
                         }
                     }
                     .accessibilityLabel("Send to paired Mac")
@@ -60,6 +63,26 @@ public struct WebMediaDLiOSRootView: View {
                         }
                     }
                     .accessibilityLabel("Refresh history")
+                }
+                Section("Queue") {
+                    Button("Pause queue") {
+                        Task { status = (try? await client.pauseQueue()) ?? "Pairing required" }
+                    }
+                    .accessibilityLabel("Pause queue")
+                    Button("Resume queue") {
+                        Task { status = (try? await client.resumeQueue()) ?? "Pairing required" }
+                    }
+                    .accessibilityLabel("Resume queue")
+                    Button("Cancel last job") {
+                        Task {
+                            guard let lastJobId else {
+                                status = "No job to cancel"
+                                return
+                            }
+                            status = (try? await client.cancel(jobId: lastJobId)) ?? "Pairing required"
+                        }
+                    }
+                    .accessibilityLabel("Cancel last job")
                 }
             }
             .navigationTitle("WebMedia DL")

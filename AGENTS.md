@@ -17,7 +17,7 @@
 | Install | `uv sync --locked` |
 | CLI | `uv run webmedia-dl --help` |
 | Doctor | `uv run webmedia-dl doctor` |
-| Tests | `uv run pytest` |
+| Tests | `uv run pytest` / `uv run pytest --cov` |
 | Lint | `uv run ruff check` |
 | Format | `uv run ruff format` |
 | Types | `uv run ty check` |

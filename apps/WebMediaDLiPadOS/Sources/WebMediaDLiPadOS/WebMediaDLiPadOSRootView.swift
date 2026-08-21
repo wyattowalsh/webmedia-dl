@@ -8,6 +8,7 @@ public struct WebMediaDLiPadOSRootView: View {
     @State private var sessionKey = ""
     @State private var status = "Pair with a Mac for yt-dlp and ffmpeg."
     @State private var historyText = "Paired Mac history appears after confirmation."
+    @State private var lastJobId: UUID?
     private let role = WebMediaDLClientRole.pairedClient
     private let client = WebMediaDLLoopbackClient()
 
@@ -36,12 +37,14 @@ public struct WebMediaDLiPadOSRootView: View {
                     .textFieldStyle(.roundedBorder)
                 Button("Send to paired Mac") {
                     Task {
-                        status = (try? await pairedClient.submit(
+                        let response = (try? await pairedClient.submit(
                             locator: locator,
                             surface: .ipados,
                             pairingId: UUID(uuidString: pairingId),
                             sessionKey: sessionKey.isEmpty ? nil : sessionKey
                         )) ?? "Pairing required"
+                        status = response
+                        lastJobId = WebMediaDLLoopbackClient.jobId(from: response)
                     }
                 }
                 .accessibilityLabel("Send to paired Mac")
@@ -59,6 +62,16 @@ public struct WebMediaDLiPadOSRootView: View {
                     }
                 }
                 .accessibilityLabel("Refresh history")
+                Button("Cancel last job") {
+                    Task {
+                        guard let lastJobId else {
+                            status = "No job to cancel"
+                            return
+                        }
+                        status = (try? await pairedClient.cancel(jobId: lastJobId)) ?? "Pairing required"
+                    }
+                }
+                .accessibilityLabel("Cancel last job")
                 Text("Role \(role.rawValue) at \(client.baseURL.absoluteString)")
                 Spacer()
             }

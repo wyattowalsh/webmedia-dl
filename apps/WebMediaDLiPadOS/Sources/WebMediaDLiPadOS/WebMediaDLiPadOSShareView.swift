@@ -19,7 +19,8 @@ public struct WebMediaDLiPadOSShareView: View {
                 Task {
                     _ = try? await WebMediaDLLoopbackClient().submit(
                         locator: intake.locator,
-                        surface: .ipados
+                        surface: .ipados,
+                        intakeKind: "share_sheet"
                     )
                 }
             }

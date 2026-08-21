@@ -19,7 +19,11 @@ public struct WebMediaDLMacShareView: View {
                 .accessibilityLabel("Shared locator")
             Button("Send to WebMedia DL") {
                 Task {
-                    _ = try? await client.submit(locator: intake.locator, surface: .macos)
+                    _ = try? await client.submit(
+                        locator: intake.locator,
+                        surface: .macos,
+                        intakeKind: "share_sheet"
+                    )
                 }
             }
             .accessibilityLabel("Send to WebMedia DL")

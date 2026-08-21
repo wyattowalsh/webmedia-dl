@@ -16,21 +16,24 @@ def probe_media(path: Path, *, candidate_id: UUID | None = None) -> MediaProbe |
     binary = shutil.which("ffprobe")
     if binary is None:
         return None
-    completed = subprocess.run(
-        [
-            binary,
-            "-v",
-            "error",
-            "-print_format",
-            "json",
-            "-show_format",
-            "-show_streams",
-            str(path),
-        ],
-        capture_output=True,
-        timeout=30,
-        check=False,
-    )
+    try:
+        completed = subprocess.run(
+            [
+                binary,
+                "-v",
+                "error",
+                "-print_format",
+                "json",
+                "-show_format",
+                "-show_streams",
+                str(path),
+            ],
+            capture_output=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
     if completed.returncode != 0:
         return None
     try:

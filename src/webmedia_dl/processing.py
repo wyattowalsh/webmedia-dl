@@ -54,15 +54,29 @@ def execute_export_plan(
     queue: QueueStore,
     authorize,
     check_control: Callable[[], None] | None = None,
+    existing: dict[str, tuple[Artifact, Path]] | None = None,
+    skip_operation_ids: set[str] | None = None,
+    on_progress: Callable[[Operation, Artifact | None], None] | None = None,
 ) -> list[tuple[Artifact, Path]]:
     """Run non-identity operations. Independent ops fail without invalidating siblings."""
     produced: list[tuple[Artifact, Path]] = [(source, source_path)]
     artifacts: dict[str, tuple[Artifact, Path]] = {source.artifact_id: (source, source_path)}
+    seen = {source.artifact_id}
+    if existing:
+        for key, pair in existing.items():
+            artifacts[key] = pair
+            artifact, _path = pair
+            if artifact.artifact_id not in seen:
+                produced.append(pair)
+                seen.add(artifact.artifact_id)
+    skip = skip_operation_ids or set()
     staging.mkdir(parents=True, exist_ok=True)
     queue.set_state(job_id, JobState.EXPORTING)
     for operation in ordered_operations(plan):
         if check_control is not None:
             check_control()
+        if operation.operation_id in skip and operation.operation_id in artifacts:
+            continue
         if operation.op_type == "identity.copy":
             artifacts[operation.operation_id] = (source, source_path)
             queue.emit(
@@ -70,6 +84,8 @@ def execute_export_plan(
                 EventType.OPERATION_COMPLETED,
                 {"operation_id": operation.operation_id, "op_type": operation.op_type},
             )
+            if on_progress is not None:
+                on_progress(operation, source)
             continue
         try:
             current, current_path = _resolve_input(operation, artifacts, source, source_path)
@@ -133,6 +149,8 @@ def execute_export_plan(
                     "role": role.value,
                 },
             )
+            if on_progress is not None:
+                on_progress(operation, derivative)
         except (PauseRequested, CancelledError):
             raise
         except WebMediaError as exc:
@@ -141,8 +159,6 @@ def execute_export_plan(
                 EventType.OPERATION_FAILED,
                 {"operation_id": operation.operation_id, "message": str(exc)},
             )
-            if operation.optional:
-                continue
             continue
     return produced
 

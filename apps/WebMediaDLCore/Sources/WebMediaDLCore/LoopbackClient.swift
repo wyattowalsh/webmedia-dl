@@ -188,6 +188,44 @@ public struct WebMediaDLLoopbackClient: Sendable {
     public func artifacts() async throws -> String {
         try await send(artifactsRequest())
     }
+
+    public func cancel(jobId: UUID) async throws -> String {
+        try await send(cancelRequest(jobId: jobId))
+    }
+
+    public func pauseJob(jobId: UUID) async throws -> String {
+        try await send(pauseJobRequest(jobId: jobId))
+    }
+
+    public func resumeJob(jobId: UUID) async throws -> String {
+        try await send(resumeJobRequest(jobId: jobId))
+    }
+
+    public func provenance(artifactId: String) async throws -> String {
+        let encoded = artifactId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? artifactId
+        let url = baseURL
+            .appendingPathComponent("v1/artifacts")
+            .appendingPathComponent(encoded)
+            .appendingPathComponent("provenance")
+        return try await send(authorized(url))
+    }
+
+    public static func jobId(from response: String) -> UUID? {
+        guard let start = response.firstIndex(of: "{") else { return nil }
+        let json = String(response[start...])
+        guard let data = json.data(using: .utf8),
+              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else {
+            return nil
+        }
+        if let job = root["job"] as? [String: Any], let value = job["job_id"] as? String {
+            return UUID(uuidString: value)
+        }
+        if let value = root["job_id"] as? String {
+            return UUID(uuidString: value)
+        }
+        return nil
+    }
 }
 
 /// Photos / Files / Share destinations require an explicit user-approved root.

@@ -10,7 +10,8 @@
         "intent",
         "cli",
         "browser_evidence",
-        "live_manifest"
+        "live_manifest",
+        "speak"
       ],
       "title": "IntakeKind",
       "type": "string"

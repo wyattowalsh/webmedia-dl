@@ -1,7 +1,7 @@
 import AppIntents
 import WebMediaDLCore
 
-/// visionOS App Intent: share or paste a URL to the paired Mac worker.
+/// visionOS App Intent: share, paste, or speak a URL to the paired Mac worker.
 public struct WebMediaDLVisionSubmitURLIntent: AppIntent {
     public static var title: LocalizedStringResource = "Send to WebMedia DL"
 
@@ -16,7 +16,21 @@ public struct WebMediaDLVisionSubmitURLIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let client = WebMediaDLLoopbackClient()
-        _ = try await client.submit(locator: locator, surface: .visionos)
+        _ = try await client.submit(locator: locator, surface: .visionos, intakeKind: "intent")
         return .result()
+    }
+}
+
+public struct WebMediaDLVisionShortcuts: AppShortcutsProvider {
+    public static var appShortcuts: [AppShortcut] {
+        AppShortcut(
+            intent: WebMediaDLVisionSubmitURLIntent(),
+            phrases: [
+                "Send this URL to \(.applicationName)",
+                "Speak a media URL to \(.applicationName)",
+            ],
+            shortTitle: "Send to WebMedia DL",
+            systemImageName: "arrow.down.circle"
+        )
     }
 }

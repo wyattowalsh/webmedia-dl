@@ -5,5 +5,5 @@
 - Implement `build-webmedia-dl-v1` Python worker, CLI, schemas, tests, and overlay.
 - Cooperative per-job pause checkpoints, mixed-media failure containment, and
   Mac-forwarded watchOS/tvOS companion messages.
-- Local support-bundle export, Safari loopback POST, and pairing headers on
-  Apple loopback clients.
+- Speak/Siri intake, per-operation export checkpoints, HLS MAP/BYTERANGE,
+  DASH SegmentTimeline recording, and in-flight provider cancel.

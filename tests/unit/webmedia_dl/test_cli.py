@@ -204,3 +204,49 @@ def test_package_extensions_writes_fixed_zips(tmp_path: Path) -> None:
     for item in payload["archives"]:
         assert Path(item["path"]).is_file()
         assert item["sha256"]
+
+
+def test_speak_history_artifacts_provenance_and_queue(tmp_path: Path, png_bytes: bytes) -> None:
+    media = tmp_path / "hero.png"
+    media.write_bytes(png_bytes)
+    data = tmp_path / "data"
+    spoken = runner.invoke(
+        app,
+        ["speak", "https://cdn.example.com/hero.png", "--data-dir", str(data), "--no-wait"],
+    )
+    assert spoken.exit_code == 0
+    assert json.loads(spoken.stdout)["job"]["source"]["kind"] == "speak"
+    submitted = runner.invoke(app, ["submit", str(media), "--data-dir", str(data)])
+    assert submitted.exit_code == 0
+    job_id = json.loads(submitted.stdout)["job"]["job_id"]
+    shown = runner.invoke(app, ["job", job_id, "--data-dir", str(data)])
+    assert shown.exit_code == 0
+    history = runner.invoke(app, ["history", "--data-dir", str(data)])
+    assert history.exit_code == 0
+    listed = runner.invoke(app, ["artifacts", "--data-dir", str(data)])
+    assert listed.exit_code == 0
+    artifacts = json.loads(listed.stdout)
+    assert artifacts
+    proven = runner.invoke(
+        app, ["provenance", artifacts[0]["artifact_id"], "--data-dir", str(data)]
+    )
+    assert proven.exit_code == 0
+    missing = runner.invoke(app, ["provenance", "sha256:dead", "--data-dir", str(data)])
+    assert missing.exit_code == 1
+    paused = runner.invoke(app, ["pause", "--queue", "--data-dir", str(data)])
+    assert json.loads(paused.stdout)["paused"] is True
+    resumed = runner.invoke(app, ["resume", "--queue", "--data-dir", str(data)])
+    assert json.loads(resumed.stdout)["paused"] is False
+    empty = runner.invoke(app, ["run-next", "--data-dir", str(tmp_path / "empty-queue")])
+    assert json.loads(empty.stdout)["job"] is None
+    (tmp_path / "yt-dlp-archive.txt").write_text("id\n", encoding="utf-8")
+    original = (tmp_path / "yt-dlp-archive.txt").read_bytes()
+    applied = runner.invoke(app, ["migrate-apply", str(tmp_path)])
+    assert applied.exit_code == 0
+    assert (tmp_path / "yt-dlp-archive.txt").read_bytes() == original
+    empty_paste = runner.invoke(app, ["paste", "--data-dir", str(data)], input="\n")
+    assert empty_paste.exit_code == 1
+    empty_speak = runner.invoke(app, ["speak", "--data-dir", str(data)], input="\n")
+    assert empty_speak.exit_code == 1
+    cancel_done = runner.invoke(app, ["cancel", job_id, "--data-dir", str(data)])
+    assert cancel_done.exit_code == 1

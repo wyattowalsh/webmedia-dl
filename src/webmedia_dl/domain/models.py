@@ -62,6 +62,7 @@ class MediaSource(StrictModel):
             IntakeKind.CLI,
             IntakeKind.BROWSER_EVIDENCE,
             IntakeKind.LIVE_MANIFEST,
+            IntakeKind.SPEAK,
         }
         if self.kind in url_kinds and self.local_path is not None:
             msg = "A source URL never becomes a filesystem path."

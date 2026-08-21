@@ -60,6 +60,9 @@ def test_apple_app_shells_exist() -> None:
     ).read_text(encoding="utf-8")
     assert "Not a subprocess worker" in watch
     assert "yt-dlp" not in watch
+    assert "Cancel last job" in watch or "Cancel" in watch
+    assert "Resume" in watch
+    assert "Queue status" in watch
     safari_handler = (root / "extensions/safari/SafariWebExtensionHandler.swift").read_text(
         encoding="utf-8"
     )
@@ -81,6 +84,8 @@ def test_apple_app_shells_exist() -> None:
         encoding="utf-8"
     )
     assert "Not a subprocess worker" in tv
+    assert "Cancel last job" in tv
+    assert "Queue status" in tv
     ipad = (
         root / "apps/WebMediaDLiPadOS/Sources/WebMediaDLiPadOS/WebMediaDLiPadOSRootView.swift"
     ).read_text(encoding="utf-8")
@@ -103,6 +108,14 @@ def test_apple_app_shells_exist() -> None:
         root / "apps/WebMediaDLMac/Sources/WebMediaDLMac/WebMediaDLMacSubmitURLIntent.swift"
     ).read_text(encoding="utf-8")
     assert "await client.submit" in mac_intent
+    assert "AppShortcutsProvider" in mac_intent
+    assert "Speak a media URL" in mac_intent
+    assert 'intakeKind: "share_sheet"' in mac_share
+    assert 'intakeKind: "share_sheet"' in ios_share
+    assert "Cancel last job" in mac
+    assert "func jobId(from" in (
+        root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/LoopbackClient.swift"
+    ).read_text(encoding="utf-8")
 
 
 def test_browser_extension_trees() -> None:

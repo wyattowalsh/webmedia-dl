@@ -49,6 +49,7 @@ class IntakeKind(StrEnum):
     CLI = "cli"
     BROWSER_EVIDENCE = "browser_evidence"
     LIVE_MANIFEST = "live_manifest"
+    SPEAK = "speak"
 
 
 class Surface(StrEnum):

@@ -105,7 +105,7 @@ def submit(
     wait: Annotated[bool, typer.Option("--wait/--no-wait")] = True,
     kind: Annotated[
         IntakeKind | None,
-        typer.Option("--kind", help="Override intake kind: url, file, paste, drop"),
+        typer.Option("--kind", help="Override intake kind: url, file, paste, drop, speak, intent"),
     ] = None,
 ) -> None:
     """Share, paste, or select a source. Runs the typed job pipeline."""
@@ -179,6 +179,45 @@ def paste(
         local_user_confirmed=True,
         wait=wait,
         intake_kind=IntakeKind.PASTE,
+    )
+    events = [event.model_dump(mode="json") for event in pipeline.queue.events_for(job.job_id)]
+    typer.echo(
+        json.dumps({"job": job.model_dump(mode="json"), "events": events}, indent=2, default=str)
+    )
+    if job.error:
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def speak(
+    locator: Annotated[
+        str | None,
+        typer.Argument(help="Spoken or dictated https URL. Reads stdin when omitted."),
+    ] = None,
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+    dest: Annotated[Path | None, typer.Option("--dest")] = None,
+    wait: Annotated[bool, typer.Option("--wait/--no-wait")] = True,
+) -> None:
+    """Voice/Siri intake. The locator is a URL, never a filesystem path."""
+    text = (locator or sys.stdin.read()).strip()
+    if not text:
+        typer.echo("Speak intake requires a URL argument or stdin.")
+        raise typer.Exit(code=1)
+    intent = ExportIntent()
+    if dest is not None:
+        intent = ExportIntent(
+            destination_kind=DestinationKind.USER_APPROVED_PATH,
+            destination_path=str(dest.resolve()),
+            approved_roots=[str(dest.resolve())],
+        )
+    pipeline = _pipeline(data_dir)
+    job = pipeline.submit(
+        text,
+        surface=Surface.CLI,
+        intent=intent,
+        local_user_confirmed=True,
+        wait=wait,
+        intake_kind=IntakeKind.SPEAK,
     )
     events = [event.model_dump(mode="json") for event in pipeline.queue.events_for(job.job_id)]
     typer.echo(

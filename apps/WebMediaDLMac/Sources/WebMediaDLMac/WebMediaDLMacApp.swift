@@ -18,6 +18,7 @@ struct MacRootView: View {
     @State private var status = "Ready"
     @State private var historyText = "Jobs appear after the loopback worker accepts them."
     @State private var companionLocator = ""
+    @State private var lastJobId: UUID?
     private let role = WebMediaDLClientRole.fullWorker
     private let bridge = WebMediaDLContinuityBridge()
 
@@ -71,6 +72,34 @@ struct MacRootView: View {
                         }
                     }
                     .accessibilityLabel("Resume queue")
+                    Button("Cancel last job") {
+                        Task {
+                            guard let lastJobId else {
+                                status = "No job to cancel"
+                                return
+                            }
+                            do {
+                                status = try await WebMediaDLLoopbackClient(token: token).cancel(jobId: lastJobId)
+                            } catch {
+                                status = error.localizedDescription
+                            }
+                        }
+                    }
+                    .accessibilityLabel("Cancel last job")
+                    Button("Pause last job") {
+                        Task {
+                            guard let lastJobId else {
+                                status = "No job to pause"
+                                return
+                            }
+                            do {
+                                status = try await WebMediaDLLoopbackClient(token: token).pauseJob(jobId: lastJobId)
+                            } catch {
+                                status = error.localizedDescription
+                            }
+                        }
+                    }
+                    .accessibilityLabel("Pause last job")
                 }
                 Section("Pairing") {
                     TextField("Pairing id to confirm", text: $pairingId)
@@ -125,6 +154,7 @@ struct MacRootView: View {
         let client = WebMediaDLLoopbackClient(token: token)
         do {
             status = try await client.submit(locator: locator, surface: .macos)
+            lastJobId = WebMediaDLLoopbackClient.jobId(from: status)
             historyText = try await client.history()
         } catch {
             status = error.localizedDescription
@@ -140,6 +170,7 @@ struct MacRootView: View {
                 surface: .macos,
                 intakeKind: "drop"
             )
+            lastJobId = WebMediaDLLoopbackClient.jobId(from: status)
             historyText = try await client.history()
         } catch {
             status = error.localizedDescription

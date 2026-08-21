@@ -45,6 +45,8 @@ def test_relative_segment_urls_join_base() -> None:
 def test_encrypted_master_refused_before_fetch(tmp_path: Path) -> None:
     text = '#EXTM3U\n#EXT-X-KEY:METHOD=SAMPLE-AES,URI="https://example.com/key"\nseg.ts\n'
     with pytest.raises(DrmRefused):
+        inspect_manifest(text)
+    with pytest.raises(DrmRefused):
         record_clear_stream(
             text,
             "https://cdn.example.com/live.m3u8",

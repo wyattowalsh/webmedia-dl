@@ -8,6 +8,7 @@ public struct WebMediaDLWatchRootView: View {
     private let bridge = WebMediaDLContinuityBridge()
     @State private var locator = ""
     @State private var status = "Idle"
+    @State private var lastJobId: String?
 
     public init() {}
 
@@ -27,10 +28,22 @@ public struct WebMediaDLWatchRootView: View {
                 Task { await send(kind: "history") }
             }
             .accessibilityLabel("Job history")
+            Button("Status") {
+                Task { await send(kind: "status") }
+            }
+            .accessibilityLabel("Queue status")
             Button("Pause") {
                 Task { await send(kind: "pause") }
             }
             .accessibilityLabel("Pause current job")
+            Button("Resume") {
+                Task { await send(kind: "resume") }
+            }
+            .accessibilityLabel("Resume queue")
+            Button("Cancel") {
+                Task { await send(kind: "cancel", jobId: lastJobId) }
+            }
+            .accessibilityLabel("Cancel last job")
         }
         .navigationTitle("WebMedia DL")
         .accessibilityLabel("WebMedia DL watch capture and status")
@@ -41,8 +54,11 @@ public struct WebMediaDLWatchRootView: View {
     }
 
     @MainActor
-    private func send(kind: String, locator: String? = nil) async {
-        let message = bridge.message(kind: kind, locator: locator)
+    private func send(kind: String, locator: String? = nil, jobId: String? = nil) async {
+        let message = bridge.message(kind: kind, locator: locator, jobId: jobId)
         status = (try? await bridge.send(message)) ?? message.kind
+        if kind == "capture", let parsed = WebMediaDLLoopbackClient.jobId(from: status) {
+            lastJobId = parsed.uuidString
+        }
     }
 }

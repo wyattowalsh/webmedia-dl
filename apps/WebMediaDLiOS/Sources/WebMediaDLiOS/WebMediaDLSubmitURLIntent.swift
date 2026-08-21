@@ -1,7 +1,7 @@
 import AppIntents
 import WebMediaDLCore
 
-/// iOS App Intent: share or paste a URL to the paired Mac worker.
+/// iOS App Intent: share, paste, or speak a URL to the paired Mac worker.
 public struct WebMediaDLSubmitURLIntent: AppIntent {
     public static var title: LocalizedStringResource = "Send to WebMedia DL"
 
@@ -16,9 +16,23 @@ public struct WebMediaDLSubmitURLIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let client = WebMediaDLLoopbackClient()
-        _ = try await client.submit(locator: locator, surface: .ios)
+        _ = try await client.submit(locator: locator, surface: .ios, intakeKind: "intent")
         let intake = WebMediaDLShareIntake(locator: locator)
         _ = intake.canPublishToPhotos
         return .result()
+    }
+}
+
+public struct WebMediaDLiOSShortcuts: AppShortcutsProvider {
+    public static var appShortcuts: [AppShortcut] {
+        AppShortcut(
+            intent: WebMediaDLSubmitURLIntent(),
+            phrases: [
+                "Send this URL to \(.applicationName)",
+                "Speak a media URL to \(.applicationName)",
+            ],
+            shortTitle: "Send to WebMedia DL",
+            systemImageName: "arrow.down.circle"
+        )
     }
 }

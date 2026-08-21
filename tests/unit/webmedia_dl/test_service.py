@@ -82,3 +82,38 @@ def test_pair_and_envelope_and_plan(tmp_path: Path, png_bytes: bytes) -> None:
     paused = client.post("/v1/queue/pause", headers=headers)
     assert paused.json()["paused"] is True
     client.post("/v1/queue/resume", headers=headers)
+
+
+def test_job_detail_companion_and_provenance(tmp_path: Path, png_bytes: bytes) -> None:
+    app = create_app(tmp_path)
+    token = load_or_create_token(tmp_path)
+    client = TestClient(app)
+    headers = {"Authorization": f"Bearer {token}"}
+    media = tmp_path / "a.png"
+    media.write_bytes(png_bytes)
+    created = client.post("/v1/jobs", json={"locator": str(media)}, headers=headers)
+    job_id = created.json()["job"]["job_id"]
+    detail = client.get(f"/v1/jobs/{job_id}", headers=headers)
+    assert detail.status_code == 200
+    assert "artifact_ids" in detail.json()
+    missing = client.get("/v1/jobs/00000000-0000-0000-0000-000000000000", headers=headers)
+    assert missing.status_code == 404
+    artifacts = client.get("/v1/artifacts", headers=headers).json()
+    proven = client.get(
+        f"/v1/artifacts/{artifacts[0]['artifact_id']}/provenance",
+        headers=headers,
+    )
+    assert proven.status_code == 200
+    unknown = client.get("/v1/artifacts/sha256:nope/provenance", headers=headers)
+    assert unknown.status_code == 404
+    companion = client.post(
+        "/v1/companion",
+        headers=headers,
+        json={"kind": "status", "nativeCommand": None, "subprocessWorker": False},
+    )
+    assert companion.status_code == 200
+    assert companion.json()["paused"] is False
+    cancelled = client.post(f"/v1/jobs/{job_id}/cancel", headers=headers)
+    assert cancelled.status_code == 400
+    nxt = client.post("/v1/queue/run-next", headers=headers)
+    assert nxt.status_code == 200

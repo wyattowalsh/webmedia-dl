@@ -1,7 +1,7 @@
 import AppIntents
 import WebMediaDLCore
 
-/// macOS App Intent: paste or share a URL to the local worker. No provider argv.
+/// macOS App Intent: paste, speak, or share a URL to the local worker. No provider argv.
 public struct WebMediaDLMacSubmitURLIntent: AppIntent {
     public static var title: LocalizedStringResource = "Send to WebMedia DL"
 
@@ -16,7 +16,22 @@ public struct WebMediaDLMacSubmitURLIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let client = WebMediaDLLoopbackClient()
-        _ = try await client.submit(locator: locator, surface: .macos)
+        _ = try await client.submit(locator: locator, surface: .macos, intakeKind: "intent")
         return .result()
+    }
+}
+
+public struct WebMediaDLMacShortcuts: AppShortcutsProvider {
+    public static var appShortcuts: [AppShortcut] {
+        AppShortcut(
+            intent: WebMediaDLMacSubmitURLIntent(),
+            phrases: [
+                "Send this URL to \(.applicationName)",
+                "Speak a media URL to \(.applicationName)",
+                "Download with \(.applicationName)",
+            ],
+            shortTitle: "Send to WebMedia DL",
+            systemImageName: "arrow.down.circle"
+        )
     }
 }
