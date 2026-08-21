@@ -47,7 +47,32 @@ public struct WebMediaDLPhotoKitDestination: Sendable {
     }
 }
 
-/// Clipboard text becomes a URL locator. A URL never becomes a filesystem path.
+/// Extract share-sheet locators. HTTPS stays a URL; file paths use drop intake.
+public enum WebMediaDLShareItemExtractor {
+    public static func locators(fromShared values: [String]) -> [String] {
+        values.compactMap { raw in
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.lowercased().hasPrefix("http://") || trimmed.lowercased().hasPrefix("https://") {
+                return trimmed
+            }
+            return nil
+        }
+    }
+
+    public static func dropPaths(fromShared values: [String]) -> [String] {
+        values.compactMap { raw in
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.hasPrefix("file://"), let url = URL(string: trimmed) {
+                return url.path
+            }
+            if trimmed.hasPrefix("/") {
+                return trimmed
+            }
+            return nil
+        }
+    }
+}
+
 public struct WebMediaDLClipboardIntake: Sendable {
     public var text: String
 

@@ -9,6 +9,7 @@ public struct WebMediaDLTVRootView: View {
     @State private var locator = ""
     @State private var status = "Status: idle"
     @State private var lastJobId: String?
+    @State private var relay = WebMediaDLCompanionRelay()
 
     public init() {}
 
@@ -60,9 +61,10 @@ public struct WebMediaDLTVRootView: View {
     @MainActor
     private func send(kind: String, locator: String? = nil, jobId: String? = nil) async {
         let message = bridge.message(kind: kind, locator: locator, jobId: jobId)
-        status = (try? await bridge.send(message)) ?? message.kind
-        if kind == "capture", let parsed = WebMediaDLLoopbackClient.jobId(from: status) {
-            lastJobId = parsed.uuidString
+        relay.enqueue(message)
+        status = "Queued \(message.kind) for Mac relay"
+        if kind == "capture" {
+            lastJobId = nil
         }
     }
 }

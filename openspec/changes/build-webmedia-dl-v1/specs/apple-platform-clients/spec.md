@@ -23,6 +23,12 @@ subprocess runtime.
 - **WHEN** a watchOS worker requests `acquire.ytdlp`
 - **THEN** `CapabilityDenied` is raised because `subprocess_capable` is false
 
+#### Scenario: watch queues for Mac relay
+
+- **WHEN** watchOS or tvOS captures a URL
+- **THEN** the companion message is queued for Mac relay with `nativeCommand`
+  null and `subprocessWorker` false, and those surfaces do not open yt-dlp
+
 ### Requirement: Paired Mac confirmation
 
 Heavy work from iPhone, iPad, or visionOS SHALL run on the Mac worker only after an

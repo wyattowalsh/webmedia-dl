@@ -39,6 +39,26 @@ final class IdentityTests: XCTestCase {
         XCTAssertFalse(message.subprocessWorker)
         XCTAssertTrue(bridge.companionRequest().url?.absoluteString.contains("companion") ?? false)
         XCTAssertTrue(WebMediaDLContinuityBridge.allowedKinds.contains("history"))
+        var relay = WebMediaDLCompanionRelay()
+        relay.enqueue(message)
+        XCTAssertEqual(relay.pending.count, 1)
+        XCTAssertEqual(relay.drain().count, 1)
+        XCTAssertTrue(relay.pending.isEmpty)
+        XCTAssertEqual(
+            WebMediaDLShareItemExtractor.locators(fromShared: [
+                "https://example.com/a.mp4",
+                "file:///tmp/secret.png",
+            ]),
+            ["https://example.com/a.mp4"]
+        )
+        XCTAssertEqual(
+            WebMediaDLShareItemExtractor.dropPaths(fromShared: [
+                "https://example.com/a.mp4",
+                "file:///tmp/secret.png",
+                "/tmp/local.png",
+            ]),
+            ["/tmp/secret.png", "/tmp/local.png"]
+        )
     }
 
     func testPhotosDestinationRequiresApprovedRoot() {

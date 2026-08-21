@@ -19,6 +19,29 @@ ALLOWED_KINDS = frozenset(
 FORBIDDEN_KEYS = frozenset({"providerArgv", "extra_args", "argv", "yt-dlp", "ffmpeg", "gallery-dl"})
 
 
+class CompanionRelay:
+    """watchOS/tvOS queue until the Mac forwards messages to loopback."""
+
+    def __init__(self) -> None:
+        self._pending: list[dict[str, Any]] = []
+
+    def enqueue(self, payload: dict[str, Any]) -> dict[str, Any]:
+        message = validate_companion_message(payload)
+        self._pending.append(message)
+        return {
+            "queued": True,
+            "count": len(self._pending),
+            "kind": message["kind"],
+            "nativeCommand": None,
+            "subprocessWorker": False,
+        }
+
+    def drain(self) -> list[dict[str, Any]]:
+        items = list(self._pending)
+        self._pending.clear()
+        return items
+
+
 def companion_message(
     kind: str,
     *,

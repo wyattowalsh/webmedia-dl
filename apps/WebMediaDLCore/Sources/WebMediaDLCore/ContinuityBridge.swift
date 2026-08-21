@@ -31,6 +31,26 @@ public struct WebMediaDLCompanionMessage: Sendable, Equatable {
     }
 }
 
+/// watchOS/tvOS queue companion messages until the Mac forwards them to loopback.
+public struct WebMediaDLCompanionRelay: Sendable {
+    public var pending: [WebMediaDLCompanionMessage]
+
+    public init(pending: [WebMediaDLCompanionMessage] = []) {
+        self.pending = pending
+    }
+
+    public mutating func enqueue(_ message: WebMediaDLCompanionMessage) {
+        pending.append(message)
+    }
+
+    @discardableResult
+    public mutating func drain() -> [WebMediaDLCompanionMessage] {
+        let items = pending
+        pending = []
+        return items
+    }
+}
+
 public struct WebMediaDLContinuityBridge: Sendable {
     public static let loopbackURL = URL(string: "http://127.0.0.1:8765")!
     public static let allowedKinds: Set<String> = [
@@ -83,6 +103,8 @@ public struct WebMediaDLContinuityBridge: Sendable {
         return request
     }
 
+    /// Mac forwards a drained companion message to loopback. watchOS/tvOS enqueue
+    /// on `WebMediaDLCompanionRelay` instead of opening a subprocess worker.
     public func send(_ message: WebMediaDLCompanionMessage, token: String = "") async throws -> String {
         let request = companionRequest(
             token: token,

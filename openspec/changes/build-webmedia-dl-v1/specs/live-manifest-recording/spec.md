@@ -42,7 +42,18 @@ SHALL be polled for newly advertised segments under the profile byte bound.
 - **THEN** the recorded locator is the AdaptationSet BaseURL plus `v1` plus the
   template media path
 
-#### Scenario: dynamic MPD polling
+#### Scenario: highest-bandwidth video representation
+
+- **WHEN** an MPD has audio and video AdaptationSets with multiple bandwidths
+- **THEN** recording uses the highest-bandwidth video Representation and does not
+  concatenate audio segments into that source
+
+#### Scenario: HLS master highest bandwidth
+
+- **WHEN** a master playlist lists multiple `EXT-X-STREAM-INF` variants
+- **THEN** recording follows the highest `BANDWIDTH` media playlist
+
+#### Scenario: dynamic MPD polls new segments
 
 - **WHEN** a dynamic MPD later advertises an additional segment
 - **THEN** recording concatenates only newly advertised parts and stops if

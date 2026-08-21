@@ -60,6 +60,9 @@ class ManifestPart(NamedTuple):
     length: int | None = None
 
 
+AddPart = Callable[[ManifestPart], None]
+
+
 def inspect_manifest(text: str) -> None:
     if _DASH_CONTENT_PROTECTION.search(text):
         msg = "DASH ContentProtection is refused."
@@ -269,7 +272,7 @@ def _is_directory_base(resolved: str) -> bool:
     return resolved.endswith("/") or not suffix
 
 
-def _collect_baseurls(text: str, current: str, add) -> str:
+def _collect_baseurls(text: str, current: str, add: AddPart) -> str:
     for href in _DASH_BASE_URL.findall(text):
         resolved = _join(current, href.strip())
         if _is_directory_base(resolved):
@@ -282,7 +285,7 @@ def _collect_baseurls(text: str, current: str, add) -> str:
 def _collect_segments(
     text: str,
     current: str,
-    add,
+    add: AddPart,
     seen_urls: set[str],
     *,
     representation: str | None = None,
@@ -340,60 +343,41 @@ def _strip_blocks(text: str, pattern: re.Pattern[str]) -> str:
     return "".join(chunks)
 
 
-def _collect_representation(
-    match: re.Match[str],
-    current: str,
-    add,
-    seen_urls: set[str],
-    *,
-    inherited_templates: str = "",
-) -> None:
-    rattrs = _attrs(match.group(1))
-    body = match.group(2) or ""
-    local_base = _collect_baseurls(body, current, add)
-    combined = body if _DASH_TEMPLATE.search(body) else f"{inherited_templates}{body}"
-    _collect_segments(
-        combined,
-        local_base,
-        add,
-        seen_urls,
-        representation=rattrs.get("id"),
-        bandwidth=rattrs.get("bandwidth"),
-    )
+def _preferred_hls_variant(text: str, base: str) -> str | None:
+    variants: list[tuple[int, str]] = []
+    pending: int | None = None
+    for line in text.splitlines():
+        stripped = line.strip()
+        match = re.search(r"#EXT-X-STREAM-INF:.*\bBANDWIDTH=(\d+)", stripped, flags=re.I)
+        if match:
+            pending = int(match.group(1))
+            continue
+        if pending is not None and stripped and not stripped.startswith("#"):
+            variants.append((pending, _join(base, stripped)))
+            pending = None
+    if not variants:
+        return None
+    return max(variants, key=lambda item: item[0])[1]
 
 
-def _dash_scope(text: str, base: str, add, seen_urls: set[str]) -> None:
-    representations = list(_REPRESENTATION.finditer(text))
-    prefix = text[: representations[0].start()] if representations else text
-    resolve_base = _collect_baseurls(prefix, base, add)
-    inherited = prefix if representations and _DASH_TEMPLATE.search(prefix) else ""
-    for rep in representations:
-        _collect_representation(rep, resolve_base, add, seen_urls, inherited_templates=inherited)
-    remainder = _strip_blocks(text, _REPRESENTATION) if representations else text
-    if representations:
-        resolve_base = _collect_baseurls(text[representations[-1].end() :], resolve_base, add)
-    _collect_segments(
-        remainder,
-        resolve_base,
-        add,
-        seen_urls,
-        include_templates=not representations,
-    )
+def _dash_kind(attrs: dict[str, str]) -> str:
+    blob = " ".join(
+        [
+            attrs.get("mimetype") or "",
+            attrs.get("contenttype") or "",
+            attrs.get("codecs") or "",
+        ]
+    ).lower()
+    video_tokens = ("video", "avc", "hev1", "hvc1", "vp9", "av01")
+    audio_tokens = ("audio", "mp4a", "opus", "ec-3", "ac-3")
+    if any(token in blob for token in video_tokens):
+        return "video"
+    if any(token in blob for token in audio_tokens):
+        return "audio"
+    return "unknown"
 
 
-def _dash_adaptation(text: str, base: str, add, seen_urls: set[str]) -> None:
-    without_rep = _strip_blocks(text, _REPRESENTATION)
-    as_base = _collect_baseurls(without_rep, base, add)
-    inherited = without_rep if _DASH_TEMPLATE.search(without_rep) else ""
-    representations = list(_REPRESENTATION.finditer(text))
-    if not representations:
-        _collect_segments(text, as_base, add, seen_urls)
-        return
-    for rep in representations:
-        _collect_representation(rep, as_base, add, seen_urls, inherited_templates=inherited)
-
-
-def _dash_parts(text: str, base: str) -> list[ManifestPart]:
+def _new_part_bucket() -> tuple[list[ManifestPart], set[str], AddPart]:
     parts: list[ManifestPart] = []
     seen: set[tuple[str, int | None, int | None]] = set()
     seen_urls: set[str] = set()
@@ -406,20 +390,143 @@ def _dash_parts(text: str, base: str) -> list[ManifestPart]:
         seen_urls.add(part.url)
         parts.append(part)
 
+    return parts, seen_urls, add
+
+
+def _collect_representation(
+    match: re.Match[str],
+    current: str,
+    add: AddPart,
+    seen_urls: set[str],
+    *,
+    inherited_templates: str = "",
+) -> tuple[int, str]:
+    rattrs = _attrs(match.group(1))
+    body = match.group(2) or ""
+    local_base = _collect_baseurls(body, current, add)
+    combined = body if _DASH_TEMPLATE.search(body) else f"{inherited_templates}{body}"
+    _collect_segments(
+        combined,
+        local_base,
+        add,
+        seen_urls,
+        representation=rattrs.get("id"),
+        bandwidth=rattrs.get("bandwidth"),
+    )
+    try:
+        bandwidth = int(rattrs.get("bandwidth") or 0)
+    except ValueError:
+        bandwidth = 0
+    return bandwidth, _dash_kind(rattrs)
+
+
+def _dash_scope_groups(text: str, base: str) -> list[tuple[int, str, list[ManifestPart]]]:
+    parts, seen_urls, add = _new_part_bucket()
+    representations = list(_REPRESENTATION.finditer(text))
+    prefix = text[: representations[0].start()] if representations else text
+    resolve_base = _collect_baseurls(prefix, base, add)
+    inherited = prefix if representations and _DASH_TEMPLATE.search(prefix) else ""
+    groups: list[tuple[int, str, list[ManifestPart]]] = []
+    for rep in representations:
+        bucket, bucket_urls, bucket_add = _new_part_bucket()
+        bandwidth, kind = _collect_representation(
+            rep, resolve_base, bucket_add, bucket_urls, inherited_templates=inherited
+        )
+        groups.append((bandwidth, kind, [*parts, *bucket] if parts else bucket))
+    remainder = _strip_blocks(text, _REPRESENTATION) if representations else text
+    if representations:
+        resolve_base = _collect_baseurls(text[representations[-1].end() :], resolve_base, add)
+    _collect_segments(
+        remainder,
+        resolve_base,
+        add,
+        seen_urls,
+        include_templates=not representations,
+    )
+    if groups:
+        return groups
+    return [(0, "unknown", parts)] if parts else []
+
+
+def _dash_adaptation_groups(
+    text: str, base: str, as_attrs: dict[str, str]
+) -> list[tuple[int, str, list[ManifestPart]]]:
+    without_rep = _strip_blocks(text, _REPRESENTATION)
+    parts, seen_urls, add = _new_part_bucket()
+    as_base = _collect_baseurls(without_rep, base, add)
+    inherited = without_rep if _DASH_TEMPLATE.search(without_rep) else ""
+    as_kind = _dash_kind(as_attrs)
+    representations = list(_REPRESENTATION.finditer(text))
+    if not representations:
+        _collect_segments(text, as_base, add, seen_urls)
+        return [(0, as_kind, parts)] if parts else []
+    groups: list[tuple[int, str, list[ManifestPart]]] = []
+    for rep in representations:
+        bucket, bucket_urls, bucket_add = _new_part_bucket()
+        bandwidth, kind = _collect_representation(
+            rep, as_base, bucket_add, bucket_urls, inherited_templates=inherited
+        )
+        groups.append(
+            (
+                bandwidth,
+                kind if kind != "unknown" else as_kind,
+                [*parts, *bucket] if parts else bucket,
+            )
+        )
+    return groups
+
+
+def _select_dash_group(
+    groups: list[tuple[int, str, list[ManifestPart]]],
+) -> list[ManifestPart]:
+    populated = [(bandwidth, kind, parts) for bandwidth, kind, parts in groups if parts]
+    if not populated:
+        return []
+    videos = [item for item in populated if item[1] == "video"]
+    pool = videos or [item for item in populated if item[1] == "audio"] or populated
+    return max(pool, key=lambda item: item[0])[2]
+
+
+def _dash_parts(text: str, base: str) -> list[ManifestPart]:
+    parts: list[ManifestPart] = []
+    seen: set[tuple[str, int | None, int | None]] = set()
+
+    def add(part: ManifestPart) -> None:
+        key = (part.url, part.start, part.length)
+        if key in seen:
+            return
+        seen.add(key)
+        parts.append(part)
+
     periods = list(_PERIOD.finditer(text))
     mpd_prefix = text[: periods[0].start()] if periods else _strip_blocks(text, _PERIOD)
-    mpd_base = _collect_baseurls(mpd_prefix, base, add)
+    shared, shared_urls, shared_add = _new_part_bucket()
+    mpd_base = _collect_baseurls(mpd_prefix, base, shared_add)
     scopes = [(match.group(2) or "") for match in periods] or [text]
+    groups: list[tuple[int, str, list[ManifestPart]]] = []
     for body in scopes:
         period_without_as = _strip_blocks(body, _ADAPTATION_SET)
-        period_base = _collect_baseurls(period_without_as, mpd_base, add)
+        period_base = _collect_baseurls(period_without_as, mpd_base, shared_add)
         adaptations = list(_ADAPTATION_SET.finditer(body))
         if not adaptations:
-            _dash_scope(body, period_base, add, seen_urls)
+            groups.extend(_dash_scope_groups(body, period_base))
             continue
-        _collect_segments(period_without_as, period_base, add, seen_urls)
+        _collect_segments(period_without_as, period_base, shared_add, shared_urls)
         for adaptation in adaptations:
-            _dash_adaptation(adaptation.group(2) or "", period_base, add, seen_urls)
+            groups.extend(
+                _dash_adaptation_groups(
+                    adaptation.group(2) or "",
+                    period_base,
+                    _attrs(adaptation.group(1)),
+                )
+            )
+    selected = _select_dash_group(groups) if groups else list(shared)
+    if not selected:
+        selected = list(shared)
+    elif groups:
+        selected = [*shared, *selected]
+    for part in selected:
+        add(part)
     return parts
 
 
@@ -463,13 +570,17 @@ def record_clear_stream(
         msg = "Clear live playlist contained no recordable segments."
         raise DiscoveryError(msg)
     first = parts[0].url
+    preferred = _preferred_hls_variant(playlist, playlist_url)
     if depth < 2 and (
-        first.endswith(".m3u8") or first.endswith(".mpd") or "#EXT-X-STREAM-INF" in playlist
+        preferred
+        or first.endswith(".m3u8")
+        or first.endswith(".mpd")
+        or "#EXT-X-STREAM-INF" in playlist
     ):
         nested = [
             item.url for item in parts if item.url.endswith(".m3u8") or item.url.endswith(".mpd")
         ]
-        target = nested[0] if nested else first
+        target = preferred or (nested[0] if nested else first)
         if should_stop is not None:
             should_stop()
         status, _, data = fetch(target)

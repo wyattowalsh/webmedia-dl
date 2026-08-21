@@ -20,14 +20,17 @@ def test_apple_app_shells_exist() -> None:
         "apps/WebMediaDLMac/Sources/WebMediaDLMac/WebMediaDLMacSubmitURLIntent.swift",
         "apps/WebMediaDLMac/Resources/Info.plist",
         "apps/WebMediaDLMac/ShareExtension/Info.plist",
+        "apps/WebMediaDLMac/ShareExtension/WebMediaDLMacShareExtension.swift",
         "apps/WebMediaDLiOS/Sources/WebMediaDLiOS/WebMediaDLiOSRootView.swift",
         "apps/WebMediaDLiOS/Sources/WebMediaDLiOS/WebMediaDLSubmitURLIntent.swift",
         "apps/WebMediaDLiOS/ShareExtension/Info.plist",
+        "apps/WebMediaDLiOS/ShareExtension/WebMediaDLiOSShareExtension.swift",
         "apps/WebMediaDLiPadOS/Sources/WebMediaDLiPadOS/WebMediaDLiPadOSRootView.swift",
         "apps/WebMediaDLiPadOS/Sources/WebMediaDLiPadOS/WebMediaDLiPadOSSubmitURLIntent.swift",
         "apps/WebMediaDLiPadOS/Sources/WebMediaDLiPadOS/WebMediaDLiPadOSShareView.swift",
         "apps/WebMediaDLiPadOS/Resources/Info.plist",
         "apps/WebMediaDLiPadOS/ShareExtension/Info.plist",
+        "apps/WebMediaDLiPadOS/ShareExtension/WebMediaDLiPadOSShareExtension.swift",
         "apps/WebMediaDLVision/Sources/WebMediaDLVision/WebMediaDLVisionRootView.swift",
         "apps/WebMediaDLVision/Sources/WebMediaDLVision/WebMediaDLVisionSubmitURLIntent.swift",
         "apps/WebMediaDLVision/Resources/Info.plist",
@@ -66,6 +69,7 @@ def test_apple_app_shells_exist() -> None:
     assert "Cancel last job" in watch or "Cancel" in watch
     assert "Resume" in watch
     assert "Queue status" in watch
+    assert "Mac relay" in watch
     safari_handler = (root / "extensions/safari/SafariWebExtensionHandler.swift").read_text(
         encoding="utf-8"
     )
@@ -81,6 +85,8 @@ def test_apple_app_shells_exist() -> None:
     assert "false" in continuity.lower() or "Bool { false }" in continuity
     assert "companion" in continuity.lower()
     assert "nativeCommand" in continuity
+    assert "WebMediaDLCompanionRelay" in continuity
+    assert "WebMediaDLContinuityBridge" in continuity
     mac = (root / "apps/WebMediaDLMac/Sources/WebMediaDLMac/WebMediaDLMacApp.swift").read_text(
         encoding="utf-8"
     )
@@ -92,6 +98,7 @@ def test_apple_app_shells_exist() -> None:
     assert "Not a subprocess worker" in tv
     assert "Cancel last job" in tv
     assert "Queue status" in tv
+    assert "Mac relay" in tv
     ipad = (
         root / "apps/WebMediaDLiPadOS/Sources/WebMediaDLiPadOS/WebMediaDLiPadOSRootView.swift"
     ).read_text(encoding="utf-8")
@@ -148,6 +155,13 @@ def test_apple_app_shells_exist() -> None:
     assert "WebMediaDLSecurityScopedBookmark" in destinations
     assert "libraryWriteAvailable" in destinations
     assert "exposesProviderConsole" in destinations
+    assert "WebMediaDLShareItemExtractor" in destinations
+    assert "fromShared" in destinations
+    mac_share_ext = (
+        root / "apps/WebMediaDLMac/ShareExtension/WebMediaDLMacShareExtension.swift"
+    ).read_text(encoding="utf-8")
+    assert "share_sheet" in mac_share_ext
+    assert "yt-dlp" not in mac_share_ext
 
 
 def test_browser_extension_trees() -> None:

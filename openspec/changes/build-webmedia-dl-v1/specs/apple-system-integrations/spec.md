@@ -39,3 +39,7 @@ to the loopback worker. Those adapters SHALL NOT run provider argv.
 #### Scenario: photos without approval
 - **WHEN** a share intake has no approved root
 - **THEN** `canPublishToPhotos` is false
+
+#### Scenario: share sheet url versus file
+- **WHEN** a share sheet supplies `https://example.com/a.mp4` and `file:///tmp/a.png`
+- **THEN** the HTTPS value is URL intake and the file URL is drop intake
