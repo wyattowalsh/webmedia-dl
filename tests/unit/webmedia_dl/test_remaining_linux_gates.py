@@ -269,6 +269,49 @@ def test_optional_dependent_skips_when_required_input_failed(
     assert all(item.role is ArtifactRole.SOURCE for item, _path in produced)
 
 
+def test_processing_skips_probe_require_pass_when_probe_missing(
+    tmp_path: Path, png_bytes: bytes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    src = tmp_path / "source.mp4"
+    src.write_bytes(png_bytes)
+    store = ArtifactStore(tmp_path / "data")
+    source = store.register(
+        src, role=ArtifactRole.SOURCE, media_kind=MediaKind.VIDEO, container="mp4"
+    )
+    queue = QueueStore(tmp_path / "data" / "queue")
+    job = _queue_job(queue, src)
+
+    def run(argv: list[str], _cwd: Path) -> tuple[int, bytes, bytes]:
+        Path(argv[-1]).write_bytes(b"mkv")
+        return 0, b"", b""
+
+    monkeypatch.setattr("webmedia_dl.processing.validate_artifact", lambda *_a, **_k: [])
+    monkeypatch.setattr("webmedia_dl.processing.require_pass", lambda *_a, **_k: None)
+    monkeypatch.setattr("webmedia_dl.processing.probe_media", lambda *_a, **_k: None)
+    remux = Operation(
+        operation_id="remux",
+        op_type="ffmpeg.remux",
+        capability_id="process.ffmpeg.remux",
+        input_artifact_ids=[source.artifact_id],
+        output_role=ArtifactRole.DERIVATIVE,
+        loss_class="container_only",
+        validator_ids=[],
+        typed_inputs={"container": "mkv"},
+    )
+    produced = execute_export_plan(
+        ExportPlan(job_id=job.job_id, operations=[remux]),
+        job_id=job.job_id,
+        source=source,
+        source_path=store.resolve(source),
+        store=store,
+        runtime=ProviderRuntime(which=lambda name: f"/usr/bin/{name}", run=run),
+        staging=tmp_path / "stage-probe",
+        queue=queue,
+        authorize=lambda _cap: None,
+    )
+    assert any(item.role is ArtifactRole.DERIVATIVE for item, _path in produced)
+
+
 def test_artifact_dest_exists_skip_and_sha_mismatch(tmp_path: Path, png_bytes: bytes) -> None:
     store = ArtifactStore(tmp_path / "store")
     path = tmp_path / "a.png"
@@ -294,6 +337,38 @@ def test_artifact_reregister_empty_provenance(tmp_path: Path, png_bytes: bytes) 
         provenance={"job": "2"},
     )
     assert again.provenance.get("occurrences")
+
+
+def test_artifact_reregister_occurrences_only_and_lineage_cycle(
+    tmp_path: Path, png_bytes: bytes
+) -> None:
+    store = ArtifactStore(tmp_path / "occ")
+    path = tmp_path / "a.png"
+    path.write_bytes(png_bytes)
+    store.register(
+        path,
+        role=ArtifactRole.SOURCE,
+        media_kind=MediaKind.IMAGE,
+        provenance={"occurrences": []},
+    )
+    store.register(path, role=ArtifactRole.SOURCE, media_kind=MediaKind.IMAGE, provenance=None)
+    parent_path = tmp_path / "b.png"
+    parent_path.write_bytes(png_bytes + b"b")
+    child_path = tmp_path / "c.png"
+    child_path.write_bytes(png_bytes + b"c")
+    parent = store.register(parent_path, role=ArtifactRole.DERIVATIVE, media_kind=MediaKind.IMAGE)
+    child = store.register(
+        child_path,
+        role=ArtifactRole.DERIVATIVE,
+        media_kind=MediaKind.IMAGE,
+        parent_ids=[parent.artifact_id],
+    )
+    store._records[parent.artifact_id] = parent.model_copy(
+        update={"parent_ids": [child.artifact_id]}
+    )
+    ids = [item.artifact_id for item in store.lineage(child.artifact_id)]
+    assert child.artifact_id in ids
+    assert parent.artifact_id in ids
 
 
 def test_http_suffix_content_type_is_case_insensitive() -> None:

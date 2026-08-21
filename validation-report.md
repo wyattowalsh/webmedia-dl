@@ -2,8 +2,8 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 360 tests |
-| `uv run pytest --cov` | PASS | 96.55% (`fail_under` 85) |
+| `uv run pytest` | PASS | 381 tests |
+| `uv run pytest --cov` | PASS | 97.13% (`fail_under` 85) |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
 | `uv run ty check` | PASS | |
@@ -30,6 +30,16 @@
 | Cancel during acquire | PASS | mixed-media HTTP cancel during the first kind raises closed to `cancelled` without publishing |
 | All-kind DRM | PASS | every candidate `DrmRefused` re-raises the original error instead of a generic empty-acquisition message |
 | SOURCE validation skip | PASS | a failed SOURCE validation still publishes a validated remux derivative |
+| Export pause checkpoint | PASS | pause during remux planning leaves `stage=exporting` and completed keep-original ops |
+| Already-acquired kind skip | PASS | resume with `acquired_kinds=["image"]` fetches remaining video only |
+| Duplicate failed-kind | PASS | a kind already recorded in the checkpoint is not appended twice |
+| DERIVATIVE validation skip | PASS | a failed remux validation still publishes the original SOURCE |
+| Optional dependent skip | PASS | an optional op whose required input failed is skipped without failing the plan |
+| Artifact store 100% | PASS | dest-exists skip, sha mismatch, empty provenance merge, occurrences-only seed, lineage cycles |
+| DASH video/audio split | PASS | `record_kind_streams` writes separate VIDEO and AUDIO artifacts; `_period_parts` prefers video |
+| Live poll stop + audio 400 | PASS | `should_stop` after the first live round raises without refetch; HLS audio playlist HTTP 400 fails closed |
+| HTML gallery/embed | PASS | picture/srcset, embed/object, AMP media, JSON-LD URL lists, javascript: skip, three-image gallery |
+| CLI/schema `__main__` | PASS | `webmedia-dl alias-note` via `run_path` and `python -m webmedia_dl.schema_export` |
 | Live aggregate bound + kinds | PASS | cumulative byte budget; separate VIDEO/AUDIO artifacts; audio-only DASH uses the highest-bandwidth audio Representation; SegmentBase ranges including mediaRange; multi-period occurrences; empty recordings and HTTP 400 playlists fail closed; nested/audio `should_stop` aborts before further fetches |
 | DASH AdaptationSet + live poll | PASS | self-closing Representation inherits AdaptationSet BaseURL/template; dynamic MPD/HLS polls new segments; later ContentProtection/AES-128 stops without fetching protected parts; `startNumber` and `$$` template tokens expand without a phantom `$Number=1` segment |
 | Container gate | PASS | ffprobe evidence required; filename suffix cannot PASS; `BLOCKED`/empty evidence cannot publish |
