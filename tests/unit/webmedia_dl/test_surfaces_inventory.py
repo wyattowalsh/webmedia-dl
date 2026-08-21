@@ -34,6 +34,8 @@ def test_apple_app_shells_exist() -> None:
         "apps/WebMediaDLVision/Sources/WebMediaDLVision/WebMediaDLVisionRootView.swift",
         "apps/WebMediaDLVision/Sources/WebMediaDLVision/WebMediaDLVisionSubmitURLIntent.swift",
         "apps/WebMediaDLVision/Resources/Info.plist",
+        "apps/WebMediaDLVision/ShareExtension/Info.plist",
+        "apps/WebMediaDLVision/ShareExtension/WebMediaDLVisionShareExtension.swift",
         "apps/WebMediaDLWatch/Sources/WebMediaDLWatch/WebMediaDLWatchRootView.swift",
         "apps/WebMediaDLTV/Sources/WebMediaDLTV/WebMediaDLTVRootView.swift",
         "apps/WebMediaDLCore/Sources/WebMediaDLCore/LoopbackClient.swift",
@@ -146,6 +148,19 @@ def test_apple_app_shells_exist() -> None:
     assert "Paste from clipboard" in ios
     assert "Pause last job" in ios
     assert "Resume last job" in ios
+    assert "Approved Files destination" in ios
+    assert "Approved Files destination" in ipad
+    assert "Approved Files destination" in vision
+    assert "NSExtensionActivationRule" in (
+        root / "apps/WebMediaDLMac/ShareExtension/Info.plist"
+    ).read_text(encoding="utf-8")
+    assert "NSExtensionActivationRule" in (
+        root / "apps/WebMediaDLVision/ShareExtension/Info.plist"
+    ).read_text(encoding="utf-8")
+    assert "sealedCompanionRequest" in (
+        root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/LoopbackClient.swift"
+    ).read_text(encoding="utf-8")
+    assert "sealedCompanionRequest" in continuity
     assert "func jobId(from" in (
         root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/LoopbackClient.swift"
     ).read_text(encoding="utf-8")

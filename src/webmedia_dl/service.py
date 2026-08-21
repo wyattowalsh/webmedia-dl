@@ -71,13 +71,18 @@ class OpenEnvelopeBody(BaseModel):
 
 
 class CompanionBody(BaseModel):
-    kind: str
+    kind: str | None = None
     locator: str | None = None
     job_id: UUID | None = None
     jobId: UUID | None = None
     surface: Surface | None = None
     nativeCommand: str | None = None
     subprocessWorker: bool = False
+    pairing_id: UUID | None = None
+    session_key: str | None = None
+    nonce: str | None = None
+    ciphertext: str | None = None
+    mac: str | None = None
 
 
 def _token_file(data_dir: Path) -> Path:
@@ -308,12 +313,45 @@ def create_app(data_dir: Path | None = None, *, enable_dispatcher: bool = False)
                 status_code=403,
                 detail="Companion messages are forwarded by the Mac worker only.",
             )
-        payload = body.model_dump(exclude_none=True)
-        if body.jobId is not None and payload.get("job_id") is None:
-            payload["job_id"] = str(body.jobId)
+        sealed = bool(body.nonce and body.ciphertext and body.mac)
         try:
+            if sealed:
+                if body.pairing_id is None or not body.session_key:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Sealed companion messages require a confirmed pairing.",
+                    )
+                pipeline.pairing.require_confirmed(body.pairing_id, body.session_key)
+                opened = open_payload(
+                    body.session_key,
+                    {
+                        "nonce": body.nonce or "",
+                        "ciphertext": body.ciphertext or "",
+                        "mac": body.mac or "",
+                    },
+                    ledger=pipeline.pairing.ledger,
+                )
+                if not isinstance(opened, dict):
+                    raise HTTPException(
+                        status_code=400, detail="Companion envelope payload is invalid."
+                    )
+                payload = opened
+            else:
+                if not body.kind:
+                    raise HTTPException(status_code=400, detail="Companion kind is required.")
+                payload = {
+                    "kind": body.kind,
+                    "locator": body.locator,
+                    "job_id": str(body.job_id or body.jobId) if body.job_id or body.jobId else None,
+                    "nativeCommand": body.nativeCommand,
+                    "subprocessWorker": body.subprocessWorker,
+                }
+                if body.surface is not None:
+                    payload["surface"] = body.surface.value
             validate_companion_message(payload)
             return pipeline.handle_companion(payload)
+        except DelegationDenied as exc:
+            raise HTTPException(status_code=401, detail=str(exc)) from exc
         except WebMediaError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 

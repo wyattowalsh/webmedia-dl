@@ -230,6 +230,47 @@ def test_dash_period_representations_pick_highest_video() -> None:
     assert urls == ["https://cdn.example.com/v2.m4s"]
 
 
+def test_dash_multiperiod_concatenates_selected_video() -> None:
+    text = """
+    <MPD>
+      <Period>
+        <AdaptationSet contentType="video">
+          <SegmentTemplate media="p1/$RepresentationID$.m4s" startNumber="1"/>
+          <Representation id="v1" bandwidth="800000" mimeType="video/mp4"/>
+          <Representation id="v2" bandwidth="1600000" mimeType="video/mp4"/>
+        </AdaptationSet>
+      </Period>
+      <Period>
+        <AdaptationSet contentType="video">
+          <SegmentTemplate media="p2/$RepresentationID$.m4s" startNumber="1"/>
+          <Representation id="v1" bandwidth="800000" mimeType="video/mp4"/>
+          <Representation id="v2" bandwidth="1600000" mimeType="video/mp4"/>
+        </AdaptationSet>
+      </Period>
+    </MPD>
+    """
+    urls = recordable_segment_urls(text, "https://cdn.example.com/manifest.mpd")
+    assert urls == [
+        "https://cdn.example.com/p1/v2.m4s",
+        "https://cdn.example.com/p2/v2.m4s",
+    ]
+
+
+def test_dash_segmentbase_keeps_representation_file() -> None:
+    text = """
+    <MPD><Period>
+      <Representation id="v1" bandwidth="800000" mimeType="video/mp4">
+        <BaseURL>video.mp4</BaseURL>
+        <SegmentBase indexRange="10-15">
+          <Initialization range="0-9"/>
+        </SegmentBase>
+      </Representation>
+    </Period></MPD>
+    """
+    urls = recordable_segment_urls(text, "https://cdn.example.com/")
+    assert urls == ["https://cdn.example.com/video.mp4"]
+
+
 def test_companion_relay_queues_until_mac_forwards() -> None:
     relay = CompanionRelay()
     queued = relay.enqueue({"kind": "capture", "locator": "https://example.com/a.mp4"})

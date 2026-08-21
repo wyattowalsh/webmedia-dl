@@ -29,6 +29,13 @@ subprocess runtime.
 - **THEN** the companion message is queued for Mac relay with `nativeCommand`
   null and `subprocessWorker` false, and those surfaces do not open yt-dlp
 
+#### Scenario: sealed companion envelope
+
+- **WHEN** the Mac worker receives a companion POST with AES-GCM envelope fields
+  and a confirmed pairing
+- **THEN** it opens the envelope once, rejects replay, and still refuses
+  `nativeCommand`
+
 ### Requirement: Paired Mac confirmation
 
 Heavy work from iPhone, iPad, or visionOS SHALL run on the Mac worker only after an

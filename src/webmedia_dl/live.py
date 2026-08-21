@@ -487,6 +487,32 @@ def _select_dash_group(
     return max(pool, key=lambda item: item[0])[2]
 
 
+def _period_parts(body: str, base: str) -> list[ManifestPart]:
+    shared, shared_urls, shared_add = _new_part_bucket()
+    period_without_as = _strip_blocks(body, _ADAPTATION_SET)
+    period_base = _collect_baseurls(period_without_as, base, shared_add)
+    groups: list[tuple[int, str, list[ManifestPart]]] = []
+    adaptations = list(_ADAPTATION_SET.finditer(body))
+    if not adaptations:
+        groups.extend(_dash_scope_groups(body, period_base))
+    else:
+        _collect_segments(period_without_as, period_base, shared_add, shared_urls)
+        for adaptation in adaptations:
+            groups.extend(
+                _dash_adaptation_groups(
+                    adaptation.group(2) or "",
+                    period_base,
+                    _attrs(adaptation.group(1)),
+                )
+            )
+    selected = _select_dash_group(groups) if groups else list(shared)
+    if not selected:
+        return list(shared)
+    if groups:
+        return [*shared, *selected]
+    return selected
+
+
 def _dash_parts(text: str, base: str) -> list[ManifestPart]:
     parts: list[ManifestPart] = []
     seen: set[tuple[str, int | None, int | None]] = set()
@@ -499,33 +525,14 @@ def _dash_parts(text: str, base: str) -> list[ManifestPart]:
         parts.append(part)
 
     periods = list(_PERIOD.finditer(text))
-    mpd_prefix = text[: periods[0].start()] if periods else _strip_blocks(text, _PERIOD)
-    shared, shared_urls, shared_add = _new_part_bucket()
-    mpd_base = _collect_baseurls(mpd_prefix, base, shared_add)
+    mpd_prefix = text[: periods[0].start()] if periods else ""
+    mpd_shared, _mpd_urls, mpd_add = _new_part_bucket()
+    mpd_base = _collect_baseurls(mpd_prefix, base, mpd_add)
     scopes = [(match.group(2) or "") for match in periods] or [text]
-    groups: list[tuple[int, str, list[ManifestPart]]] = []
+    ordered: list[ManifestPart] = list(mpd_shared)
     for body in scopes:
-        period_without_as = _strip_blocks(body, _ADAPTATION_SET)
-        period_base = _collect_baseurls(period_without_as, mpd_base, shared_add)
-        adaptations = list(_ADAPTATION_SET.finditer(body))
-        if not adaptations:
-            groups.extend(_dash_scope_groups(body, period_base))
-            continue
-        _collect_segments(period_without_as, period_base, shared_add, shared_urls)
-        for adaptation in adaptations:
-            groups.extend(
-                _dash_adaptation_groups(
-                    adaptation.group(2) or "",
-                    period_base,
-                    _attrs(adaptation.group(1)),
-                )
-            )
-    selected = _select_dash_group(groups) if groups else list(shared)
-    if not selected:
-        selected = list(shared)
-    elif groups:
-        selected = [*shared, *selected]
-    for part in selected:
+        ordered.extend(_period_parts(body, mpd_base))
+    for part in ordered:
         add(part)
     return parts
 

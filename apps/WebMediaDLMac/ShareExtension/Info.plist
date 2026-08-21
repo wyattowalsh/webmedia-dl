@@ -12,6 +12,18 @@
     <string>com.apple.share-services</string>
     <key>NSExtensionPrincipalClass</key>
     <string>WebMediaDLMacShareView</string>
+    <key>NSExtensionAttributes</key>
+    <dict>
+      <key>NSExtensionActivationRule</key>
+      <dict>
+        <key>NSExtensionActivationSupportsWebURLWithMaxCount</key>
+        <integer>8</integer>
+        <key>NSExtensionActivationSupportsText</key>
+        <true/>
+        <key>NSExtensionActivationSupportsFileWithMaxCount</key>
+        <integer>8</integer>
+      </dict>
+    </dict>
   </dict>
 </dict>
 </plist>

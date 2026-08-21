@@ -43,3 +43,7 @@ to the loopback worker. Those adapters SHALL NOT run provider argv.
 #### Scenario: share sheet url versus file
 - **WHEN** a share sheet supplies `https://example.com/a.mp4` and `file:///tmp/a.png`
 - **THEN** the HTTPS value is URL intake and the file URL is drop intake
+
+#### Scenario: complete clients carry files destinations
+- **WHEN** iPhone, iPad, or visionOS submit with an approved Files path
+- **THEN** the job intent uses `files_app` and the security-scoped path boundary

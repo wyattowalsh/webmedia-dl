@@ -10,6 +10,7 @@ public struct WebMediaDLiPadOSRootView: View {
     @State private var status = "Pair with a Mac for yt-dlp and ffmpeg."
     @State private var historyText = "Paired Mac history appears after confirmation."
     @State private var lastJobId: UUID?
+    @State private var approvedRoot = ""
     private let role = WebMediaDLClientRole.pairedClient
     private let client = WebMediaDLLoopbackClient()
 
@@ -43,13 +44,20 @@ public struct WebMediaDLiPadOSRootView: View {
                     }
                 }
                 .accessibilityLabel("Paste from clipboard")
+                TextField("Approved Files destination", text: $approvedRoot)
+                    .accessibilityLabel("Approved Files destination")
+                    .textFieldStyle(.roundedBorder)
                 Button("Send to paired Mac") {
                     Task {
+                        let roots = approvedRoot.isEmpty ? [] : [approvedRoot]
                         let response = (try? await pairedClient.submit(
                             locator: locator,
                             surface: .ipados,
                             pairingId: UUID(uuidString: pairingId),
-                            sessionKey: sessionKey.isEmpty ? nil : sessionKey
+                            sessionKey: sessionKey.isEmpty ? nil : sessionKey,
+                            destinationKind: roots.isEmpty ? nil : "files_app",
+                            destinationPath: roots.first,
+                            approvedRoots: roots
                         )) ?? "Pairing required"
                         status = response
                         lastJobId = WebMediaDLLoopbackClient.jobId(from: response)

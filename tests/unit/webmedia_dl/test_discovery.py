@@ -134,3 +134,24 @@ def test_html_link_audio_image_track_and_jsonld_kinds() -> None:
     assert kinds["https://cdn.example.com/t.vtt"] is MediaKind.SUBTITLE
     assert kinds["https://example.com/listen"] is MediaKind.AUDIO
     assert kinds["https://example.com/photo"] is MediaKind.IMAGE
+
+
+def test_html_discovery_amp_img_and_twitter_player() -> None:
+    html = """
+    <html>
+      <head>
+        <meta name="twitter:player" content="https://cdn.example.com/player.mp4">
+      </head>
+      <body>
+        <amp-img src="https://cdn.example.com/amp.png"></amp-img>
+      </body>
+    </html>
+    """
+    profile = get_profile("personal-full")
+    candidates = discover(_source(), profile, html=html)
+    urls = [item.retrieval_urls[0] for item in candidates if item.retrieval_urls]
+    kinds = {item.retrieval_urls[0]: item.media_kind for item in candidates if item.retrieval_urls}
+    assert "https://cdn.example.com/amp.png" in urls
+    assert "https://cdn.example.com/player.mp4" in urls
+    assert kinds["https://cdn.example.com/amp.png"] is MediaKind.IMAGE
+    assert kinds["https://cdn.example.com/player.mp4"] is MediaKind.VIDEO

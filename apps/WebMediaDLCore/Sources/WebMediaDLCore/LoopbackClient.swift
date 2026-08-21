@@ -155,6 +155,28 @@ public struct WebMediaDLLoopbackClient: Sendable {
         return request
     }
 
+    public func sealedCompanionRequest(
+        pairingId: UUID,
+        sessionKey: String,
+        nonce: String,
+        ciphertext: String,
+        mac: String
+    ) -> URLRequest {
+        var request = authorized(baseURL.appendingPathComponent("v1/companion"), method: "POST")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let body: [String: Any] = [
+            "pairing_id": pairingId.uuidString,
+            "session_key": sessionKey,
+            "nonce": nonce,
+            "ciphertext": ciphertext,
+            "mac": mac,
+            "nativeCommand": NSNull(),
+            "subprocessWorker": false,
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        return request
+    }
+
     public func send(_ request: URLRequest) async throws -> String {
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else {

@@ -19,6 +19,15 @@ final class IdentityTests: XCTestCase {
         XCTAssertEqual(client.baseURL.host, "127.0.0.1")
         XCTAssertTrue(client.pauseQueueRequest().url?.absoluteString.contains("queue/pause") ?? false)
         XCTAssertTrue(client.companionRequest(kind: "status").url?.absoluteString.contains("companion") ?? false)
+        XCTAssertTrue(
+            client.sealedCompanionRequest(
+                pairingId: UUID(),
+                sessionKey: "session",
+                nonce: "aa",
+                ciphertext: "bb",
+                mac: "cc"
+            ).url?.absoluteString.contains("companion") ?? false
+        )
         let paired = WebMediaDLLoopbackClient(
             pairingId: UUID(uuidString: "11111111-1111-1111-1111-111111111111"),
             sessionKey: "session"

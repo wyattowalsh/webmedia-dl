@@ -10,3 +10,6 @@
 - DASH/HLS rendition selection prefers the highest-bandwidth video (or audio)
   Representation; watchOS/tvOS queue companion messages for Mac relay; share
   extensions extract HTTPS locators versus file drop paths.
+- Multi-period DASH concatenates the selected video from each Period; companion
+  POST accepts a one-time AES-GCM pairing envelope; visionOS share and complete
+  client Files destinations use the same security-scoped path contract.

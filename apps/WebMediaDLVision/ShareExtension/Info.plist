@@ -5,13 +5,13 @@
   <key>CFBundleDisplayName</key>
   <string>WebMedia DL</string>
   <key>CFBundleIdentifier</key>
-  <string>local.webmedia-dl.ios.share</string>
+  <string>local.webmedia-dl.vision.share</string>
   <key>NSExtension</key>
   <dict>
     <key>NSExtensionPointIdentifier</key>
     <string>com.apple.share-services</string>
     <key>NSExtensionPrincipalClass</key>
-    <string>WebMediaDLiOSShareView</string>
+    <string>WebMediaDLVisionShareExtension</string>
     <key>NSExtensionAttributes</key>
     <dict>
       <key>NSExtensionActivationRule</key>

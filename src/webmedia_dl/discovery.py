@@ -65,14 +65,18 @@ class _MediaHTMLParser(HTMLParser):
         mapping = dict(attrs)
         if tag == "title":
             self._in_title = True
-        if tag in {"video", "audio", "source", "img", "picture"}:
+        if tag in {"video", "audio", "source", "img", "picture", "amp-img"}:
             kind = (
                 MediaKind.VIDEO
                 if tag == "video"
                 else (
                     MediaKind.AUDIO
                     if tag == "audio"
-                    else (MediaKind.IMAGE if tag in {"img", "picture"} else MediaKind.UNKNOWN)
+                    else (
+                        MediaKind.IMAGE
+                        if tag in {"img", "picture", "amp-img"}
+                        else MediaKind.UNKNOWN
+                    )
                 )
             )
             for attr in ("src", "data-src", "poster"):
@@ -351,6 +355,7 @@ def discover(
         ("og:audio:url", MediaKind.AUDIO),
         ("og:audio:secure_url", MediaKind.AUDIO),
         ("twitter:player:stream", MediaKind.VIDEO),
+        ("twitter:player", MediaKind.VIDEO),
     ):
         meta_url = parser.meta.get(key)
         if meta_url:

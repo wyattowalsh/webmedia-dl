@@ -206,3 +206,38 @@ def test_companion_pause_and_resume_job(tmp_path: Path, png_bytes: bytes) -> Non
     )
     assert resumed["kind"] == "resume_job"
     assert resumed["job"]["state"] in {"accepted", "completed", "failed"}
+
+
+def test_companion_accepts_sealed_pairing_envelope(tmp_path: Path) -> None:
+    from webmedia_dl.envelope import seal_payload
+
+    app = create_app(tmp_path)
+    token = load_or_create_token(tmp_path)
+    client = TestClient(app)
+    headers = {"Authorization": f"Bearer {token}"}
+    created = client.post("/v1/pair", headers=headers)
+    pairing_id = created.json()["pairing_id"]
+    confirmed = client.post("/v1/pair/confirm", headers=headers, json={"pairing_id": pairing_id})
+    session_key = confirmed.json()["session_key"]
+    sealed = seal_payload(
+        session_key,
+        {"kind": "status", "nativeCommand": None, "subprocessWorker": False},
+    )
+    ok = client.post(
+        "/v1/companion",
+        json={"pairing_id": pairing_id, "session_key": session_key, **sealed},
+        headers=headers,
+    )
+    assert ok.status_code == 200
+    replay = client.post(
+        "/v1/companion",
+        json={"pairing_id": pairing_id, "session_key": session_key, **sealed},
+        headers=headers,
+    )
+    assert replay.status_code == 401
+    missing = client.post(
+        "/v1/companion",
+        json={"nonce": sealed["nonce"], "ciphertext": sealed["ciphertext"], "mac": sealed["mac"]},
+        headers=headers,
+    )
+    assert missing.status_code == 400

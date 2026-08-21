@@ -53,6 +53,12 @@ SHALL be polled for newly advertised segments under the profile byte bound.
 - **WHEN** a master playlist lists multiple `EXT-X-STREAM-INF` variants
 - **THEN** recording follows the highest `BANDWIDTH` media playlist
 
+#### Scenario: multi-period DASH concatenates each period
+
+- **WHEN** an MPD has two Periods each with video Representations
+- **THEN** recording concatenates the highest-bandwidth video from each Period
+  in order and does not drop later Periods
+
 #### Scenario: dynamic MPD polls new segments
 
 - **WHEN** a dynamic MPD later advertises an additional segment

@@ -103,6 +103,31 @@ public struct WebMediaDLContinuityBridge: Sendable {
         return request
     }
 
+    public func sealedCompanionRequest(
+        pairingId: String,
+        sessionKey: String,
+        nonce: String,
+        ciphertext: String,
+        mac: String
+    ) -> URLRequest {
+        var request = URLRequest(
+            url: workerURL.appendingPathComponent("v1/companion")
+        )
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let body: [String: Any] = [
+            "pairing_id": pairingId,
+            "session_key": sessionKey,
+            "nonce": nonce,
+            "ciphertext": ciphertext,
+            "mac": mac,
+            "nativeCommand": NSNull(),
+            "subprocessWorker": false,
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        return request
+    }
+
     /// Mac forwards a drained companion message to loopback. watchOS/tvOS enqueue
     /// on `WebMediaDLCompanionRelay` instead of opening a subprocess worker.
     public func send(_ message: WebMediaDLCompanionMessage, token: String = "") async throws -> String {

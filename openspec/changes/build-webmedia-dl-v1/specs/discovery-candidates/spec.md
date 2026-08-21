@@ -29,6 +29,11 @@ JSON-LD `@type` when the locator has no media extension.
   JSON-LD `VideoObject.embedUrl` without a media extension
 - **THEN** live-stream, video, and typed JSON-LD video candidates exist
 
+#### Scenario: amp-img and twitter player
+
+- **WHEN** a page contains `amp-img[src]` and `twitter:player`
+- **THEN** image and video candidates exist for those locators
+
 ### Requirement: Candidate graph grouping
 
 Candidates SHALL be grouped by host/identity. Duplicate identities SHALL be recorded
