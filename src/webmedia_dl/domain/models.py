@@ -84,6 +84,8 @@ class FormatAlternative(StrictModel):
     format_id: str
     container: str | None = None
     codec: str | None = None
+    vcodec: str | None = None
+    acodec: str | None = None
     width: int | None = None
     height: int | None = None
     bitrate: int | None = None
@@ -157,6 +159,7 @@ class MediaProbe(StrictModel):
     duration_ms: int | None = None
     streams: list[StreamInfo] = Field(default_factory=list)
     container: str | None = None
+    format_names: str | None = None
     drm_signals: list[str] = Field(default_factory=list)
 
 
@@ -368,11 +371,32 @@ FORBIDDEN_EVENT_PAYLOAD_KEYS = frozenset(
 )
 
 
+def _forbidden_event_keys(value: object) -> set[str]:
+    found: set[str] = set()
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if key in FORBIDDEN_EVENT_PAYLOAD_KEYS:
+                found.add(key)
+            elif "cookie" in str(key).lower() and _looks_like_path(item):
+                found.add(str(key))
+            found |= _forbidden_event_keys(item)
+    elif isinstance(value, list):
+        for item in value:
+            found |= _forbidden_event_keys(item)
+    return found
+
+
+def _looks_like_path(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+    return "/" in value or "\\" in value or value.startswith("~")
+
+
 def sanitize_event_payload(payload: dict[str, Any] | None) -> dict[str, Any]:
     """Public events are typed lifecycle records, never provider consoles."""
     if not payload:
         return {}
-    forbidden = FORBIDDEN_EVENT_PAYLOAD_KEYS.intersection(payload)
+    forbidden = _forbidden_event_keys(payload)
     if forbidden:
         msg = f"Event payloads must not include {sorted(forbidden)}."
         raise ValueError(msg)

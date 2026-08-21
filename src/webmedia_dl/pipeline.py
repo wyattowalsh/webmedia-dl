@@ -23,6 +23,7 @@ from webmedia_dl.domain.enums import (
     Surface,
 )
 from webmedia_dl.domain.models import (
+    Artifact,
     BrowserEvidence,
     ExportIntent,
     HistoryEntry,
@@ -42,7 +43,7 @@ from webmedia_dl.errors import (
 from webmedia_dl.export import plan_export
 from webmedia_dl.fetch import bound_fetch
 from webmedia_dl.intake import normalize_source
-from webmedia_dl.live import manifest_is_live, record_clear_stream
+from webmedia_dl.live import manifest_is_live, record_kind_streams
 from webmedia_dl.pairing import PairingStore
 from webmedia_dl.paths import repo_root, staging_dir, worker_data_dir
 from webmedia_dl.policy.profiles import (
@@ -57,7 +58,7 @@ from webmedia_dl.processing import execute_export_plan
 from webmedia_dl.providers import ProviderRequest, ProviderRuntime
 from webmedia_dl.publish import publish_artifacts
 from webmedia_dl.queue import QUEUE_EVENT_JOB_ID, QueueStore
-from webmedia_dl.security import refuse_drm, resolve_cookie_path
+from webmedia_dl.security import CookieGrantLedger, refuse_drm, resolve_cookie_path
 from webmedia_dl.validation import require_pass, validate_artifact, validate_probe
 
 FetchFn = Callable[[str], tuple[int, str, bytes]]
@@ -77,7 +78,9 @@ class Pipeline:
         self.queue = QueueStore(self.data_dir / "queue")
         self.store = ArtifactStore(self.data_dir)
         self.pairing = PairingStore(self.data_dir / "pairing")
+        self.cookie_ledger = CookieGrantLedger()
         self.runtime = runtime or ProviderRuntime()
+        self.runtime.cookie_ledger = self.cookie_ledger
         self.fetch = fetch
         self.host_profile = get_profile(client_profile_id)
         self.host_worker = worker or default_worker_for_surface(Surface.MACOS)
@@ -126,8 +129,9 @@ class Pipeline:
         else:
             self.worker = default_worker_for_surface(job.source.surface)
         self.worker_profile = get_profile(self.worker.profile_id)
+        self.runtime._tls.profile_id = job.policy_profile_id
 
-    def _mac_owned(
+    def _job_owner(
         self,
         surface: Surface,
         *,
@@ -135,13 +139,14 @@ class Pipeline:
         pairing_id: UUID | None,
         session_key: str | None,
         host_owned: bool = False,
-    ) -> bool:
-        if host_owned:
-            return True
+    ) -> tuple[Worker, PolicyProfile]:
         if pairing_id is not None:
-            self.pairing.require_confirmed(pairing_id, session_key)
-            return True
-        return local_user_confirmed and surface in SAME_MACHINE_SURFACES
+            record = self.pairing.require_confirmed(pairing_id, session_key)
+            return self.host_worker, get_profile(record.client_profile_id)
+        if host_owned or (local_user_confirmed and surface in SAME_MACHINE_SURFACES):
+            return self.host_worker, get_profile(self.host_worker.profile_id)
+        job_worker = default_worker_for_surface(surface)
+        return job_worker, get_profile(job_worker.profile_id)
 
     def submit(
         self,
@@ -159,19 +164,13 @@ class Pipeline:
         intake_kind: IntakeKind | None = None,
         host_owned: bool = False,
     ) -> Job:
-        mac_owned = self._mac_owned(
+        job_worker, client_profile = self._job_owner(
             surface,
             local_user_confirmed=local_user_confirmed,
             pairing_id=pairing_id,
             session_key=session_key,
             host_owned=host_owned,
         )
-        if mac_owned:
-            job_worker = self.host_worker
-            client_profile = get_profile(self.host_worker.profile_id)
-        else:
-            job_worker = default_worker_for_surface(surface)
-            client_profile = get_profile(job_worker.profile_id)
         self.worker = job_worker
         self.client_profile = client_profile
         self.worker_profile = get_profile(job_worker.profile_id)
@@ -207,14 +206,14 @@ class Pipeline:
                     cookie_root = repo_root()
                 except FileNotFoundError:
                     cookie_root = None
-                cookie_value = str(
-                    resolve_cookie_path(client_profile, cookies, repo_root=cookie_root)
-                )
+                cookie_path = resolve_cookie_path(client_profile, cookies, repo_root=cookie_root)
+                grant = self.cookie_ledger.issue(job.job_id, cookie_path, client_profile.profile_id)
+                cookie_value = grant.grant_id
                 self.queue.emit(
                     job.job_id,
                     EventType.COOKIE_ATTACHED,
                     {
-                        "cookies_path_basename": Path(cookie_value).name,
+                        "cookies_path_basename": Path(cookie_path).name,
                         "profile_id": client_profile.profile_id,
                     },
                 )
@@ -558,7 +557,7 @@ class Pipeline:
         plan = plan_acquisition(
             job.job_id,
             candidate,
-            self.worker_profile,
+            self.client_profile,
             cookies=cookies,
         )
         if not plan.strategies:
@@ -582,22 +581,23 @@ class Pipeline:
             try:
                 self._authorize(strategy.capability_id)
                 if strategy.capability_id == "live.record_clear_manifest":
-                    live_artifact = self._record_live(job, candidate, staging)
-                    self.queue.emit(
-                        job.job_id,
-                        EventType.SOURCE_REGISTERED,
-                        {
-                            "artifact_id": live_artifact.artifact_id,
-                            "provider": strategy.provider_id,
-                        },
-                    )
-                    self._record_probe(
-                        job,
-                        live_artifact,
-                        self.store.resolve(live_artifact),
-                        candidate.candidate_id,
-                    )
-                    artifact = [live_artifact]
+                    live_artifacts = self._record_live(job, candidate, staging)
+                    for live_artifact in live_artifacts:
+                        self.queue.emit(
+                            job.job_id,
+                            EventType.SOURCE_REGISTERED,
+                            {
+                                "artifact_id": live_artifact.artifact_id,
+                                "provider": strategy.provider_id,
+                            },
+                        )
+                        self._record_probe(
+                            job,
+                            live_artifact,
+                            self.store.resolve(live_artifact),
+                            candidate.candidate_id,
+                        )
+                    artifact = live_artifacts
                     break
                 request = ProviderRequest(
                     provider_id=strategy.provider_id,
@@ -688,20 +688,26 @@ class Pipeline:
             raise ProviderPolicyError(msg)
         text = data.decode("utf-8", errors="replace")
         output = staging / "live.bin"
-        record_clear_stream(
+        recorded = record_kind_streams(
             text,
             url,
             output,
             lambda item: self._fetch_bytes(item, self.client_profile, html=False),
+            max_bytes=self.client_profile.max_download_bytes,
             should_stop=lambda: self._check_control(job.job_id),
             live_polls=8 if manifest_is_live(text) else 1,
         )
-        return self.store.register(
-            output,
-            role=ArtifactRole.SOURCE,
-            media_kind=MediaKind.LIVE_STREAM,
-            provenance={"provider": "live-clear-record", "job_id": str(job.job_id)},
-        )
+        artifacts = []
+        for kind, path in recorded:
+            artifacts.append(
+                self.store.register(
+                    path,
+                    role=ArtifactRole.SOURCE,
+                    media_kind=kind,
+                    provenance={"provider": "live-clear-record", "job_id": str(job.job_id)},
+                )
+            )
+        return artifacts
 
     def _manifest_candidates(self, job: Job, *, staging: Path | None) -> list[MediaCandidate]:
         url = job.source.normalized_url
@@ -735,6 +741,8 @@ class Pipeline:
     def _record_probe(self, job: Job, artifact, path: Path, candidate_id) -> None:
         probe = probe_media(path, candidate_id=candidate_id)
         if probe is not None:
+            if any(stream.encrypted for stream in probe.streams) or probe.drm_signals:
+                refuse_drm(probe.drm_signals or ["probe:encrypted-stream"])
             self.queue.emit(
                 job.job_id,
                 EventType.PROBE_RECORDED,
@@ -794,6 +802,8 @@ class Pipeline:
         if job.state is JobState.PAUSED:
             self.queue.set_state(job_id, JobState.ACCEPTED)
         self.queue.emit(job_id, EventType.JOB_RESUMED, {"state": "resumed"})
+        if self.queue.is_paused():
+            return self.queue.get_job(job_id)
         return self._execute_stored(self.queue.get_job(job_id))
 
     def run_next(self) -> Job | None:
@@ -927,19 +937,13 @@ class Pipeline:
         host_owned: bool = False,
     ) -> dict[str, Any]:
         """Ranked acquisition/export plan. Does not retrieve media bytes."""
-        mac_owned = self._mac_owned(
+        job_worker, client_profile = self._job_owner(
             surface,
             local_user_confirmed=local_user_confirmed,
             pairing_id=pairing_id,
             session_key=session_key,
             host_owned=host_owned,
         )
-        if mac_owned:
-            job_worker = self.host_worker
-            client_profile = get_profile(self.host_worker.profile_id)
-        else:
-            job_worker = default_worker_for_surface(surface)
-            client_profile = get_profile(job_worker.profile_id)
         source = normalize_source(
             locator,
             surface=surface,
@@ -961,7 +965,7 @@ class Pipeline:
         strategies: list[dict[str, Any]] = []
         mixed: list[dict[str, Any]] = []
         for candidate in chosen:
-            plan = plan_acquisition(source.source_id, candidate, get_profile(job_worker.profile_id))
+            plan = plan_acquisition(source.source_id, candidate, client_profile)
             item_strategies = [
                 {
                     "strategy_id": item.strategy_id,
@@ -982,6 +986,34 @@ class Pipeline:
             if not strategies:
                 strategies = item_strategies
         export_intent = intent or ExportIntent()
+        export_operations: list[dict[str, Any]] = []
+        if chosen:
+            preferred = chosen[0]
+            container = None
+            if preferred.alternatives:
+                container = preferred.alternatives[0].container
+            if container is None and source.local_path:
+                container = Path(source.local_path).suffix.lstrip(".") or None
+            if container is None and preferred.retrieval_urls:
+                container = Path(preferred.retrieval_urls[0]).suffix.lstrip(".") or None
+            standin = Artifact(
+                artifact_id="plan:source",
+                role=ArtifactRole.SOURCE,
+                sha256="0" * 64,
+                byte_size=0,
+                media_kind=preferred.media_kind,
+                storage_relpath="plan-source.bin",
+                container=container or "mp4",
+            )
+            export_plan = plan_export(source.source_id, standin, export_intent)
+            export_operations = [
+                {
+                    "operation_id": operation.operation_id,
+                    "op_type": operation.op_type,
+                    "loss_class": operation.loss_class.value,
+                }
+                for operation in export_plan.operations
+            ]
         return {
             "source": source.model_dump(mode="json"),
             "surface": surface.value,
@@ -994,6 +1026,7 @@ class Pipeline:
             "plans": mixed,
             "strategies": strategies,
             "export_intent": export_intent.model_dump(mode="json"),
+            "export_operations": export_operations,
             "acquired": False,
         }
 

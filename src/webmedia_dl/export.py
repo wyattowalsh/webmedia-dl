@@ -117,7 +117,7 @@ def plan_export(job_id: UUID, source: Artifact, intent: ExportIntent) -> ExportP
                     operation_id="transcode",
                     op_type="ffmpeg.transcode",
                     capability_id="process.ffmpeg.transcode",
-                    input_artifact_ids=["remux"],
+                    input_artifact_ids=[source.artifact_id],
                     output_role=ArtifactRole.DERIVATIVE,
                     loss_class=LossClass.LOSSY_TRANSCODE,
                     validator_ids=["container-match"],

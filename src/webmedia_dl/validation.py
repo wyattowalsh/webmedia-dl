@@ -9,6 +9,46 @@ from webmedia_dl.domain.enums import EvidenceStatus
 from webmedia_dl.domain.models import Artifact, MediaProbe, ValidationResult
 from webmedia_dl.errors import SimulatedPassError, ValidationFailed
 from webmedia_dl.identity import sha256_file
+from webmedia_dl.probe import probe_media
+
+CONTAINER_ALIASES = {
+    "matroska": "mkv",
+    "quicktime": "mov",
+    "mpegts": "ts",
+    "jpeg": "jpg",
+    "jpeg_pipe": "jpg",
+    "mjpeg": "jpg",
+    "png_pipe": "png",
+    "webp_pipe": "webp",
+    "gif_pipe": "gif",
+    "tiff": "tif",
+}
+
+STILL_IMAGE_CONTAINERS = {"jpg", "jpeg", "png", "webp", "gif", "tif", "tiff", "avif", "bmp"}
+GENERIC_IMAGE_PROBE = {"image2"}
+
+
+def normalize_container(name: str | None) -> str | None:
+    if not name:
+        return None
+    token = name.strip().lower()
+    return CONTAINER_ALIASES.get(token, token)
+
+
+def container_matches(probe_name: str | None, expected: str) -> bool:
+    expected_n = normalize_container(expected)
+    if not expected_n or not probe_name:
+        return False
+    tokens = {
+        token
+        for part in probe_name.split(",")
+        if part.strip()
+        for token in [normalize_container(part)]
+        if token
+    }
+    if expected_n in tokens:
+        return True
+    return expected_n in STILL_IMAGE_CONTAINERS and bool(tokens & GENERIC_IMAGE_PROBE)
 
 
 def record_result(
@@ -86,22 +126,38 @@ def validate_artifact(
         )
     )
     if expected_container:
-        actual = (path.suffix.lstrip(".") or artifact.container or "").lower()
-        container_status = (
-            EvidenceStatus.PASS if actual == expected_container.lower() else EvidenceStatus.FAIL
-        )
-        results.append(
-            record_result(
-                job_id=job_id,
-                artifact_id=artifact.artifact_id,
-                gate_id="container-match",
-                status=container_status,
-                message="Container matches the export plan."
-                if container_status is EvidenceStatus.PASS
-                else f"Expected container {expected_container}, found {actual}.",
-                details={"expected": expected_container, "actual": actual},
+        probe = probe_media(path)
+        if probe is None or not (probe.format_names or probe.container):
+            results.append(
+                record_result(
+                    job_id=job_id,
+                    artifact_id=artifact.artifact_id,
+                    gate_id="container-match",
+                    status=EvidenceStatus.BLOCKED,
+                    message="Container gate requires ffprobe evidence.",
+                    executed=probe is not None,
+                    details={"expected": expected_container, "suffix": path.suffix},
+                )
             )
-        )
+        else:
+            actual_blob = probe.format_names or probe.container or ""
+            container_status = (
+                EvidenceStatus.PASS
+                if container_matches(actual_blob, expected_container)
+                else EvidenceStatus.FAIL
+            )
+            results.append(
+                record_result(
+                    job_id=job_id,
+                    artifact_id=artifact.artifact_id,
+                    gate_id="container-match",
+                    status=container_status,
+                    message="Container matches the export plan."
+                    if container_status is EvidenceStatus.PASS
+                    else f"Expected container {expected_container}, found {actual_blob}.",
+                    details={"expected": expected_container, "actual": actual_blob},
+                )
+            )
     return results
 
 
@@ -129,6 +185,17 @@ def validate_probe(
                 gate_id="probe-streams",
                 status=EvidenceStatus.WARN,
                 message="Probe recorded no streams.",
+            )
+        ]
+    if any(stream.encrypted for stream in probe.streams) or probe.drm_signals:
+        return [
+            record_result(
+                job_id=job_id,
+                artifact_id=artifact.artifact_id,
+                gate_id="drm-clear",
+                status=EvidenceStatus.FAIL,
+                message="Probe recorded encrypted streams; DRM circumvention is refused.",
+                details={"drm_signals": probe.drm_signals},
             )
         ]
     return [

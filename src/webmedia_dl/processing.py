@@ -40,6 +40,8 @@ def ordered_operations(plan: ExportPlan) -> list[Operation]:
     sorter: TopologicalSorter[str] = TopologicalSorter()
     for operation in plan.operations:
         deps = [item for item in operation.input_artifact_ids if item in ops]
+        if operation.operation_id == "transcode" and "remux" in ops:
+            deps.append("remux")
         sorter.add(operation.operation_id, *deps)
     try:
         order = list(sorter.static_order())
@@ -94,6 +96,13 @@ def execute_export_plan(
             continue
         if compound in skip:
             continue
+        if (
+            operation.operation_id == "transcode"
+            and "remux" in op_ids
+            and "remux" in artifacts
+            and "remux" not in failed_ops
+        ):
+            continue
         if any(dep in failed_ops for dep in operation.input_artifact_ids if dep in op_ids):
             failed_ops.add(operation.operation_id)
             if not operation.optional:
@@ -116,8 +125,9 @@ def execute_export_plan(
             authorize(operation.capability_id)
             container = str(operation.typed_inputs.get("container") or "bin")
             output = staging / f"{operation.operation_id}.{container}"
+            provider = provider_for_operation(operation)
             request = ProviderRequest(
-                provider_id=provider_for_operation(operation),
+                provider_id=provider,
                 capability_id=operation.capability_id,
                 job_id=job_id,
                 typed_inputs={
@@ -149,11 +159,14 @@ def execute_export_plan(
                     "parent": current.artifact_id,
                 },
             )
+            # ImageMagick writes the requested still-image format; ffprobe often
+            # reports the generic `image2` demuxer instead of jpeg/png/webp.
+            expected_container = None if provider == "imagemagick" else container
             results = validate_artifact(
                 job_id,
                 derivative,
                 result.output_path,
-                expected_container=container,
+                expected_container=expected_container,
             )
             require_pass(results)
             for item in results:

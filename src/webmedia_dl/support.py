@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -11,17 +12,35 @@ from webmedia_dl.diagnostics import doctor
 from webmedia_dl.pipeline import Pipeline
 
 FIXED_ZIP_TIME = (2026, 8, 18, 0, 0, 0)
-STRIP_KEYS = frozenset({"stdout", "stderr", "argv", "nativeCommand", "providerArgv"})
+STRIP_KEYS = frozenset(
+    {"stdout", "stderr", "argv", "nativeCommand", "providerArgv", "cookies_path"}
+)
+COOKIE_KEY = re.compile(r"cookie", re.I)
 
 
-def _sanitize(payload: dict[str, Any]) -> dict[str, Any]:
-    return {key: value for key, value in payload.items() if key not in STRIP_KEYS}
+def _looks_like_path(value: object) -> bool:
+    return isinstance(value, str) and ("/" in value or "\\" in value or value.startswith("~"))
+
+
+def _sanitize(value: Any) -> Any:
+    if isinstance(value, dict):
+        cleaned: dict[str, Any] = {}
+        for key, item in value.items():
+            if key in STRIP_KEYS:
+                continue
+            if COOKIE_KEY.search(str(key)) and _looks_like_path(item):
+                continue
+            cleaned[key] = _sanitize(item)
+        return cleaned
+    if isinstance(value, list):
+        return [_sanitize(item) for item in value]
+    return value
 
 
 def write_support_bundle(*, data_dir: Path, dest: Path) -> dict[str, Any]:
     dest.parent.mkdir(parents=True, exist_ok=True)
     pipeline = Pipeline(data_dir=data_dir)
-    jobs = pipeline.history_entries()
+    jobs = _sanitize(pipeline.history_entries())
     events: dict[str, list[dict[str, Any]]] = {}
     for job in pipeline.history():
         records = []

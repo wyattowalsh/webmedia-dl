@@ -22,6 +22,7 @@ uv run webmedia-dl speak https://example.com/photo.png --data-dir /tmp/webmedia-
 uv run webmedia-dl provenance sha256:deadbeef --data-dir /tmp/webmedia-dl-demo
 uv run webmedia-dl artifacts --data-dir /tmp/webmedia-dl-demo
 uv run webmedia-dl package-extensions --dest /tmp/webmedia-dl-extensions
+# also works from an installed wheel via packaged runtime/extensions
 uv run webmedia-dl updates
 uv run webmedia-dl support-bundle --data-dir /tmp/webmedia-dl-demo
 uv run webmedia-dl plan https://example.com/watch --data-dir /tmp/webmedia-dl-demo

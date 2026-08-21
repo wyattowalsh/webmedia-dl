@@ -114,7 +114,18 @@ def test_plan_command_local_file(tmp_path: Path, png_bytes: bytes) -> None:
     assert payload["acquired"] is False
     assert payload["preferred"]["kind"] == "image"
     assert payload["preferred_by_kind"]
-    assert payload["preferred_by_kind"]
+    video = tmp_path / "clip.mp4"
+    video.write_bytes(b"fake-mp4")
+    planned = runner.invoke(
+        app,
+        ["plan", str(video), "--container", "mkv", "--data-dir", str(tmp_path / "data2")],
+    )
+    assert planned.exit_code == 0
+    body = json.loads(planned.stdout)
+    assert body["acquired"] is False
+    ids = [item["operation_id"] for item in body["export_operations"]]
+    assert "keep-original" in ids
+    assert "remux" in ids
 
 
 def test_cancel_command(tmp_path: Path, png_bytes: bytes) -> None:

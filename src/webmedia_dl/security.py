@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from pathlib import Path
+from uuid import UUID, uuid4
 
 from webmedia_dl.domain.enums import CookieAccess
 from webmedia_dl.domain.models import PolicyProfile
@@ -77,3 +79,52 @@ def resolve_cookie_path(
         # still allowed outside repo; name check is advisory for common mistakes
         pass
     return resolved
+
+
+@dataclass(frozen=True)
+class CookieGrant:
+    grant_id: str
+    job_id: UUID
+    path: Path
+    profile_id: str
+
+
+class CookieGrantLedger:
+    """Job-bound cookie grants. Providers never receive a raw filesystem path."""
+
+    def __init__(self) -> None:
+        self._grants: dict[str, CookieGrant] = {}
+
+    def issue(self, job_id: UUID, path: Path, profile_id: str) -> CookieGrant:
+        from webmedia_dl.policy.profiles import get_profile
+
+        if get_profile(profile_id).cookie_access == CookieAccess.NEVER:
+            msg = "This profile forbids cookie access."
+            raise CookiePolicyError(msg)
+        grant = CookieGrant(
+            grant_id=str(uuid4()),
+            job_id=job_id,
+            path=path,
+            profile_id=profile_id,
+        )
+        self._grants[grant.grant_id] = grant
+        return grant
+
+    def resolve(
+        self,
+        grant_id: str,
+        *,
+        job_id: UUID | str | None,
+        profile_id: str | None,
+    ) -> Path:
+        grant = self._grants.get(str(grant_id))
+        if grant is None:
+            msg = "Cookie grant is unknown or expired."
+            raise CookiePolicyError(msg)
+        if job_id is None or UUID(str(job_id)) != grant.job_id:
+            msg = "Cookie grants are bound to a single job."
+            raise CookiePolicyError(msg)
+        if profile_id is None or profile_id != grant.profile_id:
+            msg = "Cookie grants are bound to the issuing policy profile."
+            raise CookiePolicyError(msg)
+        return grant.path

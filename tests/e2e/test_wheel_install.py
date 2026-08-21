@@ -75,3 +75,19 @@ def test_wheel_contains_runtime_and_cli(tmp_path: Path) -> None:
     assert help_out.returncode == 0, help_out.stderr
     assert "webmedia-dl" in help_out.stdout
     assert "wmdl" not in help_out.stdout.split("Usage")[0]
+    packaged = tmp_path / "extensions"
+    packaged_out = subprocess.run(
+        [
+            str(venv / "bin" / "webmedia-dl"),
+            "package-extensions",
+            "--dest",
+            str(packaged),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        env={**os.environ, "PYTHONPATH": ""},
+    )
+    assert packaged_out.returncode == 0, packaged_out.stderr
+    archives = list(packaged.glob("webmedia-dl-*.zip"))
+    assert len(archives) == 6

@@ -267,8 +267,13 @@ def test_dash_segmentbase_keeps_representation_file() -> None:
       </Representation>
     </Period></MPD>
     """
-    urls = recordable_segment_urls(text, "https://cdn.example.com/")
-    assert urls == ["https://cdn.example.com/video.mp4"]
+    from webmedia_dl.live import recordable_parts
+
+    parts = recordable_parts(text, "https://cdn.example.com/")
+    assert [(part.url, part.start, part.length) for part in parts] == [
+        ("https://cdn.example.com/video.mp4", 0, 10),
+        ("https://cdn.example.com/video.mp4", 10, 6),
+    ]
 
 
 def test_companion_relay_queues_until_mac_forwards() -> None:

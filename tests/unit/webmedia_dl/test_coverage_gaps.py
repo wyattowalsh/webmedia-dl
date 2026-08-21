@@ -7,7 +7,13 @@ import pytest
 from webmedia_dl.acquisition import plan_acquisition
 from webmedia_dl.domain.enums import DestinationKind, MediaKind
 from webmedia_dl.domain.models import ExportIntent, FormatAlternative, MediaCandidate
-from webmedia_dl.errors import DelegationDenied, DrmRefused, ProviderPolicyError, PublicationError
+from webmedia_dl.errors import (
+    CookiePolicyError,
+    DelegationDenied,
+    DrmRefused,
+    ProviderPolicyError,
+    PublicationError,
+)
 from webmedia_dl.export import plan_export
 from webmedia_dl.fetch import fetch_fn_for_profile
 from webmedia_dl.live import inspect_manifest
@@ -86,6 +92,8 @@ def test_transcode_allowlisted_and_rejected(tmp_path: Path) -> None:
 
 def test_ytdlp_cookies_and_merge(tmp_path: Path) -> None:
     captured: list[list[str]] = []
+    cookies = tmp_path / "outside-cookies.txt"
+    cookies.write_text("# Netscape HTTP Cookie File\n", encoding="utf-8")
 
     def run(argv: list[str], _cwd: Path) -> tuple[int, bytes, bytes]:
         captured.append(argv)
@@ -93,14 +101,20 @@ def test_ytdlp_cookies_and_merge(tmp_path: Path) -> None:
         return 0, b"", b""
 
     runtime = ProviderRuntime(which=lambda name: "/usr/bin/yt-dlp", run=run)
+    runtime._tls.profile_id = "personal-full"
+    from uuid import uuid4
+
+    job_id = uuid4()
+    grant = runtime.cookie_ledger.issue(job_id, cookies, "personal-full")
     runtime.execute(
         ProviderRequest(
             provider_id="ytdlp",
             capability_id="acquire.ytdlp",
+            job_id=job_id,
             typed_inputs={
                 "url": "https://example.com/v",
                 "output": str(tmp_path / "o"),
-                "cookies": "/tmp/outside-cookies.txt",
+                "cookie_grant_id": grant.grant_id,
                 "merge_output_format": "mkv",
             },
         ),
@@ -108,6 +122,19 @@ def test_ytdlp_cookies_and_merge(tmp_path: Path) -> None:
     )
     assert "--cookies" in captured[0]
     assert "--merge-output-format" in captured[0]
+    with pytest.raises(CookiePolicyError):
+        runtime.execute(
+            ProviderRequest(
+                provider_id="ytdlp",
+                capability_id="acquire.ytdlp",
+                typed_inputs={
+                    "url": "https://example.com/v",
+                    "output": str(tmp_path / "o"),
+                    "cookies": str(cookies),
+                },
+            ),
+            tmp_path,
+        )
     with pytest.raises(ProviderPolicyError):
         runtime.execute(
             ProviderRequest(
@@ -142,7 +169,8 @@ def test_lossy_plan_and_gallery_acquisition() -> None:
     ids = [op.operation_id for op in plan.operations]
     assert ids.index("remux") < ids.index("transcode")
     transcode = next(op for op in plan.operations if op.operation_id == "transcode")
-    assert "remux" in transcode.input_artifact_ids
+    assert artifact.artifact_id in transcode.input_artifact_ids
+    assert "remux" not in transcode.input_artifact_ids
     gallery = MediaCandidate(
         source_id=uuid4(),
         media_kind=MediaKind.GALLERY,

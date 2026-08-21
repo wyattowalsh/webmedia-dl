@@ -292,6 +292,10 @@ def plan_cmd(
     html: Annotated[Path | None, typer.Option("--html")] = None,
     surface: Annotated[Surface, typer.Option("--surface")] = Surface.CLI,
     preset: Annotated[str, typer.Option("--preset")] = "original-sacred",
+    container: Annotated[
+        str | None, typer.Option("--container", help="Preferred output container, e.g. mkv")
+    ] = None,
+    allow_lossy: Annotated[bool, typer.Option("--allow-lossy")] = False,
 ) -> None:
     """Explain the ranked acquisition and export plan without acquiring media."""
     _reject_unknown_preset(preset)
@@ -301,7 +305,12 @@ def plan_cmd(
         locator,
         surface=surface,
         html=html_text,
-        intent=ExportIntent(preset_id=preset),
+        intent=ExportIntent(
+            preset_id=preset,
+            allow_lossy=allow_lossy,
+            container_preference=container,
+        ),
+        local_user_confirmed=True,
     )
     typer.echo(json.dumps(payload, indent=2, default=str))
 
@@ -514,24 +523,10 @@ def package_extensions_cmd(
 
 @app.command()
 def updates() -> None:
-    """Report update policy. Providers and stores are never auto-installed."""
-    from webmedia_dl import __version__
+    """Report update policy and whether a newer package version exists. Never installs."""
+    from webmedia_dl.updates import check_updates
 
-    typer.echo(
-        json.dumps(
-            {
-                "product": DISPLAY_NAME,
-                "version": __version__,
-                "auto_install": False,
-                "providers_auto_install": False,
-                "telemetry_default": False,
-                "app_store": "BLOCKED",
-                "browser_stores": "BLOCKED",
-                "signing_notarization": "BLOCKED",
-            },
-            indent=2,
-        )
-    )
+    typer.echo(json.dumps(check_updates(), indent=2))
 
 
 @app.command()

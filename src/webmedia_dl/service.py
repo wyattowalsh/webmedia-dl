@@ -129,7 +129,7 @@ def create_app(data_dir: Path | None = None, *, enable_dispatcher: bool = False)
                 pipeline.pairing.require_confirmed(UUID(x_pairing), x_session)
             except (DelegationDenied, ValueError) as exc:
                 raise HTTPException(status_code=401, detail="Unauthorized pairing") from exc
-            return {"actor": "paired", "pairing_id": x_pairing}
+            return {"actor": "paired", "pairing_id": x_pairing, "session_key": x_session}
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     @app.get("/health")
@@ -150,7 +150,7 @@ def create_app(data_dir: Path | None = None, *, enable_dispatcher: bool = False)
                 cookies=body.cookies,
                 local_user_confirmed=body.local_user_confirmed,
                 pairing_id=pairing_id,
-                session_key=body.session_key or None,
+                session_key=body.session_key or auth.get("session_key"),
                 evidence=body.evidence or None,
                 wait=body.wait,
                 intake_kind=body.intake_kind,
@@ -174,7 +174,7 @@ def create_app(data_dir: Path | None = None, *, enable_dispatcher: bool = False)
                 evidence=body.evidence or None,
                 local_user_confirmed=body.local_user_confirmed,
                 pairing_id=pairing_id,
-                session_key=body.session_key or None,
+                session_key=body.session_key or auth.get("session_key"),
             )
         except WebMediaError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc

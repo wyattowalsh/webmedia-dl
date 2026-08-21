@@ -10,7 +10,8 @@ from urllib.parse import urljoin, urlparse
 
 from tqdm import tqdm
 
-from webmedia_dl.errors import DiscoveryError, DrmRefused
+from webmedia_dl.domain.enums import MediaKind
+from webmedia_dl.errors import DiscoveryError, DrmRefused, NetworkPolicyError
 
 _ENCRYPTED_HLS = re.compile(r"#EXT-X-KEY:.*METHOD=(?!NONE)([A-Z0-9-]+)", re.I)
 _HLS_KEY_METHOD = re.compile(r"#EXT-X-KEY:.*METHOD=([A-Z0-9-]+)", re.I)
@@ -31,6 +32,10 @@ _DASH_TEMPLATE = re.compile(
     re.I | re.S,
 )
 _DASH_S = re.compile(r"<S\b([^>]*)/?>", re.I)
+_DASH_SEGMENT_BASE = re.compile(
+    r"<SegmentBase\b([^>]*)(?:/>|>(.*?)</SegmentBase>)",
+    re.I | re.S,
+)
 _DASH_ATTR = re.compile(r"([A-Za-z_:][\w:.-]*)=(?:\"([^\"]*)\"|'([^']*)')")
 _NUMBER_TOKEN = re.compile(r"\$Number(%[^$]+)?\$")
 _TIME_TOKEN = re.compile(r"\$Time(%[^$]+)?\$")
@@ -58,6 +63,22 @@ class ManifestPart(NamedTuple):
     url: str
     start: int | None = None
     length: int | None = None
+    occurrence: int = 0
+
+
+class ByteBudget:
+    def __init__(self, max_bytes: int | None = None) -> None:
+        self.max_bytes = max_bytes
+        self.written = 0
+
+    def consume(self, size: int) -> None:
+        if self.max_bytes is not None and self.written + size > self.max_bytes:
+            msg = (
+                f"Live recording would exceed the {self.max_bytes} byte bound "
+                f"({self.written} + {size})."
+            )
+            raise NetworkPolicyError(msg)
+        self.written += size
 
 
 AddPart = Callable[[ManifestPart], None]
@@ -272,14 +293,44 @@ def _is_directory_base(resolved: str) -> bool:
     return resolved.endswith("/") or not suffix
 
 
-def _collect_baseurls(text: str, current: str, add: AddPart) -> str:
+def _collect_baseurls(text: str, current: str, add: AddPart, *, emit_files: bool = True) -> str:
     for href in _DASH_BASE_URL.findall(text):
         resolved = _join(current, href.strip())
         if _is_directory_base(resolved):
             current = resolved if resolved.endswith("/") else f"{resolved}/"
             continue
-        add(ManifestPart(resolved))
+        if emit_files:
+            add(ManifestPart(resolved))
     return current
+
+
+def _file_baseurl(text: str, current: str) -> str | None:
+    file_url = None
+    for href in _DASH_BASE_URL.findall(text):
+        resolved = _join(current, href.strip())
+        if _is_directory_base(resolved):
+            current = resolved if resolved.endswith("/") else f"{resolved}/"
+            continue
+        file_url = resolved
+    return file_url
+
+
+def _collect_segment_base(text: str, file_url: str, add: AddPart) -> None:
+    for match in _DASH_SEGMENT_BASE.finditer(text):
+        attrs = _attrs(match.group(1))
+        body = match.group(2) or ""
+        for init in re.finditer(r"<Initialization\b([^>]*)/?>", body, flags=re.I):
+            iattrs = _attrs(init.group(1))
+            href = iattrs.get("sourceurl")
+            url = _join(file_url, href.strip()) if href else file_url
+            start, length = _parse_dash_range(iattrs.get("range"))
+            add(ManifestPart(url, start, length))
+        index_start, index_length = _parse_dash_range(attrs.get("indexrange"))
+        if index_start is not None:
+            add(ManifestPart(file_url, index_start, index_length))
+        media_start, media_length = _parse_dash_range(attrs.get("mediarange"))
+        if media_start is not None:
+            add(ManifestPart(file_url, media_start, media_length))
 
 
 def _collect_segments(
@@ -379,11 +430,11 @@ def _dash_kind(attrs: dict[str, str]) -> str:
 
 def _new_part_bucket() -> tuple[list[ManifestPart], set[str], AddPart]:
     parts: list[ManifestPart] = []
-    seen: set[tuple[str, int | None, int | None]] = set()
+    seen: set[tuple[str, int | None, int | None, int]] = set()
     seen_urls: set[str] = set()
 
     def add(part: ManifestPart) -> None:
-        key = (part.url, part.start, part.length)
+        key = (part.url, part.start, part.length, part.occurrence)
         if key in seen:
             return
         seen.add(key)
@@ -403,7 +454,16 @@ def _collect_representation(
 ) -> tuple[int, str]:
     rattrs = _attrs(match.group(1))
     body = match.group(2) or ""
-    local_base = _collect_baseurls(body, current, add)
+    has_segment_base = bool(_DASH_SEGMENT_BASE.search(body))
+    local_base = _collect_baseurls(body, current, add, emit_files=not has_segment_base)
+    if has_segment_base:
+        file_url = _file_baseurl(body, current) or local_base
+        _collect_segment_base(body, file_url, add)
+        try:
+            bandwidth = int(rattrs.get("bandwidth") or 0)
+        except ValueError:
+            bandwidth = 0
+        return bandwidth, _dash_kind(rattrs)
     combined = body if _DASH_TEMPLATE.search(body) else f"{inherited_templates}{body}"
     _collect_segments(
         combined,
@@ -476,21 +536,46 @@ def _dash_adaptation_groups(
     return groups
 
 
+def _select_dash_kinds(
+    groups: list[tuple[int, str, list[ManifestPart]]],
+) -> dict[str, list[ManifestPart]]:
+    populated = [(bandwidth, kind, parts) for bandwidth, kind, parts in groups if parts]
+    selected: dict[str, list[ManifestPart]] = {}
+    if not populated:
+        return selected
+    videos = [item for item in populated if item[1] == "video"]
+    audios = [item for item in populated if item[1] == "audio"]
+    if videos:
+        selected["video"] = max(videos, key=lambda item: item[0])[2]
+    if audios:
+        selected["audio"] = max(audios, key=lambda item: item[0])[2]
+    if not selected:
+        best = max(populated, key=lambda item: item[0])
+        selected[best[1] if best[1] != "unknown" else "video"] = best[2]
+    return selected
+
+
 def _select_dash_group(
     groups: list[tuple[int, str, list[ManifestPart]]],
 ) -> list[ManifestPart]:
-    populated = [(bandwidth, kind, parts) for bandwidth, kind, parts in groups if parts]
-    if not populated:
-        return []
-    videos = [item for item in populated if item[1] == "video"]
-    pool = videos or [item for item in populated if item[1] == "audio"] or populated
-    return max(pool, key=lambda item: item[0])[2]
+    kinds = _select_dash_kinds(groups)
+    if "video" in kinds:
+        return kinds["video"]
+    if "audio" in kinds:
+        return kinds["audio"]
+    return next(iter(kinds.values()), [])
 
 
-def _period_parts(body: str, base: str) -> list[ManifestPart]:
+def _period_kind_parts(body: str, base: str) -> dict[str, list[ManifestPart]]:
     shared, shared_urls, shared_add = _new_part_bucket()
     period_without_as = _strip_blocks(body, _ADAPTATION_SET)
-    period_base = _collect_baseurls(period_without_as, base, shared_add)
+    representations_present = bool(_REPRESENTATION.search(body))
+    period_base = _collect_baseurls(
+        period_without_as,
+        base,
+        shared_add,
+        emit_files=not representations_present,
+    )
     groups: list[tuple[int, str, list[ManifestPart]]] = []
     adaptations = list(_ADAPTATION_SET.finditer(body))
     if not adaptations:
@@ -505,36 +590,55 @@ def _period_parts(body: str, base: str) -> list[ManifestPart]:
                     _attrs(adaptation.group(1)),
                 )
             )
-    selected = _select_dash_group(groups) if groups else list(shared)
-    if not selected:
-        return list(shared)
-    if groups:
-        return [*shared, *selected]
-    return selected
+    selected = _select_dash_kinds(groups) if groups else {"video": list(shared)}
+    result: dict[str, list[ManifestPart]] = {}
+    for kind, parts in selected.items():
+        if not parts:
+            continue
+        result[kind] = [*shared, *parts] if groups else list(parts)
+    return result
+
+
+def _period_parts(body: str, base: str) -> list[ManifestPart]:
+    kinds = _period_kind_parts(body, base)
+    if "video" in kinds:
+        return kinds["video"]
+    if "audio" in kinds:
+        return kinds["audio"]
+    return next(iter(kinds.values()), [])
 
 
 def _dash_parts(text: str, base: str) -> list[ManifestPart]:
-    parts: list[ManifestPart] = []
-    seen: set[tuple[str, int | None, int | None]] = set()
+    kinds = _dash_kind_parts(text, base)
+    if "video" in kinds:
+        return kinds["video"]
+    if "audio" in kinds:
+        return kinds["audio"]
+    return next(iter(kinds.values()), [])
 
-    def add(part: ManifestPart) -> None:
-        key = (part.url, part.start, part.length)
-        if key in seen:
-            return
-        seen.add(key)
-        parts.append(part)
+
+def _dash_kind_parts(text: str, base: str) -> dict[str, list[ManifestPart]]:
+    buckets: dict[str, list[ManifestPart]] = {}
+    seen: dict[str, set[tuple[str, int | None, int | None, int]]] = {}
 
     periods = list(_PERIOD.finditer(text))
     mpd_prefix = text[: periods[0].start()] if periods else ""
     mpd_shared, _mpd_urls, mpd_add = _new_part_bucket()
     mpd_base = _collect_baseurls(mpd_prefix, base, mpd_add)
     scopes = [(match.group(2) or "") for match in periods] or [text]
-    ordered: list[ManifestPart] = list(mpd_shared)
-    for body in scopes:
-        ordered.extend(_period_parts(body, mpd_base))
-    for part in ordered:
-        add(part)
-    return parts
+    for index, body in enumerate(scopes):
+        kind_parts = _period_kind_parts(body, mpd_base)
+        for kind, parts in kind_parts.items():
+            bucket = buckets.setdefault(kind, list(mpd_shared) if mpd_shared else [])
+            kind_seen = seen.setdefault(kind, set())
+            for part in parts:
+                tagged = part._replace(occurrence=index)
+                key = (tagged.url, tagged.start, tagged.length, tagged.occurrence)
+                if key in kind_seen:
+                    continue
+                kind_seen.add(key)
+                bucket.append(tagged)
+    return {kind: parts for kind, parts in buckets.items() if parts}
 
 
 def manifest_is_live(text: str) -> bool:
@@ -548,6 +652,78 @@ def manifest_is_live(text: str) -> bool:
     return False
 
 
+def _hls_attr_map(blob: str) -> dict[str, str]:
+    parsed: dict[str, str] = {}
+    for match in re.finditer(r"([A-Z0-9-]+)=(\"[^\"]*\"|'[^']*'|[^\",]+)", blob, flags=re.I):
+        parsed[match.group(1).upper()] = match.group(2).strip().strip("\"'")
+    return parsed
+
+
+def hls_audio_playlist_urls(text: str, base: str) -> list[str]:
+    urls: list[str] = []
+    seen: set[str] = set()
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("#EXT-X-MEDIA:"):
+            continue
+        attrs = _hls_attr_map(stripped.split(":", 1)[1])
+        if attrs.get("TYPE", "").upper() != "AUDIO":
+            continue
+        uri = attrs.get("URI")
+        if not uri:
+            continue
+        resolved = _join(base, uri)
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        urls.append(resolved)
+    return urls
+
+
+def _part_record_key(part: ManifestPart, *, live: bool) -> tuple:
+    if live:
+        return (part.url, part.start, part.length)
+    return (part.url, part.start, part.length, part.occurrence)
+
+
+def _write_recorded_parts(
+    parts: list[ManifestPart],
+    dest: Path,
+    fetch: FetchFn,
+    *,
+    budget: ByteBudget,
+    should_stop: StopFn | None,
+    live: bool,
+    max_segments: int,
+    cache: dict[str, bytes],
+    recorded: set[tuple],
+) -> int:
+    written = 0
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    with dest.open("ab" if dest.exists() else "wb") as handle:
+        for part in tqdm(parts[:max_segments], desc="live-record", disable=True, unit="seg"):
+            key = _part_record_key(part, live=live)
+            if key in recorded:
+                continue
+            if should_stop is not None:
+                should_stop()
+            if part.url not in cache:
+                status, _, data = fetch(part.url)
+                if status >= 400:
+                    msg = f"Live segment fetch failed with HTTP {status}."
+                    raise DiscoveryError(msg)
+                cache[part.url] = data
+            chunk = cache[part.url]
+            if part.start is not None:
+                end = part.start + (part.length if part.length is not None else len(chunk))
+                chunk = chunk[part.start : end]
+            budget.consume(len(chunk))
+            handle.write(chunk)
+            written += len(chunk)
+            recorded.add(key)
+    return written
+
+
 def record_clear_stream(
     playlist_text: str,
     playlist_url: str,
@@ -558,14 +734,19 @@ def record_clear_stream(
     depth: int = 0,
     should_stop: StopFn | None = None,
     live_polls: int = 1,
+    max_bytes: int | None = None,
+    budget: ByteBudget | None = None,
+    parts: list[ManifestPart] | None = None,
+    rendition_kind: str | None = None,
 ) -> Path:
     dest = output
     playlist = playlist_text
+    bound = budget or ByteBudget(max_bytes)
     if _DASH_CONTENT_PROTECTION.search(playlist):
         msg = "DASH ContentProtection is refused."
         raise DrmRefused(msg)
-    parts = recordable_parts(playlist, playlist_url)
-    if not parts:
+    round_parts = parts if parts is not None else recordable_parts(playlist, playlist_url)
+    if not round_parts:
         match = _ENCRYPTED_HLS.search(playlist)
         if match:
             method = match.group(1)
@@ -576,16 +757,22 @@ def record_clear_stream(
             raise DrmRefused(msg)
         msg = "Clear live playlist contained no recordable segments."
         raise DiscoveryError(msg)
-    first = parts[0].url
+    first = round_parts[0].url
     preferred = _preferred_hls_variant(playlist, playlist_url)
-    if depth < 2 and (
-        preferred
-        or first.endswith(".m3u8")
-        or first.endswith(".mpd")
-        or "#EXT-X-STREAM-INF" in playlist
+    if (
+        parts is None
+        and depth < 2
+        and (
+            preferred
+            or first.endswith(".m3u8")
+            or first.endswith(".mpd")
+            or "#EXT-X-STREAM-INF" in playlist
+        )
     ):
         nested = [
-            item.url for item in parts if item.url.endswith(".m3u8") or item.url.endswith(".mpd")
+            item.url
+            for item in round_parts
+            if item.url.endswith(".m3u8") or item.url.endswith(".mpd")
         ]
         target = preferred or (nested[0] if nested else first)
         if should_stop is not None:
@@ -603,50 +790,125 @@ def record_clear_stream(
             depth=depth + 1,
             should_stop=should_stop,
             live_polls=live_polls,
+            budget=bound,
+            rendition_kind=rendition_kind,
         )
     dest.parent.mkdir(parents=True, exist_ok=True)
+    if dest.exists():
+        dest.unlink()
     cache: dict[str, bytes] = {}
-    recorded: set[tuple[str, int | None, int | None]] = set()
+    recorded: set[tuple] = set()
     polls = max(1, min(live_polls, MAX_LIVE_POLLS))
     written = 0
-    with dest.open("wb") as handle:
-        for round_index in range(polls):
-            inspect_manifest(playlist)
-            round_parts = recordable_parts(playlist, playlist_url)
-            for part in tqdm(
-                round_parts[:max_segments],
-                desc="live-record",
-                disable=True,
-                unit="seg",
-            ):
-                key = (part.url, part.start, part.length)
-                if key in recorded:
-                    continue
-                if should_stop is not None:
-                    should_stop()
-                if part.url not in cache:
-                    status, _, data = fetch(part.url)
-                    if status >= 400:
-                        msg = f"Live segment fetch failed with HTTP {status}."
-                        raise DiscoveryError(msg)
-                    cache[part.url] = data
-                chunk = cache[part.url]
-                if part.start is not None:
-                    end = part.start + (part.length if part.length is not None else len(chunk))
-                    chunk = chunk[part.start : end]
-                handle.write(chunk)
-                written += len(chunk)
-                recorded.add(key)
-            more = round_index + 1 < polls and manifest_is_live(playlist)
-            if not more:
-                break
-            if should_stop is not None:
-                should_stop()
-            status, _, data = fetch(playlist_url)
-            if status >= 400:
-                break
-            playlist = data.decode("utf-8", errors="replace")
-    if dest.stat().st_size == 0 or written == 0:
+    live_mode = polls > 1 or manifest_is_live(playlist)
+    for round_index in range(polls):
+        inspect_manifest(playlist)
+        if rendition_kind and ("<MPD" in playlist or "<mpd" in playlist):
+            current_parts = _dash_kind_parts(playlist, playlist_url).get(rendition_kind, [])
+        elif parts is not None and round_index == 0:
+            current_parts = parts
+        else:
+            current_parts = recordable_parts(playlist, playlist_url)
+        written += _write_recorded_parts(
+            current_parts,
+            dest,
+            fetch,
+            budget=bound,
+            should_stop=should_stop,
+            live=live_mode,
+            max_segments=max_segments,
+            cache=cache,
+            recorded=recorded,
+        )
+        more = round_index + 1 < polls and manifest_is_live(playlist)
+        if not more:
+            break
+        if should_stop is not None:
+            should_stop()
+        status, _, data = fetch(playlist_url)
+        if status >= 400:
+            break
+        playlist = data.decode("utf-8", errors="replace")
+    if not dest.exists() or dest.stat().st_size == 0 or written == 0:
         msg = "Live recording produced an empty artifact."
         raise DiscoveryError(msg)
     return dest
+
+
+def record_kind_streams(
+    playlist_text: str,
+    playlist_url: str,
+    output: Path,
+    fetch: FetchFn,
+    *,
+    max_bytes: int | None = None,
+    should_stop: StopFn | None = None,
+    live_polls: int = 1,
+) -> list[tuple[MediaKind, Path]]:
+    """Record the primary stream plus a separate audio rendition when present."""
+    inspect_manifest(playlist_text)
+    bound = ByteBudget(max_bytes)
+    dash = "<MPD" in playlist_text or "<mpd" in playlist_text
+    if dash:
+        kinds = _dash_kind_parts(playlist_text, playlist_url)
+        if "video" in kinds and "audio" in kinds:
+            recorded: list[tuple[MediaKind, Path]] = []
+            mapping = ((MediaKind.VIDEO, "video"), (MediaKind.AUDIO, "audio"))
+            for media_kind, name in mapping:
+                dest = output.parent / f"{output.stem}-{name}{output.suffix or '.bin'}"
+                record_clear_stream(
+                    playlist_text,
+                    playlist_url,
+                    dest,
+                    fetch,
+                    should_stop=should_stop,
+                    live_polls=live_polls,
+                    budget=bound,
+                    parts=kinds[name],
+                    rendition_kind=name,
+                )
+                recorded.append((media_kind, dest))
+            return recorded
+        record_clear_stream(
+            playlist_text,
+            playlist_url,
+            output,
+            fetch,
+            should_stop=should_stop,
+            live_polls=live_polls,
+            budget=bound,
+        )
+        return [(MediaKind.LIVE_STREAM, output)]
+    audio_uris = hls_audio_playlist_urls(playlist_text, playlist_url)
+    record_clear_stream(
+        playlist_text,
+        playlist_url,
+        output,
+        fetch,
+        should_stop=should_stop,
+        live_polls=live_polls,
+        budget=bound,
+    )
+    if not audio_uris:
+        return [(MediaKind.LIVE_STREAM, output)]
+    video_dest = output
+    results: list[tuple[MediaKind, Path]] = [(MediaKind.VIDEO, video_dest)]
+    audio_url = audio_uris[0]
+    if should_stop is not None:
+        should_stop()
+    status, _, data = fetch(audio_url)
+    if status >= 400:
+        msg = f"Live audio playlist fetch failed with HTTP {status}."
+        raise DiscoveryError(msg)
+    audio_dest = output.parent / f"{output.stem}-audio{output.suffix or '.bin'}"
+    record_clear_stream(
+        data.decode("utf-8", errors="replace"),
+        audio_url,
+        audio_dest,
+        fetch,
+        should_stop=should_stop,
+        live_polls=live_polls,
+        budget=bound,
+    )
+    results.append((MediaKind.AUDIO, audio_dest))
+    return results

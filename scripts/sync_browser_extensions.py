@@ -127,6 +127,10 @@ def main() -> None:
         (dest / "manifest.json").write_text(
             json.dumps(manifest(name, gecko), indent=2) + "\n", encoding="utf-8"
         )
+        packaged = ROOT / "src" / "webmedia_dl" / "runtime" / "extensions" / folder
+        packaged.mkdir(parents=True, exist_ok=True)
+        for filename in ("capture.js", "popup.html", "popup.js", "manifest.json"):
+            (packaged / filename).write_bytes((dest / filename).read_bytes())
     safari = ROOT / "extensions/safari"
     plist = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -147,6 +151,9 @@ def main() -> None:
 </plist>
 """
     (safari / "Info.plist").write_text(plist, encoding="utf-8")
+    packaged_safari = ROOT / "src" / "webmedia_dl" / "runtime" / "extensions" / "safari"
+    packaged_safari.mkdir(parents=True, exist_ok=True)
+    (packaged_safari / "Info.plist").write_text(plist, encoding="utf-8")
     readme = safari / "README.md"
     if not readme.is_file():
         readme.write_text(

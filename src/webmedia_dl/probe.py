@@ -71,7 +71,7 @@ def probe_media(
                 height=_as_int(item.get("height")),
                 sample_rate=_as_int(item.get("sample_rate")),
                 channels=_as_int(item.get("channels")),
-                encrypted=bool((item.get("tags") or {}).get("ENCRYPTED")),
+                encrypted=_stream_is_encrypted(item),
             )
         )
     fmt = payload.get("format") or {}
@@ -80,7 +80,7 @@ def probe_media(
         duration_ms = int(float(duration) * 1000) if duration not in (None, "") else None
     except (TypeError, ValueError):
         duration_ms = None
-    names = str(fmt.get("format_name") or path.suffix.lstrip(".") or "")
+    names = str(fmt.get("format_name") or "").strip()
     container = names.split(",")[0].strip() or None
     return MediaProbe(
         probe_id=uuid4(),
@@ -88,7 +88,29 @@ def probe_media(
         duration_ms=duration_ms,
         streams=streams,
         container=container,
+        format_names=names.strip() or None,
     )
+
+
+def _truthy_flag(value: object) -> bool:
+    if value is None or value is False:
+        return False
+    if value is True:
+        return True
+    text = str(value).strip().lower()
+    return text in {"1", "true", "yes", "on"}
+
+
+def _stream_is_encrypted(item: dict) -> bool:
+    if _truthy_flag(item.get("encrypted")):
+        return True
+    tags = item.get("tags") or {}
+    if not isinstance(tags, dict):
+        return False
+    for key in ("ENCRYPTED", "encrypted", "ENCRYPTION", "encryption"):
+        if _truthy_flag(tags.get(key)):
+            return True
+    return False
 
 
 def _as_int(value: object) -> int | None:

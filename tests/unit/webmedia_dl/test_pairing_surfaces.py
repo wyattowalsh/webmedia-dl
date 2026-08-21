@@ -36,7 +36,7 @@ def test_ios_http_direct_image(tmp_data: Path, png_bytes: bytes) -> None:
     assert job.state is JobState.COMPLETED
 
 
-def test_pairing_confirmation_lets_mac_own_ytdlp(tmp_data: Path, ytdlp_run_ok) -> None:
+def test_pairing_confirmation_lets_mac_own_without_widening(tmp_data: Path, ytdlp_run_ok) -> None:
     captured: list[list[str]] = []
 
     def run(argv: list[str], _cwd: Path) -> tuple[int, bytes, bytes]:
@@ -58,10 +58,10 @@ def test_pairing_confirmation_lets_mac_own_ytdlp(tmp_data: Path, ytdlp_run_ok) -
         pairing_id=challenge.pairing_id,
         session_key=record.session_key,
     )
-    assert job.state is JobState.COMPLETED
-    assert captured
-    assert any("--output" in argv for argv in captured)
-    assert job.policy_profile_id == "personal-full"
+    assert job.worker_id == pipeline.host_worker.worker_id
+    assert job.policy_profile_id == "personal-restricted"
+    assert job.state is JobState.FAILED
+    assert not any("--output" in argv for argv in captured)
 
 
 def test_unconfirmed_pairing_does_not_escalate(tmp_data: Path) -> None:

@@ -16,11 +16,17 @@ from urllib.parse import urlparse
 from uuid import UUID
 
 from webmedia_dl.domain.models import PolicyProfile, ProviderManifest
-from webmedia_dl.errors import CancelledError, PauseRequested, ProviderPolicyError
+from webmedia_dl.errors import (
+    CancelledError,
+    CookiePolicyError,
+    PauseRequested,
+    ProviderPolicyError,
+)
 from webmedia_dl.fetch import bound_fetch
 from webmedia_dl.identity import is_safe_format_id
 from webmedia_dl.paths import runtime_file
 from webmedia_dl.policy.profiles import get_profile
+from webmedia_dl.security import CookieGrantLedger
 
 MAGICK_FORMATS = {
     "jpg": "jpeg",
@@ -176,11 +182,13 @@ class ProviderRuntime:
         which: Callable[[str], str | None] | None = None,
         run: RunFn | None = None,
         http_get: Callable[[str], tuple[int, dict[str, str], bytes]] | None = None,
+        cookie_ledger: CookieGrantLedger | None = None,
     ) -> None:
         self._manifests = builtin_manifests()
         self._which = which or shutil.which
         self._run = run if run is not None else self._tracked_run
         self._http_get = http_get
+        self.cookie_ledger = cookie_ledger or CookieGrantLedger()
         self._lock = threading.Lock()
         self._procs: dict[str, list[subprocess.Popen[bytes]]] = defaultdict(list)
         self._cancels: dict[str, threading.Event] = {}
@@ -378,7 +386,15 @@ class ProviderRuntime:
             raise ProviderPolicyError(msg)
         inputs = request.typed_inputs
         if manifest.provider_id == "ytdlp":
-            return _ytdlp_argv(resolved, inputs, manifest, request.capability_id)
+            return _ytdlp_argv(
+                resolved,
+                inputs,
+                manifest,
+                request.capability_id,
+                job_id=request.job_id,
+                ledger=self.cookie_ledger,
+                profile_id=getattr(self._tls, "profile_id", None),
+            )
         if manifest.provider_id == "ffmpeg":
             return _ffmpeg_argv(resolved, inputs, request.capability_id)
         if manifest.provider_id == "gallery-dl":
@@ -394,6 +410,10 @@ def _ytdlp_argv(
     inputs: dict[str, Any],
     manifest: ProviderManifest,
     capability_id: str,
+    *,
+    job_id: UUID | str | None = None,
+    ledger: CookieGrantLedger | None = None,
+    profile_id: str | None = None,
 ) -> list[str]:
     url = inputs.get("url")
     if not isinstance(url, str):
@@ -435,7 +455,19 @@ def _ytdlp_argv(
         argv.extend(["--format", format_id])
     cookies = inputs.get("cookies")
     if cookies:
-        argv.extend(["--cookies", str(cookies)])
+        msg = "Raw cookie paths are not accepted; issue a job-bound cookie grant."
+        raise CookiePolicyError(msg)
+    grant_id = inputs.get("cookie_grant_id")
+    if grant_id:
+        if ledger is None:
+            msg = "Cookie grant ledger is unavailable."
+            raise CookiePolicyError(msg)
+        cookie_path = ledger.resolve(
+            str(grant_id),
+            job_id=job_id,
+            profile_id=profile_id,
+        )
+        argv.extend(["--cookies", str(cookie_path)])
     merge = inputs.get("merge_output_format")
     if merge:
         if merge not in {"mp4", "mkv", "webm", "mov"}:

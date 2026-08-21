@@ -18,6 +18,15 @@ from webmedia_dl.transport import (
 
 
 class PairingStore:
+    PAIRABLE_CLIENT_PROFILES = frozenset(
+        {
+            "personal-restricted",
+            "browser-capture",
+            "watch-capture",
+            "tv-control",
+        }
+    )
+
     def __init__(self, root: Path) -> None:
         self.root = root
         self.root.mkdir(parents=True, exist_ok=True)
@@ -41,6 +50,14 @@ class PairingStore:
         tmp.replace(self._path)
 
     def create(self, client_profile_id: str, worker_id: str) -> PairingChallenge:
+        from webmedia_dl.policy.profiles import builtin_profiles
+
+        if client_profile_id not in builtin_profiles():
+            msg = f"Unknown client profile {client_profile_id!r}."
+            raise DelegationDenied(msg)
+        if client_profile_id not in self.PAIRABLE_CLIENT_PROFILES:
+            msg = "Pairing cannot grant the host full profile to a client."
+            raise DelegationDenied(msg)
         challenge = create_challenge(client_profile_id, worker_id)
         record = PairingRecord(
             pairing_id=challenge.pairing_id,
@@ -82,7 +99,10 @@ class PairingStore:
         if not record.confirmed:
             msg = "The Mac user has not confirmed this pairing."
             raise DelegationDenied(msg)
-        if session_key is not None and record.session_key != session_key:
+        if not session_key:
+            msg = "Pairing session key is required."
+            raise DelegationDenied(msg)
+        if record.session_key != session_key:
             msg = "Pairing session key does not match."
             raise DelegationDenied(msg)
         return record

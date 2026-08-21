@@ -7,19 +7,29 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
-from webmedia_dl.paths import repo_root
+from webmedia_dl.paths import repo_root, runtime_root
 
 BROWSERS = ("chromium", "chrome", "brave", "edge", "firefox", "safari")
 FIXED_ZIP_TIME = (2026, 8, 18, 0, 0, 0)
 
 
+def extension_root() -> Path:
+    packaged = runtime_root() / "extensions"
+    if packaged.is_dir() and any(packaged.iterdir()):
+        return packaged
+    return repo_root() / "extensions"
+
+
 def write_extension_zips(*, dest_root: Path | None = None) -> list[dict[str, Any]]:
-    root = repo_root()
-    dest = dest_root or (root / "dist-bundle" / "extensions")
+    root = extension_root()
+    dest = dest_root or (Path.cwd() / "dist-bundle" / "extensions")
     dest.mkdir(parents=True, exist_ok=True)
     written: list[dict[str, Any]] = []
     for browser in BROWSERS:
-        folder = root / "extensions" / browser
+        folder = root / browser
+        if not folder.is_dir():
+            msg = f"Extension tree for {browser} is missing from {root}."
+            raise FileNotFoundError(msg)
         archive_path = dest / f"webmedia-dl-{browser}.zip"
         with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
             for path in sorted(folder.rglob("*")):

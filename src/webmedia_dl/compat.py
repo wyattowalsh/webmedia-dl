@@ -14,11 +14,21 @@ SIDECAR_VERSION = 1
 
 def scan_legacy(root: Path) -> dict[str, Any]:
     found = [name for name in LEGACY_MARKERS if (root / name).exists()]
-    extra = list(root.glob("**/yt-dlp-archive.txt"))
+    extra: list[str] = []
+    seen: set[Path] = set()
+    for name in LEGACY_MARKERS:
+        for path in root.rglob(name):
+            if not path.is_file():
+                continue
+            resolved = path.resolve()
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            extra.append(str(path))
     return {
         "root": str(root),
         "markers": found,
-        "extra_archives": [str(path) for path in extra],
+        "extra_archives": extra,
         "migrated": False,
         "destructive": False,
     }

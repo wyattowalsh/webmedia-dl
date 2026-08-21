@@ -60,18 +60,30 @@ class _MediaHTMLParser(HTMLParser):
         self.title: str | None = None
         self._in_title = False
         self.json_ld: list[str] = []
+        self._in_picture = False
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         mapping = dict(attrs)
         if tag == "title":
             self._in_title = True
-        if tag in {"video", "audio", "source", "img", "picture", "amp-img"}:
+        if tag == "picture":
+            self._in_picture = True
+        if tag in {
+            "video",
+            "audio",
+            "source",
+            "img",
+            "picture",
+            "amp-img",
+            "amp-video",
+            "amp-audio",
+        }:
             kind = (
                 MediaKind.VIDEO
-                if tag == "video"
+                if tag in {"video", "amp-video"}
                 else (
                     MediaKind.AUDIO
-                    if tag == "audio"
+                    if tag in {"audio", "amp-audio"}
                     else (
                         MediaKind.IMAGE
                         if tag in {"img", "picture", "amp-img"}
@@ -79,6 +91,11 @@ class _MediaHTMLParser(HTMLParser):
                     )
                 )
             )
+            mime_kind = _kind_from_mime(mapping.get("type"))
+            if mime_kind is not None:
+                kind = mime_kind
+            elif tag == "source" and self._in_picture:
+                kind = MediaKind.IMAGE
             for attr in ("src", "data-src", "poster"):
                 value = mapping.get(attr)
                 if value:
@@ -131,12 +148,29 @@ class _MediaHTMLParser(HTMLParser):
     def handle_endtag(self, tag: str) -> None:
         if tag == "title":
             self._in_title = False
+        if tag == "picture":
+            self._in_picture = False
 
     def handle_data(self, data: str) -> None:
         if self._in_title:
             text = data.strip()
             if text:
                 self.title = text
+
+
+def _kind_from_mime(mime: str | None) -> MediaKind | None:
+    if not mime:
+        return None
+    text = mime.lower()
+    if "mpegurl" in text or text in {"application/dash+xml", "application/vnd.apple.mpegurl"}:
+        return MediaKind.LIVE_STREAM
+    if text.startswith("video/"):
+        return MediaKind.VIDEO
+    if text.startswith("audio/"):
+        return MediaKind.AUDIO
+    if text.startswith("image/"):
+        return MediaKind.IMAGE
+    return None
 
 
 def is_direct_media_url(url: str) -> bool:
@@ -230,8 +264,10 @@ def candidates_from_manifest_json(source: MediaSource, raw: bytes) -> list[Media
         url = item.get("url") or item.get("webpage_url") or source.normalized_url
         if not isinstance(url, str) or not _usable_url(url):
             continue
-        kind = MediaKind.LIVE_STREAM if item.get("is_live") else _kind_from_url(url)
-        if kind is MediaKind.PAGE:
+        kind = _kind_from_url(url)
+        if item.get("is_live") and kind is MediaKind.LIVE_STREAM:
+            kind = MediaKind.LIVE_STREAM
+        elif kind is MediaKind.PAGE:
             kind = MediaKind.VIDEO
         alternatives: list[FormatAlternative] = []
         drm: list[str] = detect_drm_signals(json.dumps(item)[:4000])
@@ -243,11 +279,19 @@ def candidates_from_manifest_json(source: MediaSource, raw: bytes) -> list[Media
                 continue
             if fmt.get("has_drm") or fmt.get("__has_drm"):
                 drm.append(f"format-drm:{format_id}")
+            vcodec = fmt.get("vcodec")
+            acodec = fmt.get("acodec")
+            if isinstance(vcodec, str) and vcodec.lower() in {"none", "null"}:
+                vcodec = None
+            if isinstance(acodec, str) and acodec.lower() in {"none", "null"}:
+                acodec = None
             alternatives.append(
                 FormatAlternative(
                     format_id=format_id,
                     container=fmt.get("ext"),
-                    codec=fmt.get("vcodec") or fmt.get("acodec"),
+                    codec=vcodec or acodec,
+                    vcodec=vcodec if isinstance(vcodec, str) else None,
+                    acodec=acodec if isinstance(acodec, str) else None,
                     width=fmt.get("width"),
                     height=fmt.get("height"),
                     bitrate=int(fmt["tbr"] * 1000)
@@ -323,6 +367,10 @@ def discover(
         ]
 
     body = html
+    if body is not None:
+        encoded = body.encode("utf-8")
+        if len(encoded) > profile.max_html_bytes:
+            body = encoded[: profile.max_html_bytes].decode("utf-8", errors="replace")
     if body is None:
         if fetch is None:
             msg = "Page discovery requires a fetch function or provided HTML."
@@ -397,22 +445,24 @@ def discover(
             continue
         items = payload if isinstance(payload, list) else [payload]
         for item in _walk_jsonld(items):
-            content_url = item.get("contentUrl") or item.get("embedUrl")
-            if isinstance(content_url, str) and _usable_url(content_url):
-                absolute = urljoin(url, content_url)
-                if absolute in seen:
-                    continue
-                seen.add(absolute)
-                found.append(
-                    _candidate(
-                        source,
-                        absolute,
-                        _kind_from_jsonld(item, absolute),
-                        title=title,
-                        evidence=["discover:jsonld"],
-                        drm=detect_drm_signals(absolute),
+            raw = item.get("contentUrl") or item.get("embedUrl")
+            locators = raw if isinstance(raw, list) else [raw]
+            for content_url in locators:
+                if isinstance(content_url, str) and _usable_url(content_url):
+                    absolute = urljoin(url, content_url)
+                    if absolute in seen:
+                        continue
+                    seen.add(absolute)
+                    found.append(
+                        _candidate(
+                            source,
+                            absolute,
+                            _kind_from_jsonld(item, absolute),
+                            title=title,
+                            evidence=["discover:jsonld"],
+                            drm=detect_drm_signals(absolute),
+                        )
                     )
-                )
     if not found:
         found.append(
             _candidate(

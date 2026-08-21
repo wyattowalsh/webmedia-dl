@@ -9,6 +9,7 @@ from webmedia_dl.domain.enums import LossClass, MediaKind
 from webmedia_dl.domain.models import (
     AcquisitionPlan,
     AcquisitionStrategy,
+    FormatAlternative,
     MediaCandidate,
     PolicyProfile,
 )
@@ -17,10 +18,41 @@ from webmedia_dl.policy.profiles import assert_capability
 from webmedia_dl.security import refuse_drm
 
 
+def _codec_present(value: str | None) -> bool:
+    text = (value or "").strip().lower()
+    return bool(text) and text not in {"none", "null", "unknown"}
+
+
+def _has_video(item: FormatAlternative) -> bool:
+    if item.height or item.width:
+        return True
+    return _codec_present(item.vcodec)
+
+
+def _has_audio(item: FormatAlternative) -> bool:
+    if _codec_present(item.acodec):
+        return True
+    if _has_video(item):
+        return False
+    return _codec_present(item.codec)
+
+
 def preferred_format_id(candidate: MediaCandidate) -> str | None:
     usable = [item for item in candidate.alternatives if not item.drm and item.format_id]
     if not usable:
         return None
+    combined = [item for item in usable if _has_video(item) and _has_audio(item)]
+    videos = [item for item in usable if _has_video(item)]
+    audios = [item for item in usable if _has_audio(item) and not _has_video(item)]
+    if combined:
+        best = max(combined, key=lambda item: (item.height or 0, item.bitrate or 0))
+        return best.format_id
+    if videos and audios:
+        best_video = max(videos, key=lambda item: (item.height or 0, item.bitrate or 0))
+        best_audio = max(audios, key=lambda item: (item.bitrate or 0,))
+        if best_video.format_id != best_audio.format_id:
+            return f"{best_video.format_id}+{best_audio.format_id}"
+        return best_video.format_id
     best = max(usable, key=lambda item: (item.height or 0, item.bitrate or 0))
     return best.format_id
 
@@ -40,7 +72,7 @@ def plan_acquisition(
             job_id=job_id, candidate_id=candidate.candidate_id, strategies=strategies
         )
     url = candidate.retrieval_urls[0]
-    if candidate.media_kind == MediaKind.LIVE_STREAM:
+    if candidate.media_kind == MediaKind.LIVE_STREAM and is_direct_media_url(url):
         try:
             assert_capability(profile, "live.record_clear_manifest")
             strategies.append(
@@ -81,7 +113,7 @@ def plan_acquisition(
             if format_id:
                 typed["format_id"] = format_id
             if cookies:
-                typed["cookies"] = cookies
+                typed["cookie_grant_id"] = cookies
             strategies.append(
                 AcquisitionStrategy(
                     strategy_id="ytdlp",
@@ -120,7 +152,7 @@ def plan_acquisition(
         if format_id:
             typed["format_id"] = format_id
         if cookies:
-            typed["cookies"] = cookies
+            typed["cookie_grant_id"] = cookies
         strategies.append(
             AcquisitionStrategy(
                 strategy_id="ytdlp",
