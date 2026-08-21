@@ -49,4 +49,6 @@
   fail closed with executed tests. Missing checkpoint artifacts, preview-only
   exports, `include_original=false`, validation failures, queue schema
   migration, claim CAS misses, later live-poll DRM, and worker API pairing
-  errors fail closed with executed tests.
+  errors fail closed with executed tests. Cancel during acquire, all-kind
+  DRM failure, SOURCE validation skip with derivative publish, and ffmpeg
+  probe DRM fail closed with executed tests.

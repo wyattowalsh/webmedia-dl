@@ -345,6 +345,7 @@
     "tests/integration/test_pipeline_fs.py",
     "tests/unit/extensions/capture.test.mjs",
     "tests/unit/webmedia_dl/test_accessibility_markup.py",
+    "tests/unit/webmedia_dl/test_acquire_validation_gates.py",
     "tests/unit/webmedia_dl/test_candidates.py",
     "tests/unit/webmedia_dl/test_cli.py",
     "tests/unit/webmedia_dl/test_companion_checkpoint.py",
