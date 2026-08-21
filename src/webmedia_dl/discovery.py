@@ -104,7 +104,8 @@ class _MediaHTMLParser(HTMLParser):
             srcset = mapping.get("srcset")
             if srcset:
                 for part in srcset.split(","):
-                    token = part.strip().split()[0]
+                    pieces = part.strip().split()
+                    token = pieces[0] if pieces else ""
                     if token:
                         self.urls.append((token, kind))
         if tag == "track":

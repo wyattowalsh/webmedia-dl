@@ -1,0 +1,369 @@
+"""Remaining Linux-provable fail-closed coverage for discovery, cookies, probe, and resume."""
+
+from __future__ import annotations
+
+import json
+import zipfile
+from io import BytesIO
+from pathlib import Path
+from types import SimpleNamespace
+from uuid import uuid4
+
+import pytest
+from fastapi.testclient import TestClient
+
+from webmedia_dl.compat import migrate_legacy
+from webmedia_dl.continuity import validate_companion_message
+from webmedia_dl.discovery import candidates_from_manifest_json, discover
+from webmedia_dl.domain.enums import EventType, IntakeKind, JobState, MediaKind, Surface
+from webmedia_dl.domain.models import MediaSource
+from webmedia_dl.errors import CookiePolicyError, ProviderPolicyError
+from webmedia_dl.live import _expand_dash_template, inspect_manifest, record_clear_stream
+from webmedia_dl.packaging import write_extension_zips
+from webmedia_dl.pipeline import Pipeline
+from webmedia_dl.policy.profiles import get_profile
+from webmedia_dl.probe import probe_media
+from webmedia_dl.providers import ProviderRuntime, _http_suffix
+from webmedia_dl.security import CookieGrantLedger, resolve_cookie_path
+from webmedia_dl.service import create_app, load_or_create_token
+from webmedia_dl.updates import check_updates
+from webmedia_dl.validation import container_matches, normalize_container
+
+
+def _page() -> MediaSource:
+    return MediaSource(
+        kind=IntakeKind.URL,
+        locator="https://example.com/page",
+        normalized_url="https://example.com/page",
+        surface=Surface.CLI,
+        policy_profile_id="personal-full",
+    )
+
+
+def test_legacy_download_archive_dict_is_indexed(tmp_path: Path) -> None:
+    marker = tmp_path / ".ytdlp-history.json"
+    marker.write_text(
+        json.dumps({"download_archive": ["keep-me", "", "also-me"]}),
+        encoding="utf-8",
+    )
+    applied = migrate_legacy(tmp_path, apply=True)
+    sidecar = json.loads((tmp_path / "webmedia-dl-migrated" / "migration.json").read_text())
+    by_name = {Path(item["source_path"]).name: item["ids"] for item in sidecar["archives"]}
+    assert by_name[".ytdlp-history.json"] == ["keep-me", "also-me"]
+    assert applied["index_entries"] == 2
+
+
+def test_companion_kind_missing_or_unknown_is_refused() -> None:
+    with pytest.raises(ProviderPolicyError, match="missing or not allowlisted"):
+        validate_companion_message({})
+    with pytest.raises(ProviderPolicyError, match="missing or not allowlisted"):
+        validate_companion_message({"kind": "explode"})
+    with pytest.raises(ProviderPolicyError, match="missing or not allowlisted"):
+        validate_companion_message({"kind": 1})
+
+
+def test_discovery_skips_empty_tokens_and_jsonld_kinds() -> None:
+    html = """
+    <html>
+      <head>
+        <title>   </title>
+        <title>Album</title>
+        <script type="application/ld+json">not-json</script>
+        <script type="application/ld+json">
+          [{"@type": "AudioObject", "contentUrl": "https://cdn.example.com/song"}]
+        </script>
+        <script type="application/ld+json">
+          {"@type": "Photograph", "embedUrl": "https://cdn.example.com/photo"}
+        </script>
+      </head>
+      <body>
+        <video poster="" src="https://cdn.example.com/clip.mp4"
+               srcset=",  , https://cdn.example.com/poster.jpg 1x"></video>
+        <track>
+        <a>nohref</a>
+        <iframe></iframe>
+        <link rel="preload" as="video">
+      </body>
+    </html>
+    """
+    found = discover(_page(), get_profile("personal-full"), html=html)
+    urls = [item.retrieval_urls[0] for item in found if item.retrieval_urls]
+    kinds = {item.retrieval_urls[0]: item.media_kind for item in found if item.retrieval_urls}
+    assert "https://cdn.example.com/clip.mp4" in urls
+    assert "https://cdn.example.com/poster.jpg" in urls
+    assert "https://cdn.example.com/song" in urls
+    assert "https://cdn.example.com/photo" in urls
+    assert kinds["https://cdn.example.com/song"] is MediaKind.AUDIO
+    assert kinds["https://cdn.example.com/photo"] is MediaKind.IMAGE
+    assert not any(item == "" for item in urls)
+    assert found[0].title_display == "Album"
+
+
+def test_manifest_json_ndjson_skips_and_unusable_urls() -> None:
+    raw = (
+        b"\n"
+        b"{not json}\n"
+        b"null\n"
+        b'{"url": 123}\n'
+        b'{"url": "javascript:alert(1)"}\n'
+        b'{"webpage_url": "https://cdn.example.com/ok.mp4", "id": "ok",'
+        b' "formats": [{"format_id": "18", "vcodec": "null", "acodec": "none"}]}\n'
+    )
+    found = candidates_from_manifest_json(_page(), raw)
+    assert len(found) == 1
+    assert found[0].retrieval_urls == ["https://cdn.example.com/ok.mp4"]
+    assert found[0].alternatives[0].vcodec is None
+    assert found[0].alternatives[0].acodec is None
+    listed = candidates_from_manifest_json(
+        _page(),
+        json.dumps([{"url": "https://cdn.example.com/listed.mp4"}, "skip", None]).encode(),
+    )
+    assert [item.retrieval_urls[0] for item in listed] == ["https://cdn.example.com/listed.mp4"]
+
+
+def test_probe_encrypted_field_true_and_non_dict_tags(tmp_path: Path) -> None:
+    media = tmp_path / "clip.bin"
+    media.write_bytes(b"bytes")
+
+    def runner(*_args: object, **_kwargs: object) -> SimpleNamespace:
+        payload = {
+            "streams": [
+                {"index": 0, "codec_type": "video", "encrypted": True},
+                {"index": 1, "codec_type": "audio", "tags": ["not-a-dict"]},
+            ],
+            "format": {"format_name": "mov,mp4,m4a"},
+        }
+        return SimpleNamespace(returncode=0, stdout=json.dumps(payload).encode())
+
+    probed = probe_media(media, which=lambda _name: "/usr/bin/ffprobe", runner=runner)
+    assert probed is not None
+    assert probed.streams[0].encrypted is True
+    assert probed.streams[1].encrypted is False
+
+
+def test_extension_zip_skips_directories(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    root = tmp_path / "ext"
+    browser = root / "chromium"
+    nested = browser / "icons"
+    nested.mkdir(parents=True)
+    (browser / "manifest.json").write_text("{}", encoding="utf-8")
+    (nested / "icon.png").write_bytes(b"png")
+    monkeypatch.setattr("webmedia_dl.packaging.BROWSERS", ("chromium",))
+    monkeypatch.setattr("webmedia_dl.packaging.extension_root", lambda: root)
+    written = write_extension_zips(dest_root=tmp_path / "zips")
+    assert written[0]["browser"] == "chromium"
+    with zipfile.ZipFile(written[0]["path"]) as archive:
+        names = archive.namelist()
+    assert "manifest.json" in names
+    assert "icons/icon.png" in names
+    assert "icons" not in names
+    assert "icons/" not in names
+
+
+def test_updates_info_must_be_a_version_dict() -> None:
+    class _Resp:
+        def __init__(self, payload: bytes) -> None:
+            self._buf = BytesIO(payload)
+
+        def read(self) -> bytes:
+            return self._buf.read()
+
+        def __enter__(self) -> _Resp:
+            return self
+
+        def __exit__(self, *_exc: object) -> bool:
+            return False
+
+    def info_string(_url: str, timeout: float = 2.5) -> _Resp:
+        return _Resp(json.dumps({"info": "9.9.9"}).encode())
+
+    payload = check_updates(current="0.1.0", opener=info_string)
+    assert payload["status"] == "WARN"
+    assert payload["latest"] is None
+
+    def body_list(_url: str, timeout: float = 2.5) -> _Resp:
+        return _Resp(json.dumps(["9.9.9"]).encode())
+
+    listed = check_updates(current="0.1.0", opener=body_list)
+    assert listed["status"] == "WARN"
+
+
+def test_container_normalize_and_generic_image_probe() -> None:
+    assert normalize_container(None) is None
+    assert normalize_container("") is None
+    assert container_matches("mov,mp4,m4a", "") is False
+    assert container_matches(None, "mp4") is False
+    assert container_matches("image2", "jpg") is True
+
+
+def test_cookie_deny_name_is_advisory_outside_repo(tmp_path: Path) -> None:
+    profile = get_profile("personal-full")
+    outside = Path("/tmp") / f"wmdl-cookie-deny-{uuid4().hex}" / "cookies.txt"
+    outside.parent.mkdir(parents=True)
+    try:
+        outside.write_text("# Netscape HTTP Cookie File\n", encoding="utf-8")
+        resolved = resolve_cookie_path(profile, str(outside), repo_root=tmp_path / "repo")
+        assert resolved == outside.resolve()
+        assert "test" not in resolved.parts
+    finally:
+        outside.unlink(missing_ok=True)
+        outside.parent.rmdir()
+
+
+def test_cookie_ledger_skips_malformed_store_and_unknown_grants(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cookies = tmp_path / "user-cookies.txt"
+    cookies.write_text("# Netscape HTTP Cookie File\n", encoding="utf-8")
+    store = tmp_path / "cookie-grants.json"
+    store.write_text(json.dumps({"grant_id": "not-a-list"}), encoding="utf-8")
+    empty = CookieGrantLedger(store)
+    with pytest.raises(CookiePolicyError, match="unknown or expired"):
+        empty.resolve("missing", job_id=uuid4(), profile_id="personal-full")
+
+    store.write_text(
+        json.dumps(
+            [
+                "skip",
+                {"grant_id": "incomplete"},
+                {
+                    "grant_id": "ok",
+                    "job_id": str(uuid4()),
+                    "path": str(cookies),
+                    "profile_id": "personal-full",
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    loaded = CookieGrantLedger(store)
+    assert "ok" in loaded._grants
+    handle = loaded._lock()
+    assert handle is not None
+    handle.close()
+
+    memory = CookieGrantLedger()
+    assert memory._lock() is None
+    monkeypatch.setattr("webmedia_dl.security.resolve_cookie_path", lambda *_a, **_k: None)
+    with pytest.raises(CookiePolicyError, match="absolute paths"):
+        memory.issue(uuid4(), cookies, "personal-full")
+
+
+def test_probe_none_records_blocked_gate(
+    tmp_data: Path, tmp_path: Path, png_bytes: bytes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("webmedia_dl.pipeline.probe_media", lambda *_a, **_k: None)
+    media = tmp_path / "hero.png"
+    media.write_bytes(png_bytes)
+    pipeline = Pipeline(data_dir=tmp_data)
+    job = pipeline.submit(str(media), wait=True)
+    assert job.state is JobState.COMPLETED
+    events = pipeline.queue.events_for(job.job_id)
+    assert any(
+        event.type is EventType.VALIDATION_RECORDED
+        and event.payload.get("gate") == "probe-available"
+        and event.payload.get("status") == "BLOCKED"
+        for event in events
+    )
+
+
+def test_resume_acquired_kinds_without_sources_fails_closed(
+    tmp_data: Path, png_bytes: bytes
+) -> None:
+    html = """
+    <html><body>
+      <img src="https://cdn.example.com/hero.png">
+    </body></html>
+    """
+    pipeline = Pipeline(
+        data_dir=tmp_data,
+        runtime=ProviderRuntime(
+            which=lambda _name: None,
+            http_get=lambda _url: (200, {}, png_bytes),
+        ),
+    )
+    job = pipeline.submit("https://example.com/page", html=html, wait=False)
+    pipeline.queue.put_checkpoint(
+        job.job_id,
+        {
+            "stage": "acquiring",
+            "source_ids": ["sha256:missing"],
+            "acquired_kinds": ["image"],
+        },
+    )
+    result = pipeline.run_next()
+    assert result is not None
+    assert result.state is JobState.FAILED
+    assert result.error is not None
+    assert "produced no source artifact" in result.error.lower()
+
+
+def test_unresolved_cookie_path_fails_closed(
+    tmp_data: Path, tmp_path: Path, png_bytes: bytes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    media = tmp_path / "hero.png"
+    media.write_bytes(png_bytes)
+    cookies = tmp_path / "user-cookies.txt"
+    cookies.write_text("# Netscape HTTP Cookie File\n", encoding="utf-8")
+    monkeypatch.setattr("webmedia_dl.pipeline.resolve_cookie_path", lambda *_a, **_k: None)
+    pipeline = Pipeline(data_dir=tmp_data)
+    job = pipeline.submit(str(media), cookies=str(cookies))
+    assert job.state is JobState.FAILED
+    assert job.error is not None
+    assert "could not be resolved" in job.error.lower()
+
+
+def test_cancel_unknown_job_and_history_skip(tmp_path: Path, png_bytes: bytes) -> None:
+    app_api = create_app(tmp_path)
+    token = load_or_create_token(tmp_path)
+    client = TestClient(app_api)
+    headers = {"Authorization": f"Bearer {token}"}
+    media = tmp_path / "hero.png"
+    media.write_bytes(png_bytes)
+    older = client.post("/v1/jobs", headers=headers, json={"locator": str(media)})
+    newer = client.post(
+        "/v1/jobs",
+        headers=headers,
+        json={"locator": str(media), "wait": False},
+    )
+    older_id = older.json()["job"]["job_id"]
+    newer_id = newer.json()["job"]["job_id"]
+    detail = client.get(f"/v1/jobs/{older_id}", headers=headers)
+    assert detail.status_code == 200
+    assert detail.json()["artifact_ids"]
+    empty = client.get(f"/v1/jobs/{newer_id}", headers=headers)
+    assert empty.status_code == 200
+    cancelled = client.post(f"/v1/jobs/{uuid4()}/cancel", headers=headers)
+    assert cancelled.status_code == 400
+
+
+def test_http_suffix_skips_non_content_type_headers() -> None:
+    assert (
+        _http_suffix(
+            "https://cdn.example.com/x",
+            {"Accept": "video/mp4", "CONTENT-TYPE": "video/webm"},
+            b"",
+        )
+        == ".webm"
+    )
+
+
+def test_hls_byterange_without_offset_starts_at_zero(tmp_path: Path) -> None:
+    playlist = "#EXTM3U\n#EXT-X-BYTERANGE:4\nseg.bin\n#EXT-X-BYTERANGE:2\nseg.bin\n"
+    body = {"https://cdn.example.com/live/seg.bin": b"ABCDEF"}
+
+    def fetch(url: str) -> tuple[int, str, bytes]:
+        return 200, "video/MP2T", body[url]
+
+    dest = tmp_path / "live.bin"
+    record_clear_stream(playlist, "https://cdn.example.com/live/index.m3u8", dest, fetch)
+    assert dest.read_bytes() == b"ABCDEF"
+
+
+def test_inspect_manifest_empty_clear_hls_is_not_drm() -> None:
+    inspect_manifest("#EXTM3U\n#EXT-X-VERSION:3\n")
+
+
+def test_invalid_dash_number_format_falls_back_to_decimal() -> None:
+    assert _expand_dash_template("seg$Number%q$.m4s", number=7) == "seg7.m4s"
+    assert _expand_dash_template("seg$Number$.m4s", number=7) == "seg7.m4s"
