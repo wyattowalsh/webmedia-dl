@@ -84,6 +84,28 @@ def test_resource_overlay_cannot_enable_non_goals(monkeypatch) -> None:
         profiles_mod._apply_resource_overlay(restricted)
 
 
+def test_resource_overlay_may_repeat_existing_flags(monkeypatch) -> None:
+    from webmedia_dl.domain.enums import CookieAccess
+    from webmedia_dl.policy import profiles as profiles_mod
+
+    full = get_profile("personal-full")
+    restricted = get_profile("personal-restricted")
+    monkeypatch.setattr(
+        profiles_mod,
+        "_resource_profiles",
+        lambda: {
+            full.profile_id: {"subprocess_worker": True, "cookie_access": "explicit_path"},
+            restricted.profile_id: {"subprocess_worker": False, "cookie_access": "never"},
+        },
+    )
+    kept_full = profiles_mod._apply_resource_overlay(full)
+    kept_restricted = profiles_mod._apply_resource_overlay(restricted)
+    assert kept_full.subprocess_worker is True
+    assert kept_full.cookie_access is CookieAccess.EXPLICIT_PATH
+    assert kept_restricted.subprocess_worker is False
+    assert kept_restricted.cookie_access is CookieAccess.NEVER
+
+
 def test_builtin_profile_ids_must_match_resource_file(monkeypatch) -> None:
     from webmedia_dl.policy import profiles as profiles_mod
 

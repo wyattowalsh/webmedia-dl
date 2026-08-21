@@ -1,4 +1,5 @@
 import json
+import shutil
 import zipfile
 from pathlib import Path
 
@@ -33,6 +34,20 @@ def test_doctor_json() -> None:
     assert payload["apple_devices"]["macos"]["status"] == "BLOCKED"
     assert payload["signing_notarization"]["status"] == "BLOCKED"
     assert payload["original_planning_pack"]["status"] == "BLOCKED"
+    ffmpeg = payload["providers"]["ffmpeg"]
+    if shutil.which("ffmpeg"):
+        assert ffmpeg["status"] == "PASS"
+        assert ffmpeg["executed"] is True
+        assert ffmpeg["binary"]
+    else:
+        assert ffmpeg["status"] == "BLOCKED"
+        assert ffmpeg["executed"] is False
+    ytdlp = payload["providers"]["ytdlp"]
+    if shutil.which("yt-dlp"):
+        assert ytdlp["status"] == "PASS"
+    else:
+        assert ytdlp["status"] == "BLOCKED"
+        assert "not installed" in ytdlp["reason"]
 
 
 def test_submit_with_html_and_data_dir(tmp_path: Path, png_bytes: bytes) -> None:
@@ -309,3 +324,71 @@ def test_speak_history_artifacts_provenance_and_queue(tmp_path: Path, png_bytes:
     assert job_paused.exit_code == 0
     job_resumed = runner.invoke(app, ["resume", "--job", queued_id, "--data-dir", str(data)])
     assert job_resumed.exit_code == 0
+
+
+def test_submit_dest_and_companion_requires_job(tmp_path: Path, png_bytes: bytes) -> None:
+    media = tmp_path / "hero.png"
+    media.write_bytes(png_bytes)
+    dest = tmp_path / "out"
+    dest.mkdir()
+    submitted = runner.invoke(
+        app,
+        [
+            "submit",
+            str(media),
+            "--dest",
+            str(dest),
+            "--data-dir",
+            str(tmp_path / "data"),
+        ],
+    )
+    assert submitted.exit_code == 0
+    payload = json.loads(submitted.stdout)
+    assert payload["job"]["state"] == "completed"
+    lossy = runner.invoke(
+        app,
+        [
+            "submit",
+            str(media),
+            "--allow-lossy",
+            "--container",
+            "mkv",
+            "--data-dir",
+            str(tmp_path / "lossy"),
+        ],
+    )
+    assert lossy.exit_code == 0
+    pasted = runner.invoke(
+        app,
+        [
+            "paste",
+            "https://cdn.example.com/hero.png",
+            "--dest",
+            str(dest),
+            "--data-dir",
+            str(tmp_path / "paste"),
+            "--no-wait",
+        ],
+    )
+    assert pasted.exit_code == 0
+    dropped = runner.invoke(
+        app,
+        ["drop", str(media), "--dest", str(dest), "--data-dir", str(tmp_path / "drop")],
+    )
+    assert dropped.exit_code == 0
+    spoken = runner.invoke(
+        app,
+        [
+            "speak",
+            "https://cdn.example.com/hero.png",
+            "--dest",
+            str(dest),
+            "--data-dir",
+            str(tmp_path / "speak"),
+            "--no-wait",
+        ],
+    )
+    assert spoken.exit_code == 0
+    missing = runner.invoke(app, ["companion", "cancel", "--data-dir", str(tmp_path / "comp")])
+    assert missing.exit_code == 1
+    assert "job_id" in missing.stdout

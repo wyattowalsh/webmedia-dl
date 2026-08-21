@@ -40,6 +40,7 @@ _DASH_SEGMENT_BASE = re.compile(
 _DASH_ATTR = re.compile(r"([A-Za-z_:][\w:.-]*)=(?:\"([^\"]*)\"|'([^']*)')")
 _NUMBER_TOKEN = re.compile(r"\$Number(%[^$]+)?\$")
 _TIME_TOKEN = re.compile(r"\$Time(%[^$]+)?\$")
+_UNEXPANDED_DASH = re.compile(r"\$(?:Number|Time|RepresentationID|Bandwidth)(?:%[^$]+)?\$")
 _REPRESENTATION = re.compile(
     r"<Representation\b([^>]*)(?:/>|>(.*?)</Representation>)",
     re.I | re.S,
@@ -267,7 +268,7 @@ def _template_urls(
             representation=representation,
             bandwidth=bandwidth,
         )
-        if "$" in resolved:
+        if _UNEXPANDED_DASH.search(resolved):
             return
         urls.append(_join(base, resolved))
 
@@ -373,7 +374,7 @@ def _collect_segments(
         if href:
             start, length = _parse_dash_range(attrs.get("mediarange"))
             add(ManifestPart(_join(current, href.strip()), start, length))
-    if not include_templates:
+    if not include_templates or _DASH_TEMPLATE.search(text):
         return
     for double, single in _DASH_MEDIA.findall(text):
         media = double or single
@@ -384,7 +385,7 @@ def _collect_segments(
             representation=representation or "1",
             bandwidth=bandwidth or "1",
         )
-        if "$" in resolved:
+        if _UNEXPANDED_DASH.search(resolved):
             continue
         url = _join(current, resolved)
         if url in seen_urls:
@@ -810,13 +811,18 @@ def record_clear_stream(
     written = 0
     live_mode = polls > 1 or manifest_is_live(playlist)
     for round_index in range(polls):
-        inspect_manifest(playlist)
-        if rendition_kind and ("<MPD" in playlist or "<mpd" in playlist):
-            current_parts = _dash_kind_parts(playlist, playlist_url).get(rendition_kind, [])
-        elif parts is not None and round_index == 0:
-            current_parts = parts
-        else:
-            current_parts = recordable_parts(playlist, playlist_url)
+        try:
+            inspect_manifest(playlist)
+            if rendition_kind and ("<MPD" in playlist or "<mpd" in playlist):
+                current_parts = _dash_kind_parts(playlist, playlist_url).get(rendition_kind, [])
+            elif parts is not None and round_index == 0:
+                current_parts = parts
+            else:
+                current_parts = recordable_parts(playlist, playlist_url)
+        except DrmRefused:
+            if written > 0:
+                break
+            raise
         written += _write_recorded_parts(
             current_parts,
             dest,
@@ -859,11 +865,19 @@ def record_kind_streams(
     dash = "<MPD" in playlist_text or "<mpd" in playlist_text
     if dash:
         kinds = _dash_kind_parts(playlist_text, playlist_url)
-        if "video" in kinds and "audio" in kinds:
+        mapping: list[tuple[MediaKind, str]] = []
+        if "video" in kinds:
+            mapping.append((MediaKind.VIDEO, "video"))
+        if "audio" in kinds:
+            mapping.append((MediaKind.AUDIO, "audio"))
+        if mapping:
             recorded: list[tuple[MediaKind, Path]] = []
-            mapping = ((MediaKind.VIDEO, "video"), (MediaKind.AUDIO, "audio"))
             for media_kind, name in mapping:
-                dest = output.parent / f"{output.stem}-{name}{output.suffix or '.bin'}"
+                dest = (
+                    output
+                    if len(mapping) == 1
+                    else output.parent / f"{output.stem}-{name}{output.suffix or '.bin'}"
+                )
                 record_clear_stream(
                     playlist_text,
                     playlist_url,

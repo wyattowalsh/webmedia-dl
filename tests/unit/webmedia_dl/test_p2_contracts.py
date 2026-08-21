@@ -25,7 +25,11 @@ from webmedia_dl.errors import (
     ProviderPolicyError,
     PublicationError,
 )
-from webmedia_dl.live import manifest_is_live, record_clear_stream, recordable_segment_urls
+from webmedia_dl.live import (
+    manifest_is_live,
+    record_clear_stream,
+    recordable_segment_urls,
+)
 from webmedia_dl.providers import ProviderRequest, ProviderRuntime
 from webmedia_dl.publish import publish_artifacts
 from webmedia_dl.queue import QueueStore
@@ -80,6 +84,188 @@ def test_dynamic_mpd_polls_new_segments(tmp_path: Path) -> None:
         live_polls=2,
     )
     assert output.read_bytes() == b"ONETWO"
+
+
+def test_dynamic_mpd_poll_stops_on_contentprotection(tmp_path: Path) -> None:
+    first = (
+        '<MPD type="dynamic"><Period>'
+        '<SegmentTemplate media="seg$Number$.m4s" startNumber="1"/>'
+        "</Period></MPD>"
+    )
+    protected = (
+        '<MPD type="dynamic"><ContentProtection schemeIdUri="urn:mpeg:cenc"/>'
+        "<Period>"
+        '<SegmentTemplate media="secret$Number$.m4s" startNumber="2"/>'
+        "</Period></MPD>"
+    )
+    playlists = [protected]
+    fetched: list[str] = []
+
+    def fetch(url: str) -> tuple[int, str, bytes]:
+        fetched.append(url)
+        if url.endswith("live.mpd"):
+            payload = playlists.pop(0) if playlists else protected
+            return 200, "application/dash+xml", payload.encode()
+        if "secret" in url:
+            raise AssertionError(url)
+        return 200, "video/mp4", b"CLEAR"
+
+    output = tmp_path / "live.bin"
+    record_clear_stream(
+        first,
+        "https://cdn.example.com/live.mpd",
+        output,
+        fetch,
+        live_polls=2,
+    )
+    assert output.read_bytes() == b"CLEAR"
+    assert any(item.endswith("seg1.m4s") for item in fetched)
+    assert all("secret" not in item for item in fetched)
+
+
+def test_hls_live_poll_stops_on_later_aes128(tmp_path: Path) -> None:
+    first = "#EXTM3U\n#EXTINF:1,\nseg1.ts\n"
+    second = (
+        '#EXTM3U\n#EXT-X-KEY:METHOD=AES-128,URI="https://example.com/key"\n#EXTINF:1,\nsecret.ts\n'
+    )
+    playlists = [second]
+    fetched: list[str] = []
+
+    def fetch(url: str) -> tuple[int, str, bytes]:
+        fetched.append(url)
+        if url.endswith("index.m3u8"):
+            payload = playlists.pop(0) if playlists else second
+            return 200, "application/vnd.apple.mpegurl", payload.encode()
+        if url.endswith("secret.ts") or "key" in url:
+            raise AssertionError(url)
+        return 200, "video/MP2T", b"A"
+
+    output = tmp_path / "live.ts"
+    record_clear_stream(
+        first,
+        "https://cdn.example.com/live/index.m3u8",
+        output,
+        fetch,
+        live_polls=2,
+    )
+    assert output.read_bytes() == b"A"
+    assert all("secret" not in item for item in fetched)
+
+
+def test_hls_live_poll_keeps_prefix_when_playlist_fetch_fails(tmp_path: Path) -> None:
+    first = "#EXTM3U\n#EXTINF:1,\nseg1.ts\n"
+
+    def fetch(url: str) -> tuple[int, str, bytes]:
+        if url.endswith("index.m3u8"):
+            return 404, "", b""
+        return 200, "video/MP2T", b"A"
+
+    output = tmp_path / "live.ts"
+    record_clear_stream(
+        first,
+        "https://cdn.example.com/live/index.m3u8",
+        output,
+        fetch,
+        live_polls=2,
+    )
+    assert output.read_bytes() == b"A"
+
+
+def test_audio_only_dash_uses_highest_bandwidth(tmp_path: Path) -> None:
+    from webmedia_dl.domain.enums import MediaKind
+    from webmedia_dl.live import record_kind_streams
+
+    text = """
+    <MPD><Period>
+      <AdaptationSet contentType="audio">
+        <SegmentTemplate media="$RepresentationID$.m4s" startNumber="1"/>
+        <Representation id="low" bandwidth="64000" mimeType="audio/mp4"/>
+        <Representation id="high" bandwidth="256000" mimeType="audio/mp4"/>
+      </AdaptationSet>
+    </Period></MPD>
+    """
+    fetched: list[str] = []
+
+    def fetch(url: str) -> tuple[int, str, bytes]:
+        fetched.append(url)
+        if url.endswith("low.m4s"):
+            raise AssertionError(url)
+        return 200, "audio/mp4", b"HI"
+
+    recorded = record_kind_streams(
+        text,
+        "https://cdn.example.com/manifest.mpd",
+        tmp_path / "dash.bin",
+        fetch,
+    )
+    assert recorded == [(MediaKind.AUDIO, tmp_path / "dash.bin")]
+    assert (tmp_path / "dash.bin").read_bytes() == b"HI"
+    assert any(item.endswith("high.m4s") for item in fetched)
+    assert all("low.m4s" not in item for item in fetched)
+
+
+def test_hls_map_without_byterange_and_implicit_offset(tmp_path: Path) -> None:
+    playlist = (
+        "#EXTM3U\n"
+        '#EXT-X-MAP:URI="init.mp4"\n'
+        "#EXT-X-BYTERANGE:3\n"
+        "seg.ts\n"
+        "#EXT-X-BYTERANGE:3\n"
+        "seg.ts\n"
+    )
+    bodies = {
+        "https://cdn.example.com/live/init.mp4": b"INITXXXX",
+        "https://cdn.example.com/live/seg.ts": b"ABCDEF",
+    }
+
+    def fetch(url: str) -> tuple[int, str, bytes]:
+        return 200, "video/mp4", bodies[url]
+
+    output = tmp_path / "live.bin"
+    record_clear_stream(playlist, "https://cdn.example.com/live/index.m3u8", output, fetch)
+    assert output.read_bytes() == b"INITXXXXABCDEF"
+
+
+def test_dash_number_width_and_dollar_escape() -> None:
+    padded = """
+    <MPD><Period>
+      <SegmentTemplate media="seg$Number%05d$.m4s" startNumber="7"/>
+    </Period></MPD>
+    """
+    urls = recordable_segment_urls(padded, "https://cdn.example.com/")
+    assert urls == ["https://cdn.example.com/seg00007.m4s"]
+    escaped = """
+    <MPD><Period>
+      <SegmentTemplate media="a$$b/$Number$.m4s" startNumber="1"/>
+    </Period></MPD>
+    """
+    dollars = recordable_segment_urls(escaped, "https://cdn.example.com/")
+    assert dollars == ["https://cdn.example.com/a$b/1.m4s"]
+    invalid_range = """
+    <MPD><Period><SegmentList>
+      <Initialization sourceURL="bundle.mp4" range="9-1"/>
+      <SegmentURL media="ok.m4s" mediaRange="nope"/>
+    </SegmentList></Period></MPD>
+    """
+    parts = recordable_segment_urls(invalid_range, "https://cdn.example.com/")
+    assert parts == [
+        "https://cdn.example.com/bundle.mp4",
+        "https://cdn.example.com/ok.m4s",
+    ]
+
+
+def test_adaptationset_without_representation_keeps_segment_list() -> None:
+    text = """
+    <MPD><Period>
+      <AdaptationSet mimeType="audio/mp4">
+        <SegmentList>
+          <SegmentURL media="only-audio.m4s"/>
+        </SegmentList>
+      </AdaptationSet>
+    </Period></MPD>
+    """
+    urls = recordable_segment_urls(text, "https://cdn.example.com/")
+    assert urls == ["https://cdn.example.com/only-audio.m4s"]
 
 
 def test_hls_live_poll_appends_new_segments(tmp_path: Path) -> None:

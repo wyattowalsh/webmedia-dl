@@ -2,26 +2,27 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 244 tests |
-| `uv run pytest --cov` | PASS | 88.02% (`fail_under` 85) |
+| `uv run pytest` | PASS | 256 tests |
+| `uv run pytest --cov` | PASS | 89.24% (`fail_under` 85) |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
 | `uv run ty check` | PASS | |
 | `node --test tests/unit/extensions/*.mjs` | PASS | 6 tests including mocked fetch submit |
 | `uv run python -m webmedia_dl.schema_export` | PASS | 20 schemas + index |
 | `uv run python scripts/validate_bundle.py` | PASS | 159 pack paths + extension/app shells |
-| `uv run webmedia-dl doctor` ffmpeg | PASS | `/usr/bin/ffmpeg` |
+| `uv run webmedia-dl doctor` ffmpeg | PASS | `/usr/bin/ffmpeg` executed PASS |
 | `uv run webmedia-dl doctor` yt-dlp / gallery-dl / magick | BLOCKED | binaries not installed |
 | Apple device runtime / Xcode | BLOCKED | Linux CI; Swift source contracts under `apps/` are not compiled here |
 | Signing / notarization / App Review / legal | BLOCKED | `webmedia-dl doctor` |
 | Browser store submission | BLOCKED | `webmedia-dl doctor` |
 | Simulated `PASS` | PASS | tests reject planned/simulated PASS |
-| DRM circumvention | PASS | encrypted HLS/DASH refused; probe-detected encryption refuses closed; clear HLS/DASH byte-range slices concatenated |
+| DRM circumvention | PASS | encrypted HLS/DASH refused before any segment fetch; mixed clear-then-key records the prefix only; later live-poll DRM stops without fetching protected parts |
 | Pairing profile bound | PASS | restricted/browser/watch/tv pairing stays on the client profile; unknown/full/expired pairing and missing/mismatched session keys fail closed; CLI `pair create/confirm` reports `DelegationDenied` |
 | Cookie grants | PASS | job-bound grants persist in `cookie-grants.json` with merge/`0600` lock; dump-json uses the grant; relative and in-repo paths rejected |
 | Default telemetry | PASS | false in doctor and profiles; `policy-profiles.json` cannot enable DRM circumvention, telemetry, cookie widening, subprocess, or delegation |
 | Publish sibling isolation | PASS | a failed validation or unreadable sibling does not abort other validated destination copies |
-| Live aggregate bound + kinds | PASS | cumulative byte budget; separate VIDEO/AUDIO artifacts; SegmentBase ranges; multi-period occurrences |
+| Live aggregate bound + kinds | PASS | cumulative byte budget; separate VIDEO/AUDIO artifacts; audio-only DASH uses the highest-bandwidth audio Representation; SegmentBase ranges; multi-period occurrences |
+| DASH AdaptationSet + live poll | PASS | self-closing Representation inherits AdaptationSet BaseURL/template; dynamic MPD/HLS polls new segments; later ContentProtection/AES-128 stops without fetching protected parts; `startNumber` and `$$` template tokens expand without a phantom `$Number=1` segment |
 | Container gate | PASS | ffprobe evidence required; filename suffix cannot PASS; `BLOCKED`/empty evidence cannot publish |
 | Wheel package-extensions | PASS | isolated wheel install writes six extension archives from packaged runtime trees |
 | Envelope replay | PASS | consumed nonce cannot be opened twice; malformed envelopes and tampered MAC fail closed; non-hex session keys still round-trip |
@@ -33,7 +34,7 @@
 | Packaged runtime assets | PASS | presets/policies/ImageMagick policy load from `webmedia_dl.runtime` without a git checkout |
 | Browser one-tap token | PASS | extension storage persists the worker token after first paste |
 | History schema | PASS | `HistoryEntry` JSON schema + Swift `WebMediaDLHistoryEntry` decoded on all six surfaces |
-| DASH AdaptationSet + live poll | PASS | self-closing Representation inherits AdaptationSet BaseURL/template; dynamic MPD/HLS polls new segments |
+| DASH AdaptationSet + live poll | PASS | self-closing Representation inherits AdaptationSet BaseURL/template; dynamic MPD/HLS polls new segments; later ContentProtection/AES-128 stops without fetching protected parts; `startNumber` and `$$` template tokens expand without a phantom `$Number=1` segment |
 | DASH/HLS rendition selection | PASS | highest-bandwidth video Representation; audio-only picks highest audio; HLS master follows highest BANDWIDTH |
 | Multi-period DASH | PASS | each Period keeps its selected video; later Periods are concatenated, not dropped |
 | Sealed companion envelope | PASS | `/v1/companion` opens AES-GCM pairing envelope once and rejects replay |

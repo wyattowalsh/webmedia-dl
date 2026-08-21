@@ -233,6 +233,26 @@ def test_live_watch_page_plans_ytdlp_not_clear_recorder() -> None:
     )
     live_plan = plan_acquisition(uuid4(), direct, get_profile("personal-full"))
     assert any(item.capability_id == "live.record_clear_manifest" for item in live_plan.strategies)
+    restricted = get_profile("personal-restricted")
+    assert plan_acquisition(uuid4(), direct, restricted).strategies == []
+    gallery = MediaCandidate(
+        source_id=uuid4(),
+        media_kind=MediaKind.GALLERY,
+        identity_key="host:example.com:path:/album",
+        retrieval_urls=["https://example.com/album"],
+    )
+    assert plan_acquisition(uuid4(), gallery, restricted).strategies == []
+    browser = get_profile("browser-capture")
+    http = MediaCandidate(
+        source_id=uuid4(),
+        media_kind=MediaKind.VIDEO,
+        identity_key="host:cdn.example.com:path:/a.mp4",
+        retrieval_urls=["https://cdn.example.com/a.mp4"],
+    )
+    assert all(
+        item.strategy_id != "http-direct"
+        for item in plan_acquisition(uuid4(), http, browser).strategies
+    )
 
 
 def test_multi_period_same_uri_is_appended_twice() -> None:

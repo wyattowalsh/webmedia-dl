@@ -1,7 +1,7 @@
 from uuid import uuid4
 
 from webmedia_dl.candidates import build_graph
-from webmedia_dl.discovery import discover
+from webmedia_dl.discovery import candidates_from_manifest_json, discover
 from webmedia_dl.domain.enums import IntakeKind, MediaKind, Surface
 from webmedia_dl.domain.models import MediaSource
 from webmedia_dl.policy.profiles import get_profile
@@ -155,3 +155,18 @@ def test_html_discovery_amp_img_and_twitter_player() -> None:
     assert "https://cdn.example.com/player.mp4" in urls
     assert kinds["https://cdn.example.com/amp.png"] is MediaKind.IMAGE
     assert kinds["https://cdn.example.com/player.mp4"] is MediaKind.VIDEO
+
+
+def test_manifest_jsonl_skips_malformed_lines() -> None:
+    source = _source()
+    raw = (
+        b'{"url":"https://cdn.example.com/a.mp4"}\n'
+        b"not-json\n"
+        b'{"webpage_url":"https://cdn.example.com/b.webm","formats":[{"format_id":"1"}]}\n'
+        b'{"formats":[{"format_id":"x"}]}\n'
+    )
+    found = candidates_from_manifest_json(source, raw)
+    urls = [item.retrieval_urls[0] for item in found]
+    assert "https://cdn.example.com/a.mp4" in urls
+    assert "https://cdn.example.com/b.webm" in urls
+    assert source.normalized_url in urls

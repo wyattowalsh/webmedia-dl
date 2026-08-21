@@ -53,3 +53,30 @@ def test_encrypted_master_refused_before_fetch(tmp_path: Path) -> None:
             tmp_path / "x.ts",
             lambda url: (200, "", b""),
         )
+
+
+def test_aes128_playlist_refused_before_any_segment_fetch(tmp_path: Path) -> None:
+    text = '#EXTM3U\n#EXT-X-KEY:METHOD=AES-128,URI="https://example.com/key"\nseg.ts\n'
+    fetched: list[str] = []
+
+    def fetch(url: str) -> tuple[int, str, bytes]:
+        fetched.append(url)
+        raise AssertionError(url)
+
+    with pytest.raises(DrmRefused, match="AES-128"):
+        inspect_manifest(text)
+    with pytest.raises(DrmRefused, match="AES-128"):
+        record_clear_stream(text, "https://cdn.example.com/live.m3u8", tmp_path / "x.ts", fetch)
+    assert fetched == []
+
+
+def test_live_segment_http_error_fails_closed(tmp_path: Path) -> None:
+    from webmedia_dl.errors import DiscoveryError
+
+    playlist = "#EXTM3U\n#EXTINF:1,\nseg.ts\n"
+
+    def fetch(url: str) -> tuple[int, str, bytes]:
+        return 404, "", b""
+
+    with pytest.raises(DiscoveryError, match="HTTP 404"):
+        record_clear_stream(playlist, "https://cdn.example.com/live.m3u8", tmp_path / "x.ts", fetch)
