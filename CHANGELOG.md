@@ -61,4 +61,6 @@
   HTML srcset tokens are skipped; ffmpeg `%(ext)s` stem matching uses a dummy
   suffix; cookie-ledger JSON, probe encryption fields, packaging directories,
   unresolved cookies, and resume without restored sources fail closed with
-  executed tests.
+  executed tests. Leftover DASH media without a SegmentTemplate is recorded;
+  supplied HLS parts still refuse AES-128 on inspect; resume from
+  `stage=exporting` restores `produced_ids`.
