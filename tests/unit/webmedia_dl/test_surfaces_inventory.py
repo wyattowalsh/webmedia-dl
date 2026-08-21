@@ -1,6 +1,50 @@
+from __future__ import annotations
+
+import json
+import plistlib
+
 from webmedia_dl.capabilities import registry
 from webmedia_dl.paths import repo_root
 from webmedia_dl.providers import imagemagick_configure_path
+
+SHARE_PRINCIPALS = {
+    "apps/WebMediaDLMac/ShareExtension": "WebMediaDLMacShareExtensionPrincipal",
+    "apps/WebMediaDLiOS/ShareExtension": "WebMediaDLiOSShareExtensionPrincipal",
+    "apps/WebMediaDLiPadOS/ShareExtension": "WebMediaDLiPadOSShareExtensionPrincipal",
+    "apps/WebMediaDLVision/ShareExtension": "WebMediaDLVisionShareExtensionPrincipal",
+}
+
+ROOT_VIEWS = {
+    "macos": "apps/WebMediaDLMac/Sources/WebMediaDLMac/WebMediaDLMacApp.swift",
+    "ios": "apps/WebMediaDLiOS/Sources/WebMediaDLiOS/WebMediaDLiOSRootView.swift",
+    "ipados": "apps/WebMediaDLiPadOS/Sources/WebMediaDLiPadOS/WebMediaDLiPadOSRootView.swift",
+    "visionos": "apps/WebMediaDLVision/Sources/WebMediaDLVision/WebMediaDLVisionRootView.swift",
+    "watchos": "apps/WebMediaDLWatch/Sources/WebMediaDLWatch/WebMediaDLWatchRootView.swift",
+    "tvos": "apps/WebMediaDLTV/Sources/WebMediaDLTV/WebMediaDLTVRootView.swift",
+}
+
+APP_ENTRIES = [
+    "apps/WebMediaDLMac/Sources/WebMediaDLMac/WebMediaDLMacApp.swift",
+    "apps/WebMediaDLiOS/Sources/WebMediaDLiOS/WebMediaDLiOSApp.swift",
+    "apps/WebMediaDLiPadOS/Sources/WebMediaDLiPadOS/WebMediaDLiPadOSApp.swift",
+    "apps/WebMediaDLVision/Sources/WebMediaDLVision/WebMediaDLVisionApp.swift",
+    "apps/WebMediaDLWatch/Sources/WebMediaDLWatch/WebMediaDLWatchApp.swift",
+    "apps/WebMediaDLTV/Sources/WebMediaDLTV/WebMediaDLTVApp.swift",
+]
+
+CREDENTIAL_ADAPTERS = [
+    "apps/WebMediaDLMac/Sources/WebMediaDLMac/WebMediaDLMacSubmitURLIntent.swift",
+    "apps/WebMediaDLiOS/Sources/WebMediaDLiOS/WebMediaDLSubmitURLIntent.swift",
+    "apps/WebMediaDLiPadOS/Sources/WebMediaDLiPadOS/WebMediaDLiPadOSSubmitURLIntent.swift",
+    "apps/WebMediaDLVision/Sources/WebMediaDLVision/WebMediaDLVisionSubmitURLIntent.swift",
+    "apps/WebMediaDLMac/Sources/WebMediaDLMac/WebMediaDLMacShareView.swift",
+    "apps/WebMediaDLiOS/Sources/WebMediaDLiOS/WebMediaDLiOSShareView.swift",
+    "apps/WebMediaDLiPadOS/Sources/WebMediaDLiPadOS/WebMediaDLiPadOSShareView.swift",
+    "apps/WebMediaDLMac/ShareExtension/WebMediaDLMacShareExtension.swift",
+    "apps/WebMediaDLiOS/ShareExtension/WebMediaDLiOSShareExtension.swift",
+    "apps/WebMediaDLiPadOS/ShareExtension/WebMediaDLiPadOSShareExtension.swift",
+    "apps/WebMediaDLVision/ShareExtension/WebMediaDLVisionShareExtension.swift",
+]
 
 
 def test_capability_registry_includes_live_and_ffmpeg() -> None:
@@ -22,22 +66,27 @@ def test_apple_app_shells_exist() -> None:
         "apps/WebMediaDLMac/ShareExtension/Info.plist",
         "apps/WebMediaDLMac/ShareExtension/WebMediaDLMacShareExtension.swift",
         "apps/WebMediaDLiOS/Sources/WebMediaDLiOS/WebMediaDLiOSRootView.swift",
+        "apps/WebMediaDLiOS/Sources/WebMediaDLiOS/WebMediaDLiOSApp.swift",
         "apps/WebMediaDLiOS/Sources/WebMediaDLiOS/WebMediaDLSubmitURLIntent.swift",
         "apps/WebMediaDLiOS/ShareExtension/Info.plist",
         "apps/WebMediaDLiOS/ShareExtension/WebMediaDLiOSShareExtension.swift",
         "apps/WebMediaDLiPadOS/Sources/WebMediaDLiPadOS/WebMediaDLiPadOSRootView.swift",
+        "apps/WebMediaDLiPadOS/Sources/WebMediaDLiPadOS/WebMediaDLiPadOSApp.swift",
         "apps/WebMediaDLiPadOS/Sources/WebMediaDLiPadOS/WebMediaDLiPadOSSubmitURLIntent.swift",
         "apps/WebMediaDLiPadOS/Sources/WebMediaDLiPadOS/WebMediaDLiPadOSShareView.swift",
         "apps/WebMediaDLiPadOS/Resources/Info.plist",
         "apps/WebMediaDLiPadOS/ShareExtension/Info.plist",
         "apps/WebMediaDLiPadOS/ShareExtension/WebMediaDLiPadOSShareExtension.swift",
         "apps/WebMediaDLVision/Sources/WebMediaDLVision/WebMediaDLVisionRootView.swift",
+        "apps/WebMediaDLVision/Sources/WebMediaDLVision/WebMediaDLVisionApp.swift",
         "apps/WebMediaDLVision/Sources/WebMediaDLVision/WebMediaDLVisionSubmitURLIntent.swift",
         "apps/WebMediaDLVision/Resources/Info.plist",
         "apps/WebMediaDLVision/ShareExtension/Info.plist",
         "apps/WebMediaDLVision/ShareExtension/WebMediaDLVisionShareExtension.swift",
         "apps/WebMediaDLWatch/Sources/WebMediaDLWatch/WebMediaDLWatchRootView.swift",
+        "apps/WebMediaDLWatch/Sources/WebMediaDLWatch/WebMediaDLWatchApp.swift",
         "apps/WebMediaDLTV/Sources/WebMediaDLTV/WebMediaDLTVRootView.swift",
+        "apps/WebMediaDLTV/Sources/WebMediaDLTV/WebMediaDLTVApp.swift",
         "apps/WebMediaDLCore/Sources/WebMediaDLCore/LoopbackClient.swift",
         "apps/WebMediaDLCore/Sources/WebMediaDLCore/Destinations.swift",
         "apps/WebMediaDLCore/Sources/WebMediaDLCore/ShareIntake.swift",
@@ -62,6 +111,8 @@ def test_apple_app_shells_exist() -> None:
             or "pairing" in text.lower()
             or "SecurityScopedBookmark" in text
             or "canPublish" in text
+            or "@main" in text
+            or "NSExtensionRequestHandling" in text
         )
     watch = (
         root / "apps/WebMediaDLWatch/Sources/WebMediaDLWatch/WebMediaDLWatchRootView.swift"
@@ -80,6 +131,9 @@ def test_apple_app_shells_exist() -> None:
     assert "browser_evidence" in safari_handler
     assert "nativeCommand" in safari_handler
     assert '"nativeCommand"' not in safari_handler
+    assert "NSExtensionRequestHandling" in safari_handler
+    assert "beginRequest(with context: NSExtensionContext)" in safari_handler
+    assert "beginRequest(with item: Any?)" not in safari_handler
     continuity = (
         root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/ContinuityBridge.swift"
     ).read_text(encoding="utf-8")
@@ -151,6 +205,9 @@ def test_apple_app_shells_exist() -> None:
     assert "Approved Files destination" in ios
     assert "Approved Files destination" in ipad
     assert "Approved Files destination" in vision
+    assert 'TextField("Approved Files destination"' not in ios
+    assert 'TextField("Approved Files destination"' not in ipad
+    assert 'TextField("Approved Files destination"' not in vision
     assert "NSExtensionActivationRule" in (
         root / "apps/WebMediaDLMac/ShareExtension/Info.plist"
     ).read_text(encoding="utf-8")
@@ -179,18 +236,142 @@ def test_apple_app_shells_exist() -> None:
     assert "yt-dlp" not in mac_share_ext
 
 
+def test_share_extension_principals_match_plists() -> None:
+    root = repo_root()
+    for rel, principal in SHARE_PRINCIPALS.items():
+        plist_path = root / rel / "Info.plist"
+        source_path = next((root / rel).glob("*.swift"))
+        payload = plistlib.loads(plist_path.read_bytes())
+        extension = payload["NSExtension"]
+        assert extension["NSExtensionPointIdentifier"] == "com.apple.share-services"
+        assert extension["NSExtensionPrincipalClass"] == principal
+        source = source_path.read_text(encoding="utf-8")
+        assert f"@objc({principal})" in source
+        assert "NSExtensionRequestHandling" in source
+        assert "beginRequest(with context: NSExtensionContext)" in source
+        assert 'intakeKind: "share_sheet"' in source
+        assert 'intakeKind: "drop"' in source
+        assert "NSItemProvider" in source or "attachments" in source
+    for package in (
+        "apps/WebMediaDLMac/Package.swift",
+        "apps/WebMediaDLiOS/Package.swift",
+        "apps/WebMediaDLiPadOS/Package.swift",
+        "apps/WebMediaDLVision/Package.swift",
+    ):
+        text = (root / package).read_text(encoding="utf-8")
+        assert 'path: "ShareExtension"' in text
+
+
+def test_files_destinations_use_bookmarks_not_typed_paths() -> None:
+    root = repo_root()
+    destinations = (
+        root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/Destinations.swift"
+    ).read_text(encoding="utf-8")
+    assert "bookmarkData" in destinations
+    assert "fromPickedURL" in destinations
+    assert ".withSecurityScope" in destinations
+    assert ".minimalBookmark" in destinations
+    mac = (root / "apps/WebMediaDLMac/Sources/WebMediaDLMac/WebMediaDLMacApp.swift").read_text(
+        encoding="utf-8"
+    )
+    assert "fromPickedURL" in mac
+    assert "bookmarkData" in mac
+    for rel in (
+        ROOT_VIEWS["ios"],
+        ROOT_VIEWS["ipados"],
+        ROOT_VIEWS["visionos"],
+    ):
+        text = (root / rel).read_text(encoding="utf-8")
+        assert "fileImporter" in text
+        assert "fromPickedURL" in text
+        assert "Choose Files destination" in text
+        assert 'TextField("Approved Files destination"' not in text
+
+
+def test_companion_transport_and_typed_history() -> None:
+    root = repo_root()
+    continuity = (
+        root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/ContinuityBridge.swift"
+    ).read_text(encoding="utf-8")
+    assert "enum WebMediaDLCompanionKind" in continuity
+    for case in (
+        "    case capture\n",
+        "    case pause\n",
+        "    case resume\n",
+        "    case history\n",
+        "    case status\n",
+        "    case cancel\n",
+        '    case pauseJob = "pause_job"\n',
+        '    case resumeJob = "resume_job"\n',
+    ):
+        assert case in continuity
+    assert "encodeNil(forKey: .nativeCommand)" in continuity
+    assert "protocol WebMediaDLCompanionTransport" in continuity
+    assert "struct WebMediaDLQueuedCompanionTransport" in continuity
+    assert "struct WebMediaDLMacCompanionForwarder" in continuity
+    assert "func send(_ message: WebMediaDLCompanionMessage)" in continuity
+    assert "func forward(" in continuity
+    assert "receiveWatchConnectivityUserInfo" in continuity
+    watch = (root / ROOT_VIEWS["watchos"]).read_text(encoding="utf-8")
+    tv = (root / ROOT_VIEWS["tvos"]).read_text(encoding="utf-8")
+    assert "transport.send" in watch
+    assert "transport.send" in tv
+    assert "relay.enqueue" not in watch
+    assert "relay.enqueue" not in tv
+    mac = (root / ROOT_VIEWS["macos"]).read_text(encoding="utf-8")
+    assert "WebMediaDLMacCompanionForwarder" in mac
+    assert "receiveWatchConnectivityUserInfo" in mac
+    assert "forwarder.forward" in mac
+    loopback = (root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/LoopbackClient.swift").read_text(
+        encoding="utf-8"
+    )
+    assert "func historyEntries() async throws -> [WebMediaDLHistoryEntry]" in loopback
+    assert "JSONDecoder()" in loopback
+    models = (root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/Models.swift").read_text(
+        encoding="utf-8"
+    )
+    assert "JSONDecoder()" in models
+    for rel in ROOT_VIEWS.values():
+        text = (root / rel).read_text(encoding="utf-8")
+        assert "WebMediaDLHistoryEntry" in text
+        assert "JSONDecoder()" in text
+
+
+def test_platform_app_entry_points() -> None:
+    root = repo_root()
+    for rel in APP_ENTRIES:
+        text = (root / rel).read_text(encoding="utf-8")
+        assert "@main" in text
+        assert ": App" in text or ":App" in text
+
+
+def test_intents_and_share_adapters_load_credentials() -> None:
+    root = repo_root()
+    for rel in CREDENTIAL_ADAPTERS:
+        text = (root / rel).read_text(encoding="utf-8")
+        assert "WebMediaDLWorkerCredentials.loadClient()" in text
+        assert "WebMediaDLLoopbackClient()" not in text
+
+
 def test_browser_extension_trees() -> None:
     root = repo_root()
+    shared = (root / "extensions/shared/capture.js").read_bytes()
     for browser in ("chromium", "chrome", "brave", "edge", "firefox", "safari"):
         folder = root / "extensions" / browser
         assert (folder / "manifest.json").is_file()
         assert (folder / "popup.html").is_file()
         assert (folder / "capture.js").is_file()
-        manifest = (folder / "manifest.json").read_text(encoding="utf-8")
-        assert "127.0.0.1:8765" in manifest
-        assert "nativeMessaging" not in manifest
-        assert "scripting" in manifest
-    assert (root / "extensions/safari/Info.plist").is_file()
+        manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
+        assert manifest["host_permissions"] == ["http://127.0.0.1:8765/*"]
+        assert "nativeMessaging" not in json.dumps(manifest)
+        assert "scripting" in manifest["permissions"]
+        assert (folder / "capture.js").read_bytes() == shared
+    safari_plist = plistlib.loads((root / "extensions/safari/Info.plist").read_bytes())
+    assert safari_plist["NSExtension"]["NSExtensionPrincipalClass"] == "SafariWebExtensionHandler"
+    handler = (root / "extensions/safari/SafariWebExtensionHandler.swift").read_text(
+        encoding="utf-8"
+    )
+    assert "@objc(SafariWebExtensionHandler)" in handler
 
 
 def test_imagemagick_runtime_policy_exists() -> None:
@@ -202,8 +383,6 @@ def test_imagemagick_runtime_policy_exists() -> None:
 
 
 def test_pack_inventory_count() -> None:
-    import json
-
     payload = json.loads((repo_root() / "scripts/pack_inventory.json").read_text(encoding="utf-8"))
     assert payload["count"] == 159
     assert len(payload["paths_relative"]) == 159

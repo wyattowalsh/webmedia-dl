@@ -9,7 +9,8 @@ public struct WebMediaDLTVRootView: View {
     @State private var locator = ""
     @State private var status = "Status: idle"
     @State private var lastJobId: String?
-    @State private var relay = WebMediaDLCompanionRelay()
+    @State private var transport = WebMediaDLQueuedCompanionTransport()
+    @State private var history: [WebMediaDLHistoryEntry] = []
 
     public init() {}
 
@@ -25,9 +26,15 @@ public struct WebMediaDLTVRootView: View {
                 Text(status)
                     .accessibilityLabel("Job status")
                 Button("History") {
-                    Task { await send(kind: "history") }
+                    Task {
+                        await send(kind: "history")
+                        history = (try? JSONDecoder().decode([WebMediaDLHistoryEntry].self, from: Data("[]".utf8))) ?? []
+                    }
                 }
                 .accessibilityLabel("Job history")
+                ForEach(history) { entry in
+                    Text("\(entry.state)")
+                }
                 Button("Status") {
                     Task { await send(kind: "status") }
                 }
@@ -61,7 +68,7 @@ public struct WebMediaDLTVRootView: View {
     @MainActor
     private func send(kind: String, locator: String? = nil, jobId: String? = nil) async {
         let message = bridge.message(kind: kind, locator: locator, jobId: jobId)
-        relay.enqueue(message)
+        try? await transport.send(message)
         status = "Queued \(message.kind) for Mac relay"
         if kind == "capture" {
             lastJobId = nil

@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
 import WebMediaDLCore
 
 /// visionOS complete client: immersive capture plus paired-Mac heavy work.
@@ -9,8 +10,10 @@ public struct WebMediaDLVisionRootView: View {
     @State private var sessionKey = ""
     @State private var status = "Pair with a Mac for heavy work."
     @State private var historyText = "Paired Mac history appears after confirmation."
+    @State private var history: [WebMediaDLHistoryEntry] = []
     @State private var lastJobId: UUID?
-    @State private var approvedRoot = ""
+    @State private var filesBookmark = WebMediaDLSecurityScopedBookmark(path: "")
+    @State private var pickingDestination = false
     private let role = WebMediaDLClientRole.pairedClient
     private let client = WebMediaDLLoopbackClient()
 
@@ -37,11 +40,29 @@ public struct WebMediaDLVisionRootView: View {
                 }
             }
             .accessibilityLabel("Paste from clipboard")
-            TextField("Approved Files destination", text: $approvedRoot)
-                .accessibilityLabel("Approved Files destination")
+            Button("Choose Files destination") {
+                pickingDestination = true
+            }
+            .accessibilityLabel("Choose Files destination")
+            .fileImporter(
+                isPresented: $pickingDestination,
+                allowedContentTypes: [.folder],
+                allowsMultipleSelection: false
+            ) { result in
+                guard case .success(let urls) = result, let url = urls.first else { return }
+                let accessed = url.startAccessingSecurityScopedResource()
+                filesBookmark = WebMediaDLSecurityScopedBookmark.fromPickedURL(url)
+                if accessed {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+            if !filesBookmark.path.isEmpty {
+                Text(filesBookmark.path)
+                    .accessibilityLabel("Approved Files destination")
+            }
             Button("Send to paired Mac") {
                 Task {
-                    let roots = approvedRoot.isEmpty ? [] : [approvedRoot]
+                    let roots = filesBookmark.path.isEmpty ? [] : [filesBookmark.path]
                     let response = (try? await pairedClient.submit(
                         locator: locator,
                         surface: .visionos,
@@ -64,9 +85,20 @@ public struct WebMediaDLVisionRootView: View {
                 .accessibilityLabel("Job status")
             Text(historyText)
                 .accessibilityLabel("Job history")
+            List(history) { entry in
+                Text("\(entry.jobId.uuidString.prefix(8)) \(entry.state)")
+            }
             Button("Refresh history") {
                 Task {
-                    historyText = (try? await pairedClient.history()) ?? "Pairing required"
+                    do {
+                        let (data, _) = try await URLSession.shared.data(for: pairedClient.historyRequest())
+                        history = (try? JSONDecoder().decode([WebMediaDLHistoryEntry].self, from: data)) ?? []
+                        historyText = history.isEmpty
+                            ? "No jobs yet."
+                            : history.map { "\($0.jobId.uuidString.prefix(8)) \($0.state)" }.joined(separator: "\n")
+                    } catch {
+                        historyText = "Pairing required"
+                    }
                 }
             }
             .accessibilityLabel("Refresh history")
@@ -103,5 +135,11 @@ public struct WebMediaDLVisionRootView: View {
             Text("Role \(role.rawValue). Loopback \(client.baseURL.absoluteString)")
         }
         .padding(32)
+        .onChange(of: pairingId) { _, value in
+            UserDefaults.standard.set(value, forKey: WebMediaDLWorkerCredentials.pairingDefaultsKey)
+        }
+        .onChange(of: sessionKey) { _, value in
+            UserDefaults.standard.set(value, forKey: WebMediaDLWorkerCredentials.sessionDefaultsKey)
+        }
     }
 }

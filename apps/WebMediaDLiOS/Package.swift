@@ -11,5 +11,10 @@ let package = Package(
             name: "WebMediaDLiOS",
             dependencies: [.product(name: "WebMediaDLCore", package: "WebMediaDLCore")]
         ),
+        .target(
+            name: "WebMediaDLiOSShareExtension",
+            dependencies: [.product(name: "WebMediaDLCore", package: "WebMediaDLCore")],
+            path: "ShareExtension"
+        ),
     ]
 )

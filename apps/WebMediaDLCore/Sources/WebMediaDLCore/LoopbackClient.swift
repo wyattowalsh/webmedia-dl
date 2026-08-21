@@ -213,6 +213,20 @@ public struct WebMediaDLLoopbackClient: Sendable {
         try await send(historyRequest())
     }
 
+    public func historyEntries() async throws -> [WebMediaDLHistoryEntry] {
+        let (data, _) = try await URLSession.shared.data(for: historyRequest())
+        return (try? JSONDecoder().decode([WebMediaDLHistoryEntry].self, from: data))
+            ?? ((try? WebMediaDLHistoryEntry.decodeList(from: data)) ?? [])
+    }
+
+    public func historySummary() async throws -> String {
+        let entries = try await historyEntries()
+        if entries.isEmpty {
+            return "No jobs yet."
+        }
+        return entries.map { "\($0.jobId.uuidString.prefix(8)) \($0.state)" }.joined(separator: "\n")
+    }
+
     public func pauseQueue() async throws -> String {
         try await send(pauseQueueRequest())
     }
@@ -269,6 +283,22 @@ public struct WebMediaDLLoopbackClient: Sendable {
             return UUID(uuidString: value)
         }
         return nil
+    }
+}
+
+/// App Group / UserDefaults-backed worker token and pairing. Intents and share
+/// extensions must not construct a bare unauthenticated client.
+public enum WebMediaDLWorkerCredentials {
+    public static let tokenDefaultsKey = "webmedia-dl.worker-token"
+    public static let pairingDefaultsKey = "webmedia-dl.pairing-id"
+    public static let sessionDefaultsKey = "webmedia-dl.session-key"
+
+    public static func loadClient(defaults: UserDefaults = .standard) -> WebMediaDLLoopbackClient {
+        WebMediaDLLoopbackClient(
+            token: defaults.string(forKey: tokenDefaultsKey) ?? "",
+            pairingId: defaults.string(forKey: pairingDefaultsKey).flatMap(UUID.init(uuidString:)),
+            sessionKey: defaults.string(forKey: sessionDefaultsKey)
+        )
     }
 }
 

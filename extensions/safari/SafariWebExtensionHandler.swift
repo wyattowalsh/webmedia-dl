@@ -1,16 +1,18 @@
 import Foundation
 
 /// Safari web-extension native handler. Forwards evidence to the loopback worker.
-/// SubmitBody forbids `nativeCommand`; this handler never includes it.
-@objc public final class SafariWebExtensionHandler: NSObject {
+/// SubmitBody forbids nativeCommand; this handler never includes it.
+@objc(SafariWebExtensionHandler)
+public final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
     public static let loopbackURL = URL(string: "http://127.0.0.1:8765")!
 
-    @objc public func beginRequest(with item: Any?) {
+    public func beginRequest(with context: NSExtensionContext) {
         precondition(SafariWebExtensionHandler.loopbackURL.host == "127.0.0.1")
+        let item = context.inputItems.first as? NSExtensionItem
         var locator = ""
         var token = ""
         var evidence: [[String: String]] = []
-        if let payload = item as? [String: Any] {
+        if let payload = item?.userInfo?["message"] as? [String: Any] {
             if let value = payload["locator"] as? String {
                 locator = value
             }
@@ -39,6 +41,8 @@ import Foundation
                 "evidence": evidence,
             ]
         )
-        URLSession.shared.dataTask(with: request).resume()
+        URLSession.shared.dataTask(with: request) { _, _, _ in
+            context.completeRequest(returningItems: [], completionHandler: nil)
+        }.resume()
     }
 }

@@ -15,7 +15,7 @@ public struct WebMediaDLMacSubmitURLIntent: AppIntent {
     }
 
     public func perform() async throws -> some IntentResult {
-        let client = WebMediaDLLoopbackClient()
+        let client = WebMediaDLWorkerCredentials.loadClient()
         _ = try await client.submit(locator: locator, surface: .macos, intakeKind: "intent")
         return .result()
     }

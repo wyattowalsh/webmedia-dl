@@ -123,4 +123,32 @@ describe("collectMediaEvidence", () => {
       /Worker token is required/,
     );
   });
+
+  it("submitToWorker posts browser evidence through fetch", async () => {
+    const calls = [];
+    const previous = globalThis.fetch;
+    globalThis.fetch = async (url, options) => {
+      calls.push({ url, options });
+      return { ok: true, json: async () => ({ job_id: "job-1" }) };
+    };
+    try {
+      const result = await submitToWorker(
+        "http://127.0.0.1:8765",
+        "worker-token",
+        "https://example.com/watch",
+        "chromium",
+        [{ url: "https://cdn.example.com/a.mp4", kind: "video" }],
+      );
+      assert.equal(result.job_id, "job-1");
+      assert.equal(calls.length, 1);
+      assert.equal(calls[0].url, "http://127.0.0.1:8765/v1/jobs");
+      assert.equal(calls[0].options.headers.Authorization, "Bearer worker-token");
+      const body = JSON.parse(calls[0].options.body);
+      assert.equal(body.intake_kind, "browser_evidence");
+      assert.equal(body.locator, "https://example.com/watch");
+      assert.equal(body.nativeCommand, undefined);
+    } finally {
+      globalThis.fetch = previous;
+    }
+  });
 });

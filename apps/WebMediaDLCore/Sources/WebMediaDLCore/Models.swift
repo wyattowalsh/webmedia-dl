@@ -59,6 +59,32 @@ public struct WebMediaDLHistoryEntry: Codable, Sendable, Identifiable {
         case failedKinds = "failed_kinds"
         case error
     }
+
+    public init(
+        jobId: UUID,
+        state: String,
+        policyProfileId: String = "",
+        workerId: String = "",
+        artifactIds: [String] = [],
+        lastEvents: [String] = [],
+        partial: Bool = false,
+        failedKinds: [String] = [],
+        error: String? = nil
+    ) {
+        self.jobId           = jobId
+        self.state           = state
+        self.policyProfileId = policyProfileId
+        self.workerId        = workerId
+        self.artifactIds     = artifactIds
+        self.lastEvents      = lastEvents
+        self.partial         = partial
+        self.failedKinds     = failedKinds
+        self.error           = error
+    }
+
+    public static func decodeList(from data: Data) throws -> [WebMediaDLHistoryEntry] {
+        try JSONDecoder().decode([WebMediaDLHistoryEntry].self, from: data)
+    }
 }
 
 /// watchOS and tvOS expose capture/status/history/controls, not subprocess workers.

@@ -13,3 +13,7 @@
 - Multi-period DASH concatenates the selected video from each Period; companion
   POST accepts a one-time AES-GCM pairing envelope; visionOS share and complete
   client Files destinations use the same security-scoped path contract.
+- Share extensions expose `NSExtensionRequestHandling` principals; Files
+  destinations persist security-scoped `bookmarkData`; watch/tv send typed
+  companion messages through a queued transport; history views decode
+  `WebMediaDLHistoryEntry`; intents load stored worker credentials.

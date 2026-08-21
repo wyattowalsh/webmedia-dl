@@ -4,7 +4,7 @@ import WebMediaDLCore
 /// macOS share-sheet adapter. Does not run provider argv.
 public struct WebMediaDLMacShareView: View {
     public var intake: WebMediaDLShareIntake
-    private let client = WebMediaDLLoopbackClient()
+    private let client = WebMediaDLWorkerCredentials.loadClient()
 
     public init(intake: WebMediaDLShareIntake) {
         self.intake = intake

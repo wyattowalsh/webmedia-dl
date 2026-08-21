@@ -11,7 +11,7 @@
     <key>NSExtensionPointIdentifier</key>
     <string>com.apple.share-services</string>
     <key>NSExtensionPrincipalClass</key>
-    <string>WebMediaDLMacShareView</string>
+    <string>WebMediaDLMacShareExtensionPrincipal</string>
     <key>NSExtensionAttributes</key>
     <dict>
       <key>NSExtensionActivationRule</key>

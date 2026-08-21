@@ -101,4 +101,14 @@ final class IdentityTests: XCTestCase {
         XCTAssertTrue(body.contains("files_app"))
         XCTAssertTrue(body.contains("security_scoped_path"))
     }
+
+    func testCompanionKindEncodesNullNativeCommand() throws {
+        XCTAssertEqual(WebMediaDLCompanionKind.pauseJob.rawValue, "pause_job")
+        XCTAssertEqual(WebMediaDLCompanionKind.capture.rawValue, "capture")
+        let encoded = try JSONEncoder().encode(WebMediaDLCompanionMessage(kind: .history))
+        let object = try JSONSerialization.jsonObject(with: encoded) as? [String: Any]
+        XCTAssertTrue(object?["nativeCommand"] is NSNull)
+        XCTAssertFalse(WebMediaDLCompanionMessage(kind: .status).subprocessWorker)
+        XCTAssertNotNil(WebMediaDLWorkerCredentials.loadClient().baseURL)
+    }
 }

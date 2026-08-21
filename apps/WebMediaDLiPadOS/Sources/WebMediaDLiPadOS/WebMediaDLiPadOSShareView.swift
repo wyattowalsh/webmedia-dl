@@ -18,7 +18,7 @@ public struct WebMediaDLiPadOSShareView: View {
             Button("Send to paired Mac") {
                 Task {
                     let files = intake.filesDestination
-                    _ = try? await WebMediaDLLoopbackClient().submit(
+                    _ = try? await WebMediaDLWorkerCredentials.loadClient().submit(
                         locator: intake.locator,
                         surface: .ipados,
                         intakeKind: "share_sheet",

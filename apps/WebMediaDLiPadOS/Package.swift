@@ -11,5 +11,10 @@ let package = Package(
             name: "WebMediaDLiPadOS",
             dependencies: [.product(name: "WebMediaDLCore", package: "WebMediaDLCore")]
         ),
+        .target(
+            name: "WebMediaDLiPadOSShareExtension",
+            dependencies: [.product(name: "WebMediaDLCore", package: "WebMediaDLCore")],
+            path: "ShareExtension"
+        ),
     ]
 )

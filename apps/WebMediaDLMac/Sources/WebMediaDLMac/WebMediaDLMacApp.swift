@@ -18,9 +18,12 @@ struct MacRootView: View {
     @State private var pairingId = ""
     @State private var status = "Ready"
     @State private var historyText = "Jobs appear after the loopback worker accepts them."
+    @State private var history: [WebMediaDLHistoryEntry] = []
     @State private var companionLocator = ""
+    @State private var companionRelay = WebMediaDLCompanionRelay()
     @State private var lastJobId: UUID?
     @State private var approvedRoot = ""
+    @State private var filesBookmark = WebMediaDLSecurityScopedBookmark(path: "")
     @State private var fromClipboard = false
     private let role = WebMediaDLClientRole.fullWorker
     private let bridge = WebMediaDLContinuityBridge()
@@ -67,6 +70,9 @@ struct MacRootView: View {
                 Section("History") {
                     Text(historyText)
                         .accessibilityLabel("Job history")
+                    List(history) { entry in
+                        Text("\(entry.jobId.uuidString.prefix(8)) \(entry.state)")
+                    }
                     Button("Refresh history") {
                         Task { await refreshHistory() }
                     }
@@ -161,11 +167,15 @@ struct MacRootView: View {
                     Button("Forward companion capture") {
                         Task {
                             _ = bridge.message(kind: "capture", locator: companionLocator)
+                            let client = WebMediaDLLoopbackClient(token: token)
+                            var forwarder = WebMediaDLMacCompanionForwarder(client: client)
+                            forwarder.receiveWatchConnectivityUserInfo(
+                                ["kind": "capture", "locator": companionLocator],
+                                into: &companionRelay
+                            )
                             do {
-                                status = try await WebMediaDLLoopbackClient(token: token).forwardCompanion(
-                                    kind: "capture",
-                                    locator: companionLocator
-                                )
+                                try await forwarder.forward(&companionRelay)
+                                status = "Forwarded companion capture"
                             } catch {
                                 status = error.localizedDescription
                             }
@@ -180,6 +190,9 @@ struct MacRootView: View {
                 handleDrop(providers)
             }
             .accessibilityLabel("Drop media files")
+            .onChange(of: token) { _, value in
+                UserDefaults.standard.set(value, forKey: WebMediaDLWorkerCredentials.tokenDefaultsKey)
+            }
         }
         .frame(minWidth: 480, minHeight: 320)
     }
@@ -188,11 +201,9 @@ struct MacRootView: View {
     private func submit() async {
         let client = WebMediaDLLoopbackClient(token: token)
         let clip = WebMediaDLClipboardIntake(text: locator)
-        let files = approvedRoot.isEmpty
+        let files = filesBookmark.path.isEmpty
             ? nil
-            : WebMediaDLFilesDestination(
-                bookmark: WebMediaDLSecurityScopedBookmark(path: approvedRoot)
-            )
+            : WebMediaDLFilesDestination(bookmark: filesBookmark)
         do {
             status = try await client.submit(
                 locator: clip.locator ?? locator,
@@ -203,7 +214,7 @@ struct MacRootView: View {
                 approvedRoots: files.map { [$0.approvedRoot] } ?? []
             )
             lastJobId = WebMediaDLLoopbackClient.jobId(from: status)
-            historyText = try await client.history()
+            await refreshHistory()
         } catch {
             status = error.localizedDescription
         }
@@ -218,7 +229,9 @@ struct MacRootView: View {
         panel.message = "Choose a WebMedia DL Files destination"
         guard panel.runModal() == .OK, let url = panel.url else { return }
         let accessed = url.startAccessingSecurityScopedResource()
-        approvedRoot = url.path
+        filesBookmark = WebMediaDLSecurityScopedBookmark.fromPickedURL(url)
+        approvedRoot = filesBookmark.path
+        _ = filesBookmark.bookmarkData
         if accessed {
             url.stopAccessingSecurityScopedResource()
         }
@@ -235,7 +248,7 @@ struct MacRootView: View {
                 intakeKind: "drop"
             )
             lastJobId = WebMediaDLLoopbackClient.jobId(from: status)
-            historyText = try await client.history()
+            await refreshHistory()
         } catch {
             status = error.localizedDescription
         }
@@ -257,7 +270,11 @@ struct MacRootView: View {
     private func refreshHistory() async {
         let client = WebMediaDLLoopbackClient(token: token)
         do {
-            historyText = try await client.history()
+            let (data, _) = try await URLSession.shared.data(for: client.historyRequest())
+            history = (try? JSONDecoder().decode([WebMediaDLHistoryEntry].self, from: data)) ?? []
+            historyText = history.isEmpty
+                ? "No jobs yet."
+                : history.map { "\($0.jobId.uuidString.prefix(8)) \($0.state)" }.joined(separator: "\n")
         } catch {
             historyText = error.localizedDescription
         }

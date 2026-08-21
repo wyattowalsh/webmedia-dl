@@ -4,10 +4,34 @@ import Foundation
 public struct WebMediaDLSecurityScopedBookmark: Sendable, Equatable {
     public var path: String
     public var stale: Bool
+    public var bookmarkData: Data?
 
-    public init(path: String, stale: Bool = false) {
+    public init(path: String, stale: Bool = false, bookmarkData: Data? = nil) {
         self.path = path
         self.stale = stale
+        self.bookmarkData = bookmarkData
+    }
+
+    public static func fromPickedURL(_ url: URL) -> WebMediaDLSecurityScopedBookmark {
+        let data: Data?
+        do {
+            #if os(macOS)
+            data = try url.bookmarkData(
+                options: .withSecurityScope,
+                includingResourceValuesForKeys: nil,
+                relativeTo: nil
+            )
+            #else
+            data = try url.bookmarkData(
+                options: .minimalBookmark,
+                includingResourceValuesForKeys: nil,
+                relativeTo: nil
+            )
+            #endif
+        } catch {
+            data = nil
+        }
+        return WebMediaDLSecurityScopedBookmark(path: url.path, bookmarkData: data)
     }
 
     public func allows(_ candidate: String) -> Bool {
@@ -49,6 +73,10 @@ public struct WebMediaDLPhotoKitDestination: Sendable {
 
 /// Extract share-sheet locators. HTTPS stays a URL; file paths use drop intake.
 public enum WebMediaDLShareItemExtractor {
+    public static let urlTypeIdentifier = "public.url"
+    public static let fileURLTypeIdentifier = "public.file-url"
+    public static let textTypeIdentifier = "public.plain-text"
+
     public static func locators(fromShared values: [String]) -> [String] {
         values.compactMap { raw in
             let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
