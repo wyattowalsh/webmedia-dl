@@ -31,6 +31,7 @@ def test_doctor_json() -> None:
     assert payload["drm_circumvention"] is False
     assert payload["apple_devices"]["macos"]["status"] == "BLOCKED"
     assert payload["signing_notarization"]["status"] == "BLOCKED"
+    assert payload["original_planning_pack"]["status"] == "BLOCKED"
 
 
 def test_submit_with_html_and_data_dir(tmp_path: Path, png_bytes: bytes) -> None:
@@ -85,6 +86,8 @@ def test_plan_command_local_file(tmp_path: Path, png_bytes: bytes) -> None:
     payload = json.loads(result.stdout)
     assert payload["acquired"] is False
     assert payload["preferred"]["kind"] == "image"
+    assert payload["preferred_by_kind"]
+    assert payload["preferred_by_kind"]
 
 
 def test_cancel_command(tmp_path: Path, png_bytes: bytes) -> None:

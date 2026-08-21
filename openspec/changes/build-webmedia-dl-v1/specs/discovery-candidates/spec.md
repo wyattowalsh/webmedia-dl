@@ -6,6 +6,7 @@
 
 Discovery SHALL produce `MediaCandidate` nodes from direct URLs or bounded HTML
 (size-capped, redirect-capped). It SHALL NOT decide final acquisition.
+Mixed-media pages SHALL keep one preferred candidate per media kind.
 
 #### Scenario: HTML extracts media without using the title as identity
 

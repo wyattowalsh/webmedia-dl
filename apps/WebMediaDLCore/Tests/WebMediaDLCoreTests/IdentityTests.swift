@@ -17,6 +17,7 @@ final class IdentityTests: XCTestCase {
         let client = WebMediaDLLoopbackClient()
         XCTAssertTrue(client.isLoopback)
         XCTAssertEqual(client.baseURL.host, "127.0.0.1")
+        XCTAssertTrue(client.pauseQueueRequest().url?.absoluteString.contains("queue/pause") ?? false)
     }
 
     func testContinuityIsNotASubprocessWorker() {

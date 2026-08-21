@@ -66,6 +66,11 @@ def doctor(*, data_dir: Path | None = None) -> dict[str, Any]:
         ),
         "app_review": _status(False, False, blocked_reason="Human App Review is not automated"),
         "legal_review": _status(False, False, blocked_reason="Human legal review is not automated"),
+        "original_planning_pack": _status(
+            False,
+            False,
+            blocked_reason="webmedia-dl-final-planning-pack-2026-08-18 zip is not attached",
+        ),
         "capabilities": [
             {
                 "capability_id": item.capability_id,

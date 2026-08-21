@@ -36,7 +36,7 @@ POPUP_HTML = """<!DOCTYPE html>
 </html>
 """
 
-POPUP_JS = """import {{ collectMediaEvidence, submitToWorker, activeTabLocator }} from "./capture.js";
+POPUP_JS = """import {{ collectFromActiveTab, submitToWorker, activeTabLocator }} from "./capture.js";
 
 const SURFACE = "{surface}";
 const button = document.getElementById("send");
@@ -45,14 +45,14 @@ const tokenInput = document.getElementById("token");
 
 button?.addEventListener("click", async () => {{
   try {{
-    const evidence = collectMediaEvidence(document);
-    status.textContent = `Captured ${{evidence.evidence.length}} local preview URL(s).`;
-    const locator = (await activeTabLocator()) || evidence.pageUrl;
+    const page = await collectFromActiveTab();
+    const locator = (await activeTabLocator()) || page.pageUrl;
     if (!locator) {{
       status.textContent = "No page URL is available.";
       return;
     }}
-    await submitToWorker("http://127.0.0.1:8765", tokenInput.value, locator, SURFACE, evidence.evidence);
+    status.textContent = `Captured ${{page.evidence.length}} page URL(s).`;
+    await submitToWorker("http://127.0.0.1:8765", tokenInput.value, locator, SURFACE, page.evidence);
     status.textContent = "Submitted to the local worker.";
   }} catch (error) {{
     status.textContent = error instanceof Error ? error.message : "Capture failed.";
@@ -88,7 +88,7 @@ def manifest(name: str, gecko: dict | None) -> dict:
             "Capture page media evidence for the local WebMedia DL worker. "
             "Not a native command runner."
         ),
-        "permissions": ["activeTab", "storage"],
+        "permissions": ["activeTab", "storage", "scripting"],
         "host_permissions": ["http://127.0.0.1:8765/*"],
         "action": {
             "default_title": "Send to WebMedia DL",

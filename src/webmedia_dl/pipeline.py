@@ -11,7 +11,7 @@ from loguru import logger
 
 from webmedia_dl.acquisition import plan_acquisition
 from webmedia_dl.artifacts import ArtifactStore
-from webmedia_dl.candidates import build_graph, preferred_candidates
+from webmedia_dl.candidates import build_graph, preferred_by_kind
 from webmedia_dl.discovery import candidates_from_manifest_json, discover
 from webmedia_dl.domain.enums import ArtifactRole, EventType, JobState, MediaKind, Surface
 from webmedia_dl.domain.models import (
@@ -206,22 +206,37 @@ class Pipeline:
             EventType.GRAPH_BUILT,
             {"nodes": len(graph.nodes), "conflicts": graph.conflicts},
         )
-        chosen = preferred_candidates(graph)
+        chosen = preferred_by_kind(graph)
         if not chosen:
             msg = "Discovery produced no candidates."
             raise ProviderPolicyError(msg)
-        candidate = chosen[0]
-        refuse_drm(candidate.drm_signals)
+        for candidate in chosen:
+            refuse_drm(candidate.drm_signals)
 
         staging = staging_dir(self.data_dir) / str(job.job_id)
         staging.mkdir(parents=True, exist_ok=True)
+        if html:
+            evidence_path = staging / "page.html"
+            evidence_path.write_text(html, encoding="utf-8")
+            recorded = self.store.register(
+                evidence_path,
+                role=ArtifactRole.EVIDENCE,
+                media_kind=MediaKind.PAGE,
+                provenance={"job_id": str(job.job_id), "kind": "html"},
+            )
+            self.queue.emit(
+                job.job_id,
+                EventType.SOURCE_REGISTERED,
+                {"artifact_id": recorded.artifact_id, "provider": "html-evidence"},
+            )
 
+        sources: list[Any] = []
         if job.source.local_path:
             self.queue.set_state(job.job_id, JobState.ACQUIRING)
             artifact = self.store.register(
                 Path(job.source.local_path),
                 role=ArtifactRole.SOURCE,
-                media_kind=candidate.media_kind,
+                media_kind=chosen[0].media_kind,
                 provenance={"provider": "local-file", "job_id": str(job.job_id)},
             )
             self.queue.emit(
@@ -229,35 +244,62 @@ class Pipeline:
                 EventType.SOURCE_REGISTERED,
                 {"artifact_id": artifact.artifact_id, "provider": "local-file"},
             )
-            self._record_probe(job, artifact, Path(job.source.local_path), candidate.candidate_id)
+            self._record_probe(job, artifact, Path(job.source.local_path), chosen[0].candidate_id)
+            sources.append(artifact)
         else:
-            artifact = self._acquire_remote(job, candidate, staging, cookies=cookies)
+            last_error: Exception | None = None
+            for index, candidate in enumerate(chosen):
+                try:
+                    kind_dir = staging / f"{index}-{candidate.media_kind.value}"
+                    kind_dir.mkdir(parents=True, exist_ok=True)
+                    artifact = self._acquire_remote(
+                        job,
+                        candidate,
+                        kind_dir,
+                        cookies=cookies,
+                    )
+                    sources.append(artifact)
+                except (DrmRefused, WebMediaError) as exc:
+                    last_error = exc
+                    continue
+            if not sources:
+                if last_error:
+                    raise last_error
+                msg = "Acquisition produced no source artifact."
+                raise ProviderPolicyError(msg)
 
-        export_plan = plan_export(job.job_id, artifact, job.intent)
-        self.queue.emit(
-            job.job_id,
-            EventType.EXPORT_PLANNED,
-            {"operations": [item.operation_id for item in export_plan.operations]},
-        )
-        produced = execute_export_plan(
-            export_plan,
-            job_id=job.job_id,
-            source=artifact,
-            source_path=self.store.resolve(artifact),
-            store=self.store,
-            runtime=self.runtime,
-            staging=staging,
-            queue=self.queue,
-            authorize=self._authorize,
-        )
+        produced: list[tuple[Any, Path]] = []
+        for artifact in sources:
+            export_plan = plan_export(job.job_id, artifact, job.intent)
+            self.queue.emit(
+                job.job_id,
+                EventType.EXPORT_PLANNED,
+                {"operations": [item.operation_id for item in export_plan.operations]},
+            )
+            export_dir = staging / artifact.artifact_id.replace(":", "_")[:40]
+            export_dir.mkdir(parents=True, exist_ok=True)
+            produced.extend(
+                execute_export_plan(
+                    export_plan,
+                    job_id=job.job_id,
+                    source=artifact,
+                    source_path=self.store.resolve(artifact),
+                    store=self.store,
+                    runtime=self.runtime,
+                    staging=export_dir,
+                    queue=self.queue,
+                    authorize=self._authorize,
+                )
+            )
 
         self.queue.set_state(job.job_id, JobState.VALIDATING)
         publishable: list[tuple[Any, Path, list]] = []
+        source_ids = {item.artifact_id for item in sources}
         for item, path in produced:
             if (
                 item.role.value == "derivative"
                 and not job.intent.include_original
-                and item is artifact
+                and item.artifact_id in source_ids
             ):
                 continue
             results = validate_artifact(job.job_id, item, path)
@@ -280,7 +322,11 @@ class Pipeline:
             {"paths": [str(item) for item in published]},
         )
         completed = self.queue.set_state(job.job_id, JobState.COMPLETED)
-        self.queue.emit(job.job_id, EventType.JOB_COMPLETED, {"artifact_id": artifact.artifact_id})
+        self.queue.emit(
+            job.job_id,
+            EventType.JOB_COMPLETED,
+            {"artifact_ids": [item.artifact_id for item in sources]},
+        )
         return completed
 
     def _acquire_remote(
@@ -559,11 +605,12 @@ class Pipeline:
             evidence=evidence,
         )
         graph = build_graph(source.source_id, candidates)
-        chosen = preferred_candidates(graph)
+        chosen = preferred_by_kind(graph)
         strategies: list[dict[str, Any]] = []
-        if chosen:
-            plan = plan_acquisition(source.source_id, chosen[0], get_profile(job_worker.profile_id))
-            strategies = [
+        mixed: list[dict[str, Any]] = []
+        for candidate in chosen:
+            plan = plan_acquisition(source.source_id, candidate, get_profile(job_worker.profile_id))
+            item_strategies = [
                 {
                     "strategy_id": item.strategy_id,
                     "provider_id": item.provider_id,
@@ -573,6 +620,15 @@ class Pipeline:
                 }
                 for item in plan.strategies
             ]
+            mixed.append(
+                {
+                    "kind": candidate.media_kind.value,
+                    "identity_key": candidate.identity_key,
+                    "strategies": item_strategies,
+                }
+            )
+            if not strategies:
+                strategies = item_strategies
         export_intent = intent or ExportIntent()
         return {
             "source": source.model_dump(mode="json"),
@@ -582,6 +638,8 @@ class Pipeline:
             "candidates": [describe_candidate(item) for item in candidates],
             "conflicts": graph.conflicts,
             "preferred": describe_candidate(chosen[0]) if chosen else None,
+            "preferred_by_kind": [describe_candidate(item) for item in chosen],
+            "plans": mixed,
             "strategies": strategies,
             "export_intent": export_intent.model_dump(mode="json"),
             "acquired": False,

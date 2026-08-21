@@ -47,3 +47,25 @@ def test_pipeline_records_drm_failure(tmp_data: Path) -> None:
     assert job.state is JobState.FAILED
     assert job.error is not None
     assert "DRM" in job.error or "drm" in job.error.lower() or "widevine" in job.error.lower()
+
+
+def test_pipeline_acquires_mixed_image_and_video(tmp_data: Path, png_bytes: bytes) -> None:
+    html = """
+    <html><body>
+      <video src="https://cdn.example.com/clip.mp4"></video>
+      <img src="https://cdn.example.com/hero.png">
+    </body></html>
+    """
+
+    def http_get(url: str) -> tuple[int, dict[str, str], bytes]:
+        if url.endswith(".png"):
+            return 200, {}, png_bytes
+        return 200, {}, b"fake-mp4-bytes"
+
+    pipeline = Pipeline(data_dir=tmp_data, runtime=ProviderRuntime(http_get=http_get))
+    job = pipeline.submit("https://example.com/mixed", html=html)
+    assert job.state is JobState.COMPLETED
+    sources = [item for item in pipeline.store.list_artifacts() if item.role.value == "source"]
+    assert len(sources) >= 2
+    line = pipeline.store.lineage(sources[0].artifact_id)
+    assert line[0].artifact_id == sources[0].artifact_id

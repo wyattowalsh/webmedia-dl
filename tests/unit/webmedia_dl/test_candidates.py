@@ -2,7 +2,7 @@ from uuid import uuid4
 
 import pytest
 
-from webmedia_dl.candidates import preferred_candidates
+from webmedia_dl.candidates import preferred_by_kind, preferred_candidates
 from webmedia_dl.discovery import discover
 from webmedia_dl.domain.enums import IntakeKind, MediaKind, Surface
 from webmedia_dl.domain.models import CandidateGraph, MediaCandidate, MediaSource
@@ -38,6 +38,8 @@ def test_preferred_candidates_rank_video_over_page() -> None:
     ranked = preferred_candidates(graph)
     assert ranked[0].media_kind is MediaKind.VIDEO
     assert MediaKind.PAGE in {item.media_kind for item in ranked}
+    mixed = preferred_by_kind(graph)
+    assert [item.media_kind for item in mixed] == [MediaKind.VIDEO, MediaKind.IMAGE]
 
 
 def test_discovery_page_without_fetch_still_requires_html_or_fetch() -> None:

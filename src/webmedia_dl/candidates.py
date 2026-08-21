@@ -59,3 +59,20 @@ def preferred_candidates(graph: CandidateGraph) -> list[MediaCandidate]:
     clean = [node for node in graph.nodes if not node.drm_signals]
     pool = clean or list(graph.nodes)
     return sorted(pool, key=lambda node: KIND_RANK.get(node.media_kind, 7))
+
+
+def preferred_by_kind(graph: CandidateGraph) -> list[MediaCandidate]:
+    """One preferred candidate per media kind so mixed pages are not collapsed."""
+    picked: list[MediaCandidate] = []
+    seen: set[MediaKind] = set()
+    for node in preferred_candidates(graph):
+        if node.media_kind is MediaKind.PAGE:
+            continue
+        if node.media_kind in seen:
+            continue
+        seen.add(node.media_kind)
+        picked.append(node)
+    if picked:
+        return picked
+    ranked = preferred_candidates(graph)
+    return ranked[:1]

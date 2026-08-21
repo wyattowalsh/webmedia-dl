@@ -79,6 +79,27 @@ class ArtifactStore:
     def get(self, artifact_id: str) -> Artifact:
         return self._records[artifact_id]
 
+    def list_artifacts(self) -> list[Artifact]:
+        return list(self._records.values())
+
+    def lineage(self, artifact_id: str) -> list[Artifact]:
+        if artifact_id not in self._records:
+            raise KeyError(artifact_id)
+        ordered: list[Artifact] = []
+        seen: set[str] = set()
+        stack = [artifact_id]
+        while stack:
+            current_id = stack.pop()
+            if current_id in seen:
+                continue
+            seen.add(current_id)
+            artifact = self._records.get(current_id)
+            if artifact is None:
+                continue
+            ordered.append(artifact)
+            stack.extend(reversed(artifact.parent_ids))
+        return ordered
+
     def resolve(self, artifact: Artifact) -> Path:
         return self.root / artifact.storage_relpath
 

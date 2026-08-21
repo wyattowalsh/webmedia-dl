@@ -165,6 +165,31 @@ def history(
 
 
 @app.command()
+def artifacts(
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+) -> None:
+    """List registered artifacts in the local store."""
+    pipeline = _pipeline(data_dir)
+    payload = [item.model_dump(mode="json") for item in pipeline.store.list_artifacts()]
+    typer.echo(json.dumps(payload, indent=2, default=str))
+
+
+@app.command()
+def provenance(
+    artifact_id: Annotated[str, typer.Argument()],
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+) -> None:
+    """Show content-addressed lineage for one artifact. Titles are not identity."""
+    pipeline = _pipeline(data_dir)
+    try:
+        payload = [item.model_dump(mode="json") for item in pipeline.store.lineage(artifact_id)]
+    except KeyError as exc:
+        typer.echo(str(exc))
+        raise typer.Exit(code=1) from exc
+    typer.echo(json.dumps(payload, indent=2, default=str))
+
+
+@app.command()
 def policy() -> None:
     """Show built-in policy profiles."""
     payload = {key: value.model_dump(mode="json") for key, value in builtin_profiles().items()}

@@ -24,7 +24,13 @@ def test_apple_app_shells_exist() -> None:
         "apps/WebMediaDLiOS/Sources/WebMediaDLiOS/WebMediaDLSubmitURLIntent.swift",
         "apps/WebMediaDLiOS/ShareExtension/Info.plist",
         "apps/WebMediaDLiPadOS/Sources/WebMediaDLiPadOS/WebMediaDLiPadOSRootView.swift",
+        "apps/WebMediaDLiPadOS/Sources/WebMediaDLiPadOS/WebMediaDLiPadOSSubmitURLIntent.swift",
+        "apps/WebMediaDLiPadOS/Sources/WebMediaDLiPadOS/WebMediaDLiPadOSShareView.swift",
+        "apps/WebMediaDLiPadOS/Resources/Info.plist",
+        "apps/WebMediaDLiPadOS/ShareExtension/Info.plist",
         "apps/WebMediaDLVision/Sources/WebMediaDLVision/WebMediaDLVisionRootView.swift",
+        "apps/WebMediaDLVision/Sources/WebMediaDLVision/WebMediaDLVisionSubmitURLIntent.swift",
+        "apps/WebMediaDLVision/Resources/Info.plist",
         "apps/WebMediaDLWatch/Sources/WebMediaDLWatch/WebMediaDLWatchRootView.swift",
         "apps/WebMediaDLTV/Sources/WebMediaDLTV/WebMediaDLTVRootView.swift",
         "apps/WebMediaDLCore/Sources/WebMediaDLCore/LoopbackClient.swift",
@@ -75,6 +81,7 @@ def test_browser_extension_trees() -> None:
         manifest = (folder / "manifest.json").read_text(encoding="utf-8")
         assert "127.0.0.1:8765" in manifest
         assert "nativeMessaging" not in manifest
+        assert "scripting" in manifest
     assert (root / "extensions/safari/Info.plist").is_file()
 
 

@@ -177,6 +177,17 @@ def create_app(data_dir: Path | None = None, *, enable_dispatcher: bool = False)
     def list_jobs() -> list[dict]:
         return [item.model_dump(mode="json") for item in pipeline.history()]
 
+    @app.get("/v1/artifacts", dependencies=[Depends(require_auth)])
+    def list_artifacts() -> list[dict]:
+        return [item.model_dump(mode="json") for item in pipeline.store.list_artifacts()]
+
+    @app.get("/v1/artifacts/{artifact_id}/provenance", dependencies=[Depends(require_auth)])
+    def artifact_provenance(artifact_id: str) -> list[dict]:
+        try:
+            return [item.model_dump(mode="json") for item in pipeline.store.lineage(artifact_id)]
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="Unknown artifact") from exc
+
     @app.post("/v1/pair", dependencies=[Depends(require_auth)])
     def pair(client_profile_id: str = "personal-restricted") -> dict:
         challenge = pipeline.pairing.create(client_profile_id, pipeline.host_worker.worker_id)

@@ -68,6 +68,8 @@ def test_pair_and_envelope_and_plan(tmp_path: Path, png_bytes: bytes) -> None:
     )
     assert planned.status_code == 200
     assert planned.json()["acquired"] is False
+    artifacts = client.get("/v1/artifacts", headers=headers)
+    assert artifacts.status_code == 200
     doctor = client.get("/v1/doctor", headers=headers)
     assert doctor.status_code == 200
     assert doctor.json()["telemetry_default"] is False
