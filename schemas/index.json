@@ -15,6 +15,7 @@
     "operation": "operation.schema.json",
     "export-plan": "export-plan.schema.json",
     "validation-result": "validation-result.schema.json",
-    "event": "event.schema.json"
+    "event": "event.schema.json",
+    "history-entry": "history-entry.schema.json"
   }
 }

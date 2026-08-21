@@ -2,13 +2,13 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 173 tests |
+| `uv run pytest` | PASS | 174 tests |
 | `uv run pytest --cov` | PASS | 87% (`fail_under` 85) |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
 | `uv run ty check` | PASS | |
 | `node --test tests/unit/extensions/*.mjs` | PASS | capture evidence helper |
-| `uv run python -m webmedia_dl.schema_export` | PASS | 17 schemas + index |
+| `uv run python -m webmedia_dl.schema_export` | PASS | 18 schemas + index |
 | `uv run python scripts/validate_bundle.py` | PASS | 159 pack paths + extension/app shells |
 | `uv run webmedia-dl doctor` ffmpeg | PASS | `/usr/bin/ffmpeg` |
 | `uv run webmedia-dl doctor` yt-dlp / gallery-dl / magick | BLOCKED | binaries not installed |
@@ -25,6 +25,8 @@
 | Mixed-media containment | PASS | one kind failure still publishes the other; `job.completed` records `partial`/`failed_kinds` |
 | Job-scoped cancel and atomic claim | PASS | canceling one job does not poison the next; `claim_next` is compare-and-set |
 | Packaged runtime assets | PASS | presets/policies/ImageMagick policy load from `webmedia_dl.runtime` without a git checkout |
+| Browser one-tap token | PASS | extension storage persists the worker token after first paste |
+| History schema | PASS | `HistoryEntry` JSON schema + Swift `WebMediaDLHistoryEntry` |
 | Original planning-pack ZIP byte compare | BLOCKED | zip not in this workspace; 156 overlay files reconstructed |
 
 Planning overlay files reconstructed from the 2026-08-18 pack inventory except

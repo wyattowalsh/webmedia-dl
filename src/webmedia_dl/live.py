@@ -34,6 +34,10 @@ _DASH_S = re.compile(r"<S\b([^>]*)/?>", re.I)
 _DASH_ATTR = re.compile(r"([A-Za-z_:][\w:.-]*)=(?:\"([^\"]*)\"|'([^']*)')")
 _NUMBER_TOKEN = re.compile(r"\$Number(%[^$]+)?\$")
 _TIME_TOKEN = re.compile(r"\$Time(%[^$]+)?\$")
+_REPRESENTATION = re.compile(
+    r"<Representation\b([^>]*)>(.*?)</Representation>",
+    re.I | re.S,
+)
 MAX_TIMELINE_SEGMENTS = 64
 
 FetchFn = Callable[[str], tuple[int, str, bytes]]
@@ -195,10 +199,17 @@ def _expand_dash_template(
     return text.replace("\x00", "$")
 
 
-def _template_urls(attr_blob: str, body: str, base: str) -> list[str]:
+def _template_urls(
+    attr_blob: str,
+    body: str,
+    base: str,
+    *,
+    representation: str | None = None,
+    bandwidth: str | None = None,
+) -> list[str]:
     attrs = _attrs(attr_blob)
-    representation = attrs.get("id") or attrs.get("representationid") or "1"
-    bandwidth = attrs.get("bandwidth") or "1"
+    representation = representation or attrs.get("id") or attrs.get("representationid") or "1"
+    bandwidth = bandwidth or attrs.get("bandwidth") or "1"
     start = int(attrs.get("startnumber") or 1)
     urls: list[str] = []
 
@@ -243,11 +254,72 @@ def _template_urls(attr_blob: str, body: str, base: str) -> list[str]:
     return urls
 
 
+def _is_directory_base(resolved: str) -> bool:
+    suffix = Path(urlparse(resolved).path).suffix.lower()
+    return resolved.endswith("/") or not suffix
+
+
+def _collect_baseurls(text: str, current: str, add) -> str:
+    for href in _DASH_BASE_URL.findall(text):
+        resolved = _join(current, href.strip())
+        if _is_directory_base(resolved):
+            current = resolved if resolved.endswith("/") else f"{resolved}/"
+            continue
+        add(ManifestPart(resolved))
+    return current
+
+
+def _collect_segments(
+    text: str,
+    current: str,
+    add,
+    seen_urls: set[str],
+    *,
+    representation: str | None = None,
+    bandwidth: str | None = None,
+) -> None:
+    for match in _DASH_TEMPLATE.finditer(text):
+        for url in _template_urls(
+            match.group(1),
+            match.group(2) or "",
+            current,
+            representation=representation,
+            bandwidth=bandwidth,
+        ):
+            add(ManifestPart(url))
+    for match in re.finditer(r"<Initialization\b([^>]*)/?>", text, flags=re.I):
+        attrs = _attrs(match.group(1))
+        href = attrs.get("sourceurl")
+        if href:
+            start, length = _parse_dash_range(attrs.get("range"))
+            add(ManifestPart(_join(current, href.strip()), start, length))
+    for match in re.finditer(r"<SegmentURL\b([^>]*)/?>", text, flags=re.I):
+        attrs = _attrs(match.group(1))
+        href = attrs.get("media")
+        if href:
+            start, length = _parse_dash_range(attrs.get("mediarange"))
+            add(ManifestPart(_join(current, href.strip()), start, length))
+    for double, single in _DASH_MEDIA.findall(text):
+        media = double or single
+        resolved = _expand_dash_template(
+            media,
+            number=1,
+            time_value=0,
+            representation=representation or "1",
+            bandwidth=bandwidth or "1",
+        )
+        if "$" in resolved:
+            continue
+        url = _join(current, resolved)
+        if url in seen_urls:
+            continue
+        add(ManifestPart(url))
+
+
 def _dash_parts(text: str, base: str) -> list[ManifestPart]:
     parts: list[ManifestPart] = []
     seen: set[tuple[str, int | None, int | None]] = set()
     seen_urls: set[str] = set()
-    resolve_base = base
 
     def add(part: ManifestPart) -> None:
         key = (part.url, part.start, part.length)
@@ -257,37 +329,32 @@ def _dash_parts(text: str, base: str) -> list[ManifestPart]:
         seen_urls.add(part.url)
         parts.append(part)
 
-    for href in _DASH_BASE_URL.findall(text):
-        resolved = _join(resolve_base, href.strip())
-        suffix = Path(urlparse(resolved).path).suffix.lower()
-        if resolved.endswith("/") or not suffix:
-            resolve_base = resolved if resolved.endswith("/") else f"{resolved}/"
-            continue
-        add(ManifestPart(resolved))
-    for match in _DASH_TEMPLATE.finditer(text):
-        for url in _template_urls(match.group(1), match.group(2) or "", resolve_base):
-            add(ManifestPart(url))
-    for match in re.finditer(r"<Initialization\b([^>]*)/?>", text, flags=re.I):
-        attrs = _attrs(match.group(1))
-        href = attrs.get("sourceurl")
-        if href:
-            start, length = _parse_dash_range(attrs.get("range"))
-            add(ManifestPart(_join(resolve_base, href.strip()), start, length))
-    for match in re.finditer(r"<SegmentURL\b([^>]*)/?>", text, flags=re.I):
-        attrs = _attrs(match.group(1))
-        href = attrs.get("media")
-        if href:
-            start, length = _parse_dash_range(attrs.get("mediarange"))
-            add(ManifestPart(_join(resolve_base, href.strip()), start, length))
-    for double, single in _DASH_MEDIA.findall(text):
-        media = double or single
-        resolved = _expand_dash_template(media, number=1, time_value=0)
-        if "$" in resolved:
-            continue
-        url = _join(resolve_base, resolved)
-        if url in seen_urls:
-            continue
-        add(ManifestPart(url))
+    representations = list(_REPRESENTATION.finditer(text))
+    prefix = text[: representations[0].start()] if representations else text
+    resolve_base = _collect_baseurls(prefix, base, add)
+    for rep in representations:
+        rattrs = _attrs(rep.group(1))
+        body = rep.group(2) or ""
+        local_base = _collect_baseurls(body, resolve_base, add)
+        _collect_segments(
+            body,
+            local_base,
+            add,
+            seen_urls,
+            representation=rattrs.get("id"),
+            bandwidth=rattrs.get("bandwidth"),
+        )
+    remainder = text
+    if representations:
+        chunks: list[str] = []
+        cursor = 0
+        for rep in representations:
+            chunks.append(text[cursor : rep.start()])
+            cursor = rep.end()
+        chunks.append(text[cursor:])
+        remainder = "".join(chunks)
+        resolve_base = _collect_baseurls(text[representations[-1].end() :], resolve_base, add)
+    _collect_segments(remainder, resolve_base, add, seen_urls)
     return parts
 
 

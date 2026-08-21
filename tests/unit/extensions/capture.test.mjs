@@ -1,4 +1,11 @@
-import { collectFromActiveTab, collectMediaEvidence } from "../../../extensions/shared/capture.js";
+import {
+  collectFromActiveTab,
+  collectMediaEvidence,
+  loadWorkerToken,
+  saveWorkerToken,
+  submitToWorker,
+  WORKER_TOKEN_KEY,
+} from "../../../extensions/shared/capture.js";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
@@ -94,5 +101,26 @@ describe("collectMediaEvidence", () => {
     } finally {
       globalThis.document = previous;
     }
+  });
+
+  it("persists the worker token in extension storage", async () => {
+    const store = {};
+    const area = {
+      get: (key) => Promise.resolve({ [key]: store[key] }),
+      set: (items) => {
+        Object.assign(store, items);
+        return Promise.resolve();
+      },
+    };
+    await saveWorkerToken("secret-token", area);
+    assert.equal(store[WORKER_TOKEN_KEY], "secret-token");
+    assert.equal(await loadWorkerToken(area), "secret-token");
+  });
+
+  it("submitToWorker requires a token", async () => {
+    await assert.rejects(
+      () => submitToWorker("http://127.0.0.1:8765", "  ", "https://example.com"),
+      /Worker token is required/,
+    );
   });
 });

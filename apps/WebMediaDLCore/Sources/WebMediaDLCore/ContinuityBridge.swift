@@ -37,7 +37,14 @@ public struct WebMediaDLContinuityBridge: Sendable {
         "capture", "pause", "resume", "history", "status", "cancel", "pause_job", "resume_job",
     ]
 
+    /// Watch/tv serialize companion messages. The phone/Mac substitutes the
+    /// reachable Mac loopback after WatchConnectivity or Multipeer delivery.
+    public var workerURL: URL
     public var isSubprocessWorker: Bool { false }
+
+    public init(workerURL: URL = WebMediaDLContinuityBridge.loopbackURL) {
+        self.workerURL = workerURL
+    }
 
     public func message(kind: String, locator: String? = nil, jobId: String? = nil) -> WebMediaDLCompanionMessage {
         WebMediaDLCompanionMessage(kind: kind, locator: locator, jobId: jobId)
@@ -54,7 +61,7 @@ public struct WebMediaDLContinuityBridge: Sendable {
         jobId: String? = nil
     ) -> URLRequest {
         var request = URLRequest(
-            url: WebMediaDLContinuityBridge.loopbackURL.appendingPathComponent("v1/companion")
+            url: workerURL.appendingPathComponent("v1/companion")
         )
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")

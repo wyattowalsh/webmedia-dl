@@ -1,0 +1,283 @@
+{
+  "$defs": {
+    "DestinationKind": {
+      "enum": [
+        "user_approved_path",
+        "photos",
+        "files_app",
+        "share",
+        "staging_only"
+      ],
+      "title": "DestinationKind",
+      "type": "string"
+    },
+    "ExportIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "preset_id": {
+          "default": "original-sacred",
+          "title": "Preset Id",
+          "type": "string"
+        },
+        "destination_kind": {
+          "$ref": "#/$defs/DestinationKind",
+          "default": "staging_only"
+        },
+        "destination_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Destination Path"
+        },
+        "include_original": {
+          "default": true,
+          "title": "Include Original",
+          "type": "boolean"
+        },
+        "allow_lossy": {
+          "default": false,
+          "title": "Allow Lossy",
+          "type": "boolean"
+        },
+        "container_preference": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Container Preference"
+        },
+        "approved_roots": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Approved Roots",
+          "type": "array"
+        }
+      },
+      "title": "ExportIntent",
+      "type": "object"
+    },
+    "IntakeKind": {
+      "enum": [
+        "url",
+        "file",
+        "share_sheet",
+        "paste",
+        "drop",
+        "intent",
+        "cli",
+        "browser_evidence",
+        "live_manifest",
+        "speak"
+      ],
+      "title": "IntakeKind",
+      "type": "string"
+    },
+    "JobState": {
+      "enum": [
+        "accepted",
+        "discovering",
+        "planning",
+        "acquiring",
+        "exporting",
+        "validating",
+        "publishing",
+        "completed",
+        "failed",
+        "cancelled",
+        "paused",
+        "quarantined"
+      ],
+      "title": "JobState",
+      "type": "string"
+    },
+    "MediaSource": {
+      "additionalProperties": false,
+      "properties": {
+        "source_id": {
+          "format": "uuid",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/IntakeKind"
+        },
+        "locator": {
+          "title": "Locator",
+          "type": "string"
+        },
+        "normalized_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Normalized Url"
+        },
+        "local_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Local Path"
+        },
+        "submitted_at": {
+          "format": "date-time",
+          "title": "Submitted At",
+          "type": "string"
+        },
+        "surface": {
+          "$ref": "#/$defs/Surface"
+        },
+        "policy_profile_id": {
+          "title": "Policy Profile Id",
+          "type": "string"
+        },
+        "content_type_hint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content Type Hint"
+        }
+      },
+      "required": [
+        "kind",
+        "locator",
+        "surface",
+        "policy_profile_id"
+      ],
+      "title": "MediaSource",
+      "type": "object"
+    },
+    "Surface": {
+      "enum": [
+        "macos",
+        "ios",
+        "ipados",
+        "visionos",
+        "watchos",
+        "tvos",
+        "safari",
+        "chrome",
+        "brave",
+        "edge",
+        "chromium",
+        "firefox",
+        "cli"
+      ],
+      "title": "Surface",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "job_id": {
+      "format": "uuid",
+      "title": "Job Id",
+      "type": "string"
+    },
+    "state": {
+      "$ref": "#/$defs/JobState"
+    },
+    "policy_profile_id": {
+      "title": "Policy Profile Id",
+      "type": "string"
+    },
+    "worker_id": {
+      "title": "Worker Id",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    },
+    "source": {
+      "$ref": "#/$defs/MediaSource"
+    },
+    "intent": {
+      "$ref": "#/$defs/ExportIntent"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Error"
+    },
+    "artifact_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Artifact Ids",
+      "type": "array"
+    },
+    "last_events": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Last Events",
+      "type": "array"
+    },
+    "partial": {
+      "default": false,
+      "title": "Partial",
+      "type": "boolean"
+    },
+    "failed_kinds": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Failed Kinds",
+      "type": "array"
+    }
+  },
+  "required": [
+    "job_id",
+    "state",
+    "policy_profile_id",
+    "worker_id",
+    "created_at",
+    "updated_at",
+    "source"
+  ],
+  "title": "HistoryEntry",
+  "type": "object",
+  "$id": "https://webmedia-dl.local/schemas/history-entry.schema.json"
+}

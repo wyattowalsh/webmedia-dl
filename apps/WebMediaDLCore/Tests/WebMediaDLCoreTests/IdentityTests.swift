@@ -45,6 +45,7 @@ final class IdentityTests: XCTestCase {
         let policy = WebMediaDLDestinationPolicy(approvedRoots: ["/Users/me/Movies"])
         XCTAssertTrue(policy.allows("/Users/me/Movies/clip.mp4"))
         XCTAssertFalse(policy.allows("/tmp/escape.mp4"))
+        XCTAssertFalse(policy.allows("/Users/me/Movies-backup/clip.mp4"))
         let share = WebMediaDLShareIntake(locator: "https://example.com/a.mp4")
         XCTAssertFalse(share.canPublishToPhotos)
     }

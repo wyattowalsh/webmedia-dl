@@ -240,6 +240,7 @@
     "schemas/event.schema.json",
     "schemas/export-intent.schema.json",
     "schemas/export-plan.schema.json",
+    "schemas/history-entry.schema.json",
     "schemas/index.json",
     "schemas/job.schema.json",
     "schemas/media-candidate.schema.json",

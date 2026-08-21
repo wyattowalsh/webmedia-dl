@@ -9,6 +9,7 @@ def test_capture_popup_has_accessible_markup() -> None:
         assert 'for="token"' in html
         assert 'role="status"' in html
         assert "aria-live" in html
+        assert "Paste the token once" in html
 
 
 def test_guide_has_accessible_markup() -> None:

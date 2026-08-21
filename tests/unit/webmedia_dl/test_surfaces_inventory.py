@@ -67,7 +67,10 @@ def test_apple_app_shells_exist() -> None:
         encoding="utf-8"
     )
     assert "URLSession.shared.dataTask" in safari_handler
+    assert "Authorization" in safari_handler
+    assert "browser_evidence" in safari_handler
     assert "nativeCommand" in safari_handler
+    assert '"nativeCommand"' not in safari_handler
     continuity = (
         root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/ContinuityBridge.swift"
     ).read_text(encoding="utf-8")

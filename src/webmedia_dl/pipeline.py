@@ -25,6 +25,7 @@ from webmedia_dl.domain.enums import (
 from webmedia_dl.domain.models import (
     BrowserEvidence,
     ExportIntent,
+    HistoryEntry,
     Job,
     MediaCandidate,
     PolicyProfile,
@@ -1001,27 +1002,10 @@ class Pipeline:
         return self.queue.list_jobs()
 
     def history_entries(self) -> list[dict[str, Any]]:
-        entries: list[dict[str, Any]] = []
-        for job in self.history():
-            events = self.queue.events_for(job.job_id)
-            artifact_ids: list[str] = []
-            for event in events:
-                if event.payload.get("artifact_id"):
-                    artifact_ids.append(str(event.payload["artifact_id"]))
-                for item in event.payload.get("artifact_ids") or []:
-                    artifact_ids.append(str(item))
-            unique: list[str] = []
-            for item in artifact_ids:
-                if item not in unique:
-                    unique.append(item)
-            entries.append(
-                {
-                    **job.model_dump(mode="json"),
-                    "artifact_ids": unique,
-                    "last_events": [event.type.value for event in events[-8:]],
-                }
-            )
-        return entries
+        return [
+            HistoryEntry.from_job(job, self.queue.events_for(job.job_id)).model_dump(mode="json")
+            for job in self.history()
+        ]
 
 
 def describe_candidate(candidate: MediaCandidate) -> dict[str, Any]:

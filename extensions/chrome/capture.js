@@ -165,10 +165,14 @@ export async function collectFromActiveTab() {
 }
 
 export async function submitToWorker(baseUrl, token, locator, surface = "chromium", evidence = []) {
+  const auth = String(token || "").trim();
+  if (!auth) {
+    throw new Error("Worker token is required.");
+  }
   const response = await fetch(`${baseUrl.replace(/\/$/, "")}/v1/jobs`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${auth}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -184,4 +188,60 @@ export async function submitToWorker(baseUrl, token, locator, surface = "chromiu
     throw new Error(`Worker rejected capture (${response.status})`);
   }
   return response.json();
+}
+
+export const WORKER_TOKEN_KEY = "webmediaDlWorkerToken";
+
+function extensionStorage(area) {
+  return area || globalThis.browser?.storage?.local || globalThis.chrome?.storage?.local || null;
+}
+
+export async function loadWorkerToken(area) {
+  const api = extensionStorage(area);
+  if (!api || typeof api.get !== "function") {
+    return "";
+  }
+  try {
+    const result = await new Promise((resolve, reject) => {
+      let settled = false;
+      const finish = (value) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        resolve(value);
+      };
+      try {
+        const maybe = api.get(WORKER_TOKEN_KEY, finish);
+        if (maybe && typeof maybe.then === "function") {
+          maybe.then(finish, reject);
+        }
+      } catch (error) {
+        reject(error);
+      }
+    });
+    if (!result || typeof result !== "object") {
+      return "";
+    }
+    return String(result[WORKER_TOKEN_KEY] || "").trim();
+  } catch {
+    return "";
+  }
+}
+
+export async function saveWorkerToken(token, area) {
+  const value = String(token || "").trim();
+  if (!value) {
+    return;
+  }
+  const api = extensionStorage(area);
+  if (!api || typeof api.set !== "function") {
+    return;
+  }
+  const payload = { [WORKER_TOKEN_KEY]: value };
+  if (api.set.length >= 2) {
+    await new Promise((resolve) => api.set(payload, resolve));
+    return;
+  }
+  await api.set(payload);
 }

@@ -158,6 +158,18 @@ def test_dash_content_protection_without_cenc_is_refused() -> None:
         )
 
 
+def test_dash_representation_binds_id_and_baseurl() -> None:
+    text = (
+        "<MPD><Period><BaseURL>https://cdn.example.com/dash/</BaseURL>"
+        '<Representation id="v1" bandwidth="800000">'
+        "<BaseURL>video/</BaseURL>"
+        '<SegmentTemplate media="$RepresentationID$/seg$Number$.m4s" startNumber="1"/>'
+        "</Representation></Period></MPD>"
+    )
+    urls = recordable_segment_urls(text, "https://cdn.example.com/manifest.mpd")
+    assert urls == ["https://cdn.example.com/dash/video/v1/seg1.m4s"]
+
+
 def test_dash_negative_repeat_is_bounded() -> None:
     text = (
         "<MPD><Period><SegmentTemplate media='seg$Number$.m4s' startNumber='1'>"

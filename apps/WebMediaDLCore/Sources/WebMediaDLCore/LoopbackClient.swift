@@ -237,6 +237,9 @@ public struct WebMediaDLDestinationPolicy: Sendable {
     }
 
     public func allows(_ path: String) -> Bool {
-        approvedRoots.contains { path.hasPrefix($0) }
+        approvedRoots.contains { root in
+            let prefix = root.hasSuffix("/") ? String(root) : root + "/"
+            return path == root || path.hasPrefix(prefix)
+        }
     }
 }

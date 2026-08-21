@@ -13,6 +13,7 @@ from webmedia_dl.domain.models import (
     EventRecord,
     ExportIntent,
     ExportPlan,
+    HistoryEntry,
     Job,
     MediaCandidate,
     MediaProbe,
@@ -42,6 +43,7 @@ MODELS = {
     "export-plan": ExportPlan,
     "validation-result": ValidationResult,
     "event": EventRecord,
+    "history-entry": HistoryEntry,
 }
 
 

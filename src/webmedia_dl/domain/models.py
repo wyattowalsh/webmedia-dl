@@ -369,6 +369,55 @@ class EventRecord(StrictModel):
     payload: dict[str, Any] = Field(default_factory=dict)
 
 
+class HistoryEntry(StrictModel):
+    job_id: UUID
+    state: JobState
+    policy_profile_id: str
+    worker_id: str
+    created_at: datetime
+    updated_at: datetime
+    source: MediaSource
+    intent: ExportIntent = Field(default_factory=ExportIntent)
+    error: str | None = None
+    artifact_ids: list[str] = Field(default_factory=list)
+    last_events: list[str] = Field(default_factory=list)
+    partial: bool = False
+    failed_kinds: list[str] = Field(default_factory=list)
+
+    @classmethod
+    def from_job(cls, job: Job, events: list[EventRecord]) -> HistoryEntry:
+        artifact_ids: list[str] = []
+        partial = False
+        failed_kinds: list[str] = []
+        for event in events:
+            if event.payload.get("artifact_id"):
+                artifact_ids.append(str(event.payload["artifact_id"]))
+            for item in event.payload.get("artifact_ids") or []:
+                artifact_ids.append(str(item))
+            if event.type is EventType.JOB_COMPLETED:
+                partial = bool(event.payload.get("partial"))
+                failed_kinds = [str(item) for item in event.payload.get("failed_kinds") or []]
+        unique: list[str] = []
+        for item in artifact_ids:
+            if item not in unique:
+                unique.append(item)
+        return cls(
+            job_id=job.job_id,
+            state=job.state,
+            policy_profile_id=job.policy_profile_id,
+            worker_id=job.worker_id,
+            created_at=job.created_at,
+            updated_at=job.updated_at,
+            source=job.source,
+            intent=job.intent,
+            error=job.error,
+            artifact_ids=unique,
+            last_events=[event.type.value for event in events[-8:]],
+            partial=partial,
+            failed_kinds=failed_kinds,
+        )
+
+
 def path_is_under(path: Path, root: Path) -> bool:
     try:
         path.resolve().relative_to(root.resolve())
