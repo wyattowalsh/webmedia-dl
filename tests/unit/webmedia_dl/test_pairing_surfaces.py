@@ -9,6 +9,7 @@ from webmedia_dl.errors import DelegationDenied
 from webmedia_dl.pipeline import Pipeline
 from webmedia_dl.providers import ProviderRuntime
 from webmedia_dl.service import create_app, load_or_create_token
+from webmedia_dl.transport import derive_session_key
 
 
 def test_watch_surface_cannot_acquire_http(tmp_data: Path, png_bytes: bytes) -> None:
@@ -51,6 +52,7 @@ def test_pairing_confirmation_lets_mac_own_without_widening(tmp_data: Path, ytdl
     pipeline = Pipeline(data_dir=tmp_data, runtime=runtime)
     challenge = pipeline.pairing.create("personal-restricted", pipeline.host_worker.worker_id)
     record = pipeline.pairing.confirm(challenge.pairing_id)
+    assert record.session_key == derive_session_key(challenge.nonce, "mac-confirm")
     job = pipeline.submit(
         "https://example.com/watch",
         html="<html><title>Video</title></html>",

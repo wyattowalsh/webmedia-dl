@@ -1,9 +1,10 @@
 import json
 from datetime import UTC, datetime, timedelta
+from hashlib import sha256
 from pathlib import Path
 
 from webmedia_dl.compat import migrate_legacy, scan_legacy
-from webmedia_dl.transport import create_challenge, expired
+from webmedia_dl.transport import create_challenge, derive_session_key, expired
 
 
 def test_legacy_scan_is_non_destructive(tmp_path: Path) -> None:
@@ -30,3 +31,13 @@ def test_pairing_expiry() -> None:
     challenge = create_challenge("personal-restricted", "local-macos", ttl_seconds=1)
     assert expired(challenge, now=challenge.expires_at + timedelta(seconds=1)) is True
     assert expired(challenge, now=datetime.now(UTC) - timedelta(seconds=5)) is False
+
+
+def test_derive_session_key_is_sha256_nonce_mac_confirm() -> None:
+    assert derive_session_key("pairing-nonce", "mac-confirm") == sha256(
+        b"pairing-nonce:mac-confirm"
+    ).hexdigest()
+    assert (
+        derive_session_key("pairing-nonce", "mac-confirm")
+        == "bc863f6d9e1fc62a49c474506a660ac0a6f44a19d97e41348d3a2e682c1cdf63"
+    )

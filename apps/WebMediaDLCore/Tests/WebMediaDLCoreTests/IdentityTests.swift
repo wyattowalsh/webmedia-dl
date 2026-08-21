@@ -43,6 +43,10 @@ final class IdentityTests: XCTestCase {
         )
         XCTAssertNil(WebMediaDLLoopbackClient.sessionKey(from: "HTTP 400 {\"detail\":\"no\"}"))
         XCTAssertNil(WebMediaDLLoopbackClient.sessionKey(from: "HTTP 200 {\"session_key\":\"  \"}"))
+        XCTAssertEqual(
+            WebMediaDLLoopbackClient.derivedSessionKey(nonce: "pairing-nonce"),
+            "bc863f6d9e1fc62a49c474506a660ac0a6f44a19d97e41348d3a2e682c1cdf63"
+        )
     }
 
     func testContinuityIsNotASubprocessWorker() {

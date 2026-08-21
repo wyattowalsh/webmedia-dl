@@ -4,16 +4,18 @@ import Foundation
 public struct WebMediaDLShareIntake: Sendable {
     public var locator: String
     public var approvedRoot: String?
+    public var bookmarkData: Data?
 
-    public init(locator: String, approvedRoot: String? = nil) {
+    public init(locator: String, approvedRoot: String? = nil, bookmarkData: Data? = nil) {
         self.locator = locator
         self.approvedRoot = approvedRoot
+        self.bookmarkData = bookmarkData
     }
 
     public var filesDestination: WebMediaDLFilesDestination? {
         guard let approvedRoot, !approvedRoot.isEmpty else { return nil }
         return WebMediaDLFilesDestination(
-            bookmark: WebMediaDLSecurityScopedBookmark(path: approvedRoot)
+            bookmark: WebMediaDLSecurityScopedBookmark(path: approvedRoot, bookmarkData: bookmarkData)
         )
     }
 

@@ -289,8 +289,11 @@ def test_files_destinations_use_bookmarks_not_typed_paths() -> None:
     mac = (root / "apps/WebMediaDLMac/Sources/WebMediaDLMac/WebMediaDLMacApp.swift").read_text(
         encoding="utf-8"
     )
-    assert "fromPickedURL" in mac
-    assert "bookmarkData" in mac
+    share_intake = (root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/ShareIntake.swift").read_text(
+        encoding="utf-8"
+    )
+    assert "bookmarkData: bookmarkData" in share_intake
+    assert "bookmarkData: Data? = nil" in share_intake
     for rel in (
         ROOT_VIEWS["ios"],
         ROOT_VIEWS["ipados"],
@@ -381,6 +384,8 @@ def test_companion_transport_and_typed_history() -> None:
     assert "does not require a stored worker token" in loopback
     assert "func sessionKey(from" in loopback
     assert "func jsonObject(from" in loopback
+    assert "func derivedSessionKey(nonce" in loopback
+    assert 'Data("\\(nonce):\\(confirmation)".utf8)' in loopback
     assert "lastResponse" in continuity
     assert "UserDefaults(suiteName:" in loopback
     assert "group.local.webmedia-dl" in loopback
@@ -415,6 +420,8 @@ def test_companion_transport_and_typed_history() -> None:
         assert "Pause queue" in text
         assert "Resume queue" in text
         assert "bookmarkDefaultsKey" in text
+        assert "derivedSessionKey(nonce:" in text
+        assert "challenge.nonce)." not in text
     watch = (root / ROOT_VIEWS["watchos"]).read_text(encoding="utf-8")
     tv = (root / ROOT_VIEWS["tvos"]).read_text(encoding="utf-8")
     assert "history.first?.jobId" in watch

@@ -60,3 +60,19 @@ def test_paste_kind_stays_a_url() -> None:
     assert source.kind is IntakeKind.PASTE
     assert source.normalized_url == "https://example.com/photo.png"
     assert source.local_path is None
+
+
+def test_empty_locator_fails_closed() -> None:
+    with pytest.raises(IntakeError, match="empty"):
+        normalize_source("  ", surface=Surface.CLI, policy_profile_id="personal-full")
+
+
+def test_missing_file_intake_fails_closed(tmp_path: Path) -> None:
+    missing = tmp_path / "gone.png"
+    with pytest.raises(IntakeError, match="existing file"):
+        normalize_source(
+            str(missing),
+            surface=Surface.CLI,
+            policy_profile_id="personal-full",
+            kind=IntakeKind.DROP,
+        )

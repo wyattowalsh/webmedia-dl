@@ -101,7 +101,8 @@ public struct WebMediaDLiOSRootView: View {
                             do {
                                 let challenge = try await client.startPairing()
                                 pairingId = challenge.pairingId.uuidString
-                                status = "Pairing nonce \(challenge.nonce). Confirm on the Mac before \(challenge.expiresAt)."
+                                sessionKey = WebMediaDLLoopbackClient.derivedSessionKey(nonce: challenge.nonce)
+                                status = "Confirm this pairing on the Mac before \(challenge.expiresAt)."
                             } catch {
                                 status = error.localizedDescription
                             }

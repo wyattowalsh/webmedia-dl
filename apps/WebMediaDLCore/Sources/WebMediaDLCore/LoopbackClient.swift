@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 public struct WebMediaDLLoopbackClient: Sendable {
@@ -316,6 +317,11 @@ public struct WebMediaDLLoopbackClient: Sendable {
             .appendingPathComponent(encoded)
             .appendingPathComponent("provenance")
         return try await send(authorized(url))
+    }
+
+    public static func derivedSessionKey(nonce: String, confirmation: String = "mac-confirm") -> String {
+        let digest = SHA256.hash(data: Data("\(nonce):\(confirmation)".utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
 
     public static func jsonObject(from response: String) -> [String: Any]? {
