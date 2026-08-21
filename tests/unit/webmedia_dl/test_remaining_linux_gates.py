@@ -36,7 +36,6 @@ from webmedia_dl.errors import (
     PauseRequested,
     ValidationFailed,
 )
-from webmedia_dl.intake import normalize_source
 from webmedia_dl.live import (
     _file_baseurl,
     _parse_byterange,
@@ -351,9 +350,7 @@ def test_dash_segmentbase_sourceurl_and_directory_file_baseurl() -> None:
 def test_unexpanded_escaped_number_token_is_skipped() -> None:
     text = """
     <MPD><Period>
-      <SegmentList>
-        <SegmentURL media="$$Number$$.m4s"/>
-      </SegmentList>
+      <Foo media="$$Number$$.m4s"/>
     </Period></MPD>
     """
     assert recordable_segment_urls(text, "https://cdn.example.com/") == []
@@ -378,9 +375,7 @@ def test_segment_timeline_t_override_and_inverted_range() -> None:
     <MPD><Period>
       <Representation id="v" bandwidth="1" mimeType="video/mp4">
         <BaseURL>clip.mp4</BaseURL>
-        <SegmentBase mediaRange="20-10">
-          <Initialization range="5-1"/>
-        </SegmentBase>
+        <SegmentBase mediaRange="20-10" indexRange="9-3"/>
       </Representation>
     </Period></MPD>
     """
