@@ -145,6 +145,30 @@ def assert_no_privilege_escalation(
         raise DelegationDenied(msg)
 
 
+SAME_MACHINE_SURFACES = frozenset(
+    {
+        Surface.CLI,
+        Surface.MACOS,
+        Surface.SAFARI,
+        Surface.CHROME,
+        Surface.BRAVE,
+        Surface.EDGE,
+        Surface.CHROMIUM,
+        Surface.FIREFOX,
+    }
+)
+
+REMOTE_CLIENT_SURFACES = frozenset(
+    {
+        Surface.IOS,
+        Surface.IPADOS,
+        Surface.VISIONOS,
+        Surface.WATCHOS,
+        Surface.TVOS,
+    }
+)
+
+
 def default_worker_for_surface(surface: Surface, worker_id: str = "local-macos") -> Worker:
     if surface in {Surface.WATCHOS}:
         profile = get_profile("watch-capture")
@@ -164,7 +188,14 @@ def default_worker_for_surface(surface: Surface, worker_id: str = "local-macos")
             capabilities=list(profile.allowed_capabilities),
             subprocess_capable=False,
         )
-    if surface in {Surface.SAFARI, Surface.CHROMIUM, Surface.FIREFOX}:
+    if surface in {
+        Surface.SAFARI,
+        Surface.CHROME,
+        Surface.BRAVE,
+        Surface.EDGE,
+        Surface.CHROMIUM,
+        Surface.FIREFOX,
+    }:
         profile = get_profile("browser-capture")
         return Worker(
             worker_id=f"{worker_id}-browser",

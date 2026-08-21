@@ -26,45 +26,38 @@ def plan_acquisition(
     refuse_drm(candidate.drm_signals)
     strategies: list[AcquisitionStrategy] = []
     rank = 0
-    if candidate.retrieval_urls:
-        url = candidate.retrieval_urls[0]
-        if (
-            candidate.media_kind
-            in {
-                MediaKind.IMAGE,
-                MediaKind.AUDIO,
-                MediaKind.VIDEO,
-                MediaKind.DOCUMENT,
-                MediaKind.SUBTITLE,
-            }
-            or url
-        ):
-            try:
-                assert_capability(profile, "acquire.http")
-                strategies.append(
-                    AcquisitionStrategy(
-                        strategy_id="http-direct",
-                        provider_id="http-direct",
-                        capability_id="acquire.http",
-                        typed_inputs={"url": url},
-                        estimated_loss=LossClass.NONE,
-                        rank=rank,
-                    )
-                )
-                rank += 1
-            except CapabilityDenied:
-                pass
+    if not candidate.retrieval_urls:
+        return AcquisitionPlan(
+            job_id=job_id, candidate_id=candidate.candidate_id, strategies=strategies
+        )
+    url = candidate.retrieval_urls[0]
+    if candidate.media_kind == MediaKind.LIVE_STREAM:
         try:
-            assert_capability(profile, "acquire.ytdlp")
-            typed = {"url": url}
-            if cookies:
-                typed["cookies"] = cookies
+            assert_capability(profile, "live.record_clear_manifest")
             strategies.append(
                 AcquisitionStrategy(
-                    strategy_id="ytdlp",
-                    provider_id="ytdlp",
-                    capability_id="acquire.ytdlp",
-                    typed_inputs=typed,
+                    strategy_id="live-clear-record",
+                    provider_id="http-direct",
+                    capability_id="live.record_clear_manifest",
+                    typed_inputs={"url": url},
+                    estimated_loss=LossClass.NONE,
+                    rank=rank,
+                )
+            )
+        except CapabilityDenied:
+            pass
+        return AcquisitionPlan(
+            job_id=job_id, candidate_id=candidate.candidate_id, strategies=strategies
+        )
+    if candidate.media_kind != MediaKind.PAGE:
+        try:
+            assert_capability(profile, "acquire.http")
+            strategies.append(
+                AcquisitionStrategy(
+                    strategy_id="http-direct",
+                    provider_id="http-direct",
+                    capability_id="acquire.http",
+                    typed_inputs={"url": url},
                     estimated_loss=LossClass.NONE,
                     rank=rank,
                 )
@@ -72,21 +65,39 @@ def plan_acquisition(
             rank += 1
         except CapabilityDenied:
             pass
-        if candidate.media_kind == MediaKind.GALLERY:
-            try:
-                assert_capability(profile, "acquire.gallery_dl")
-                strategies.append(
-                    AcquisitionStrategy(
-                        strategy_id="gallery-dl",
-                        provider_id="gallery-dl",
-                        capability_id="acquire.gallery_dl",
-                        typed_inputs={"url": url},
-                        estimated_loss=LossClass.NONE,
-                        rank=rank,
-                    )
+    try:
+        assert_capability(profile, "acquire.ytdlp")
+        typed = {"url": url}
+        if cookies:
+            typed["cookies"] = cookies
+        strategies.append(
+            AcquisitionStrategy(
+                strategy_id="ytdlp",
+                provider_id="ytdlp",
+                capability_id="acquire.ytdlp",
+                typed_inputs=typed,
+                estimated_loss=LossClass.NONE,
+                rank=rank,
+            )
+        )
+        rank += 1
+    except CapabilityDenied:
+        pass
+    if candidate.media_kind == MediaKind.GALLERY:
+        try:
+            assert_capability(profile, "acquire.gallery_dl")
+            strategies.append(
+                AcquisitionStrategy(
+                    strategy_id="gallery-dl",
+                    provider_id="gallery-dl",
+                    capability_id="acquire.gallery_dl",
+                    typed_inputs={"url": url},
+                    estimated_loss=LossClass.NONE,
+                    rank=rank,
                 )
-            except CapabilityDenied:
-                pass
+            )
+        except CapabilityDenied:
+            pass
     return AcquisitionPlan(
         job_id=job_id, candidate_id=candidate.candidate_id, strategies=strategies
     )

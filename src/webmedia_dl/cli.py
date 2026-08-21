@@ -61,6 +61,9 @@ def submit(
         Path | None, typer.Option("--dest", help="User-approved destination directory")
     ] = None,
     allow_lossy: Annotated[bool, typer.Option("--allow-lossy")] = False,
+    container: Annotated[
+        str | None, typer.Option("--container", help="Preferred output container, e.g. mkv")
+    ] = None,
     html: Annotated[
         Path | None, typer.Option("--html", help="Local HTML fixture instead of fetching")
     ] = None,
@@ -68,6 +71,9 @@ def submit(
         Path | None, typer.Option("--cookies", help="User-owned Netscape cookie file")
     ] = None,
     surface: Annotated[Surface, typer.Option("--surface")] = Surface.CLI,
+    pairing_id: Annotated[
+        UUID | None, typer.Option("--pairing-id", help="Confirmed Mac pairing id")
+    ] = None,
 ) -> None:
     """Share, paste, or select a source. Runs the typed job pipeline."""
     intent = ExportIntent()
@@ -77,16 +83,20 @@ def submit(
             destination_path=str(dest.resolve()),
             approved_roots=[str(dest.resolve())],
             allow_lossy=allow_lossy,
+            container_preference=container,
         )
+    elif container or allow_lossy:
+        intent = ExportIntent(allow_lossy=allow_lossy, container_preference=container)
     pipeline = _pipeline(data_dir)
     html_text = html.read_text(encoding="utf-8") if html else None
-    cookie_path = str(cookies.resolve()) if cookies else None
+    cookie_path = str(cookies.expanduser().resolve()) if cookies else None
     job = pipeline.submit(
         locator,
         surface=surface,
         intent=intent,
         html=html_text,
         cookies=cookie_path,
+        pairing_id=pairing_id,
     )
     typer.echo(job.model_dump_json(indent=2))
     if job.error:

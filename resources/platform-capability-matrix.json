@@ -31,13 +31,22 @@
     "history",
     "controls"
   ],
-  "safari": [
-    "capture-extension"
-  ],
-  "chromium": [
-    "capture-extension"
-  ],
-  "firefox": [
-    "capture-extension"
-  ]
+    "safari": [
+        "capture-extension"
+    ],
+    "chrome": [
+        "capture-extension"
+    ],
+    "brave": [
+        "capture-extension"
+    ],
+    "edge": [
+        "capture-extension"
+    ],
+    "chromium": [
+        "capture-extension"
+    ],
+    "firefox": [
+        "capture-extension"
+    ]
 }

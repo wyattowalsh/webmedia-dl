@@ -16,3 +16,8 @@ native command runner. `javascript:` URLs SHALL be ignored.
 ### Requirement: Loopback only
 
 Host permissions SHALL be limited to `http://127.0.0.1:8765/*`.
+
+#### Scenario: each engine has a capture tree
+
+- **WHEN** `extensions/{safari,chrome,brave,edge,chromium,firefox}/manifest.json` is read
+- **THEN** each file lists only the loopback host permission

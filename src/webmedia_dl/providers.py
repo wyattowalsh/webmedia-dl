@@ -2,17 +2,53 @@
 
 from __future__ import annotations
 
+import os
 import shutil
+import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from webmedia_dl.domain.models import ProviderManifest
+from webmedia_dl.domain.models import PolicyProfile, ProviderManifest
 from webmedia_dl.errors import ProviderPolicyError
+from webmedia_dl.fetch import bound_fetch
 from webmedia_dl.identity import is_safe_format_id
+from webmedia_dl.paths import repo_root
+from webmedia_dl.policy.profiles import get_profile
 
 RunFn = Callable[[list[str], Path], tuple[int, bytes, bytes]]
+
+
+def imagemagick_configure_path() -> Path:
+    return repo_root() / "resources" / "imagemagick-runtime"
+
+
+def default_subprocess_run(argv: list[str], staging: Path) -> tuple[int, bytes, bytes]:
+    env = os.environ.copy()
+    env["MAGICK_CONFIGURE_PATH"] = str(imagemagick_configure_path())
+    completed = subprocess.run(
+        argv,
+        cwd=staging,
+        capture_output=True,
+        timeout=600,
+        env=env,
+        check=False,
+    )
+    return completed.returncode, completed.stdout, completed.stderr
+
+
+def default_http_get(
+    url: str, *, profile: PolicyProfile | None = None
+) -> tuple[int, dict[str, str], bytes]:
+    policy = profile or get_profile("personal-full")
+    status, content_type, body = bound_fetch(
+        url,
+        profile=policy,
+        max_bytes=policy.max_download_bytes,
+        on_overflow="error",
+    )
+    return status, {"content-type": content_type}, body
 
 
 def builtin_manifests() -> dict[str, ProviderManifest]:
@@ -59,7 +95,7 @@ def builtin_manifests() -> dict[str, ProviderManifest]:
             display_name="ffmpeg",
             binary_name="ffmpeg",
             capabilities=["process.ffmpeg.remux", "process.ffmpeg.transcode"],
-            allowed_flags=["-i", "-c", "copy", "-y"],
+            allowed_flags=["-i", "-c", "copy", "-y", "-c:v", "-c:a"],
             license="GPL/LGPL",
             source_url="https://ffmpeg.org",
         ),
@@ -102,7 +138,7 @@ class ProviderRuntime:
     ) -> None:
         self._manifests = builtin_manifests()
         self._which = which or shutil.which
-        self._run = run
+        self._run = run if run is not None else default_subprocess_run
         self._http_get = http_get
 
     def health(self, provider_id: str) -> str:
@@ -125,9 +161,6 @@ class ProviderRuntime:
         if request.provider_id == "http-direct":
             return self._http_direct(request, staging)
         argv = self._build_argv(manifest, request, staging)
-        if self._run is None:
-            msg = f"Provider {manifest.provider_id!r} has no runner bound."
-            raise ProviderPolicyError(msg)
         code, stdout, stderr = self._run(argv, staging)
         output = request.typed_inputs.get("output")
         return ProviderResult(
@@ -143,10 +176,8 @@ class ProviderRuntime:
         if not isinstance(url, str):
             msg = "http-direct requires typed input 'url'."
             raise ProviderPolicyError(msg)
-        if self._http_get is None:
-            msg = "http-direct has no HTTP getter bound."
-            raise ProviderPolicyError(msg)
-        status, _headers, body = self._http_get(url)
+        getter = self._http_get or default_http_get
+        status, _headers, body = getter(url)
         output = staging / "source.bin"
         if status >= 400:
             output.write_bytes(body)

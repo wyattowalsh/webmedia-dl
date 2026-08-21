@@ -57,6 +57,11 @@
       "title": "Max Html Bytes",
       "type": "integer"
     },
+    "max_download_bytes": {
+      "default": 536870912,
+      "title": "Max Download Bytes",
+      "type": "integer"
+    },
     "max_redirects": {
       "default": 5,
       "title": "Max Redirects",

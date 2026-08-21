@@ -10,4 +10,16 @@ final class IdentityTests: XCTestCase {
     func testWatchIsCaptureAndStatus() {
         XCTAssertEqual(WebMediaDLClientRole.captureAndStatus.rawValue, "captureAndStatus")
     }
+
+    func testLoopbackDefaultIsLocalhost() {
+        let client = WebMediaDLLoopbackClient()
+        XCTAssertTrue(client.isLoopback)
+        XCTAssertEqual(client.baseURL.host, "127.0.0.1")
+    }
+
+    func testPhotosDestinationRequiresApprovedRoot() {
+        let policy = WebMediaDLDestinationPolicy(approvedRoots: ["/Users/me/Movies"])
+        XCTAssertTrue(policy.allows("/Users/me/Movies/clip.mp4"))
+        XCTAssertFalse(policy.allows("/tmp/escape.mp4"))
+    }
 }

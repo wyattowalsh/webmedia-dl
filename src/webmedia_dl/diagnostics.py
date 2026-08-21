@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from webmedia_dl import __version__
+from webmedia_dl.capabilities import registry
 from webmedia_dl.domain.enums import EvidenceStatus
 from webmedia_dl.names import CLI_NAME, DISPLAY_NAME
 from webmedia_dl.policy.profiles import builtin_profiles
@@ -65,6 +66,15 @@ def doctor(*, data_dir: Path | None = None) -> dict[str, Any]:
         ),
         "app_review": _status(False, False, blocked_reason="Human App Review is not automated"),
         "legal_review": _status(False, False, blocked_reason="Human legal review is not automated"),
+        "capabilities": [
+            {
+                "capability_id": item.capability_id,
+                "provider_id": item.provider_id,
+                "health": item.health,
+                "platforms": [surface.value for surface in item.platforms],
+            }
+            for item in registry()
+        ],
         "telemetry_default": False,
         "drm_circumvention": False,
         "data_dir": str(data_dir) if data_dir else None,

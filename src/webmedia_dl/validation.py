@@ -38,7 +38,13 @@ def record_result(
     )
 
 
-def validate_artifact(job_id: UUID, artifact: Artifact, path: Path) -> list[ValidationResult]:
+def validate_artifact(
+    job_id: UUID,
+    artifact: Artifact,
+    path: Path,
+    *,
+    expected_container: str | None = None,
+) -> list[ValidationResult]:
     results: list[ValidationResult] = []
     if not path.is_file():
         results.append(
@@ -79,6 +85,23 @@ def validate_artifact(job_id: UUID, artifact: Artifact, path: Path) -> list[Vali
             details={"expected": artifact.byte_size, "actual": size},
         )
     )
+    if expected_container:
+        actual = (path.suffix.lstrip(".") or artifact.container or "").lower()
+        container_status = (
+            EvidenceStatus.PASS if actual == expected_container.lower() else EvidenceStatus.FAIL
+        )
+        results.append(
+            record_result(
+                job_id=job_id,
+                artifact_id=artifact.artifact_id,
+                gate_id="container-match",
+                status=container_status,
+                message="Container matches the export plan."
+                if container_status is EvidenceStatus.PASS
+                else f"Expected container {expected_container}, found {actual}.",
+                details={"expected": expected_container, "actual": actual},
+            )
+        )
     return results
 
 

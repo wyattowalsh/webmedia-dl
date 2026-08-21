@@ -232,6 +232,7 @@ class PolicyProfile(StrictModel):
     subprocess_worker: bool = True
     network_schemes: list[str] = Field(default_factory=lambda: ["https"])
     max_html_bytes: int = 2_000_000
+    max_download_bytes: int = 512 * 1024 * 1024
     max_redirects: int = 5
     telemetry_default: bool = False
 

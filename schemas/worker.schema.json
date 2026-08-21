@@ -9,6 +9,9 @@
         "watchos",
         "tvos",
         "safari",
+        "chrome",
+        "brave",
+        "edge",
         "chromium",
         "firefox",
         "cli"

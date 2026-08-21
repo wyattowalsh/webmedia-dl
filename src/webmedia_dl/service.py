@@ -13,10 +13,10 @@ from pydantic import BaseModel, Field
 from webmedia_dl import __version__
 from webmedia_dl.domain.enums import Surface
 from webmedia_dl.domain.models import ExportIntent
+from webmedia_dl.errors import DelegationDenied, WebMediaError
 from webmedia_dl.names import DISPLAY_NAME
 from webmedia_dl.pipeline import Pipeline
 from webmedia_dl.settings import Settings
-from webmedia_dl.transport import create_challenge
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -26,6 +26,14 @@ class SubmitBody(BaseModel):
     surface: Surface = Surface.CLI
     html: str | None = None
     intent: ExportIntent = Field(default_factory=ExportIntent)
+    cookies: str | None = None
+    local_user_confirmed: bool = False
+    pairing_id: UUID | None = None
+    session_key: str | None = None
+
+
+class PairConfirmBody(BaseModel):
+    pairing_id: UUID
 
 
 def _token_file(data_dir: Path) -> Path:
@@ -52,20 +60,42 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
     def require_auth(
         credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
         x_token: str | None = Header(default=None, alias="X-WebMedia-Token"),
-    ) -> None:
+        x_pairing: str | None = Header(default=None, alias="X-WebMedia-Pairing"),
+        x_session: str | None = Header(default=None, alias="X-WebMedia-Session"),
+    ) -> dict[str, str]:
         presented = credentials.credentials if credentials else x_token
-        if presented != token:
-            raise HTTPException(status_code=401, detail="Unauthorized")
+        if presented == token:
+            return {"actor": "mac"}
+        if x_pairing and x_session:
+            try:
+                pipeline.pairing.require_confirmed(UUID(x_pairing), x_session)
+            except (DelegationDenied, ValueError) as exc:
+                raise HTTPException(status_code=401, detail="Unauthorized pairing") from exc
+            return {"actor": "paired", "pairing_id": x_pairing}
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok", "product": DISPLAY_NAME}
 
-    @app.post("/v1/jobs", dependencies=[Depends(require_auth)])
-    def submit_job(body: SubmitBody) -> dict:
-        job = pipeline.submit(
-            body.locator, surface=body.surface, intent=body.intent, html=body.html
-        )
+    @app.post("/v1/jobs")
+    def submit_job(body: SubmitBody, auth: dict[str, str] = Depends(require_auth)) -> dict:
+        pairing_id = body.pairing_id
+        if pairing_id is None and auth.get("pairing_id"):
+            pairing_id = UUID(auth["pairing_id"])
+        try:
+            job = pipeline.submit(
+                body.locator,
+                surface=body.surface,
+                intent=body.intent,
+                html=body.html,
+                cookies=body.cookies,
+                local_user_confirmed=body.local_user_confirmed,
+                pairing_id=pairing_id,
+                session_key=body.session_key or None,
+            )
+        except WebMediaError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         return job.model_dump(mode="json")
 
     @app.get("/v1/jobs/{job_id}", dependencies=[Depends(require_auth)])
@@ -83,12 +113,26 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
 
     @app.post("/v1/pair", dependencies=[Depends(require_auth)])
     def pair(client_profile_id: str = "personal-restricted") -> dict:
-        challenge = create_challenge(client_profile_id, pipeline.worker.worker_id)
+        challenge = pipeline.pairing.create(client_profile_id, pipeline.host_worker.worker_id)
         return {
             "pairing_id": str(challenge.pairing_id),
             "nonce": challenge.nonce,
             "expires_at": challenge.expires_at.isoformat(),
             "worker_id": challenge.worker_id,
+            "confirmed": False,
+        }
+
+    @app.post("/v1/pair/confirm", dependencies=[Depends(require_auth)])
+    def confirm_pair(body: PairConfirmBody) -> dict:
+        try:
+            record = pipeline.pairing.confirm(body.pairing_id)
+        except DelegationDenied as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {
+            "pairing_id": str(record.pairing_id),
+            "confirmed": record.confirmed,
+            "session_key": record.session_key,
+            "expires_at": record.expires_at.isoformat(),
         }
 
     return app

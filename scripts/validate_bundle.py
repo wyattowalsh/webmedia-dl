@@ -33,6 +33,7 @@ REQUIRED = [
     "resources/export-presets.json",
     "src/webmedia_dl/pipeline.py",
     "src/webmedia_dl/cli.py",
+    "scripts/pack_inventory.json",
 ]
 
 CAPABILITIES = [
@@ -123,6 +124,40 @@ def main() -> int:
     html = (ROOT / "guide/index.html").read_text(encoding="utf-8")
     if 'lang="en"' not in html or "<h1>" not in html:
         errors.append("guide/index.html missing basic accessibility markup")
+    inventory_path = ROOT / "scripts/pack_inventory.json"
+    if inventory_path.is_file():
+        inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+        paths = inventory.get("paths_relative", inventory if isinstance(inventory, list) else [])
+        if len(paths) != 159:
+            errors.append(f"pack inventory count is {len(paths)}, expected 159")
+        for rel in paths:
+            if not (ROOT / rel).exists():
+                errors.append(f"pack inventory missing {rel}")
+    for browser in ("chromium", "chrome", "brave", "edge", "firefox", "safari"):
+        popup = ROOT / "extensions" / browser / "popup.html"
+        if not popup.is_file():
+            errors.append(f"missing extension popup {browser}")
+        else:
+            text = popup.read_text(encoding="utf-8")
+            if 'lang="en"' not in text or 'for="token"' not in text or "aria-live" not in text:
+                errors.append(f"{browser} popup missing accessibility markup")
+        manifest = ROOT / "extensions" / browser / "manifest.json"
+        if manifest.is_file():
+            data = json.loads(manifest.read_text(encoding="utf-8"))
+            hosts = data.get("host_permissions", [])
+            if hosts != ["http://127.0.0.1:8765/*"]:
+                errors.append(f"{browser} host_permissions are not loopback-only")
+    for app in (
+        "WebMediaDLMac",
+        "WebMediaDLiOS",
+        "WebMediaDLiPadOS",
+        "WebMediaDLVision",
+        "WebMediaDLWatch",
+        "WebMediaDLTV",
+        "WebMediaDLCore",
+    ):
+        if not (ROOT / "apps" / app).is_dir():
+            errors.append(f"missing Apple surface {app}")
     manifest = {
         "files": sorted(
             str(path.relative_to(ROOT))

@@ -4,7 +4,20 @@ from __future__ import annotations
 
 from uuid import UUID
 
+from webmedia_dl.domain.enums import MediaKind
 from webmedia_dl.domain.models import CandidateGraph, GraphEdge, MediaCandidate
+
+KIND_RANK = {
+    MediaKind.VIDEO: 0,
+    MediaKind.LIVE_STREAM: 1,
+    MediaKind.AUDIO: 2,
+    MediaKind.IMAGE: 3,
+    MediaKind.GALLERY: 4,
+    MediaKind.DOCUMENT: 5,
+    MediaKind.SUBTITLE: 6,
+    MediaKind.UNKNOWN: 7,
+    MediaKind.PAGE: 8,
+}
 
 
 def build_graph(job_id: UUID, candidates: list[MediaCandidate]) -> CandidateGraph:
@@ -43,5 +56,6 @@ def build_graph(job_id: UUID, candidates: list[MediaCandidate]) -> CandidateGrap
 
 def preferred_candidates(graph: CandidateGraph) -> list[MediaCandidate]:
     """Prefer non-page, non-DRM candidates. Discovery does not decide acquisition."""
-    ranked = [node for node in graph.nodes if not node.drm_signals]
-    return ranked or list(graph.nodes)
+    clean = [node for node in graph.nodes if not node.drm_signals]
+    pool = clean or list(graph.nodes)
+    return sorted(pool, key=lambda node: KIND_RANK.get(node.media_kind, 7))

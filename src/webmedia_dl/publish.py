@@ -6,7 +6,7 @@ import os
 import tempfile
 from pathlib import Path
 
-from webmedia_dl.domain.enums import ArtifactRole
+from webmedia_dl.domain.enums import ArtifactRole, DestinationKind
 from webmedia_dl.domain.models import Artifact, ExportIntent, ValidationResult
 from webmedia_dl.errors import PublicationError, ValidationFailed
 from webmedia_dl.network_policy import authorize_destination
@@ -17,6 +17,16 @@ def publish_artifacts(
     artifacts: list[tuple[Artifact, Path, list[ValidationResult]]],
     intent: ExportIntent,
 ) -> list[Path]:
+    if intent.destination_kind in {
+        DestinationKind.PHOTOS,
+        DestinationKind.FILES_APP,
+        DestinationKind.SHARE,
+    }:
+        msg = (
+            "Photos, Files, and Share destinations require an Apple device and a "
+            "user-approved root. This environment cannot execute that gate."
+        )
+        raise PublicationError(msg)
     if intent.destination_kind.value == "staging_only":
         return [path for _, path, _ in artifacts]
     if not intent.destination_path:

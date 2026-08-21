@@ -23,3 +23,8 @@ Implementation tasks for `build-webmedia-dl-v1`.
 - [x] TASK-019 Export JSON Schemas from Pydantic models
 - [x] TASK-020 CLI `doctor` / `submit` / `serve` loopback worker
 - [x] TASK-021 Bundle validator and reproducible zip packager
+
+> [!NOTE]
+> Apple device runtime, App Store, browser-store submission, signing, notarization,
+> and human legal review remain `BLOCKED` on Linux CI. Native SwiftUI shells and the
+> Core package are in `apps/`; `swift test` is gated to macOS.

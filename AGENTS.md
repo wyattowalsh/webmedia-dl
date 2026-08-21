@@ -6,7 +6,9 @@
 
 - Python **3.13** worker and CLI (`webmedia_dl` / `webmedia-dl`) managed with **uv**.
 - Browser capture extensions under `extensions/` (vanilla JS modules).
-- Swift package `apps/WebMediaDLCore` for Apple clients (compiles on macOS; Linux CI skips `swift test`).
+- Swift packages under `apps/` for Apple clients (compiles on macOS; Linux CI skips `swift test`).
+  Shells: `WebMediaDLMac`, `WebMediaDLiOS`, `WebMediaDLiPadOS`, `WebMediaDLVision`,
+  `WebMediaDLWatch`, `WebMediaDLTV`, plus `WebMediaDLCore`.
 
 ### Commands
 
@@ -22,6 +24,7 @@
 | Schemas | `uv run python -m webmedia_dl.schema_export` |
 | Bundle | `uv run python scripts/validate_bundle.py` |
 | Extension tests | `node --test tests/unit/extensions/*.mjs` |
+| Sync extension trees | `uv run python scripts/sync_browser_extensions.py` |
 | Pack zip | `uv run python scripts/package_bundle.py` |
 
 If `uv` is missing: `curl -LsSf https://astral.sh/uv/install.sh | sh`.

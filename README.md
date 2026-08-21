@@ -34,8 +34,8 @@ uv run webmedia-dl serve --data-dir /tmp/webmedia-dl-demo
 | `src/webmedia_dl/` | Python worker, CLI, authenticated local API |
 | `schemas/` | Shared JSON Schema contracts |
 | `openspec/changes/build-webmedia-dl-v1/` | Proposed behavior change |
-| `extensions/` | Safari / Chromium / Firefox capture (no native argv) |
-| `apps/WebMediaDLCore/` | Swift package for Apple clients |
+| `extensions/` | Safari, Chrome, Brave, Edge, Chromium, Firefox capture (no native argv) |
+| `apps/` | SwiftUI shells for macOS, iOS, iPadOS, visionOS, watchOS, tvOS plus `WebMediaDLCore` |
 | `docs/` | ADRs, planning, privacy, release gates |
 | `resources/` | Presets, policy profiles, tool catalog |
 

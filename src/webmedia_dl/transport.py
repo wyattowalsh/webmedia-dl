@@ -8,6 +8,10 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
+from pydantic import Field
+
+from webmedia_dl.domain.models import StrictModel, utcnow
+
 
 @dataclass(frozen=True)
 class PairingChallenge:
@@ -16,6 +20,26 @@ class PairingChallenge:
     expires_at: datetime
     client_profile_id: str
     worker_id: str
+
+
+class PairingRecord(StrictModel):
+    pairing_id: UUID = Field(default_factory=uuid4)
+    nonce: str
+    expires_at: datetime
+    client_profile_id: str
+    worker_id: str
+    confirmed: bool = False
+    session_key: str | None = None
+    created_at: datetime = Field(default_factory=utcnow)
+
+    def to_challenge(self) -> PairingChallenge:
+        return PairingChallenge(
+            pairing_id=self.pairing_id,
+            nonce=self.nonce,
+            expires_at=self.expires_at,
+            client_profile_id=self.client_profile_id,
+            worker_id=self.worker_id,
+        )
 
 
 def create_challenge(

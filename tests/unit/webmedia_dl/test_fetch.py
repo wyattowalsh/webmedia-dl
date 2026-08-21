@@ -1,0 +1,63 @@
+from pathlib import Path
+
+import httpx
+import pytest
+
+from webmedia_dl.errors import DiscoveryError, NetworkPolicyError
+from webmedia_dl.fetch import bound_fetch
+from webmedia_dl.policy.profiles import get_profile
+
+
+def test_bound_fetch_truncates_html(tmp_path: Path) -> None:
+    profile = get_profile("personal-full")
+    profile = profile.model_copy(update={"max_html_bytes": 8, "max_redirects": 2})
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="0123456789abcdef", headers={"content-type": "text/html"})
+
+    client = httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True)
+    status, content_type, body = bound_fetch(
+        "https://example.com/page",
+        profile=profile,
+        max_bytes=profile.max_html_bytes,
+        on_overflow="truncate",
+        client=client,
+    )
+    assert status == 200
+    assert "html" in content_type
+    assert body == b"01234567"
+
+
+def test_bound_fetch_errors_on_oversized_media() -> None:
+    profile = get_profile("personal-full")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"x" * 32, headers={"content-type": "video/mp4"})
+
+    client = httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True)
+    with pytest.raises(NetworkPolicyError):
+        bound_fetch(
+            "https://cdn.example.com/a.mp4",
+            profile=profile,
+            max_bytes=8,
+            on_overflow="error",
+            client=client,
+        )
+
+
+def test_bound_fetch_rejects_javascript_scheme() -> None:
+    with pytest.raises(NetworkPolicyError):
+        bound_fetch("javascript:alert(1)", profile=get_profile("personal-full"))
+
+
+def test_bound_fetch_transport_error_becomes_discovery_error() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("offline", request=request)
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    with pytest.raises(DiscoveryError):
+        bound_fetch(
+            "https://example.com/page",
+            profile=get_profile("personal-full"),
+            client=client,
+        )

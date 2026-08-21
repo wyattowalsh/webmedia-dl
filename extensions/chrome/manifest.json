@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "WebMedia DL Capture for Chrome",
+  "version": "0.1.0",
+  "description": "Capture page media evidence for the local WebMedia DL worker. Not a native command runner.",
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:8765/*"
+  ],
+  "action": {
+    "default_title": "Send to WebMedia DL",
+    "default_popup": "popup.html"
+  }
+}
