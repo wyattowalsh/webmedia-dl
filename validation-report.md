@@ -19,6 +19,7 @@
 | DRM circumvention | PASS | encrypted HLS/DASH refused; probe-detected encryption refuses closed; clear HLS/DASH byte-range slices concatenated |
 | Pairing profile bound | PASS | restricted/browser/watch/tv pairing stays on the client profile; unknown/full/expired pairing and missing/mismatched session keys fail closed; CLI `pair create/confirm` reports `DelegationDenied` |
 | Cookie grants | PASS | job-bound grants persist in `cookie-grants.json` with merge/`0600` lock; dump-json uses the grant; relative and in-repo paths rejected |
+| Default telemetry | PASS | false in doctor and profiles; `policy-profiles.json` cannot enable DRM circumvention, telemetry, cookie widening, subprocess, or delegation |
 | Publish sibling isolation | PASS | a failed validation or unreadable sibling does not abort other validated destination copies |
 | Live aggregate bound + kinds | PASS | cumulative byte budget; separate VIDEO/AUDIO artifacts; SegmentBase ranges; multi-period occurrences |
 | Container gate | PASS | ffprobe evidence required; filename suffix cannot PASS; `BLOCKED`/empty evidence cannot publish |

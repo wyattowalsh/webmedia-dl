@@ -22,6 +22,15 @@ def test_envelope_roundtrip_and_tamper() -> None:
         open_payload(key, sealed)
 
 
+def test_envelope_malformed_and_non_hex_session_key() -> None:
+    with pytest.raises(DelegationDenied, match="malformed"):
+        open_payload("ab" * 32, {"nonce": "zz", "ciphertext": "00", "mac": "00"})
+    with pytest.raises(DelegationDenied, match="malformed"):
+        open_payload("ab" * 32, {"ciphertext": "00", "mac": "00"})
+    sealed = seal_payload("not-hex-session-key", {"ok": True})
+    assert open_payload("not-hex-session-key", sealed) == {"ok": True}
+
+
 def test_cancel_queued_job(tmp_data: Path, png_bytes: bytes) -> None:
     pipeline = Pipeline(data_dir=tmp_data)
     media = tmp_data / "queued.png"

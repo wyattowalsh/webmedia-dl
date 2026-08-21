@@ -42,3 +42,55 @@ def test_full_worker_allows_http() -> None:
     worker = default_worker_for_surface(Surface.MACOS)
     profile = get_profile(worker.profile_id)
     assert_worker_capability(worker, profile, "acquire.http")
+
+
+def test_unknown_profile_and_worker_cannot_accept() -> None:
+    with pytest.raises(CapabilityDenied, match="Unknown policy profile"):
+        get_profile("not-a-profile")
+    with pytest.raises(DelegationDenied, match="cannot accept"):
+        assert_no_privilege_escalation(
+            get_profile("personal-full"),
+            get_profile("personal-restricted"),
+            "acquire.ytdlp",
+        )
+
+
+def test_resource_overlay_cannot_enable_non_goals(monkeypatch) -> None:
+    from webmedia_dl.policy import profiles as profiles_mod
+
+    restricted = get_profile("personal-restricted")
+
+    def overlay(extra: dict) -> None:
+        monkeypatch.setattr(
+            profiles_mod,
+            "_resource_profiles",
+            lambda: {restricted.profile_id: extra},
+        )
+
+    overlay({"drm_circumvention": True})
+    with pytest.raises(CapabilityDenied, match="DRM circumvention"):
+        profiles_mod._apply_resource_overlay(restricted)
+    overlay({"telemetry_default": True})
+    with pytest.raises(CapabilityDenied, match="default telemetry"):
+        profiles_mod._apply_resource_overlay(restricted)
+    overlay({"cookie_access": "explicit_path"})
+    with pytest.raises(CapabilityDenied, match="widen cookie"):
+        profiles_mod._apply_resource_overlay(restricted)
+    overlay({"subprocess_worker": True})
+    with pytest.raises(CapabilityDenied, match="subprocess"):
+        profiles_mod._apply_resource_overlay(restricted)
+    overlay({"can_delegate": True})
+    with pytest.raises(CapabilityDenied, match="delegation"):
+        profiles_mod._apply_resource_overlay(restricted)
+
+
+def test_builtin_profile_ids_must_match_resource_file(monkeypatch) -> None:
+    from webmedia_dl.policy import profiles as profiles_mod
+
+    monkeypatch.setattr(profiles_mod, "_resource_profiles", lambda: {"only-one": {}})
+    profiles_mod.builtin_profiles.cache_clear()
+    try:
+        with pytest.raises(CapabilityDenied, match="must match"):
+            profiles_mod.builtin_profiles()
+    finally:
+        profiles_mod.builtin_profiles.cache_clear()
