@@ -4,18 +4,31 @@ from __future__ import annotations
 
 import os
 import shutil
+import signal
 import subprocess
+import threading
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from webmedia_dl.domain.models import PolicyProfile, ProviderManifest
-from webmedia_dl.errors import ProviderPolicyError
+from webmedia_dl.errors import CancelledError, ProviderPolicyError
 from webmedia_dl.fetch import bound_fetch
 from webmedia_dl.identity import is_safe_format_id
 from webmedia_dl.paths import repo_root
 from webmedia_dl.policy.profiles import get_profile
+
+MAGICK_FORMATS = {
+    "jpg": "jpeg",
+    "jpeg": "jpeg",
+    "png": "png",
+    "webp": "webp",
+    "gif": "gif",
+    "tif": "tiff",
+    "tiff": "tiff",
+    "avif": "avif",
+}
 
 RunFn = Callable[[list[str], Path], tuple[int, bytes, bytes]]
 
@@ -126,6 +139,7 @@ class ProviderResult:
     stderr: bytes
     output_path: Path | None
     argv: tuple[str, ...]
+    output_paths: tuple[Path, ...] = field(default_factory=tuple)
 
 
 class ProviderRuntime:
@@ -138,8 +152,43 @@ class ProviderRuntime:
     ) -> None:
         self._manifests = builtin_manifests()
         self._which = which or shutil.which
-        self._run = run if run is not None else default_subprocess_run
+        self._run = run if run is not None else self._tracked_run
         self._http_get = http_get
+        self._lock = threading.Lock()
+        self._procs: list[subprocess.Popen[bytes]] = []
+        self._cancel = threading.Event()
+
+    def cancel_running(self) -> None:
+        self._cancel.set()
+        with self._lock:
+            procs = list(self._procs)
+        for proc in procs:
+            _terminate_process(proc)
+
+    def _tracked_run(self, argv: list[str], staging: Path) -> tuple[int, bytes, bytes]:
+        env = os.environ.copy()
+        env["MAGICK_CONFIGURE_PATH"] = str(imagemagick_configure_path())
+        proc = subprocess.Popen(
+            argv,
+            cwd=staging,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+            start_new_session=True,
+        )
+        with self._lock:
+            self._procs.append(proc)
+        try:
+            stdout, stderr = proc.communicate(timeout=600)
+            return proc.returncode or 0, stdout, stderr
+        except subprocess.TimeoutExpired:
+            _terminate_process(proc)
+            stdout, stderr = proc.communicate()
+            return proc.returncode or 124, stdout, stderr
+        finally:
+            with self._lock:
+                if proc in self._procs:
+                    self._procs.remove(proc)
 
     def health(self, provider_id: str) -> str:
         manifest = self._manifests[provider_id]
@@ -163,8 +212,13 @@ class ProviderRuntime:
         argv = self._build_argv(manifest, request, staging)
         before = {path.resolve() for path in staging.rglob("*") if path.is_file()}
         code, stdout, stderr = self._run(argv, staging)
+        if self._cancel.is_set():
+            self._cancel.clear()
+            msg = "Provider execution was cancelled."
+            raise CancelledError(msg)
         output = request.typed_inputs.get("output")
         output_path = Path(output) if output else None
+        extra_paths: tuple[Path, ...] = ()
         if request.provider_id == "gallery-dl":
             created = [
                 path
@@ -172,13 +226,17 @@ class ProviderRuntime:
                 if path.is_file() and path.resolve() not in before
             ]
             if created:
+                extra_paths = tuple(sorted(created, key=lambda path: str(path)))
                 output_path = max(created, key=lambda path: path.stat().st_mtime)
+        elif output_path is not None:
+            extra_paths = (output_path,)
         return ProviderResult(
             exit_code=code,
             stdout=stdout,
             stderr=stderr,
             output_path=output_path,
             argv=tuple(argv),
+            output_paths=extra_paths,
         )
 
     def _http_direct(self, request: ProviderRequest, staging: Path) -> ProviderResult:
@@ -193,7 +251,7 @@ class ProviderRuntime:
             output.write_bytes(body)
             return ProviderResult(status, b"", body, output, argv=("http-get", url))
         output.write_bytes(body)
-        return ProviderResult(0, b"", b"", output, argv=("http-get", url))
+        return ProviderResult(0, b"", b"", output, argv=("http-get", url), output_paths=(output,))
 
     def _build_argv(
         self,
@@ -323,4 +381,19 @@ def _magick_argv(binary: str, inputs: dict[str, Any]) -> list[str]:
     if not isinstance(source, str) or not isinstance(output, str):
         msg = "ImageMagick requires typed inputs 'input' and 'output'."
         raise ProviderPolicyError(msg)
-    return [binary, source, "-auto-orient", output]
+    argv = [binary, source, "-auto-orient"]
+    container = inputs.get("container")
+    if isinstance(container, str) and container.lower() in MAGICK_FORMATS:
+        argv.append(f"{MAGICK_FORMATS[container.lower()]}:{output}")
+    else:
+        argv.append(output)
+    return argv
+
+
+def _terminate_process(proc: subprocess.Popen[bytes]) -> None:
+    if proc.poll() is not None:
+        return
+    try:
+        os.killpg(proc.pid, signal.SIGTERM)
+    except (ProcessLookupError, PermissionError, OSError):
+        proc.kill()

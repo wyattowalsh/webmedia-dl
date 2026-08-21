@@ -27,6 +27,12 @@ def test_pipeline_emits_cookie_attached(tmp_data: Path, tmp_path: Path, png_byte
     assert job.state is JobState.COMPLETED
     types = [event.type.value for event in pipeline.queue.events_for(job.job_id)]
     assert "cookie.attached" in types
+    event = next(
+        item
+        for item in pipeline.queue.events_for(job.job_id)
+        if item.type.value == "cookie.attached"
+    )
+    assert event.payload["cookies_path_basename"] == "user-cookies.txt"
 
 
 def test_pipeline_html_fixture_without_network(tmp_data: Path, png_bytes: bytes) -> None:

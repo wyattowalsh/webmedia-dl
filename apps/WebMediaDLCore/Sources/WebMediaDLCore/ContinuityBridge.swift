@@ -47,7 +47,12 @@ public struct WebMediaDLContinuityBridge: Sendable {
         message(kind: kind, locator: locator).dictionary()
     }
 
-    public func companionRequest(token: String = "") -> URLRequest {
+    public func companionRequest(
+        token: String = "",
+        kind: String = "status",
+        locator: String? = nil,
+        jobId: String? = nil
+    ) -> URLRequest {
         var request = URLRequest(
             url: WebMediaDLContinuityBridge.loopbackURL.appendingPathComponent("v1/companion")
         )
@@ -56,6 +61,32 @@ public struct WebMediaDLContinuityBridge: Sendable {
         if !token.isEmpty {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
+        var body: [String: Any] = [
+            "kind": kind,
+            "nativeCommand": NSNull(),
+            "subprocessWorker": false,
+        ]
+        if let locator {
+            body["locator"] = locator
+        }
+        if let jobId {
+            body["job_id"] = jobId
+        }
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
         return request
+    }
+
+    public func send(_ message: WebMediaDLCompanionMessage, token: String = "") async throws -> String {
+        let request = companionRequest(
+            token: token,
+            kind: message.kind,
+            locator: message.locator,
+            jobId: message.jobId
+        )
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            return String(data: data, encoding: .utf8) ?? "no response"
+        }
+        return "HTTP \(http.statusCode) \(String(data: data, encoding: .utf8) ?? "")"
     }
 }

@@ -47,7 +47,8 @@ public struct WebMediaDLLoopbackClient: Sendable {
         pairingId: UUID? = nil,
         sessionKey: String? = nil,
         evidence: [[String: String]] = [],
-        wait: Bool = false
+        wait: Bool = false,
+        intakeKind: String? = nil
     ) -> URLRequest {
         var request = authorized(baseURL.appendingPathComponent("v1/jobs"), method: "POST")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -63,6 +64,9 @@ public struct WebMediaDLLoopbackClient: Sendable {
         }
         if let sessionKey {
             body["session_key"] = sessionKey
+        }
+        if let intakeKind {
+            body["intake_kind"] = intakeKind
         }
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
         return request
@@ -147,14 +151,16 @@ public struct WebMediaDLLoopbackClient: Sendable {
         locator: String,
         surface: WebMediaDLSurface,
         pairingId: UUID? = nil,
-        sessionKey: String? = nil
+        sessionKey: String? = nil,
+        intakeKind: String? = nil
     ) async throws -> String {
         try await send(
             submitRequest(
                 locator: locator,
                 surface: surface,
                 pairingId: pairingId ?? self.pairingId,
-                sessionKey: sessionKey ?? self.sessionKey
+                sessionKey: sessionKey ?? self.sessionKey,
+                intakeKind: intakeKind
             )
         )
     }

@@ -48,3 +48,15 @@ def test_existing_file_intake(tmp_path: Path) -> None:
     assert source.kind is IntakeKind.FILE
     assert source.local_path == str(path.resolve())
     assert source.normalized_url is None
+
+
+def test_paste_kind_stays_a_url() -> None:
+    source = normalize_source(
+        "https://example.com/photo.png",
+        surface=Surface.CLI,
+        policy_profile_id="personal-full",
+        kind=IntakeKind.PASTE,
+    )
+    assert source.kind is IntakeKind.PASTE
+    assert source.normalized_url == "https://example.com/photo.png"
+    assert source.local_path is None

@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import WebMediaDLCore
 
 @main
@@ -111,6 +112,10 @@ struct MacRootView: View {
             }
             .navigationTitle("WebMedia DL")
             .padding()
+            .onDrop(of: [UTType.fileURL], isTargeted: nil) { providers in
+                handleDrop(providers)
+            }
+            .accessibilityLabel("Drop media files")
         }
         .frame(minWidth: 480, minHeight: 320)
     }
@@ -124,6 +129,33 @@ struct MacRootView: View {
         } catch {
             status = error.localizedDescription
         }
+    }
+
+    @MainActor
+    private func submitDropped(path: String) async {
+        let client = WebMediaDLLoopbackClient(token: token)
+        do {
+            status = try await client.submit(
+                locator: path,
+                surface: .macos,
+                intakeKind: "drop"
+            )
+            historyText = try await client.history()
+        } catch {
+            status = error.localizedDescription
+        }
+    }
+
+    private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
+        guard let provider = providers.first else { return false }
+        _ = provider.loadObject(ofClass: URL.self) { url, _ in
+            guard let url, url.isFileURL else { return }
+            Task { @MainActor in
+                locator = url.path
+                await submitDropped(path: url.path)
+            }
+        }
+        return true
     }
 
     @MainActor

@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import json
 from functools import lru_cache
 
 from webmedia_dl.domain.enums import CookieAccess, Surface
 from webmedia_dl.domain.models import PolicyProfile, Worker
 from webmedia_dl.errors import CapabilityDenied, DelegationDenied
+from webmedia_dl.paths import repo_root
 
 FULL_CAPABILITIES = (
     "intake.normalize",
@@ -52,8 +54,32 @@ WATCH_TV_CAPABILITIES = (
 
 
 @lru_cache(maxsize=1)
+def _resource_profiles() -> dict[str, dict]:
+    path = repo_root() / "resources" / "policy-profiles.json"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _apply_resource_overlay(profile: PolicyProfile) -> PolicyProfile:
+    extra = _resource_profiles().get(profile.profile_id, {})
+    if extra.get("drm_circumvention"):
+        msg = "policy-profiles.json cannot enable DRM circumvention."
+        raise CapabilityDenied(msg)
+    if extra.get("telemetry_default"):
+        msg = "policy-profiles.json cannot enable default telemetry."
+        raise CapabilityDenied(msg)
+    updates: dict = {}
+    if "cookie_access" in extra:
+        updates["cookie_access"] = CookieAccess(str(extra["cookie_access"]))
+    if "subprocess_worker" in extra:
+        updates["subprocess_worker"] = bool(extra["subprocess_worker"])
+    if "can_delegate" in extra:
+        updates["can_delegate"] = bool(extra["can_delegate"])
+    return profile.model_copy(update=updates) if updates else profile
+
+
+@lru_cache(maxsize=1)
 def builtin_profiles() -> dict[str, PolicyProfile]:
-    return {
+    built = {
         "personal-full": PolicyProfile(
             profile_id="personal-full",
             display_name="Personal full macOS worker",
@@ -95,6 +121,11 @@ def builtin_profiles() -> dict[str, PolicyProfile]:
             subprocess_worker=False,
         ),
     }
+    resource_ids = set(_resource_profiles())
+    if resource_ids != set(built):
+        msg = "policy-profiles.json ids must match builtin profile ids."
+        raise CapabilityDenied(msg)
+    return {key: _apply_resource_overlay(value) for key, value in built.items()}
 
 
 def get_profile(profile_id: str) -> PolicyProfile:

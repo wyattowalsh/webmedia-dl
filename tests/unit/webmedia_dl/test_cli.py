@@ -145,6 +145,28 @@ def test_migrate_scan(tmp_path: Path) -> None:
     assert payload["destructive"] is False
 
 
+def test_paste_command_and_unknown_preset(tmp_path: Path, png_bytes: bytes) -> None:
+    media = tmp_path / "hero.png"
+    media.write_bytes(png_bytes)
+    unknown = runner.invoke(app, ["plan", str(media), "--preset", "nope"])
+    assert unknown.exit_code == 1
+    assert "Unknown export preset" in unknown.stdout
+    pasted = runner.invoke(
+        app,
+        [
+            "paste",
+            "https://cdn.example.com/hero.png",
+            "--data-dir",
+            str(tmp_path / "data"),
+            "--no-wait",
+        ],
+    )
+    assert pasted.exit_code == 0
+    payload = json.loads(pasted.stdout)
+    assert payload["job"]["source"]["kind"] == "paste"
+    assert payload["job"]["source"]["local_path"] is None
+
+
 def test_drop_command(tmp_path: Path, png_bytes: bytes) -> None:
     media = tmp_path / "dropped.png"
     media.write_bytes(png_bytes)

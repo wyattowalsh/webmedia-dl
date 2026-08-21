@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import json
+from functools import lru_cache
+
 from webmedia_dl.domain.enums import Surface
 from webmedia_dl.domain.models import Capability
+from webmedia_dl.paths import repo_root
 from webmedia_dl.providers import ProviderRuntime, builtin_manifests
 
 CAPABILITY_PLATFORMS: dict[str, list[Surface]] = {
@@ -69,6 +73,12 @@ CAPABILITY_PLATFORMS: dict[str, list[Surface]] = {
 }
 
 
+@lru_cache(maxsize=1)
+def load_platform_matrix() -> dict[str, list[str]]:
+    path = repo_root() / "resources" / "platform-capability-matrix.json"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def _provider_for(capability_id: str) -> str:
     for manifest in builtin_manifests().values():
         if capability_id in manifest.capabilities:
@@ -80,17 +90,24 @@ def _provider_for(capability_id: str) -> str:
 
 def registry(*, runtime: ProviderRuntime | None = None) -> list[Capability]:
     runtime = runtime or ProviderRuntime()
+    matrix = load_platform_matrix()
     items: list[Capability] = []
     for capability_id, platforms in CAPABILITY_PLATFORMS.items():
         provider_id = _provider_for(capability_id)
         health: str = "healthy"
         if provider_id in builtin_manifests():
             health = runtime.health(provider_id)
+        bound = []
+        for platform in platforms:
+            features = matrix.get(platform.value)
+            if features is None and platform is not Surface.CLI:
+                continue
+            bound.append(platform)
         items.append(
             Capability(
                 capability_id=capability_id,
                 provider_id=provider_id,
-                platforms=platforms,
+                platforms=bound or platforms,
                 description=capability_id.replace(".", " "),
                 health=health
                 if health in {"healthy", "missing", "unhealthy", "disabled"}

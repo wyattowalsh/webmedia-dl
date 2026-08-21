@@ -317,6 +317,7 @@
     "tests/unit/webmedia_dl/test_invariants.py",
     "tests/unit/webmedia_dl/test_live.py",
     "tests/unit/webmedia_dl/test_names.py",
+    "tests/unit/webmedia_dl/test_pack_gaps.py",
     "tests/unit/webmedia_dl/test_pairing_surfaces.py",
     "tests/unit/webmedia_dl/test_pipeline.py",
     "tests/unit/webmedia_dl/test_pipeline_live_fetch.py",

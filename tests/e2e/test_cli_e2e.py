@@ -23,6 +23,9 @@ def test_submit_history_job_roundtrip(tmp_path: Path, png_bytes: bytes) -> None:
     assert listed.exit_code == 0
     history = json.loads(listed.stdout)
     assert any(item["job_id"] == job["job"]["job_id"] for item in history)
+    match = next(item for item in history if item["job_id"] == job["job"]["job_id"])
+    assert match["artifact_ids"]
+    assert match["last_events"]
     shown = runner.invoke(app, ["job", job["job"]["job_id"], "--data-dir", str(data_dir)])
     assert shown.exit_code == 0
     detail = json.loads(shown.stdout)

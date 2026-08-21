@@ -72,10 +72,25 @@ def test_apple_app_shells_exist() -> None:
     assert "false" in continuity.lower() or "Bool { false }" in continuity
     assert "companion" in continuity.lower()
     assert "nativeCommand" in continuity
+    mac = (root / "apps/WebMediaDLMac/Sources/WebMediaDLMac/WebMediaDLMacApp.swift").read_text(
+        encoding="utf-8"
+    )
+    assert "onDrop" in mac
+    assert "Drop media files" in mac
     tv = (root / "apps/WebMediaDLTV/Sources/WebMediaDLTV/WebMediaDLTVRootView.swift").read_text(
         encoding="utf-8"
     )
     assert "Not a subprocess worker" in tv
+    ipad = (
+        root / "apps/WebMediaDLiPadOS/Sources/WebMediaDLiPadOS/WebMediaDLiPadOSRootView.swift"
+    ).read_text(encoding="utf-8")
+    vision = (
+        root / "apps/WebMediaDLVision/Sources/WebMediaDLVision/WebMediaDLVisionRootView.swift"
+    ).read_text(encoding="utf-8")
+    assert "Refresh history" in ipad
+    assert "Refresh history" in vision
+    assert "Job history" in ipad
+    assert "Job history" in vision
 
 
 def test_browser_extension_trees() -> None:

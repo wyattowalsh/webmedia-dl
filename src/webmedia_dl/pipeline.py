@@ -12,7 +12,7 @@ from loguru import logger
 from webmedia_dl.acquisition import plan_acquisition
 from webmedia_dl.artifacts import ArtifactStore
 from webmedia_dl.candidates import build_graph, preferred_by_kind
-from webmedia_dl.discovery import candidates_from_manifest_json, discover
+from webmedia_dl.discovery import DIRECT_EXTENSIONS, candidates_from_manifest_json, discover
 from webmedia_dl.domain.enums import (
     ArtifactRole,
     EventType,
@@ -176,7 +176,10 @@ class Pipeline:
                 self.queue.emit(
                     job.job_id,
                     EventType.COOKIE_ATTACHED,
-                    {"path": cookie_value},
+                    {
+                        "cookies_path_basename": Path(cookie_value).name,
+                        "profile_id": client_profile.profile_id,
+                    },
                 )
             self.queue.put_context(job.job_id, html=html, cookies=cookie_value, evidence=evidence)
             if self.queue.is_paused() or not wait:
@@ -296,13 +299,13 @@ class Pipeline:
                 try:
                     kind_dir = staging / f"{index}-{candidate.media_kind.value}"
                     kind_dir.mkdir(parents=True, exist_ok=True)
-                    artifact = self._acquire_remote(
+                    artifact_list = self._acquire_remote(
                         job,
                         candidate,
                         kind_dir,
                         cookies=cookies,
                     )
-                    sources.append(artifact)
+                    sources.extend(artifact_list)
                     acquired_kinds.add(candidate.media_kind.value)
                     self._save_acquire_checkpoint(job, sources, acquired_kinds, stage="acquiring")
                 except (PauseRequested, CancelledError):
@@ -341,6 +344,7 @@ class Pipeline:
                         staging=export_dir,
                         queue=self.queue,
                         authorize=self._authorize,
+                        check_control=lambda: self._check_control(job.job_id),
                     )
                 )
             except (PauseRequested, CancelledError):
@@ -359,6 +363,8 @@ class Pipeline:
         publishable: list[tuple[Any, Path, list]] = []
         for item, path in produced:
             self._check_control(job.job_id)
+            if item.role is ArtifactRole.PREVIEW:
+                continue
             if item.role is ArtifactRole.SOURCE and not job.intent.include_original:
                 continue
             try:
@@ -391,10 +397,17 @@ class Pipeline:
             {"paths": [str(item) for item in published]},
         )
         completed = self.queue.set_state(job.job_id, JobState.COMPLETED)
+        artifact_ids = []
+        for item, _path, _results in publishable:
+            if item.artifact_id not in artifact_ids:
+                artifact_ids.append(item.artifact_id)
+        for item in sources:
+            if item.artifact_id not in artifact_ids:
+                artifact_ids.append(item.artifact_id)
         self.queue.emit(
             job.job_id,
             EventType.JOB_COMPLETED,
-            {"artifact_ids": [item.artifact_id for item in sources]},
+            {"artifact_ids": artifact_ids},
         )
         return completed
 
@@ -434,60 +447,91 @@ class Pipeline:
             try:
                 self._authorize(strategy.capability_id)
                 if strategy.capability_id == "live.record_clear_manifest":
-                    artifact = self._record_live(job, candidate, staging)
-                else:
-                    request = ProviderRequest(
-                        provider_id=strategy.provider_id,
-                        capability_id=strategy.capability_id,
-                        typed_inputs={
-                            **strategy.typed_inputs,
-                            "output": str(staging / "source.bin"),
+                    live_artifact = self._record_live(job, candidate, staging)
+                    self.queue.emit(
+                        job.job_id,
+                        EventType.SOURCE_REGISTERED,
+                        {
+                            "artifact_id": live_artifact.artifact_id,
+                            "provider": strategy.provider_id,
                         },
-                        extra_args=tuple(strategy.extra_args),
                     )
-                    result = self.runtime.execute(request, staging)
-                    if (
-                        result.exit_code != 0
-                        or result.output_path is None
-                        or not result.output_path.exists()
-                    ):
-                        if result.output_path is not None and result.output_path.exists():
-                            quarantined = self.store.register(
-                                result.output_path,
-                                role=ArtifactRole.QUARANTINE,
-                                media_kind=candidate.media_kind,
-                                provenance={
-                                    "provider": strategy.provider_id,
-                                    "job_id": str(job.job_id),
-                                },
-                            )
-                            self.queue.emit(
-                                job.job_id,
-                                EventType.ACQUISITION_QUARANTINE,
-                                {"artifact_id": quarantined.artifact_id},
-                            )
-                        last_error = ProviderPolicyError(
-                            f"{strategy.provider_id} exited {result.exit_code}",
-                        )
-                        continue
-                    artifact = self.store.register(
-                        result.output_path,
-                        role=ArtifactRole.SOURCE,
-                        media_kind=candidate.media_kind,
-                        provenance={"provider": strategy.provider_id, "job_id": str(job.job_id)},
+                    self._record_probe(
+                        job,
+                        live_artifact,
+                        self.store.resolve(live_artifact),
+                        candidate.candidate_id,
                     )
-                self.queue.emit(
-                    job.job_id,
-                    EventType.SOURCE_REGISTERED,
-                    {
-                        "artifact_id": artifact.artifact_id,
-                        "provider": strategy.provider_id,
+                    artifact = [live_artifact]
+                    break
+                request = ProviderRequest(
+                    provider_id=strategy.provider_id,
+                    capability_id=strategy.capability_id,
+                    typed_inputs={
+                        **strategy.typed_inputs,
+                        "output": str(staging / "source.bin"),
                     },
+                    extra_args=tuple(strategy.extra_args),
                 )
-                self._record_probe(
-                    job, artifact, self.store.resolve(artifact), candidate.candidate_id
+                result = self.runtime.execute(request, staging)
+                if (
+                    result.exit_code != 0
+                    or result.output_path is None
+                    or not result.output_path.exists()
+                ):
+                    if result.output_path is not None and result.output_path.exists():
+                        quarantined = self.store.register(
+                            result.output_path,
+                            role=ArtifactRole.QUARANTINE,
+                            media_kind=candidate.media_kind,
+                            provenance={
+                                "provider": strategy.provider_id,
+                                "job_id": str(job.job_id),
+                            },
+                        )
+                        self.queue.emit(
+                            job.job_id,
+                            EventType.ACQUISITION_QUARANTINE,
+                            {"artifact_id": quarantined.artifact_id},
+                        )
+                    last_error = ProviderPolicyError(
+                        f"{strategy.provider_id} exited {result.exit_code}",
+                    )
+                    continue
+                registered: list = []
+                paths = [path for path in result.output_paths if path.exists()]
+                if not paths and result.output_path is not None:
+                    paths = [result.output_path]
+                for path in paths:
+                    suffix = path.suffix.lower()
+                    kind = DIRECT_EXTENSIONS.get(suffix, candidate.media_kind)
+                    item = self.store.register(
+                        path,
+                        role=ArtifactRole.SOURCE,
+                        media_kind=kind,
+                        provenance={
+                            "provider": strategy.provider_id,
+                            "job_id": str(job.job_id),
+                            "member_of": candidate.media_kind.value,
+                        },
+                    )
+                    self.queue.emit(
+                        job.job_id,
+                        EventType.SOURCE_REGISTERED,
+                        {
+                            "artifact_id": item.artifact_id,
+                            "provider": strategy.provider_id,
+                        },
+                    )
+                    self._record_probe(job, item, self.store.resolve(item), candidate.candidate_id)
+                    registered.append(item)
+                if registered:
+                    artifact = registered
+                    break
+                last_error = ProviderPolicyError(
+                    f"{strategy.provider_id} produced no source files",
                 )
-                break
+                continue
             except (PauseRequested, CancelledError):
                 raise
             except (DrmRefused, WebMediaError) as exc:
@@ -512,6 +556,7 @@ class Pipeline:
             url,
             output,
             lambda item: self._fetch_bytes(item, self.client_profile, html=False),
+            should_stop=lambda: self._check_control(job.job_id),
         )
         return self.store.register(
             output,
@@ -574,6 +619,7 @@ class Pipeline:
             msg = f"Job {job_id} cannot be cancelled from state {job.state.value}."
             raise CancelledError(msg)
         self.queue.set_job_flags(job_id, cancel_requested=True)
+        self.runtime.cancel_running()
         cancelled = self.queue.set_state(job_id, JobState.CANCELLED, error="cancelled by user")
         self.queue.emit(job_id, EventType.JOB_CANCELLED, {"state": "cancelled"})
         return cancelled
@@ -698,7 +744,7 @@ class Pipeline:
         if kind == "history":
             return {
                 "kind": kind,
-                "jobs": [item.model_dump(mode="json") for item in self.history()],
+                "jobs": self.history_entries(),
             }
         if kind == "status":
             return {"kind": kind, "paused": self.queue.is_paused()}
@@ -802,6 +848,29 @@ class Pipeline:
 
     def history(self) -> list[Job]:
         return self.queue.list_jobs()
+
+    def history_entries(self) -> list[dict[str, Any]]:
+        entries: list[dict[str, Any]] = []
+        for job in self.history():
+            events = self.queue.events_for(job.job_id)
+            artifact_ids: list[str] = []
+            for event in events:
+                if event.payload.get("artifact_id"):
+                    artifact_ids.append(str(event.payload["artifact_id"]))
+                for item in event.payload.get("artifact_ids") or []:
+                    artifact_ids.append(str(item))
+            unique: list[str] = []
+            for item in artifact_ids:
+                if item not in unique:
+                    unique.append(item)
+            entries.append(
+                {
+                    **job.model_dump(mode="json"),
+                    "artifact_ids": unique,
+                    "last_events": [event.type.value for event in events[-8:]],
+                }
+            )
+        return entries
 
 
 def describe_candidate(candidate: MediaCandidate) -> dict[str, Any]:

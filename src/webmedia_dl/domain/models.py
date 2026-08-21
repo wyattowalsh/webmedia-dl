@@ -170,10 +170,18 @@ class ExportIntent(StrictModel):
 
     @model_validator(mode="after")
     def destination_requires_approval(self) -> Self:
-        if self.destination_kind == DestinationKind.USER_APPROVED_PATH and (
+        path_kinds = {
+            DestinationKind.USER_APPROVED_PATH,
+            DestinationKind.FILES_APP,
+            DestinationKind.SHARE,
+        }
+        if self.destination_kind in path_kinds and (
             not self.destination_path or not self.approved_roots
         ):
             msg = "Publication destinations require an approved path and root."
+            raise ValueError(msg)
+        if self.destination_kind == DestinationKind.PHOTOS and not self.approved_roots:
+            msg = "Photos publication requires a user-approved root."
             raise ValueError(msg)
         return self
 

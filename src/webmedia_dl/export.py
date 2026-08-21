@@ -12,6 +12,7 @@ from webmedia_dl.errors import ProviderPolicyError
 from webmedia_dl.paths import repo_root
 
 IMAGE_CONTAINERS = {"jpg", "jpeg", "png", "webp", "avif", "gif", "tif", "tiff"}
+PASSTHROUGH_KINDS = {MediaKind.DOCUMENT, MediaKind.SUBTITLE}
 
 
 @lru_cache(maxsize=1)
@@ -22,7 +23,10 @@ def load_presets() -> dict[str, dict[str, object]]:
 
 def _resolved_intent(intent: ExportIntent) -> ExportIntent:
     presets = load_presets()
-    preset = presets.get(intent.preset_id, {})
+    if intent.preset_id not in presets:
+        msg = f"Unknown export preset {intent.preset_id!r}."
+        raise ProviderPolicyError(msg)
+    preset = presets[intent.preset_id]
     allow_lossy = intent.allow_lossy or bool(preset.get("allow_lossy"))
     container = intent.container_preference or preset.get("container_preference")
     include_original = (
@@ -56,8 +60,18 @@ def plan_export(job_id: UUID, source: Artifact, intent: ExportIntent) -> ExportP
         )
     ]
     preference = resolved.container_preference
+    image_like = source.media_kind in {MediaKind.IMAGE, MediaKind.GALLERY} or (
+        (source.container or "").lower() in IMAGE_CONTAINERS
+        and source.media_kind not in PASSTHROUGH_KINDS
+    )
+    if source.media_kind in PASSTHROUGH_KINDS:
+        return ExportPlan(
+            job_id=job_id,
+            operations=operations,
+            publish_source=resolved.include_original,
+        )
     if preference and preference != source.container:
-        if source.media_kind is MediaKind.IMAGE and preference.lower() in IMAGE_CONTAINERS:
+        if image_like and preference.lower() in IMAGE_CONTAINERS:
             operations.append(
                 Operation(
                     operation_id="image-convert",
@@ -98,7 +112,7 @@ def plan_export(job_id: UUID, source: Artifact, intent: ExportIntent) -> ExportP
                     typed_inputs={"container": preference},
                 )
             )
-    if source.media_kind is MediaKind.IMAGE and preference is None:
+    if image_like and preference is None:
         operations.append(
             Operation(
                 operation_id="image-orient",

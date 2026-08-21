@@ -21,7 +21,7 @@ def _sanitize(payload: dict[str, Any]) -> dict[str, Any]:
 def write_support_bundle(*, data_dir: Path, dest: Path) -> dict[str, Any]:
     dest.parent.mkdir(parents=True, exist_ok=True)
     pipeline = Pipeline(data_dir=data_dir)
-    jobs = [item.model_dump(mode="json") for item in pipeline.history()]
+    jobs = pipeline.history_entries()
     events: dict[str, list[dict[str, Any]]] = {}
     for job in pipeline.history():
         records = []

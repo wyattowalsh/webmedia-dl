@@ -73,6 +73,8 @@ def preferred_by_kind(graph: CandidateGraph) -> list[MediaCandidate]:
         seen.add(node.media_kind)
         picked.append(node)
     if picked:
+        if any(item.media_kind is MediaKind.GALLERY for item in picked):
+            picked = [item for item in picked if item.media_kind is not MediaKind.IMAGE]
         return picked
     ranked = preferred_candidates(graph)
     return ranked[:1]

@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from uuid import UUID
 
 from webmedia_dl.artifacts import ArtifactStore
 from webmedia_dl.domain.enums import ArtifactRole, EventType, JobState
 from webmedia_dl.domain.models import Artifact, ExportPlan, Operation
-from webmedia_dl.errors import ProviderPolicyError, WebMediaError
+from webmedia_dl.errors import CancelledError, PauseRequested, ProviderPolicyError, WebMediaError
 from webmedia_dl.providers import ProviderRequest, ProviderRuntime
 from webmedia_dl.queue import QueueStore
 from webmedia_dl.validation import require_pass, validate_artifact
@@ -25,6 +27,21 @@ def provider_for_operation(operation: Operation) -> str:
     raise ProviderPolicyError(msg)
 
 
+def ordered_operations(plan: ExportPlan) -> list[Operation]:
+    """Topological order. Edges are operation_id references in input_artifact_ids."""
+    ops = {item.operation_id: item for item in plan.operations}
+    sorter: TopologicalSorter[str] = TopologicalSorter()
+    for operation in plan.operations:
+        deps = [item for item in operation.input_artifact_ids if item in ops]
+        sorter.add(operation.operation_id, *deps)
+    try:
+        order = list(sorter.static_order())
+    except CycleError as exc:
+        msg = "Export plan is not a DAG."
+        raise ProviderPolicyError(msg) from exc
+    return [ops[item] for item in order]
+
+
 def execute_export_plan(
     plan: ExportPlan,
     *,
@@ -36,14 +53,18 @@ def execute_export_plan(
     staging: Path,
     queue: QueueStore,
     authorize,
+    check_control: Callable[[], None] | None = None,
 ) -> list[tuple[Artifact, Path]]:
-    """Run non-identity operations. The source bytes are never overwritten."""
+    """Run non-identity operations. Independent ops fail without invalidating siblings."""
     produced: list[tuple[Artifact, Path]] = [(source, source_path)]
-    current = source
-    current_path = source_path
+    artifacts: dict[str, tuple[Artifact, Path]] = {source.artifact_id: (source, source_path)}
+    staging.mkdir(parents=True, exist_ok=True)
     queue.set_state(job_id, JobState.EXPORTING)
-    for operation in plan.operations:
+    for operation in ordered_operations(plan):
+        if check_control is not None:
+            check_control()
         if operation.op_type == "identity.copy":
+            artifacts[operation.operation_id] = (source, source_path)
             queue.emit(
                 job_id,
                 EventType.OPERATION_COMPLETED,
@@ -51,6 +72,7 @@ def execute_export_plan(
             )
             continue
         try:
+            current, current_path = _resolve_input(operation, artifacts, source, source_path)
             authorize(operation.capability_id)
             container = str(operation.typed_inputs.get("container") or "bin")
             output = staging / f"{operation.operation_id}.{container}"
@@ -71,9 +93,12 @@ def execute_export_plan(
             ):
                 msg = f"{operation.operation_id} exited {result.exit_code}"
                 raise ProviderPolicyError(msg)
+            role = operation.output_role
+            if role is ArtifactRole.SOURCE:
+                role = ArtifactRole.DERIVATIVE
             derivative = store.register(
                 result.output_path,
-                role=ArtifactRole.DERIVATIVE,
+                role=role,
                 media_kind=current.media_kind,
                 container=container,
                 parent_ids=[current.artifact_id],
@@ -97,16 +122,19 @@ def execute_export_plan(
                     {"gate": item.gate_id, "status": item.status.value},
                 )
             produced.append((derivative, result.output_path))
-            current = derivative
-            current_path = result.output_path
+            artifacts[derivative.artifact_id] = (derivative, result.output_path)
+            artifacts[operation.operation_id] = (derivative, result.output_path)
             queue.emit(
                 job_id,
                 EventType.OPERATION_COMPLETED,
                 {
                     "operation_id": operation.operation_id,
                     "artifact_id": derivative.artifact_id,
+                    "role": role.value,
                 },
             )
+        except (PauseRequested, CancelledError):
+            raise
         except WebMediaError as exc:
             queue.emit(
                 job_id,
@@ -115,5 +143,20 @@ def execute_export_plan(
             )
             if operation.optional:
                 continue
-            break
+            continue
     return produced
+
+
+def _resolve_input(
+    operation: Operation,
+    artifacts: dict[str, tuple[Artifact, Path]],
+    source: Artifact,
+    source_path: Path,
+) -> tuple[Artifact, Path]:
+    if not operation.input_artifact_ids:
+        return source, source_path
+    for item in operation.input_artifact_ids:
+        if item in artifacts:
+            return artifacts[item]
+    msg = f"{operation.operation_id} is missing inputs {operation.input_artifact_ids}."
+    raise ProviderPolicyError(msg)

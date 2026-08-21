@@ -17,19 +17,18 @@ public struct WebMediaDLWatchRootView: View {
                 TextField("URL", text: $locator)
                     .accessibilityLabel("Media URL")
                 Button("Capture URL") {
-                    let message = bridge.message(kind: "capture", locator: locator)
-                    status = message.kind
+                    Task { await send(kind: "capture", locator: locator) }
                 }
                 .accessibilityLabel("Capture URL")
             }
             Text(status)
                 .accessibilityLabel("Job status")
             Button("History") {
-                status = bridge.message(kind: "history").kind
+                Task { await send(kind: "history") }
             }
             .accessibilityLabel("Job history")
             Button("Pause") {
-                status = bridge.message(kind: "pause").kind
+                Task { await send(kind: "pause") }
             }
             .accessibilityLabel("Pause current job")
         }
@@ -39,5 +38,11 @@ public struct WebMediaDLWatchRootView: View {
             _ = role
             _ = bridge.isSubprocessWorker
         }
+    }
+
+    @MainActor
+    private func send(kind: String, locator: String? = nil) async {
+        let message = bridge.message(kind: kind, locator: locator)
+        status = (try? await bridge.send(message)) ?? message.kind
     }
 }

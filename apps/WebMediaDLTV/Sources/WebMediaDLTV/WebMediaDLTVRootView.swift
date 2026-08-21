@@ -17,26 +17,32 @@ public struct WebMediaDLTVRootView: View {
                 TextField("Clipboard or typed URL", text: $locator)
                     .accessibilityLabel("Media URL")
                 Button("Capture from clipboard") {
-                    status = bridge.message(kind: "capture", locator: locator).kind
+                    Task { await send(kind: "capture", locator: locator) }
                 }
                 .accessibilityLabel("Capture from clipboard")
                 Text(status)
                     .accessibilityLabel("Job status")
                 Button("History") {
-                    status = bridge.message(kind: "history").kind
+                    Task { await send(kind: "history") }
                 }
                 .accessibilityLabel("Job history")
                 Button("Pause queue") {
-                    status = bridge.message(kind: "pause").kind
+                    Task { await send(kind: "pause") }
                 }
                 .accessibilityLabel("Pause queue")
                 Button("Resume queue") {
-                    status = bridge.message(kind: "resume").kind
+                    Task { await send(kind: "resume") }
                 }
                 .accessibilityLabel("Resume queue")
                 Text("Role \(role.rawValue). Companion to Mac worker.")
             }
             .navigationTitle("WebMedia DL")
         }
+    }
+
+    @MainActor
+    private func send(kind: String, locator: String? = nil) async {
+        let message = bridge.message(kind: kind, locator: locator)
+        status = (try? await bridge.send(message)) ?? message.kind
     }
 }

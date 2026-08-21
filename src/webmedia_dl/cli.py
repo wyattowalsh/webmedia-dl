@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from typing import Annotated
 from uuid import UUID
@@ -15,6 +16,7 @@ from webmedia_dl.diagnostics import doctor
 from webmedia_dl.domain.enums import DestinationKind, IntakeKind, Surface
 from webmedia_dl.domain.models import ExportIntent
 from webmedia_dl.errors import CancelledError, WebMediaError
+from webmedia_dl.export import load_presets
 from webmedia_dl.names import CLI_NAME, DISPLAY_NAME, PERSONAL_ALIAS
 from webmedia_dl.pipeline import Pipeline
 from webmedia_dl.policy.profiles import builtin_profiles
@@ -32,6 +34,12 @@ app = typer.Typer(
 def _pipeline(data_dir: Path | None) -> Pipeline:
     settings = Settings(data_dir=data_dir)
     return Pipeline(data_dir=settings.resolved_data_dir())
+
+
+def _reject_unknown_preset(preset: str) -> None:
+    if preset not in load_presets():
+        typer.echo(f"Unknown export preset {preset!r}.")
+        raise typer.Exit(code=1)
 
 
 @app.callback()
@@ -94,8 +102,13 @@ def submit(
         str | None, typer.Option("--session-key", help="Confirmed pairing session key")
     ] = None,
     wait: Annotated[bool, typer.Option("--wait/--no-wait")] = True,
+    kind: Annotated[
+        IntakeKind | None,
+        typer.Option("--kind", help="Override intake kind: url, file, paste, drop"),
+    ] = None,
 ) -> None:
     """Share, paste, or select a source. Runs the typed job pipeline."""
+    _reject_unknown_preset(preset)
     intent = ExportIntent(preset_id=preset)
     if dest is not None:
         intent = ExportIntent(
@@ -125,6 +138,46 @@ def submit(
         session_key=session_key,
         local_user_confirmed=True,
         wait=wait,
+        intake_kind=kind,
+    )
+    events = [event.model_dump(mode="json") for event in pipeline.queue.events_for(job.job_id)]
+    typer.echo(
+        json.dumps({"job": job.model_dump(mode="json"), "events": events}, indent=2, default=str)
+    )
+    if job.error:
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def paste(
+    locator: Annotated[
+        str | None,
+        typer.Argument(help="Pasted https URL. Reads stdin when omitted."),
+    ] = None,
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+    dest: Annotated[Path | None, typer.Option("--dest")] = None,
+    wait: Annotated[bool, typer.Option("--wait/--no-wait")] = True,
+) -> None:
+    """Paste-intake a URL. Does not treat the locator as a filesystem path."""
+    text = (locator or sys.stdin.read()).strip()
+    if not text:
+        typer.echo("Paste intake requires a URL argument or stdin.")
+        raise typer.Exit(code=1)
+    intent = ExportIntent()
+    if dest is not None:
+        intent = ExportIntent(
+            destination_kind=DestinationKind.USER_APPROVED_PATH,
+            destination_path=str(dest.resolve()),
+            approved_roots=[str(dest.resolve())],
+        )
+    pipeline = _pipeline(data_dir)
+    job = pipeline.submit(
+        text,
+        surface=Surface.CLI,
+        intent=intent,
+        local_user_confirmed=True,
+        wait=wait,
+        intake_kind=IntakeKind.PASTE,
     )
     events = [event.model_dump(mode="json") for event in pipeline.queue.events_for(job.job_id)]
     typer.echo(
@@ -199,6 +252,7 @@ def plan_cmd(
     preset: Annotated[str, typer.Option("--preset")] = "original-sacred",
 ) -> None:
     """Explain the ranked acquisition and export plan without acquiring media."""
+    _reject_unknown_preset(preset)
     pipeline = _pipeline(data_dir)
     html_text = html.read_text(encoding="utf-8") if html else None
     payload = pipeline.explain(
@@ -230,7 +284,7 @@ def history(
 ) -> None:
     """List jobs from the local queue."""
     pipeline = _pipeline(data_dir)
-    payload = [item.model_dump(mode="json") for item in pipeline.history()]
+    payload = pipeline.history_entries()
     typer.echo(json.dumps(payload, indent=2, default=str))
 
 

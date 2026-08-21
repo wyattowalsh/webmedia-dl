@@ -122,6 +122,8 @@ def test_gallery_dl_picks_created_file(tmp_path: Path) -> None:
     assert result.exit_code == 0
     assert result.output_path is not None
     assert result.output_path.name == "01.jpg"
+    assert result.output_paths
+    assert result.output_paths[0].name == "01.jpg"
 
 
 def test_image_convert_plan() -> None:

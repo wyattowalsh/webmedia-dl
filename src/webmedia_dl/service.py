@@ -15,7 +15,7 @@ from webmedia_dl import __version__
 from webmedia_dl.continuity import validate_companion_message
 from webmedia_dl.diagnostics import doctor
 from webmedia_dl.dispatcher import QueueDispatcher
-from webmedia_dl.domain.enums import Surface
+from webmedia_dl.domain.enums import IntakeKind, Surface
 from webmedia_dl.domain.models import BrowserEvidence, ExportIntent
 from webmedia_dl.envelope import open_payload, seal_payload
 from webmedia_dl.errors import CancelledError, DelegationDenied, PauseRequested, WebMediaError
@@ -38,6 +38,7 @@ class SubmitBody(BaseModel):
     session_key: str | None = None
     evidence: list[BrowserEvidence] = Field(default_factory=list)
     wait: bool = True
+    intake_kind: IntakeKind | None = None
 
 
 class PlanBody(BaseModel):
@@ -147,6 +148,7 @@ def create_app(data_dir: Path | None = None, *, enable_dispatcher: bool = False)
                 session_key=body.session_key or None,
                 evidence=body.evidence or None,
                 wait=body.wait,
+                intake_kind=body.intake_kind,
             )
         except WebMediaError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -192,7 +194,7 @@ def create_app(data_dir: Path | None = None, *, enable_dispatcher: bool = False)
 
     @app.get("/v1/jobs", dependencies=[Depends(require_auth)])
     def list_jobs() -> list[dict]:
-        return [item.model_dump(mode="json") for item in pipeline.history()]
+        return pipeline.history_entries()
 
     @app.get("/v1/artifacts", dependencies=[Depends(require_auth)])
     def list_artifacts() -> list[dict]:
