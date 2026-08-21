@@ -2,8 +2,8 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 395 tests |
-| `uv run pytest --cov` | PASS | 98.26% (`fail_under` 85) |
+| `uv run pytest` | PASS | 416 tests |
+| `uv run pytest --cov` | PASS | 99.28% (`fail_under` 85) |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
 | `uv run ty check` | PASS | |
@@ -44,6 +44,13 @@
 | Empty output_paths fallback | PASS | provider result with no `output_paths` still registers `output_path` |
 | Photos/staging publication | PASS | Photos destination raises; staging-only returns source paths; missing approved path fails closed |
 | Probe timeout/encrypted tags | PASS | ffprobe timeout returns none; `ENCRYPTED=yes` tags mark the stream encrypted |
+| Empty srcset skip | PASS | blank HTML `srcset` tokens are skipped instead of crashing discovery |
+| ffmpeg `%(ext)s` stem | PASS | `clip.%(ext)s` matches `clip.mkv` among other created files |
+| Cookie ledger JSON | PASS | non-list store, non-dict/incomplete grants, unknown grant ids, deny-name advisory, save without lock handle, and unresolved `resolve_cookie_path` fail closed |
+| Probe encrypted field | PASS | stream `encrypted: true` is recorded; non-dict tags are not treated as encrypted |
+| Probe unavailable | PASS | `probe_media` none records `probe-available:BLOCKED` and still publishes identity-validated sources |
+| Resume missing sources | PASS | acquired kinds with unrestored `source_ids` fail closed instead of a silent empty publish |
+| Packaging directories | PASS | extension zip `rglob` skips directories and includes nested files |
 | URL never a path | PASS | URL intake with `local_path` or `file:` normalized_url raises; extra provider argv is refused |
 | Live aggregate bound + kinds | PASS | cumulative byte budget; separate VIDEO/AUDIO artifacts; audio-only DASH uses the highest-bandwidth audio Representation; SegmentBase ranges including mediaRange; multi-period occurrences; empty recordings and HTTP 400 playlists fail closed; nested/audio `should_stop` aborts before further fetches |
 | DASH AdaptationSet + live poll | PASS | self-closing Representation inherits AdaptationSet BaseURL/template; dynamic MPD/HLS polls new segments; later ContentProtection/AES-128 stops without fetching protected parts; `startNumber` and `$$` template tokens expand without a phantom `$Number=1` segment |

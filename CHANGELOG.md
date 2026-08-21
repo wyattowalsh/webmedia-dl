@@ -57,4 +57,8 @@
   video/audio kind split, live poll stop, and HTML gallery/embed discovery
   fail closed with executed tests. Queue-paused resume, empty output_paths
   fallback, Photos/staging publication guards, probe timeout/encrypted tags,
-  and URL-never-path source validation fail closed with executed tests.
+  and URL-never-path source validation fail closed with executed tests. Empty
+  HTML srcset tokens are skipped; ffmpeg `%(ext)s` stem matching uses a dummy
+  suffix; cookie-ledger JSON, probe encryption fields, packaging directories,
+  unresolved cookies, and resume without restored sources fail closed with
+  executed tests.
