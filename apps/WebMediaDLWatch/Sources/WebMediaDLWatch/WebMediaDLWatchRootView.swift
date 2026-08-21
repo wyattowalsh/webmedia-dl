@@ -29,7 +29,7 @@ public struct WebMediaDLWatchRootView: View {
             Button("History") {
                 Task {
                     await send(kind: "history")
-                    if let data = status.data(using: .utf8) {
+                    if let data = transport.lastResponse?.data(using: .utf8) {
                         history = (try? WebMediaDLHistoryEntry.decodeCompanionHistory(from: data)) ?? []
                     }
                 }

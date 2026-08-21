@@ -121,6 +121,7 @@ public struct WebMediaDLLoopbackClient: Sendable {
     }
 
     public func pairRequest(clientProfileId: String = "personal-restricted") -> URLRequest {
+        // Fresh clients bootstrap pairing without a worker token. Confirm stays Mac-owned.
         var request = authorized(baseURL.appendingPathComponent("v1/pair"), method: "POST")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try? JSONSerialization.data(
@@ -274,6 +275,7 @@ public struct WebMediaDLLoopbackClient: Sendable {
     }
 
     public func startPairing(clientProfileId: String = "personal-restricted") async throws -> WebMediaDLPairingChallenge {
+        // Loopback pairing start does not require a stored worker token.
         let (data, _) = try await URLSession.shared.data(for: pairRequest(clientProfileId: clientProfileId))
         return try JSONDecoder().decode(WebMediaDLPairingChallenge.self, from: data)
     }

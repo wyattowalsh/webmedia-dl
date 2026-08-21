@@ -137,6 +137,14 @@ def create_app(data_dir: Path | None = None, *, enable_dispatcher: bool = False)
             return {"actor": "paired", "pairing_id": x_pairing, "session_key": x_session}
         raise HTTPException(status_code=401, detail="Unauthorized")
 
+    def require_mac(auth: dict[str, str] = Depends(require_auth)) -> dict[str, str]:
+        if auth.get("actor") != "mac":
+            raise HTTPException(
+                status_code=403,
+                detail="Only the Mac worker can confirm pairing.",
+            )
+        return auth
+
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok", "product": DISPLAY_NAME}
@@ -222,7 +230,7 @@ def create_app(data_dir: Path | None = None, *, enable_dispatcher: bool = False)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="Unknown artifact") from exc
 
-    @app.post("/v1/pair", dependencies=[Depends(require_auth)])
+    @app.post("/v1/pair")
     def pair(body: Annotated[PairStartBody | None, Body()] = None) -> dict:
         profile_id = body.client_profile_id if body is not None else "personal-restricted"
         challenge = pipeline.pairing.create(profile_id, pipeline.host_worker.worker_id)
@@ -234,7 +242,7 @@ def create_app(data_dir: Path | None = None, *, enable_dispatcher: bool = False)
             "confirmed": False,
         }
 
-    @app.post("/v1/pair/confirm", dependencies=[Depends(require_auth)])
+    @app.post("/v1/pair/confirm", dependencies=[Depends(require_mac)])
     def confirm_pair(body: PairConfirmBody) -> dict:
         try:
             record = pipeline.pairing.confirm(body.pairing_id)

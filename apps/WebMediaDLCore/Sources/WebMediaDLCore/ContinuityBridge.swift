@@ -138,6 +138,7 @@ public final class WebMediaDLWatchConnectivityTransport: NSObject, WebMediaDLCom
 public final class WebMediaDLWatchConnectivityTransport: NSObject, WebMediaDLCompanionTransport {
 #endif
     public var fallback = WebMediaDLQueuedCompanionTransport()
+    public var lastResponse: String?
 
     public override init() {
         super.init()
@@ -164,6 +165,17 @@ public final class WebMediaDLWatchConnectivityTransport: NSObject, WebMediaDLCom
         fallback = queued
     }
 
+    public func sendResponse(_ payload: [String: String]) {
+        #if canImport(WatchConnectivity)
+        if WCSession.isSupported() {
+            WCSession.default.transferUserInfo(payload)
+        }
+        #endif
+        if let body = payload["body"] {
+            lastResponse = body
+        }
+    }
+
     #if canImport(WatchConnectivity)
     public func session(
         _ session: WCSession,
@@ -174,7 +186,10 @@ public final class WebMediaDLWatchConnectivityTransport: NSObject, WebMediaDLCom
     }
 
     public func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
-        _ = (session, userInfo)
+        if let body = userInfo["body"] as? String {
+            lastResponse = body
+        }
+        _ = session
     }
 
     #if os(iOS) || os(macOS)
@@ -267,22 +282,26 @@ public struct WebMediaDLMacCompanionForwarder: Sendable {
         self.client = client
     }
 
-    public func forward(_ relay: inout WebMediaDLCompanionRelay) async throws {
+    public func forward(_ relay: inout WebMediaDLCompanionRelay) async throws -> [String] {
+        var bodies: [String] = []
         for message in relay.drain() {
-            _ = try await client.forwardCompanion(
+            let body = try await client.forwardCompanion(
                 kind: message.kind.rawValue,
                 locator: message.locator,
                 jobId: message.jobId.flatMap(UUID.init(uuidString:)),
                 surface: message.surface
             )
+            bodies.append(body)
         }
+        return bodies
     }
 
     public func forwardSealed(
         _ relay: inout WebMediaDLCompanionRelay,
         pairingId: UUID,
         sessionKey: String
-    ) async throws {
+    ) async throws -> [String] {
+        var bodies: [String] = []
         for message in relay.drain() {
             let wrap = client.envelopeWrapRequest(
                 pairingId: pairingId,
@@ -291,7 +310,7 @@ public struct WebMediaDLMacCompanionForwarder: Sendable {
             )
             let (data, _) = try await URLSession.shared.data(for: wrap)
             let object = (try JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
-            _ = try await client.send(
+            let body = try await client.send(
                 client.sealedCompanionRequest(
                     pairingId: pairingId,
                     sessionKey: sessionKey,
@@ -300,7 +319,9 @@ public struct WebMediaDLMacCompanionForwarder: Sendable {
                     mac: object["mac"] as? String ?? ""
                 )
             )
+            bodies.append(body)
         }
+        return bodies
     }
 
     public mutating func receiveWatchConnectivityUserInfo(

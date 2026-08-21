@@ -348,6 +348,10 @@ def test_companion_transport_and_typed_history() -> None:
     assert "transport.send" in tv
     assert "activateSession()" in watch
     assert "activateSession()" in tv
+    assert "lastResponse" in watch
+    assert "lastResponse" in tv
+    assert "status.data(using: .utf8)" not in watch
+    assert "status.data(using: .utf8)" not in tv
     assert "relay.enqueue" not in watch
     assert "relay.enqueue" not in tv
     mac = (root / ROOT_VIEWS["macos"]).read_text(encoding="utf-8")
@@ -360,12 +364,15 @@ def test_companion_transport_and_typed_history() -> None:
     assert 'nonce: "wrap"' not in mac
     assert "forwardSealed(" in mac
     assert "sessionKey: sessionKey" in mac
+    assert "sendResponse(" in mac
     loopback = (root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/LoopbackClient.swift").read_text(
         encoding="utf-8"
     )
     assert "func historyEntries() async throws -> [WebMediaDLHistoryEntry]" in loopback
     assert "func pairRequest(" in loopback
     assert "WebMediaDLPairingChallenge" in loopback or "startPairing" in loopback
+    assert "does not require a stored worker token" in loopback
+    assert "lastResponse" in continuity
     assert "UserDefaults(suiteName:" in loopback
     assert "group.local.webmedia-dl" in loopback
     assert "func loadBookmark(" in loopback

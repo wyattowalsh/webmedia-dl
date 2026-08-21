@@ -13,6 +13,37 @@ def test_health_is_public(tmp_path: Path) -> None:
     assert response.json()["status"] == "ok"
 
 
+def test_pair_start_is_public_confirm_is_mac_owned(tmp_path: Path) -> None:
+    app = create_app(tmp_path)
+    client = TestClient(app)
+    created = client.post("/v1/pair")
+    assert created.status_code == 200
+    body = created.json()
+    assert body["confirmed"] is False
+    assert body["pairing_id"]
+    denied = client.post("/v1/pair/confirm", json={"pairing_id": body["pairing_id"]})
+    assert denied.status_code == 401
+    token = load_or_create_token(tmp_path)
+    confirmed = client.post(
+        "/v1/pair/confirm",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"pairing_id": body["pairing_id"]},
+    )
+    assert confirmed.status_code == 200
+    assert confirmed.json()["confirmed"] is True
+    assert confirmed.json()["session_key"]
+    later = client.post("/v1/pair").json()
+    paired_confirm = client.post(
+        "/v1/pair/confirm",
+        headers={
+            "X-WebMedia-Pairing": body["pairing_id"],
+            "X-WebMedia-Session": confirmed.json()["session_key"],
+        },
+        json={"pairing_id": later["pairing_id"]},
+    )
+    assert paired_confirm.status_code == 403
+
+
 def test_jobs_require_auth(tmp_path: Path, png_bytes: bytes) -> None:
     app = create_app(tmp_path)
     client = TestClient(app)

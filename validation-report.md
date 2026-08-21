@@ -2,8 +2,8 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 231 tests |
-| `uv run pytest --cov` | PASS | 86.96% (`fail_under` 85) |
+| `uv run pytest` | PASS | 232 tests |
+| `uv run pytest --cov` | PASS | 87.01% (`fail_under` 85) |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
 | `uv run ty check` | PASS | |
@@ -45,7 +45,7 @@
 | HTTP stream stop | PASS | `bound_fetch(..., should_stop=)` aborts mid-stream; cancel discards completed HTTP fetch; pause commits |
 | Wheel install | PASS | isolated `uv` venv import of packaged `runtime/export-presets.json` and `webmedia-dl --help` |
 | CLI names in README | PASS | every Typer command name appears in `README.md` |
-| App Group + pairing clients | PASS | `group.local.webmedia-dl` on apps and share extensions; iOS/iPad/vision `startPairing`; watch/tv speak intents use companion transport |
+| App Group + pairing clients | PASS | `group.local.webmedia-dl` on apps and share extensions; unauthenticated loopback `POST /v1/pair` bootstrap; Mac-only confirm; watch/tv history uses companion `lastResponse` |
 | Original planning-pack ZIP byte compare | BLOCKED | zip not in this workspace; 156 overlay files reconstructed |
 | Real WatchConnectivity radio | BLOCKED | WCSession scaffolding + queued fallback; no Apple radio on Linux |
 | Safari wrapping / signed NSExtension | BLOCKED | source handler conforms to `NSExtensionRequestHandling`; Xcode wrapping is not executed |

@@ -201,13 +201,19 @@ struct MacRootView: View {
                                     into: &companionRelay
                                 )
                                 if let id = UUID(uuidString: pairingId), !pairingId.isEmpty, !sessionKey.isEmpty {
-                                    try await forwarder.forwardSealed(
+                                    let bodies = try await forwarder.forwardSealed(
                                         &companionRelay,
                                         pairingId: id,
                                         sessionKey: sessionKey
                                     )
+                                    if let body = bodies.last {
+                                        watchDelegate?.sendResponse(["kind": "response", "body": body])
+                                    }
                                 } else {
-                                    try await forwarder.forward(&companionRelay)
+                                    let bodies = try await forwarder.forward(&companionRelay)
+                                    if let body = bodies.last {
+                                        watchDelegate?.sendResponse(["kind": "response", "body": body])
+                                    }
                                 }
                                 status = "Forwarded companion capture"
                             } catch {
