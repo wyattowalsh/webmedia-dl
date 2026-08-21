@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import WebMediaDLCore
 
 /// visionOS complete client: immersive capture plus paired-Mac heavy work.
@@ -28,6 +29,12 @@ public struct WebMediaDLVisionRootView: View {
                 .accessibilityAddTraits(.isHeader)
             TextField("Paste a media URL", text: $locator)
                 .accessibilityLabel("Media URL")
+            Button("Paste from clipboard") {
+                if let text = UIPasteboard.general.string {
+                    locator = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                }
+            }
+            .accessibilityLabel("Paste from clipboard")
             Button("Send to paired Mac") {
                 Task {
                     let response = (try? await pairedClient.submit(
@@ -65,6 +72,26 @@ public struct WebMediaDLVisionRootView: View {
                 }
             }
             .accessibilityLabel("Cancel last job")
+            Button("Pause last job") {
+                Task {
+                    guard let lastJobId else {
+                        status = "No job to pause"
+                        return
+                    }
+                    status = (try? await pairedClient.pauseJob(jobId: lastJobId)) ?? "Pairing required"
+                }
+            }
+            .accessibilityLabel("Pause last job")
+            Button("Resume last job") {
+                Task {
+                    guard let lastJobId else {
+                        status = "No job to resume"
+                        return
+                    }
+                    status = (try? await pairedClient.resumeJob(jobId: lastJobId)) ?? "Pairing required"
+                }
+            }
+            .accessibilityLabel("Resume last job")
             Text("Role \(role.rawValue). Loopback \(client.baseURL.absoluteString)")
         }
         .padding(32)

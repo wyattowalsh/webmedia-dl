@@ -117,3 +117,24 @@ def test_job_detail_companion_and_provenance(tmp_path: Path, png_bytes: bytes) -
     assert cancelled.status_code == 400
     nxt = client.post("/v1/queue/run-next", headers=headers)
     assert nxt.status_code == 200
+
+
+def test_pause_and_resume_job_endpoints(tmp_path: Path, png_bytes: bytes) -> None:
+    app = create_app(tmp_path)
+    token = load_or_create_token(tmp_path)
+    client = TestClient(app)
+    headers = {"Authorization": f"Bearer {token}"}
+    media = tmp_path / "held.png"
+    media.write_bytes(png_bytes)
+    created = client.post(
+        "/v1/jobs",
+        json={"locator": str(media), "wait": False},
+        headers=headers,
+    )
+    job_id = created.json()["job"]["job_id"]
+    paused = client.post(f"/v1/jobs/{job_id}/pause", headers=headers)
+    assert paused.status_code == 200
+    assert paused.json()["state"] == "paused"
+    resumed = client.post(f"/v1/jobs/{job_id}/resume", headers=headers)
+    assert resumed.status_code == 200
+    assert resumed.json()["state"] in {"completed", "failed", "accepted"}

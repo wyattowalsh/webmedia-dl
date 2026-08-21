@@ -250,3 +250,11 @@ def test_speak_history_artifacts_provenance_and_queue(tmp_path: Path, png_bytes:
     assert empty_speak.exit_code == 1
     cancel_done = runner.invoke(app, ["cancel", job_id, "--data-dir", str(data)])
     assert cancel_done.exit_code == 1
+    held = tmp_path / "queued.png"
+    held.write_bytes(png_bytes)
+    queued = runner.invoke(app, ["submit", str(held), "--data-dir", str(data), "--no-wait"])
+    queued_id = json.loads(queued.stdout)["job"]["job_id"]
+    job_paused = runner.invoke(app, ["pause", "--job", queued_id, "--data-dir", str(data)])
+    assert job_paused.exit_code == 0
+    job_resumed = runner.invoke(app, ["resume", "--job", queued_id, "--data-dir", str(data)])
+    assert job_resumed.exit_code == 0

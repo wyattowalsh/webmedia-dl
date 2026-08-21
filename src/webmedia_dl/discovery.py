@@ -94,6 +94,28 @@ class _MediaHTMLParser(HTMLParser):
             href = mapping.get("href")
             if href:
                 self.urls.append((href, MediaKind.UNKNOWN))
+        if tag in {"iframe", "embed", "object"}:
+            src = mapping.get("src") or mapping.get("data")
+            if src:
+                self.urls.append((src, MediaKind.VIDEO))
+        if tag == "link":
+            href = mapping.get("href")
+            rel = (mapping.get("rel") or "").lower()
+            as_attr = (mapping.get("as") or "").lower()
+            mime = (mapping.get("type") or "").lower()
+            if href and (
+                as_attr in {"video", "audio", "image", "track"}
+                or "preload" in rel
+                or mime.startswith(("video/", "audio/", "image/", "application/vnd.apple.mpegurl"))
+            ):
+                kind = MediaKind.VIDEO
+                if as_attr == "audio" or mime.startswith("audio/"):
+                    kind = MediaKind.AUDIO
+                elif as_attr == "image" or mime.startswith("image/"):
+                    kind = MediaKind.IMAGE
+                elif as_attr == "track":
+                    kind = MediaKind.SUBTITLE
+                self.urls.append((href, kind))
         if tag == "meta":
             key = mapping.get("property") or mapping.get("name")
             content = mapping.get("content")
@@ -151,6 +173,22 @@ def _candidate(
 
 def _usable_url(value: str) -> bool:
     return bool(value) and not value.lower().startswith("javascript:")
+
+
+def _kind_from_jsonld(item: dict, url: str) -> MediaKind:
+    kind = _kind_from_url(url)
+    if kind not in {MediaKind.PAGE, MediaKind.UNKNOWN}:
+        return kind
+    raw = item.get("@type") or item.get("type")
+    types = raw if isinstance(raw, list) else [raw]
+    joined = " ".join(str(token) for token in types if token).lower()
+    if any(token in joined for token in ("video", "movie", "clip", "broadcast")):
+        return MediaKind.VIDEO
+    if any(token in joined for token in ("audio", "music", "podcast", "song")):
+        return MediaKind.AUDIO
+    if any(token in joined for token in ("image", "photograph", "photo")):
+        return MediaKind.IMAGE
+    return kind
 
 
 def _walk_jsonld(node: object):
@@ -308,8 +346,10 @@ def discover(
         ("twitter:image", MediaKind.IMAGE),
         ("og:video", MediaKind.VIDEO),
         ("og:video:url", MediaKind.VIDEO),
+        ("og:video:secure_url", MediaKind.VIDEO),
         ("og:audio", MediaKind.AUDIO),
         ("og:audio:url", MediaKind.AUDIO),
+        ("og:audio:secure_url", MediaKind.AUDIO),
         ("twitter:player:stream", MediaKind.VIDEO),
     ):
         meta_url = parser.meta.get(key)
@@ -362,7 +402,7 @@ def discover(
                     _candidate(
                         source,
                         absolute,
-                        _kind_from_url(absolute),
+                        _kind_from_jsonld(item, absolute),
                         title=title,
                         evidence=["discover:jsonld"],
                         drm=detect_drm_signals(absolute),

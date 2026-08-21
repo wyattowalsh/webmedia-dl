@@ -12,7 +12,12 @@ from webmedia_dl.domain.enums import ArtifactRole, IntakeKind, JobState, MediaKi
 from webmedia_dl.domain.models import Artifact, ExportPlan, Job, MediaProbe, MediaSource, Operation
 from webmedia_dl.errors import DiscoveryError, PauseRequested, ProviderPolicyError
 from webmedia_dl.intake import normalize_source
-from webmedia_dl.live import record_clear_stream, recordable_segment_urls
+from webmedia_dl.live import (
+    ManifestPart,
+    record_clear_stream,
+    recordable_parts,
+    recordable_segment_urls,
+)
 from webmedia_dl.pipeline import Pipeline
 from webmedia_dl.probe import probe_media
 from webmedia_dl.processing import execute_export_plan, ordered_operations
@@ -175,7 +180,7 @@ def test_hls_map_and_byterange(tmp_path: Path) -> None:
     assert output.read_bytes() == b"INITABCDEF"
 
 
-def test_dash_segment_timeline() -> None:
+def test_dash_segment_timeline(tmp_path: Path) -> None:
     text = """
     <MPD>
       <Period>
@@ -200,6 +205,41 @@ def test_dash_segment_timeline() -> None:
     times = recordable_segment_urls(timed, "https://cdn.example.com/d/")
     assert "https://cdn.example.com/d/t_100.m4s" in times
     assert "https://cdn.example.com/d/t_150.m4s" in times
+    listed = """
+    <MPD><Period><SegmentList>
+      <Initialization sourceURL="init.mp4"/>
+      <SegmentURL media="a.m4s"/>
+      <SegmentURL media="b.m4s"/>
+    </SegmentList></Period></MPD>
+    """
+    segs = recordable_segment_urls(listed, "https://cdn.example.com/l/")
+    assert segs == [
+        "https://cdn.example.com/l/init.mp4",
+        "https://cdn.example.com/l/a.m4s",
+        "https://cdn.example.com/l/b.m4s",
+    ]
+    ranged = """
+    <MPD><Period><SegmentList>
+      <Initialization sourceURL="bundle.mp4" range="0-3"/>
+      <SegmentURL media="bundle.mp4" mediaRange="4-7"/>
+      <SegmentURL media="bundle.mp4" mediaRange="8-11"/>
+    </SegmentList></Period></MPD>
+    """
+    parts = recordable_parts(ranged, "https://cdn.example.com/r/")
+    assert parts == [
+        ManifestPart("https://cdn.example.com/r/bundle.mp4", 0, 4),
+        ManifestPart("https://cdn.example.com/r/bundle.mp4", 4, 4),
+        ManifestPart("https://cdn.example.com/r/bundle.mp4", 8, 4),
+    ]
+    blob = b"INITSEGASEGBXXXX"
+
+    def fetch_bundle(url: str) -> tuple[int, str, bytes]:
+        assert url.endswith("bundle.mp4")
+        return 200, "video/mp4", blob
+
+    output = tmp_path / "dash.bin"
+    record_clear_stream(ranged, "https://cdn.example.com/r/manifest.mpd", output, fetch_bundle)
+    assert output.read_bytes() == b"INITSEGASEGB"
 
 
 def test_live_empty_and_nested_failure(tmp_path: Path) -> None:

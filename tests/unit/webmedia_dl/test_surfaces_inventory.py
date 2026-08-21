@@ -113,6 +113,24 @@ def test_apple_app_shells_exist() -> None:
     assert 'intakeKind: "share_sheet"' in mac_share
     assert 'intakeKind: "share_sheet"' in ios_share
     assert "Cancel last job" in mac
+    assert "Pause last job" in mac
+    assert "Resume last job" in mac
+    assert "Paste from clipboard" in mac
+    assert "Paste from clipboard" in ipad
+    assert "Paste from clipboard" in vision
+    assert "Pause last job" in ipad
+    assert "Resume last job" in ipad
+    assert "Pause last job" in vision
+    assert "Resume last job" in vision
+    assert "Pause last job" in tv
+    assert "Resume last job" in tv
+    assert "pause_job" in watch
+    ios = (root / "apps/WebMediaDLiOS/Sources/WebMediaDLiOS/WebMediaDLiOSRootView.swift").read_text(
+        encoding="utf-8"
+    )
+    assert "Paste from clipboard" in ios
+    assert "Pause last job" in ios
+    assert "Resume last job" in ios
     assert "func jobId(from" in (
         root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/LoopbackClient.swift"
     ).read_text(encoding="utf-8")

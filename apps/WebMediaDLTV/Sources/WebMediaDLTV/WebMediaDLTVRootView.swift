@@ -43,6 +43,14 @@ public struct WebMediaDLTVRootView: View {
                     Task { await send(kind: "cancel", jobId: lastJobId) }
                 }
                 .accessibilityLabel("Cancel last job")
+                Button("Pause last job") {
+                    Task { await send(kind: "pause_job", jobId: lastJobId) }
+                }
+                .accessibilityLabel("Pause last job")
+                Button("Resume last job") {
+                    Task { await send(kind: "resume_job", jobId: lastJobId) }
+                }
+                .accessibilityLabel("Resume last job")
                 Text("Role \(role.rawValue). Companion to Mac worker.")
             }
             .navigationTitle("WebMedia DL")

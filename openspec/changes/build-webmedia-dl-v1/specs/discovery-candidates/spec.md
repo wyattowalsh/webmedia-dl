@@ -9,6 +9,9 @@ Discovery SHALL produce `MediaCandidate` nodes from direct URLs or bounded HTML
 Mixed-media pages SHALL keep one preferred candidate per media kind.
 HTML discovery SHALL include `track[src]` subtitles and `a[href]` locators that
 name a direct media or document object. Non-media anchors SHALL be ignored.
+HTML discovery SHALL also collect `iframe`/`embed`/`object` locators, `link`
+preload media, Open Graph `og:video:secure_url` / `og:audio:secure_url`, and
+JSON-LD `@type` when the locator has no media extension.
 
 #### Scenario: HTML extracts media without using the title as identity
 
@@ -19,6 +22,12 @@ name a direct media or document object. Non-media anchors SHALL be ignored.
 
 - **WHEN** a page contains `track[src]` and an `a[href]` to a PDF
 - **THEN** subtitle and document candidates exist and `/about` is ignored
+
+#### Scenario: iframe, preload link, and JSON-LD type
+
+- **WHEN** a page contains an `iframe` to an `.m3u8`, a preload video `link`, and
+  JSON-LD `VideoObject.embedUrl` without a media extension
+- **THEN** live-stream, video, and typed JSON-LD video candidates exist
 
 ### Requirement: Candidate graph grouping
 

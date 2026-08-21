@@ -411,6 +411,13 @@ def test_dash_baseurl_and_encrypted_master() -> None:
     text = "<MPD><Period><BaseURL>seg.m4s</BaseURL></Period></MPD>"
     urls = recordable_segment_urls(text, "https://cdn.example.com/dash/")
     assert urls == ["https://cdn.example.com/dash/seg.m4s"]
+    prefixed = (
+        "<MPD><Period><BaseURL>https://cdn.example.com/dash/</BaseURL>"
+        '<SegmentURL media="a.m4s"/></Period></MPD>'
+    )
+    assert recordable_segment_urls(prefixed, "https://cdn.example.com/manifest.mpd") == [
+        "https://cdn.example.com/dash/a.m4s"
+    ]
     with pytest.raises(DrmRefused):
         recordable_segment_urls(
             '#EXTM3U\n#EXT-X-KEY:METHOD=SAMPLE-AES,URI="k"\nseg.ts\n',

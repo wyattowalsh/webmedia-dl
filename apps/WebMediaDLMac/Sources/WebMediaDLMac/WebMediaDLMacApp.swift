@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import UniformTypeIdentifiers
 import WebMediaDLCore
 
@@ -36,6 +37,14 @@ struct MacRootView: View {
                     }
                     .accessibilityLabel("Submit to local worker")
                     .keyboardShortcut(.defaultAction)
+                    Button("Paste from clipboard") {
+                        #if os(macOS)
+                        if let text = NSPasteboard.general.string(forType: .string) {
+                            locator = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                        }
+                        #endif
+                    }
+                    .accessibilityLabel("Paste from clipboard")
                 }
                 Section("Status") {
                     Text(status)
@@ -100,6 +109,20 @@ struct MacRootView: View {
                         }
                     }
                     .accessibilityLabel("Pause last job")
+                    Button("Resume last job") {
+                        Task {
+                            guard let lastJobId else {
+                                status = "No job to resume"
+                                return
+                            }
+                            do {
+                                status = try await WebMediaDLLoopbackClient(token: token).resumeJob(jobId: lastJobId)
+                            } catch {
+                                status = error.localizedDescription
+                            }
+                        }
+                    }
+                    .accessibilityLabel("Resume last job")
                 }
                 Section("Pairing") {
                     TextField("Pairing id to confirm", text: $pairingId)

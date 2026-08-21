@@ -6,7 +6,7 @@ import re
 from collections.abc import Callable
 from pathlib import Path
 from typing import NamedTuple
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 from tqdm import tqdm
 
@@ -67,7 +67,7 @@ def recordable_parts(text: str, base: str) -> list[ManifestPart]:
         if _DASH_CONTENT_PROTECTION.search(text) and "cenc" in text.lower():
             msg = "DASH ContentProtection/cenc is refused."
             raise DrmRefused(msg)
-        return [ManifestPart(url) for url in _dash_segment_urls(text, base)]
+        return _dash_parts(text, base)
     parts = _clear_hls_parts(text, base)
     if not parts:
         match = _ENCRYPTED_HLS.search(text)
@@ -83,6 +83,20 @@ def recordable_parts(text: str, base: str) -> list[ManifestPart]:
 
 def _join(base: str, href: str) -> str:
     return href if href.startswith("http") else urljoin(base, href)
+
+
+def _parse_dash_range(text: str | None) -> tuple[int | None, int | None]:
+    """Parse inclusive DASH `range` / `mediaRange` (`start-end`) into offset+length."""
+    if not text:
+        return None, None
+    match = re.fullmatch(r"(\d+)-(\d+)", text.strip())
+    if match is None:
+        return None, None
+    start = int(match.group(1))
+    end = int(match.group(2))
+    if end < start:
+        return None, None
+    return start, end - start + 1
 
 
 def _parse_byterange(
@@ -221,26 +235,51 @@ def _template_urls(attr_blob: str, body: str, base: str) -> list[str]:
     return urls
 
 
-def _dash_segment_urls(text: str, base: str) -> list[str]:
-    urls: list[str] = []
+def _dash_parts(text: str, base: str) -> list[ManifestPart]:
+    parts: list[ManifestPart] = []
+    seen: set[tuple[str, int | None, int | None]] = set()
+    seen_urls: set[str] = set()
+    resolve_base = base
+
+    def add(part: ManifestPart) -> None:
+        key = (part.url, part.start, part.length)
+        if key in seen:
+            return
+        seen.add(key)
+        seen_urls.add(part.url)
+        parts.append(part)
+
     for href in _DASH_BASE_URL.findall(text):
-        urls.append(_join(base, href.strip()))
+        resolved = _join(resolve_base, href.strip())
+        suffix = Path(urlparse(resolved).path).suffix.lower()
+        if resolved.endswith("/") or not suffix:
+            resolve_base = resolved if resolved.endswith("/") else f"{resolved}/"
+            continue
+        add(ManifestPart(resolved))
     for match in _DASH_TEMPLATE.finditer(text):
-        urls.extend(_template_urls(match.group(1), match.group(2) or "", base))
+        for url in _template_urls(match.group(1), match.group(2) or "", resolve_base):
+            add(ManifestPart(url))
+    for match in re.finditer(r"<Initialization\b([^>]*)/?>", text, flags=re.I):
+        attrs = _attrs(match.group(1))
+        href = attrs.get("sourceurl")
+        if href:
+            start, length = _parse_dash_range(attrs.get("range"))
+            add(ManifestPart(_join(resolve_base, href.strip()), start, length))
+    for match in re.finditer(r"<SegmentURL\b([^>]*)/?>", text, flags=re.I):
+        attrs = _attrs(match.group(1))
+        href = attrs.get("media")
+        if href:
+            start, length = _parse_dash_range(attrs.get("mediarange"))
+            add(ManifestPart(_join(resolve_base, href.strip()), start, length))
     for media in _DASH_MEDIA.findall(text):
-        resolved = _expand_dash_template(
-            media,
-            number=1,
-            time_value=0,
-        )
+        resolved = _expand_dash_template(media, number=1, time_value=0)
         if "$" in resolved:
             continue
-        urls.append(_join(base, resolved))
-    seen: list[str] = []
-    for item in urls:
-        if item not in seen:
-            seen.append(item)
-    return seen
+        url = _join(resolve_base, resolved)
+        if url in seen_urls:
+            continue
+        add(ManifestPart(url))
+    return parts
 
 
 def record_clear_stream(

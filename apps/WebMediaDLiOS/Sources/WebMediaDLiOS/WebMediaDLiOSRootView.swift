@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import WebMediaDLCore
 
 /// iPhone complete client: lightweight local transfer plus paired-Mac heavy work.
@@ -27,6 +28,12 @@ public struct WebMediaDLiOSRootView: View {
                     TextField("Share or paste a URL", text: $locator)
                         .textInputAutocapitalization(.never)
                         .accessibilityLabel("Media URL")
+                    Button("Paste from clipboard") {
+                        if let text = UIPasteboard.general.string {
+                            locator = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                        }
+                    }
+                    .accessibilityLabel("Paste from clipboard")
                     Button("Send to paired Mac") {
                         Task {
                             let response = (try? await client.submit(
@@ -83,6 +90,26 @@ public struct WebMediaDLiOSRootView: View {
                         }
                     }
                     .accessibilityLabel("Cancel last job")
+                    Button("Pause last job") {
+                        Task {
+                            guard let lastJobId else {
+                                status = "No job to pause"
+                                return
+                            }
+                            status = (try? await client.pauseJob(jobId: lastJobId)) ?? "Pairing required"
+                        }
+                    }
+                    .accessibilityLabel("Pause last job")
+                    Button("Resume last job") {
+                        Task {
+                            guard let lastJobId else {
+                                status = "No job to resume"
+                                return
+                            }
+                            status = (try? await client.resumeJob(jobId: lastJobId)) ?? "Pairing required"
+                        }
+                    }
+                    .accessibilityLabel("Resume last job")
                 }
             }
             .navigationTitle("WebMedia DL")

@@ -7,6 +7,9 @@ describe("collectMediaEvidence", () => {
     const doc = {
       location: { href: "https://example.com/page" },
       querySelectorAll: (selector) => {
+        if (selector.includes("iframe") || selector.includes("link[href]")) {
+          return [];
+        }
         if (selector.includes("ld+json")) {
           return [
             {
@@ -38,6 +41,44 @@ describe("collectMediaEvidence", () => {
     assert.ok(urls.includes("https://cdn.example.com/og.png"));
     assert.ok(urls.includes("https://cdn.example.com/ld.mp4"));
     assert.ok(!urls.some((item) => item.startsWith("javascript:")));
+  });
+
+  it("collects iframe and link preload media", () => {
+    const doc = {
+      location: { href: "https://example.com/page" },
+      querySelectorAll: (selector) => {
+        if (selector.includes("iframe")) {
+          return [{ getAttribute: (name) => (name === "src" ? "https://cdn.example.com/live.m3u8" : null) }];
+        }
+        if (selector.includes("link[href]")) {
+          return [
+            {
+              getAttribute: (name) => {
+                if (name === "href") return "https://cdn.example.com/pre.mp4";
+                if (name === "as") return "video";
+                if (name === "rel") return "preload";
+                return null;
+              },
+            },
+            {
+              getAttribute: (name) => {
+                if (name === "href") return "https://cdn.example.com/still.png";
+                if (name === "as") return "image";
+                if (name === "rel") return "preload";
+                return null;
+              },
+            },
+          ];
+        }
+        return [];
+      },
+    };
+    const result = collectMediaEvidence(doc);
+    const urls = result.evidence.map((item) => item.url);
+    assert.ok(urls.includes("https://cdn.example.com/live.m3u8"));
+    assert.ok(urls.includes("https://cdn.example.com/pre.mp4"));
+    assert.ok(urls.includes("https://cdn.example.com/still.png"));
+    assert.equal(result.nativeCommand, null);
   });
 
   it("collectFromActiveTab falls back without a tabs API", async () => {

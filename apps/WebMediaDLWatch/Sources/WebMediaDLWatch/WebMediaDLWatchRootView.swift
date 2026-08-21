@@ -33,13 +33,25 @@ public struct WebMediaDLWatchRootView: View {
             }
             .accessibilityLabel("Queue status")
             Button("Pause") {
-                Task { await send(kind: "pause") }
+                Task {
+                    if let lastJobId {
+                        await send(kind: "pause_job", jobId: lastJobId)
+                    } else {
+                        await send(kind: "pause")
+                    }
+                }
             }
             .accessibilityLabel("Pause current job")
             Button("Resume") {
-                Task { await send(kind: "resume") }
+                Task {
+                    if let lastJobId {
+                        await send(kind: "resume_job", jobId: lastJobId)
+                    } else {
+                        await send(kind: "resume")
+                    }
+                }
             }
-            .accessibilityLabel("Resume queue")
+            .accessibilityLabel("Resume current job")
             Button("Cancel") {
                 Task { await send(kind: "cancel", jobId: lastJobId) }
             }

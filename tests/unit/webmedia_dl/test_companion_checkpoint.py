@@ -174,3 +174,30 @@ def test_companion_endpoint_requires_mac_actor(tmp_path: Path) -> None:
         json={"kind": "resume"},
         headers={"Authorization": f"Bearer {token}"},
     )
+
+
+def test_companion_pause_and_resume_job(tmp_path: Path, png_bytes: bytes) -> None:
+    pipeline = Pipeline(data_dir=tmp_path / "worker-data")
+    media = tmp_path / "held.png"
+    media.write_bytes(png_bytes)
+    job = pipeline.submit(str(media), wait=False)
+    paused = pipeline.handle_companion(
+        {
+            "kind": "pause_job",
+            "job_id": str(job.job_id),
+            "nativeCommand": None,
+            "subprocessWorker": False,
+        }
+    )
+    assert paused["kind"] == "pause_job"
+    assert paused["job"]["state"] == "paused"
+    resumed = pipeline.handle_companion(
+        {
+            "kind": "resume_job",
+            "job_id": str(job.job_id),
+            "nativeCommand": None,
+            "subprocessWorker": False,
+        }
+    )
+    assert resumed["kind"] == "resume_job"
+    assert resumed["job"]["state"] in {"accepted", "completed", "failed"}

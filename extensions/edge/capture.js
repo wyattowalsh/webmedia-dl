@@ -31,11 +31,17 @@ export function pageCollector(doc) {
     if (!node || typeof node !== "object") {
       return;
     }
+    const jsonLdType = String(node["@type"] || node.type || "").toLowerCase();
+    const jsonLdKind = jsonLdType.includes("audio")
+      ? "audio"
+      : jsonLdType.includes("image")
+        ? "image"
+        : "video";
     if (typeof node.contentUrl === "string") {
-      push(node.contentUrl, "video");
+      push(node.contentUrl, jsonLdKind);
     }
     if (typeof node.embedUrl === "string") {
-      push(node.embedUrl, "video");
+      push(node.embedUrl, jsonLdKind);
     }
     Object.values(node).forEach((value) => walkJsonLd(value));
   };
@@ -57,9 +63,11 @@ export function pageCollector(doc) {
     "twitter:image": "image",
     "og:video": "video",
     "og:video:url": "video",
+    "og:video:secure_url": "video",
     "twitter:player:stream": "video",
     "og:audio": "audio",
     "og:audio:url": "audio",
+    "og:audio:secure_url": "audio",
   };
   root.querySelectorAll?.("meta").forEach((el) => {
     const key = el.getAttribute?.("property") || el.getAttribute?.("name");
@@ -74,6 +82,34 @@ export function pageCollector(doc) {
       walkJsonLd(JSON.parse(raw));
     } catch {
       /* ignore malformed JSON-LD */
+    }
+  });
+  root.querySelectorAll?.("iframe, embed, object").forEach((el) => {
+    push(el.getAttribute?.("src") || el.getAttribute?.("data"), "video");
+  });
+  root.querySelectorAll?.("link[href]").forEach((el) => {
+    const asAttr = (el.getAttribute?.("as") || "").toLowerCase();
+    const rel = (el.getAttribute?.("rel") || "").toLowerCase();
+    const mime = (el.getAttribute?.("type") || "").toLowerCase();
+    if (
+      asAttr === "video" ||
+      asAttr === "audio" ||
+      asAttr === "image" ||
+      asAttr === "track" ||
+      rel.includes("preload") ||
+      mime.startsWith("video/") ||
+      mime.startsWith("audio/") ||
+      mime.startsWith("image/")
+    ) {
+      let kind = "video";
+      if (asAttr === "audio" || mime.startsWith("audio/")) {
+        kind = "audio";
+      } else if (asAttr === "image" || mime.startsWith("image/")) {
+        kind = "image";
+      } else if (asAttr === "track") {
+        kind = "subtitle";
+      }
+      push(el.getAttribute?.("href"), kind);
     }
   });
   root.querySelectorAll?.("a[href]").forEach((el) => {
@@ -140,6 +176,7 @@ export async function submitToWorker(baseUrl, token, locator, surface = "chromiu
       surface,
       local_user_confirmed: true,
       wait: false,
+      intake_kind: "browser_evidence",
       evidence,
     }),
   });

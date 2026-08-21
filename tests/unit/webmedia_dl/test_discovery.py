@@ -67,6 +67,32 @@ def test_html_discovery_extracts_track_and_media_anchors() -> None:
     assert not any(item.endswith("/about") for item in urls)
 
 
+def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
+    html = """
+    <html>
+      <head>
+        <meta property="og:video:secure_url" content="https://cdn.example.com/secure.mp4">
+        <link rel="preload" as="video" href="https://cdn.example.com/pre.mp4">
+        <script type="application/ld+json">
+          {"@type": "VideoObject", "embedUrl": "https://example.com/watch?v=1"}
+        </script>
+      </head>
+      <body>
+        <iframe src="https://cdn.example.com/player.m3u8"></iframe>
+      </body>
+    </html>
+    """
+    profile = get_profile("personal-full")
+    candidates = discover(_source(), profile, html=html)
+    urls = [item.retrieval_urls[0] for item in candidates if item.retrieval_urls]
+    kinds = {item.retrieval_urls[0]: item.media_kind for item in candidates if item.retrieval_urls}
+    assert "https://cdn.example.com/secure.mp4" in urls
+    assert "https://cdn.example.com/pre.mp4" in urls
+    assert "https://cdn.example.com/player.m3u8" in urls
+    assert kinds["https://example.com/watch?v=1"] is MediaKind.VIDEO
+    assert kinds["https://cdn.example.com/player.m3u8"] is MediaKind.LIVE_STREAM
+
+
 def test_direct_png_skips_html() -> None:
     profile = get_profile("personal-full")
     source = MediaSource(
