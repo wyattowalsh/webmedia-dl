@@ -10,10 +10,17 @@ from uuid import UUID
 from webmedia_dl.artifacts import ArtifactStore
 from webmedia_dl.domain.enums import ArtifactRole, EventType, JobState
 from webmedia_dl.domain.models import Artifact, ExportPlan, Operation
-from webmedia_dl.errors import CancelledError, PauseRequested, ProviderPolicyError, WebMediaError
+from webmedia_dl.errors import (
+    CancelledError,
+    PauseRequested,
+    ProviderPolicyError,
+    RequiredOperationFailed,
+    WebMediaError,
+)
+from webmedia_dl.probe import probe_media
 from webmedia_dl.providers import ProviderRequest, ProviderRuntime
 from webmedia_dl.queue import QueueStore
-from webmedia_dl.validation import require_pass, validate_artifact
+from webmedia_dl.validation import require_pass, validate_artifact, validate_probe
 
 
 def provider_for_operation(operation: Operation) -> str:
@@ -72,10 +79,27 @@ def execute_export_plan(
     skip = skip_operation_ids or set()
     staging.mkdir(parents=True, exist_ok=True)
     queue.set_state(job_id, JobState.EXPORTING)
+    op_ids = {item.operation_id for item in plan.operations}
+    failed_ops: set[str] = set()
+    required_failures: list[WebMediaError] = []
     for operation in ordered_operations(plan):
         if check_control is not None:
             check_control()
+        compound = f"{source.artifact_id}:{operation.operation_id}"
+        if existing and compound in existing:
+            artifacts[operation.operation_id] = existing[compound]
+            artifacts[compound] = existing[compound]
+            continue
         if operation.operation_id in skip and operation.operation_id in artifacts:
+            continue
+        if compound in skip:
+            continue
+        if any(dep in failed_ops for dep in operation.input_artifact_ids if dep in op_ids):
+            failed_ops.add(operation.operation_id)
+            if not operation.optional:
+                required_failures.append(
+                    ProviderPolicyError(f"{operation.operation_id} skipped; required input failed.")
+                )
             continue
         if operation.op_type == "identity.copy":
             artifacts[operation.operation_id] = (source, source_path)
@@ -95,6 +119,7 @@ def execute_export_plan(
             request = ProviderRequest(
                 provider_id=provider_for_operation(operation),
                 capability_id=operation.capability_id,
+                job_id=job_id,
                 typed_inputs={
                     "input": str(current_path),
                     "output": str(output),
@@ -137,6 +162,17 @@ def execute_export_plan(
                     EventType.VALIDATION_RECORDED,
                     {"gate": item.gate_id, "status": item.status.value},
                 )
+            if operation.op_type.startswith("ffmpeg."):
+                probe = probe_media(result.output_path)
+                probe_results = validate_probe(job_id, derivative, probe)
+                for item in probe_results:
+                    queue.emit(
+                        job_id,
+                        EventType.VALIDATION_RECORDED,
+                        {"gate": item.gate_id, "status": item.status.value},
+                    )
+                if probe is not None:
+                    require_pass(probe_results)
             produced.append((derivative, result.output_path))
             artifacts[derivative.artifact_id] = (derivative, result.output_path)
             artifacts[operation.operation_id] = (derivative, result.output_path)
@@ -154,12 +190,18 @@ def execute_export_plan(
         except (PauseRequested, CancelledError):
             raise
         except WebMediaError as exc:
+            failed_ops.add(operation.operation_id)
             queue.emit(
                 job_id,
                 EventType.OPERATION_FAILED,
                 {"operation_id": operation.operation_id, "message": str(exc)},
             )
+            if operation.optional:
+                continue
+            required_failures.append(exc)
             continue
+    if required_failures:
+        raise RequiredOperationFailed(str(required_failures[0]), produced=produced)
     return produced
 
 

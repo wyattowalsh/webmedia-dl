@@ -53,7 +53,9 @@ def fake_ytdlp_run(
             }
             return 0, json.dumps(body).encode(), b""
         output = argv[argv.index("--output") + 1]
-        Path(output).write_bytes(output_bytes)
+        dest = Path(str(output).replace("%(ext)s", "mp4"))
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(output_bytes)
         return acquire_code, b"", b"fail" if acquire_code else b""
 
     return run

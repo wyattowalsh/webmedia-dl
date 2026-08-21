@@ -147,6 +147,44 @@ class QueueStore:
                 return job
         return None
 
+    def claim_next(self) -> Job | None:
+        """Atomically claim the oldest accepted job by moving it to discovering."""
+        from sqlalchemy import text
+
+        for _ in range(8):
+            with self.engine.begin() as conn:
+                paused = conn.execute(
+                    text("SELECT paused FROM queue_control WHERE id = 1")
+                ).scalar()
+                if paused:
+                    return None
+                row = conn.execute(
+                    text(
+                        "SELECT job_id, payload FROM jobs "
+                        "WHERE state = :state ORDER BY created_at ASC LIMIT 1"
+                    ),
+                    {"state": JobState.ACCEPTED.value},
+                ).fetchone()
+                if row is None:
+                    return None
+                job = Job.model_validate_json(row[1])
+                claimed = job.model_copy(update={"state": JobState.DISCOVERING})
+                result = conn.execute(
+                    text(
+                        "UPDATE jobs SET state = :new_state, payload = :payload "
+                        "WHERE job_id = :job_id AND state = :old_state"
+                    ),
+                    {
+                        "new_state": JobState.DISCOVERING.value,
+                        "payload": claimed.model_dump_json(),
+                        "job_id": row[0],
+                        "old_state": JobState.ACCEPTED.value,
+                    },
+                )
+                if result.rowcount == 1:
+                    return claimed
+        return None
+
     def set_state(self, job_id: UUID, state: JobState, error: str | None = None) -> Job:
         ctx = self.get_context(job_id)
         job = self.get_job(job_id)

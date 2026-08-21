@@ -31,6 +31,7 @@ _DASH_S = re.compile(r"<S\b([^>]*)/?>", re.I)
 _DASH_ATTR = re.compile(r'([A-Za-z_:][\w:.-]*)="([^"]*)"')
 _NUMBER_TOKEN = re.compile(r"\$Number(%[^$]+)?\$")
 _TIME_TOKEN = re.compile(r"\$Time(%[^$]+)?\$")
+MAX_TIMELINE_SEGMENTS = 64
 
 FetchFn = Callable[[str], tuple[int, str, bytes]]
 StopFn = Callable[[], None]
@@ -43,8 +44,8 @@ class ManifestPart(NamedTuple):
 
 
 def inspect_manifest(text: str) -> None:
-    if _DASH_CONTENT_PROTECTION.search(text) and "cenc" in text.lower():
-        msg = "DASH ContentProtection/cenc is refused."
+    if _DASH_CONTENT_PROTECTION.search(text):
+        msg = "DASH ContentProtection is refused."
         raise DrmRefused(msg)
     if recordable_parts(text, "https://live.invalid/") or "<MPD" in text or "<mpd" in text:
         return
@@ -64,8 +65,8 @@ def recordable_segment_urls(text: str, base: str) -> list[str]:
 
 def recordable_parts(text: str, base: str) -> list[ManifestPart]:
     if "<MPD" in text or "<mpd" in text:
-        if _DASH_CONTENT_PROTECTION.search(text) and "cenc" in text.lower():
-            msg = "DASH ContentProtection/cenc is refused."
+        if _DASH_CONTENT_PROTECTION.search(text):
+            msg = "DASH ContentProtection is refused."
             raise DrmRefused(msg)
         return _dash_parts(text, base)
     parts = _clear_hls_parts(text, base)
@@ -223,9 +224,10 @@ def _template_urls(attr_blob: str, body: str, base: str) -> list[str]:
                 clock = int(sattrs["t"])
             duration = int(sattrs.get("d") or 0)
             repeats = int(sattrs.get("r") or 0)
-            count = repeats + 1
+            count = max(MAX_TIMELINE_SEGMENTS - len(urls), 1) if repeats < 0 else repeats + 1
             if count < 1:
                 count = 1
+            count = min(count, MAX_TIMELINE_SEGMENTS)
             for _ in range(count):
                 add(media, number=number, time_value=clock)
                 number += 1
@@ -293,8 +295,8 @@ def record_clear_stream(
     should_stop: StopFn | None = None,
 ) -> Path:
     dest = output
-    if _DASH_CONTENT_PROTECTION.search(playlist_text) and "cenc" in playlist_text.lower():
-        msg = "DASH ContentProtection/cenc is refused."
+    if _DASH_CONTENT_PROTECTION.search(playlist_text):
+        msg = "DASH ContentProtection is refused."
         raise DrmRefused(msg)
     parts = recordable_parts(playlist_text, playlist_url)
     if not parts:

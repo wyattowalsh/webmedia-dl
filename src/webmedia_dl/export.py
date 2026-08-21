@@ -9,7 +9,7 @@ from uuid import UUID
 from webmedia_dl.domain.enums import ArtifactRole, LossClass, MediaKind
 from webmedia_dl.domain.models import Artifact, ExportIntent, ExportPlan, Operation
 from webmedia_dl.errors import ProviderPolicyError
-from webmedia_dl.paths import repo_root
+from webmedia_dl.paths import runtime_file
 
 IMAGE_CONTAINERS = {"jpg", "jpeg", "png", "webp", "avif", "gif", "tif", "tiff"}
 PASSTHROUGH_KINDS = {MediaKind.DOCUMENT, MediaKind.SUBTITLE}
@@ -17,7 +17,7 @@ PASSTHROUGH_KINDS = {MediaKind.DOCUMENT, MediaKind.SUBTITLE}
 
 @lru_cache(maxsize=1)
 def load_presets() -> dict[str, dict[str, object]]:
-    path = repo_root() / "resources" / "export-presets.json"
+    path = runtime_file("export-presets.json")
     return json.loads(path.read_text(encoding="utf-8"))
 
 

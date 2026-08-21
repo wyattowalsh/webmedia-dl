@@ -7,7 +7,7 @@ from functools import lru_cache
 
 from webmedia_dl.domain.enums import Surface
 from webmedia_dl.domain.models import Capability
-from webmedia_dl.paths import repo_root
+from webmedia_dl.paths import runtime_file
 from webmedia_dl.providers import ProviderRuntime, builtin_manifests
 
 CAPABILITY_PLATFORMS: dict[str, list[Surface]] = {
@@ -75,7 +75,7 @@ CAPABILITY_PLATFORMS: dict[str, list[Surface]] = {
 
 @lru_cache(maxsize=1)
 def load_platform_matrix() -> dict[str, list[str]]:
-    path = repo_root() / "resources" / "platform-capability-matrix.json"
+    path = runtime_file("platform-capability-matrix.json")
     return json.loads(path.read_text(encoding="utf-8"))
 
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -12,12 +13,20 @@ from webmedia_dl.domain.enums import MediaKind
 from webmedia_dl.domain.models import MediaProbe, StreamInfo
 
 
-def probe_media(path: Path, *, candidate_id: UUID | None = None) -> MediaProbe | None:
-    binary = shutil.which("ffprobe")
+def probe_media(
+    path: Path,
+    *,
+    candidate_id: UUID | None = None,
+    which: Callable[[str], str | None] | None = None,
+    runner: Callable[..., object] | None = None,
+) -> MediaProbe | None:
+    locate = which or shutil.which
+    binary = locate("ffprobe")
     if binary is None:
         return None
+    run = runner or subprocess.run
     try:
-        completed = subprocess.run(
+        completed = run(
             [
                 binary,
                 "-v",
@@ -34,11 +43,16 @@ def probe_media(path: Path, *, candidate_id: UUID | None = None) -> MediaProbe |
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
-    if completed.returncode != 0:
+    if getattr(completed, "returncode", 1) != 0:
         return None
     try:
-        payload = json.loads(completed.stdout.decode() or "{}")
-    except json.JSONDecodeError:
+        raw = getattr(completed, "stdout", None)
+        if raw in (None, b"", ""):
+            raw = "{}"
+        if isinstance(raw, bytes):
+            raw = raw.decode("utf-8")
+        payload = json.loads(raw)
+    except (TypeError, UnicodeDecodeError, json.JSONDecodeError):
         return None
     streams: list[StreamInfo] = []
     for item in payload.get("streams") or []:
@@ -50,25 +64,45 @@ def probe_media(path: Path, *, candidate_id: UUID | None = None) -> MediaProbe |
         }.get(codec_type, MediaKind.UNKNOWN)
         streams.append(
             StreamInfo(
-                index=int(item.get("index") or 0),
+                index=_as_int(item.get("index")) or 0,
                 codec=item.get("codec_name"),
                 media_kind=kind,
-                width=item.get("width"),
-                height=item.get("height"),
-                sample_rate=int(item["sample_rate"])
-                if str(item.get("sample_rate") or "").isdigit()
-                else None,
-                channels=item.get("channels"),
-                encrypted=bool(item.get("tags", {}).get("ENCRYPTED")),
+                width=_as_int(item.get("width")),
+                height=_as_int(item.get("height")),
+                sample_rate=_as_int(item.get("sample_rate")),
+                channels=_as_int(item.get("channels")),
+                encrypted=bool((item.get("tags") or {}).get("ENCRYPTED")),
             )
         )
     fmt = payload.get("format") or {}
     duration = fmt.get("duration")
-    duration_ms = int(float(duration) * 1000) if duration else None
+    try:
+        duration_ms = int(float(duration) * 1000) if duration not in (None, "") else None
+    except (TypeError, ValueError):
+        duration_ms = None
+    names = str(fmt.get("format_name") or path.suffix.lstrip(".") or "")
+    container = names.split(",")[0].strip() or None
     return MediaProbe(
         probe_id=uuid4(),
         candidate_id=candidate_id or uuid4(),
         duration_ms=duration_ms,
         streams=streams,
-        container=Path(str(fmt.get("format_name") or path.suffix.lstrip(".") or "")).name or None,
+        container=container,
     )
+
+
+def _as_int(value: object) -> int | None:
+    if value is None or value == "":
+        return None
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    text = str(value).strip()
+    try:
+        return int(text)
+    except ValueError:
+        try:
+            return int(float(text))
+        except ValueError:
+            return None

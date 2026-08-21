@@ -57,7 +57,31 @@ class ArtifactStore:
             if existing.sha256 != digest:
                 msg = "A source artifact is never mutated after registration."
                 raise ArtifactImmutabilityError(msg)
-            return existing
+            occurrences = list(existing.provenance.get("occurrences") or [])
+            if not occurrences and existing.provenance:
+                seed = {
+                    key: value for key, value in existing.provenance.items() if key != "occurrences"
+                }
+                if seed:
+                    occurrences.append(seed)
+            if provenance:
+                occurrences.append(
+                    {
+                        **provenance,
+                        "role": role.value,
+                        "parent_ids": list(parent_ids or []),
+                    }
+                )
+            merged_parents = list(dict.fromkeys([*existing.parent_ids, *(parent_ids or [])]))
+            updated = existing.model_copy(
+                update={
+                    "parent_ids": merged_parents,
+                    "provenance": {**existing.provenance, "occurrences": occurrences},
+                }
+            )
+            self._records[artifact_id] = updated
+            self._save()
+            return updated
         if not dest.exists():
             shutil.copy2(src, dest)
         artifact = Artifact(

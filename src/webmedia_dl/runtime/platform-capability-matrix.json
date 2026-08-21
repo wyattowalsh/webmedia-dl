@@ -1,0 +1,52 @@
+{
+  "macos": [
+    "full-worker",
+    "native-app",
+    "cli"
+  ],
+  "ios": [
+    "client",
+    "share",
+    "paired-mac"
+  ],
+  "ipados": [
+    "client",
+    "share",
+    "paired-mac"
+  ],
+  "visionos": [
+    "client",
+    "share",
+    "paired-mac"
+  ],
+  "watchos": [
+    "capture",
+    "status",
+    "history",
+    "controls"
+  ],
+  "tvos": [
+    "capture",
+    "status",
+    "history",
+    "controls"
+  ],
+    "safari": [
+        "capture-extension"
+    ],
+    "chrome": [
+        "capture-extension"
+    ],
+    "brave": [
+        "capture-extension"
+    ],
+    "edge": [
+        "capture-extension"
+    ],
+    "chromium": [
+        "capture-extension"
+    ],
+    "firefox": [
+        "capture-extension"
+    ]
+}

@@ -28,7 +28,8 @@ def test_ytdlp_argv_is_allowlisted(tmp_path: Path) -> None:
 
     def run(argv: list[str], _cwd: Path) -> tuple[int, bytes, bytes]:
         captured.append(argv)
-        Path(argv[argv.index("--output") + 1]).write_bytes(b"ok")
+        output = argv[argv.index("--output") + 1]
+        Path(str(output).replace("%(ext)s", "mp4")).write_bytes(b"ok")
         return 0, b"", b""
 
     runtime = ProviderRuntime(which=which, run=run)
@@ -50,6 +51,7 @@ def test_ytdlp_argv_is_allowlisted(tmp_path: Path) -> None:
     assert "137+140" in argv
     assert "--exec" not in argv
     assert argv[-1] == "https://example.com/watch?v=1"
+    assert "%(ext)s" in argv[argv.index("--output") + 1]
 
 
 def test_unsafe_format_id_rejected(tmp_path: Path) -> None:
@@ -80,4 +82,5 @@ def test_http_direct(tmp_path: Path, http_runtime: ProviderRuntime) -> None:
     )
     assert result.exit_code == 0
     assert result.output_path is not None
+    assert result.output_path.suffix == ".png"
     assert result.output_path.read_bytes().startswith(b"\x89PNG")

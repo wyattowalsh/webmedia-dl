@@ -1,0 +1,37 @@
+{
+  "personal-full": {
+    "cookie_access": "explicit_path",
+    "drm_circumvention": false,
+    "telemetry_default": false,
+    "subprocess_worker": true,
+    "can_delegate": false
+  },
+  "personal-restricted": {
+    "cookie_access": "never",
+    "drm_circumvention": false,
+    "telemetry_default": false,
+    "subprocess_worker": false,
+    "can_delegate": false
+  },
+  "browser-capture": {
+    "cookie_access": "never",
+    "drm_circumvention": false,
+    "telemetry_default": false,
+    "subprocess_worker": false,
+    "can_delegate": false
+  },
+  "watch-capture": {
+    "cookie_access": "never",
+    "drm_circumvention": false,
+    "telemetry_default": false,
+    "subprocess_worker": false,
+    "can_delegate": false
+  },
+  "tv-control": {
+    "cookie_access": "never",
+    "drm_circumvention": false,
+    "telemetry_default": false,
+    "subprocess_worker": false,
+    "can_delegate": false
+  }
+}

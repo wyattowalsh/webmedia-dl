@@ -8,7 +8,7 @@ from functools import lru_cache
 from webmedia_dl.domain.enums import CookieAccess, Surface
 from webmedia_dl.domain.models import PolicyProfile, Worker
 from webmedia_dl.errors import CapabilityDenied, DelegationDenied
-from webmedia_dl.paths import repo_root
+from webmedia_dl.paths import runtime_file
 
 FULL_CAPABILITIES = (
     "intake.normalize",
@@ -55,7 +55,7 @@ WATCH_TV_CAPABILITIES = (
 
 @lru_cache(maxsize=1)
 def _resource_profiles() -> dict[str, dict]:
-    path = repo_root() / "resources" / "policy-profiles.json"
+    path = runtime_file("policy-profiles.json")
     return json.loads(path.read_text(encoding="utf-8"))
 
 
@@ -69,11 +69,23 @@ def _apply_resource_overlay(profile: PolicyProfile) -> PolicyProfile:
         raise CapabilityDenied(msg)
     updates: dict = {}
     if "cookie_access" in extra:
-        updates["cookie_access"] = CookieAccess(str(extra["cookie_access"]))
+        requested = CookieAccess(str(extra["cookie_access"]))
+        if profile.cookie_access == CookieAccess.NEVER and requested != CookieAccess.NEVER:
+            msg = "policy-profiles.json cannot widen cookie access."
+            raise CapabilityDenied(msg)
+        updates["cookie_access"] = requested
     if "subprocess_worker" in extra:
-        updates["subprocess_worker"] = bool(extra["subprocess_worker"])
+        requested_sub = bool(extra["subprocess_worker"])
+        if requested_sub and not profile.subprocess_worker:
+            msg = "policy-profiles.json cannot enable subprocess execution."
+            raise CapabilityDenied(msg)
+        updates["subprocess_worker"] = requested_sub and profile.subprocess_worker
     if "can_delegate" in extra:
-        updates["can_delegate"] = bool(extra["can_delegate"])
+        requested_delegate = bool(extra["can_delegate"])
+        if requested_delegate and not profile.can_delegate:
+            msg = "policy-profiles.json cannot enable delegation."
+            raise CapabilityDenied(msg)
+        updates["can_delegate"] = requested_delegate and profile.can_delegate
     return profile.model_copy(update=updates) if updates else profile
 
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
+from threading import local
 from typing import Any
 from uuid import UUID
 
@@ -34,6 +35,7 @@ from webmedia_dl.errors import (
     DrmRefused,
     PauseRequested,
     ProviderPolicyError,
+    RequiredOperationFailed,
     WebMediaError,
 )
 from webmedia_dl.export import plan_export
@@ -78,9 +80,7 @@ class Pipeline:
         self.fetch = fetch
         self.host_profile = get_profile(client_profile_id)
         self.host_worker = worker or default_worker_for_surface(Surface.MACOS)
-        self.client_profile = self.host_profile
-        self.worker = self.host_worker
-        self.worker_profile = get_profile(self.host_worker.profile_id)
+        self._tls = local()
 
     def _fetch_bytes(
         self, url: str, profile: PolicyProfile, *, html: bool
@@ -93,6 +93,38 @@ class Pipeline:
             max_bytes=profile.max_html_bytes if html else profile.max_download_bytes,
             on_overflow="truncate" if html else "error",
         )
+
+    @property
+    def client_profile(self) -> PolicyProfile:
+        return getattr(self._tls, "client_profile", self.host_profile)
+
+    @client_profile.setter
+    def client_profile(self, value: PolicyProfile) -> None:
+        self._tls.client_profile = value
+
+    @property
+    def worker(self) -> Worker:
+        return getattr(self._tls, "worker", self.host_worker)
+
+    @worker.setter
+    def worker(self, value: Worker) -> None:
+        self._tls.worker = value
+
+    @property
+    def worker_profile(self) -> PolicyProfile:
+        return getattr(self._tls, "worker_profile", get_profile(self.host_worker.profile_id))
+
+    @worker_profile.setter
+    def worker_profile(self, value: PolicyProfile) -> None:
+        self._tls.worker_profile = value
+
+    def _activate_job(self, job: Job) -> None:
+        self.client_profile = get_profile(job.policy_profile_id)
+        if job.worker_id == self.host_worker.worker_id:
+            self.worker = self.host_worker
+        else:
+            self.worker = default_worker_for_surface(job.source.surface)
+        self.worker_profile = get_profile(self.worker.profile_id)
 
     def _mac_owned(
         self,
@@ -170,8 +202,12 @@ class Pipeline:
         try:
             cookie_value = None
             if cookies:
+                try:
+                    cookie_root = repo_root()
+                except FileNotFoundError:
+                    cookie_root = None
                 cookie_value = str(
-                    resolve_cookie_path(client_profile, cookies, repo_root=repo_root())
+                    resolve_cookie_path(client_profile, cookies, repo_root=cookie_root)
                 )
                 self.queue.emit(
                     job.job_id,
@@ -200,10 +236,12 @@ class Pipeline:
         cookies: str | None,
         evidence: list[BrowserEvidence] | None = None,
     ) -> Job:
+        self._activate_job(job)
         self._check_control(job.job_id)
         stored = self.queue.get_context(job.job_id)
         checkpoint = dict(stored.checkpoint)
         acquired_kinds = {str(item) for item in checkpoint.get("acquired_kinds") or []}
+        failed_kinds: list[str] = list(checkpoint.get("failed_kinds") or [])
         sources: list[Any] = []
         for artifact_id in checkpoint.get("source_ids") or []:
             try:
@@ -307,18 +345,30 @@ class Pipeline:
                     )
                     sources.extend(artifact_list)
                     acquired_kinds.add(candidate.media_kind.value)
-                    self._save_acquire_checkpoint(job, sources, acquired_kinds, stage="acquiring")
+                    self._save_acquire_checkpoint(
+                        job, sources, acquired_kinds, stage="acquiring", failed_kinds=failed_kinds
+                    )
                 except (PauseRequested, CancelledError):
                     raise
                 except (DrmRefused, WebMediaError) as exc:
                     last_error = exc
+                    kind = candidate.media_kind.value
+                    if kind not in failed_kinds:
+                        failed_kinds.append(kind)
+                    self.queue.emit(
+                        job.job_id,
+                        EventType.DISCOVERY_PARTIAL,
+                        {"kind": kind, "message": str(exc)},
+                    )
                     continue
             if not sources:
                 if last_error:
                     raise last_error
                 msg = "Acquisition produced no source artifact."
                 raise ProviderPolicyError(msg)
-            self._save_acquire_checkpoint(job, sources, acquired_kinds, stage="acquired")
+            self._save_acquire_checkpoint(
+                job, sources, acquired_kinds, stage="acquired", failed_kinds=failed_kinds
+            )
 
         produced: list[tuple[Any, Path]] = []
         export_errors: list[WebMediaError] = []
@@ -350,11 +400,14 @@ class Pipeline:
             if not produced_ids:
                 produced_ids = [item.artifact_id for item in sources]
 
+            current_source = {"id": ""}
+
             def on_progress(operation, artifact) -> None:
-                if operation.operation_id not in completed_ops:
-                    completed_ops.append(operation.operation_id)
+                key = f"{current_source['id']}:{operation.operation_id}"
+                if key not in completed_ops:
+                    completed_ops.append(key)
                 if artifact is not None:
-                    op_arts[operation.operation_id] = artifact.artifact_id
+                    op_arts[key] = artifact.artifact_id
                     if artifact.artifact_id not in produced_ids:
                         produced_ids.append(artifact.artifact_id)
                 self._save_acquire_checkpoint(
@@ -365,10 +418,12 @@ class Pipeline:
                     produced_ids=list(produced_ids),
                     completed_operations=list(completed_ops),
                     operation_artifacts=dict(op_arts),
+                    failed_kinds=failed_kinds,
                 )
 
             for artifact in sources:
                 self._check_control(job.job_id)
+                current_source["id"] = artifact.artifact_id
                 try:
                     export_plan = plan_export(job.job_id, artifact, job.intent)
                     self.queue.emit(
@@ -397,6 +452,15 @@ class Pipeline:
                     )
                 except (PauseRequested, CancelledError):
                     raise
+                except RequiredOperationFailed as exc:
+                    export_errors.append(exc)
+                    produced.extend(exc.produced)
+                    self.queue.emit(
+                        job.job_id,
+                        EventType.OPERATION_FAILED,
+                        {"artifact_id": artifact.artifact_id, "message": str(exc)},
+                    )
+                    produced.append((artifact, self.store.resolve(artifact)))
                 except WebMediaError as exc:
                     export_errors.append(exc)
                     self.queue.emit(
@@ -421,6 +485,7 @@ class Pipeline:
                 produced_ids=[item.artifact_id for item, _path in produced],
                 completed_operations=list(completed_ops),
                 operation_artifacts=dict(op_arts),
+                failed_kinds=failed_kinds,
             )
 
         self._check_control(job.job_id)
@@ -472,7 +537,11 @@ class Pipeline:
         self.queue.emit(
             job.job_id,
             EventType.JOB_COMPLETED,
-            {"artifact_ids": artifact_ids},
+            {
+                "artifact_ids": artifact_ids,
+                "partial": bool(failed_kinds or export_errors),
+                "failed_kinds": failed_kinds,
+            },
         )
         return completed
 
@@ -532,6 +601,7 @@ class Pipeline:
                 request = ProviderRequest(
                     provider_id=strategy.provider_id,
                     capability_id=strategy.capability_id,
+                    job_id=job.job_id,
                     typed_inputs={
                         **strategy.typed_inputs,
                         "output": str(staging / "source.bin"),
@@ -647,6 +717,7 @@ class Pipeline:
                 ProviderRequest(
                     provider_id="ytdlp",
                     capability_id="discover.manifest",
+                    job_id=job.job_id,
                     typed_inputs={"url": url},
                 ),
                 dest,
@@ -684,7 +755,7 @@ class Pipeline:
             msg = f"Job {job_id} cannot be cancelled from state {job.state.value}."
             raise CancelledError(msg)
         self.queue.set_job_flags(job_id, cancel_requested=True)
-        self.runtime.cancel_running()
+        self.runtime.cancel_running(job_id)
         cancelled = self.queue.set_state(job_id, JobState.CANCELLED, error="cancelled by user")
         self.queue.emit(job_id, EventType.JOB_CANCELLED, {"state": "cancelled"})
         return cancelled
@@ -705,6 +776,7 @@ class Pipeline:
             msg = f"Job {job_id} cannot be paused from state {job.state.value}."
             raise PauseRequested(msg)
         self.queue.set_job_flags(job_id, pause_requested=True)
+        self.runtime.pause_running(job_id)
         paused = self.queue.set_state(job_id, JobState.PAUSED)
         self.queue.emit(job_id, EventType.JOB_PAUSED, {"state": "paused"})
         return paused
@@ -715,13 +787,14 @@ class Pipeline:
             msg = f"Job {job_id} cannot be resumed from state {job.state.value}."
             raise PauseRequested(msg)
         self.queue.set_job_flags(job_id, pause_requested=False)
+        self.runtime.clear_stop_flags(job_id)
         if job.state is JobState.PAUSED:
             self.queue.set_state(job_id, JobState.ACCEPTED)
         self.queue.emit(job_id, EventType.JOB_RESUMED, {"state": "resumed"})
         return self._execute_stored(self.queue.get_job(job_id))
 
     def run_next(self) -> Job | None:
-        job = self.queue.next_runnable()
+        job = self.queue.claim_next()
         if job is None:
             return None
         return self._execute_stored(job)
@@ -775,6 +848,7 @@ class Pipeline:
         produced_ids: list[str] | None = None,
         completed_operations: list[str] | None = None,
         operation_artifacts: dict[str, str] | None = None,
+        failed_kinds: list[str] | None = None,
     ) -> None:
         payload = dict(self.queue.get_context(job.job_id).checkpoint)
         payload.update(
@@ -790,6 +864,8 @@ class Pipeline:
             payload["completed_operations"] = completed_operations
         if operation_artifacts is not None:
             payload["operation_artifacts"] = operation_artifacts
+        if failed_kinds is not None:
+            payload["failed_kinds"] = failed_kinds
         self.queue.put_checkpoint(job.job_id, payload)
 
     def handle_companion(self, payload: dict[str, Any]) -> dict[str, Any]:

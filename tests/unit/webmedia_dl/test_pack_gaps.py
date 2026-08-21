@@ -14,7 +14,13 @@ from webmedia_dl.domain.models import (
     MediaSource,
     Operation,
 )
-from webmedia_dl.errors import CancelledError, DrmRefused, ProviderPolicyError, PublicationError
+from webmedia_dl.errors import (
+    CancelledError,
+    DrmRefused,
+    ProviderPolicyError,
+    PublicationError,
+    RequiredOperationFailed,
+)
 from webmedia_dl.export import plan_export
 from webmedia_dl.identity import sha256_file
 from webmedia_dl.live import record_clear_stream, recordable_segment_urls
@@ -127,17 +133,19 @@ def test_preview_role_and_sibling_isolation(tmp_path: Path) -> None:
             ),
         ],
     )
-    produced = execute_export_plan(
-        plan,
-        job_id=job_id,
-        source=source,
-        source_path=store.resolve(source),
-        store=store,
-        runtime=ProviderRuntime(which=lambda name: f"/usr/bin/{name}", run=run),
-        staging=tmp_path / "stage",
-        queue=queue,
-        authorize=lambda _cap: None,
-    )
+    with pytest.raises(RequiredOperationFailed) as exc:
+        execute_export_plan(
+            plan,
+            job_id=job_id,
+            source=source,
+            source_path=store.resolve(source),
+            store=store,
+            runtime=ProviderRuntime(which=lambda name: f"/usr/bin/{name}", run=run),
+            staging=tmp_path / "stage",
+            queue=queue,
+            authorize=lambda _cap: None,
+        )
+    produced = exc.value.produced
     roles = {item.role for item, _path in produced}
     assert ArtifactRole.SOURCE in roles
     assert ArtifactRole.PREVIEW in roles

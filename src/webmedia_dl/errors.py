@@ -68,3 +68,11 @@ class CancelledError(WebMediaError):
 
 class PauseRequested(WebMediaError):
     code = "job.paused"
+
+
+class RequiredOperationFailed(WebMediaError):
+    code = "export.required_operation_failed"
+
+    def __init__(self, message: str, *, produced: list | None = None) -> None:
+        super().__init__(message)
+        self.produced = produced or []

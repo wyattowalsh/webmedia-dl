@@ -87,6 +87,11 @@ def test_mixed_media_one_kind_failure_still_publishes_other(
         if item.role.value == "source"
     }
     assert "image" in kinds
+    completed = next(
+        item for item in pipeline.queue.events_for(job.job_id) if item.type.value == "job.completed"
+    )
+    assert completed.payload["partial"] is True
+    assert "video" in completed.payload["failed_kinds"]
 
 
 def test_pause_during_acquire_checkpoints_and_resume_skips_done_kind(

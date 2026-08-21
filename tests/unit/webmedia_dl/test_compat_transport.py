@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -7,14 +8,18 @@ from webmedia_dl.transport import create_challenge, expired
 
 def test_legacy_scan_is_non_destructive(tmp_path: Path) -> None:
     marker = tmp_path / "yt-dlp-archive.txt"
-    marker.write_text("id\n", encoding="utf-8")
+    marker.write_text("# comment\nid-one\nid-two\n", encoding="utf-8")
     report = scan_legacy(tmp_path)
     assert "yt-dlp-archive.txt" in report["markers"]
     assert report["destructive"] is False
     applied = migrate_legacy(tmp_path, apply=True)
     assert applied["migrated"] is True
-    assert marker.read_text(encoding="utf-8") == "id\n"
-    assert (tmp_path / "webmedia-dl-migrated" / "migration.json").is_file()
+    assert marker.read_text(encoding="utf-8") == "# comment\nid-one\nid-two\n"
+    sidecar = json.loads((tmp_path / "webmedia-dl-migrated" / "migration.json").read_text())
+    assert sidecar["version"] == 1
+    assert sidecar["archives"][0]["ids"] == ["id-one", "id-two"]
+    assert sidecar["archives"][0]["sha256"]
+    assert applied["index_entries"] == 2
 
 
 def test_pairing_expiry() -> None:
