@@ -106,3 +106,31 @@ def test_direct_png_skips_html() -> None:
     assert len(candidates) == 1
     assert candidates[0].media_kind is MediaKind.IMAGE
     assert candidates[0].identity_key.startswith("host:cdn.example.com")
+
+
+def test_html_link_audio_image_track_and_jsonld_kinds() -> None:
+    html = """
+    <html>
+      <head>
+        <meta property="og:audio:secure_url" content="https://cdn.example.com/og.m4a">
+        <link rel="preload" as="audio" href="https://cdn.example.com/a.mp3">
+        <link rel="preload" as="image" href="https://cdn.example.com/i.png">
+        <link rel="preload" as="track" href="https://cdn.example.com/t.vtt">
+        <script type="application/ld+json">
+          [
+            {"@type": "AudioObject", "contentUrl": "https://example.com/listen"},
+            {"@type": "ImageObject", "contentUrl": "https://example.com/photo"}
+          ]
+        </script>
+      </head>
+    </html>
+    """
+    profile = get_profile("personal-full")
+    candidates = discover(_source(), profile, html=html)
+    kinds = {item.retrieval_urls[0]: item.media_kind for item in candidates if item.retrieval_urls}
+    assert kinds["https://cdn.example.com/og.m4a"] is MediaKind.AUDIO
+    assert kinds["https://cdn.example.com/a.mp3"] is MediaKind.AUDIO
+    assert kinds["https://cdn.example.com/i.png"] is MediaKind.IMAGE
+    assert kinds["https://cdn.example.com/t.vtt"] is MediaKind.SUBTITLE
+    assert kinds["https://example.com/listen"] is MediaKind.AUDIO
+    assert kinds["https://example.com/photo"] is MediaKind.IMAGE

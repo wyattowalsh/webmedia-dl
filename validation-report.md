@@ -2,8 +2,8 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 126 tests |
-| `uv run pytest --cov` | PASS | 86% (`fail_under` 85) |
+| `uv run pytest` | PASS | 164 tests |
+| `uv run pytest --cov` | PASS | 87% (`fail_under` 85) |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
 | `uv run ty check` | PASS | |
@@ -16,11 +16,12 @@
 | Signing / notarization / App Review / legal | BLOCKED | `webmedia-dl doctor` |
 | Browser store submission | BLOCKED | `webmedia-dl doctor` |
 | Simulated `PASS` | PASS | tests reject planned/simulated PASS |
-| DRM circumvention | PASS | encrypted HLS/DASH refused; clear segments concatenated |
+| DRM circumvention | PASS | encrypted HLS/DASH refused; clear HLS/DASH byte-range slices concatenated |
 | Default telemetry | PASS | false in doctor and profiles |
 | Envelope replay | PASS | consumed nonce cannot be opened twice |
 | Companion native command | PASS | `/v1/companion` rejects `nativeCommand` and provider argv |
 | Cooperative per-job pause checkpoint | PASS | mixed-media pause keeps registered sources; resume acquires remaining kinds |
+| Pause/resume last job | PASS | CLI `--job`, `/v1/jobs/{id}/pause`, companion `pause_job`/`resume_job`, Apple shells |
 | Mixed-media containment | PASS | one kind failure still publishes the other |
 | Original planning-pack ZIP byte compare | BLOCKED | zip not in this workspace; 156 overlay files reconstructed |
 
