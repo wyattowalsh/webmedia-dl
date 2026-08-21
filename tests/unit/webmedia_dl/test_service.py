@@ -71,3 +71,9 @@ def test_pair_and_envelope_and_plan(tmp_path: Path, png_bytes: bytes) -> None:
     doctor = client.get("/v1/doctor", headers=headers)
     assert doctor.status_code == 200
     assert doctor.json()["telemetry_default"] is False
+    queue = client.get("/v1/queue", headers=headers)
+    assert queue.status_code == 200
+    assert queue.json()["paused"] is False
+    paused = client.post("/v1/queue/pause", headers=headers)
+    assert paused.json()["paused"] is True
+    client.post("/v1/queue/resume", headers=headers)

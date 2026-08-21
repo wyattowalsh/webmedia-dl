@@ -6,7 +6,7 @@ import pytest
 
 from webmedia_dl.acquisition import plan_acquisition
 from webmedia_dl.domain.enums import DestinationKind, MediaKind
-from webmedia_dl.domain.models import ExportIntent, MediaCandidate
+from webmedia_dl.domain.models import ExportIntent, FormatAlternative, MediaCandidate
 from webmedia_dl.errors import DelegationDenied, DrmRefused, ProviderPolicyError, PublicationError
 from webmedia_dl.export import plan_export
 from webmedia_dl.fetch import fetch_fn_for_profile
@@ -139,14 +139,26 @@ def test_lossy_plan_and_gallery_acquisition() -> None:
         ExportIntent(allow_lossy=True, container_preference="mkv"),
     )
     assert any(op.operation_id == "transcode" for op in plan.operations)
-    candidate = MediaCandidate(
+    gallery = MediaCandidate(
         source_id=uuid4(),
         media_kind=MediaKind.GALLERY,
         identity_key="host:example.com:path:/album",
         retrieval_urls=["https://example.com/album"],
     )
-    acquired = plan_acquisition(uuid4(), candidate, get_profile("personal-full"))
+    acquired = plan_acquisition(uuid4(), gallery, get_profile("personal-full"))
     assert any(item.strategy_id == "gallery-dl" for item in acquired.strategies)
+    watch = MediaCandidate(
+        source_id=uuid4(),
+        media_kind=MediaKind.VIDEO,
+        identity_key="host:example.com:path:/watch",
+        retrieval_urls=["https://example.com/watch"],
+        alternatives=[
+            FormatAlternative(format_id="137", container="mp4", height=1080, bitrate=2_500_000)
+        ],
+    )
+    watch_plan = plan_acquisition(uuid4(), watch, get_profile("personal-full"))
+    assert all(item.strategy_id != "http-direct" for item in watch_plan.strategies)
+    assert any(item.typed_inputs.get("format_id") == "137" for item in watch_plan.strategies)
 
 
 def test_dash_cenc_refused() -> None:

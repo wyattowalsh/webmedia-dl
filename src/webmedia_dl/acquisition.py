@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
+from webmedia_dl.discovery import is_direct_media_url
 from webmedia_dl.domain.enums import LossClass, MediaKind
 from webmedia_dl.domain.models import (
     AcquisitionPlan,
@@ -14,6 +15,14 @@ from webmedia_dl.domain.models import (
 from webmedia_dl.errors import CapabilityDenied
 from webmedia_dl.policy.profiles import assert_capability
 from webmedia_dl.security import refuse_drm
+
+
+def preferred_format_id(candidate: MediaCandidate) -> str | None:
+    usable = [item for item in candidate.alternatives if not item.drm and item.format_id]
+    if not usable:
+        return None
+    best = max(usable, key=lambda item: (item.height or 0, item.bitrate or 0))
+    return best.format_id
 
 
 def plan_acquisition(
@@ -67,7 +76,10 @@ def plan_acquisition(
             pass
         try:
             assert_capability(profile, "acquire.ytdlp")
-            typed = {"url": url}
+            typed: dict[str, str] = {"url": url}
+            format_id = preferred_format_id(candidate)
+            if format_id:
+                typed["format_id"] = format_id
             if cookies:
                 typed["cookies"] = cookies
             strategies.append(
@@ -85,7 +97,7 @@ def plan_acquisition(
         return AcquisitionPlan(
             job_id=job_id, candidate_id=candidate.candidate_id, strategies=strategies
         )
-    if candidate.media_kind != MediaKind.PAGE:
+    if candidate.media_kind != MediaKind.PAGE and is_direct_media_url(url):
         try:
             assert_capability(profile, "acquire.http")
             strategies.append(
@@ -103,7 +115,10 @@ def plan_acquisition(
             pass
     try:
         assert_capability(profile, "acquire.ytdlp")
-        typed = {"url": url}
+        typed: dict[str, str] = {"url": url}
+        format_id = preferred_format_id(candidate)
+        if format_id:
+            typed["format_id"] = format_id
         if cookies:
             typed["cookies"] = cookies
         strategies.append(

@@ -36,13 +36,12 @@ def test_ios_http_direct_image(tmp_data: Path, png_bytes: bytes) -> None:
     assert job.state is JobState.COMPLETED
 
 
-def test_pairing_confirmation_lets_mac_own_ytdlp(tmp_data: Path) -> None:
+def test_pairing_confirmation_lets_mac_own_ytdlp(tmp_data: Path, ytdlp_run_ok) -> None:
     captured: list[list[str]] = []
 
     def run(argv: list[str], _cwd: Path) -> tuple[int, bytes, bytes]:
         captured.append(argv)
-        Path(argv[argv.index("--output") + 1]).write_bytes(b"video-bytes")
-        return 0, b"", b""
+        return ytdlp_run_ok(argv, _cwd)
 
     runtime = ProviderRuntime(
         which=lambda name: "/usr/bin/yt-dlp" if name == "yt-dlp" else None,
@@ -61,6 +60,7 @@ def test_pairing_confirmation_lets_mac_own_ytdlp(tmp_data: Path) -> None:
     )
     assert job.state is JobState.COMPLETED
     assert captured
+    assert any("--output" in argv for argv in captured)
     assert job.policy_profile_id == "personal-full"
 
 

@@ -76,6 +76,10 @@ def submit(
     pairing_id: Annotated[
         UUID | None, typer.Option("--pairing-id", help="Confirmed Mac pairing id")
     ] = None,
+    session_key: Annotated[
+        str | None, typer.Option("--session-key", help="Confirmed pairing session key")
+    ] = None,
+    wait: Annotated[bool, typer.Option("--wait/--no-wait")] = True,
 ) -> None:
     """Share, paste, or select a source. Runs the typed job pipeline."""
     intent = ExportIntent(preset_id=preset)
@@ -104,6 +108,9 @@ def submit(
         html=html_text,
         cookies=cookie_path,
         pairing_id=pairing_id,
+        session_key=session_key,
+        local_user_confirmed=True,
+        wait=wait,
     )
     events = [event.model_dump(mode="json") for event in pipeline.queue.events_for(job.job_id)]
     typer.echo(
@@ -195,6 +202,24 @@ def serve(
     serve_worker(data_dir=data_dir, host=host, port=port)
 
 
+@app.command("run-next")
+def run_next_cmd(
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+) -> None:
+    """Run the next accepted job if the queue is not paused."""
+    pipeline = _pipeline(data_dir)
+    record = pipeline.run_next()
+    if record is None:
+        typer.echo(json.dumps({"job": None}, indent=2))
+        return
+    events = [event.model_dump(mode="json") for event in pipeline.queue.events_for(record.job_id)]
+    typer.echo(
+        json.dumps({"job": record.model_dump(mode="json"), "events": events}, indent=2, default=str)
+    )
+    if record.error:
+        raise typer.Exit(code=1)
+
+
 @app.command()
 def cancel(
     job_id: Annotated[UUID, typer.Argument()],
@@ -207,6 +232,36 @@ def cancel(
     except CancelledError as exc:
         typer.echo(str(exc))
         raise typer.Exit(code=1) from exc
+    typer.echo(record.model_dump_json(indent=2))
+
+
+@app.command("pause")
+def pause_cmd(
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+    job_id: Annotated[UUID | None, typer.Option("--job")] = None,
+    queue: Annotated[bool, typer.Option("--queue")] = False,
+) -> None:
+    """Pause one job or the whole local queue."""
+    pipeline = _pipeline(data_dir)
+    if queue or job_id is None:
+        typer.echo(json.dumps(pipeline.pause_queue(), indent=2))
+        return
+    record = pipeline.pause_job(job_id)
+    typer.echo(record.model_dump_json(indent=2))
+
+
+@app.command("resume")
+def resume_cmd(
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+    job_id: Annotated[UUID | None, typer.Option("--job")] = None,
+    queue: Annotated[bool, typer.Option("--queue")] = False,
+) -> None:
+    """Resume a paused job or the local queue."""
+    pipeline = _pipeline(data_dir)
+    if queue or job_id is None:
+        typer.echo(json.dumps(pipeline.resume_queue(), indent=2))
+        return
+    record = pipeline.resume_job(job_id)
     typer.echo(record.model_dump_json(indent=2))
 
 

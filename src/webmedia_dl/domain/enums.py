@@ -23,6 +23,7 @@ class JobState(StrEnum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+    PAUSED = "paused"
     QUARANTINED = "quarantined"
 
 
@@ -101,6 +102,10 @@ class EventType(StrEnum):
     JOB_FAILED = "job.failed"
     JOB_COMPLETED = "job.completed"
     JOB_CANCELLED = "job.cancelled"
+    JOB_PAUSED = "job.paused"
+    JOB_RESUMED = "job.resumed"
+    QUEUE_PAUSED = "queue.paused"
+    QUEUE_RESUMED = "queue.resumed"
     PROBE_RECORDED = "media.probed"
 
 

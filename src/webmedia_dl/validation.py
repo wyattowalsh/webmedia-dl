@@ -6,7 +6,7 @@ from pathlib import Path
 from uuid import UUID
 
 from webmedia_dl.domain.enums import EvidenceStatus
-from webmedia_dl.domain.models import Artifact, ValidationResult
+from webmedia_dl.domain.models import Artifact, MediaProbe, ValidationResult
 from webmedia_dl.errors import SimulatedPassError, ValidationFailed
 from webmedia_dl.identity import sha256_file
 
@@ -103,6 +103,44 @@ def validate_artifact(
             )
         )
     return results
+
+
+def validate_probe(
+    job_id: UUID,
+    artifact: Artifact,
+    probe: MediaProbe | None,
+) -> list[ValidationResult]:
+    if probe is None:
+        return [
+            record_result(
+                job_id=job_id,
+                artifact_id=artifact.artifact_id,
+                gate_id="probe-available",
+                status=EvidenceStatus.BLOCKED,
+                message="ffprobe was not available; probe gate was not executed.",
+                executed=False,
+            )
+        ]
+    if not probe.streams:
+        return [
+            record_result(
+                job_id=job_id,
+                artifact_id=artifact.artifact_id,
+                gate_id="probe-streams",
+                status=EvidenceStatus.WARN,
+                message="Probe recorded no streams.",
+            )
+        ]
+    return [
+        record_result(
+            job_id=job_id,
+            artifact_id=artifact.artifact_id,
+            gate_id="probe-streams",
+            status=EvidenceStatus.PASS,
+            message="Probe recorded stream facts.",
+            details={"streams": len(probe.streams), "container": probe.container},
+        )
+    ]
 
 
 def require_pass(results: list[ValidationResult]) -> None:

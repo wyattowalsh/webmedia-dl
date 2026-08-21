@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import secrets
+from contextlib import asynccontextmanager
 from pathlib import Path
 from uuid import UUID
 
@@ -12,10 +13,11 @@ from pydantic import BaseModel, Field
 
 from webmedia_dl import __version__
 from webmedia_dl.diagnostics import doctor
+from webmedia_dl.dispatcher import QueueDispatcher
 from webmedia_dl.domain.enums import Surface
 from webmedia_dl.domain.models import BrowserEvidence, ExportIntent
 from webmedia_dl.envelope import open_payload, seal_payload
-from webmedia_dl.errors import CancelledError, DelegationDenied, WebMediaError
+from webmedia_dl.errors import CancelledError, DelegationDenied, PauseRequested, WebMediaError
 from webmedia_dl.names import DISPLAY_NAME
 from webmedia_dl.pipeline import Pipeline
 from webmedia_dl.settings import Settings
@@ -33,6 +35,7 @@ class SubmitBody(BaseModel):
     pairing_id: UUID | None = None
     session_key: str | None = None
     evidence: list[BrowserEvidence] = Field(default_factory=list)
+    wait: bool = True
 
 
 class PlanBody(BaseModel):
@@ -78,12 +81,21 @@ def load_or_create_token(data_dir: Path) -> str:
     return token
 
 
-def create_app(data_dir: Path | None = None) -> FastAPI:
+def create_app(data_dir: Path | None = None, *, enable_dispatcher: bool = False) -> FastAPI:
     settings = Settings(data_dir=data_dir)
     root = settings.resolved_data_dir()
     token = load_or_create_token(root)
     pipeline = Pipeline(data_dir=root)
-    app = FastAPI(title=DISPLAY_NAME, version=__version__)
+    dispatcher = QueueDispatcher(pipeline)
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        if enable_dispatcher:
+            dispatcher.start()
+        yield
+        dispatcher.stop()
+
+    app = FastAPI(title=DISPLAY_NAME, version=__version__, lifespan=lifespan)
 
     def require_auth(
         credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
@@ -122,6 +134,7 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
                 pairing_id=pairing_id,
                 session_key=body.session_key or None,
                 evidence=body.evidence or None,
+                wait=body.wait,
             )
         except WebMediaError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -196,6 +209,42 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return job.model_dump(mode="json")
 
+    @app.get("/v1/queue", dependencies=[Depends(require_auth)])
+    def queue_status() -> dict:
+        return {"paused": pipeline.queue.is_paused()}
+
+    @app.post("/v1/queue/pause", dependencies=[Depends(require_auth)])
+    def pause_queue() -> dict:
+        return pipeline.pause_queue()
+
+    @app.post("/v1/queue/resume", dependencies=[Depends(require_auth)])
+    def resume_queue() -> dict:
+        return pipeline.resume_queue()
+
+    @app.post("/v1/queue/run-next", dependencies=[Depends(require_auth)])
+    def run_next() -> dict:
+        job = pipeline.run_next()
+        if job is None:
+            return {"job": None, "events": []}
+        events = [event.model_dump(mode="json") for event in pipeline.queue.events_for(job.job_id)]
+        return {"job": job.model_dump(mode="json"), "events": events}
+
+    @app.post("/v1/jobs/{job_id}/pause", dependencies=[Depends(require_auth)])
+    def pause_job(job_id: UUID) -> dict:
+        try:
+            job = pipeline.pause_job(job_id)
+        except (PauseRequested, KeyError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return job.model_dump(mode="json")
+
+    @app.post("/v1/jobs/{job_id}/resume", dependencies=[Depends(require_auth)])
+    def resume_job(job_id: UUID) -> dict:
+        try:
+            job = pipeline.resume_job(job_id)
+        except (PauseRequested, WebMediaError, KeyError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return job.model_dump(mode="json")
+
     @app.post("/v1/pair/envelope", dependencies=[Depends(require_auth)])
     def wrap_envelope(body: EnvelopeBody) -> dict:
         try:
@@ -223,5 +272,5 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
 def serve_worker(*, data_dir: Path | None, host: str, port: int) -> None:
     import uvicorn
 
-    app = create_app(data_dir)
+    app = create_app(data_dir, enable_dispatcher=True)
     uvicorn.run(app, host=host, port=port, log_level="info")

@@ -21,8 +21,8 @@ public struct WebMediaDLWatchRootView: View {
             Text("History")
                 .accessibilityLabel("Job history")
             Button("Pause") {
-                _ = client.cancelRequest(jobId: UUID())
-                status = "Pause requested"
+                _ = client.pauseQueueRequest()
+                status = bridge.controlMessage(kind: "pause", locator: nil)["kind"] ?? "pause"
             }
             .accessibilityLabel("Pause current job")
         }

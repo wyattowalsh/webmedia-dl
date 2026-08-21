@@ -14,6 +14,9 @@ desktop browsers.
 uv sync --locked
 uv run webmedia-dl doctor
 uv run webmedia-dl submit https://example.com/photo.png --data-dir /tmp/webmedia-dl-demo
+uv run webmedia-dl pause --queue --data-dir /tmp/webmedia-dl-demo
+uv run webmedia-dl resume --queue --data-dir /tmp/webmedia-dl-demo
+uv run webmedia-dl run-next --data-dir /tmp/webmedia-dl-demo
 uv run pytest
 uv run ruff check
 uv run ruff format --check
@@ -21,7 +24,7 @@ uv run ty check
 python scripts/validate_bundle.py
 ```
 
-The loopback worker binds `127.0.0.1` only:
+The loopback worker binds `127.0.0.1` only and runs accepted jobs from the queue:
 
 ```bash
 uv run webmedia-dl serve --data-dir /tmp/webmedia-dl-demo

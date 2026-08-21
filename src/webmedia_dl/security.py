@@ -61,6 +61,10 @@ def resolve_cookie_path(
     if not resolved.is_file():
         msg = f"Cookie file does not exist: {resolved}"
         raise CookiePolicyError(msg)
+    header = resolved.read_bytes()[:200]
+    if b"<html" in header.lower() or b"<!doctype" in header.lower():
+        msg = "Cookie file must be a Netscape cookie file, not HTML."
+        raise CookiePolicyError(msg)
     if repo_root is not None:
         try:
             resolved.relative_to(repo_root.resolve())

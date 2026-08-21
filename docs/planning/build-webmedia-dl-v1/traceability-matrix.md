@@ -1,21 +1,54 @@
-        ---
-        title: "Traceability matrix"
-        status: proposed
-        type: planning
-        change: build-webmedia-dl-v1
-        last_reviewed: 2026-08-18
-        ---
-        # Traceability matrix
+---
+title: "Traceability matrix"
+status: proposed
+type: planning
+change: build-webmedia-dl-v1
+last_reviewed: 2026-08-18
+---
+# Traceability matrix
 
-        | Requirement | Evidence |
+Maps recovered architecture invariants and OpenSpec capabilities to executed tests.
+Original pack SHALL text remains unverified until the 2026-08-18 ZIP is re-attached.
+
+| Requirement | Evidence |
 |---|---|
-| URL ≠ path | `test_invariants.py` |
-| Title ≠ identity | `test_invariants.py` |
-| No user argv | `test_providers.py` |
-| Immutable source | `test_invariants.py` |
-| Validation before publish | `test_validation_publish.py` |
-| No profile escalation | `test_policy.py` |
-| No simulated PASS | `test_invariants.py` |
-| DRM refused | `test_security.py` |
-| Loopback auth | `test_service.py` |
+| URL ≠ path | `tests/unit/webmedia_dl/test_invariants.py` |
+| Title ≠ identity | `tests/unit/webmedia_dl/test_invariants.py` |
+| No user argv | `tests/unit/webmedia_dl/test_providers.py` |
+| Immutable source | `tests/unit/webmedia_dl/test_invariants.py` |
+| Validation before publish | `tests/unit/webmedia_dl/test_validation_publish.py` |
+| No profile escalation | `tests/unit/webmedia_dl/test_policy.py` |
+| No simulated PASS | `tests/unit/webmedia_dl/test_invariants.py` |
+| DRM refused | `tests/unit/webmedia_dl/test_security.py`, `tests/unit/webmedia_dl/test_live.py` |
+| Loopback auth | `tests/unit/webmedia_dl/test_service.py` |
+| Typed intake | `tests/unit/webmedia_dl/test_intake.py` |
+| Bounded discovery | `tests/unit/webmedia_dl/test_discovery.py` |
+| Browser evidence / srcset | `tests/unit/webmedia_dl/test_plan_evidence_replay.py` |
+| Manifest dump-json | `tests/unit/webmedia_dl/test_queue_manifest.py` |
+| Queue pause | `tests/unit/webmedia_dl/test_queue_manifest.py` |
+| Envelope replay | `tests/unit/webmedia_dl/test_plan_evidence_replay.py` |
+| Cookie policy | `tests/unit/webmedia_dl/test_security.py`, `tests/unit/webmedia_dl/test_queue_manifest.py` |
+| Extension capture only | `tests/unit/extensions/capture.test.mjs` |
+| Apple shells | `tests/unit/webmedia_dl/test_surfaces_inventory.py` |
+| CLI plan / submit events | `tests/unit/webmedia_dl/test_cli.py`, `tests/e2e/test_cli_e2e.py` |
 
+| Capability | Spec | Tests |
+|---|---|---|
+| accessibility-ux | `openspec/.../accessibility-ux/spec.md` | `test_accessibility_markup.py` |
+| acquisition-adapters | `openspec/.../acquisition-adapters/spec.md` | `test_providers.py` |
+| apple-platform-clients | `openspec/.../apple-platform-clients/spec.md` | `test_surfaces_inventory.py`, `test_pairing_surfaces.py` |
+| apple-system-integrations | `openspec/.../apple-system-integrations/spec.md` | Share/intent files + `IdentityTests.swift` |
+| asset-store-provenance | `openspec/.../asset-store-provenance/spec.md` | `test_invariants.py` |
+| browser-extensions | `openspec/.../browser-extensions/spec.md` | `capture.test.mjs` |
+| cross-device-workers | `openspec/.../cross-device-workers/spec.md` | `test_pairing_surfaces.py` |
+| diagnostics-support | `openspec/.../diagnostics-support/spec.md` | `test_cli.py` doctor |
+| discovery-candidates | `openspec/.../discovery-candidates/spec.md` | `test_discovery.py`, `test_candidates.py` |
+| export-planning | `openspec/.../export-planning/spec.md` | `test_coverage_gaps.py` |
+| export-validation-publication | `openspec/.../export-validation-publication/spec.md` | `test_validation_publish.py` |
+| intake-routing | `openspec/.../intake-routing/spec.md` | `test_intake.py` |
+| live-manifest-recording | `openspec/.../live-manifest-recording/spec.md` | `test_live.py` |
+| media-processing | `openspec/.../media-processing/spec.md` | `test_processing.py` |
+| migration-compatibility | `openspec/.../migration-compatibility/spec.md` | `test_compat_transport.py` |
+| packaging-distribution-updates | `openspec/.../packaging-distribution-updates/spec.md` | `test_names.py`, `validate_bundle.py` |
+| queue-events-observability | `openspec/.../queue-events-observability/spec.md` | `test_cli_e2e.py`, `test_queue_manifest.py` |
+| security-privacy-policy | `openspec/.../security-privacy-policy/spec.md` | `test_security.py`, `test_policy.py` |

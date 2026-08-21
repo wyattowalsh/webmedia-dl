@@ -17,8 +17,12 @@ def test_apple_app_shells_exist() -> None:
     expected = [
         "apps/WebMediaDLMac/Sources/WebMediaDLMac/WebMediaDLMacApp.swift",
         "apps/WebMediaDLMac/Sources/WebMediaDLMac/WebMediaDLMacShareView.swift",
+        "apps/WebMediaDLMac/Sources/WebMediaDLMac/WebMediaDLMacSubmitURLIntent.swift",
+        "apps/WebMediaDLMac/Resources/Info.plist",
+        "apps/WebMediaDLMac/ShareExtension/Info.plist",
         "apps/WebMediaDLiOS/Sources/WebMediaDLiOS/WebMediaDLiOSRootView.swift",
         "apps/WebMediaDLiOS/Sources/WebMediaDLiOS/WebMediaDLSubmitURLIntent.swift",
+        "apps/WebMediaDLiOS/ShareExtension/Info.plist",
         "apps/WebMediaDLiPadOS/Sources/WebMediaDLiPadOS/WebMediaDLiPadOSRootView.swift",
         "apps/WebMediaDLVision/Sources/WebMediaDLVision/WebMediaDLVisionRootView.swift",
         "apps/WebMediaDLWatch/Sources/WebMediaDLWatch/WebMediaDLWatchRootView.swift",
@@ -40,6 +44,10 @@ def test_apple_app_shells_exist() -> None:
             or "canPublishToPhotos" in text
             or "AppIntent" in text
             or "ShareIntake" in text
+            or "share-services" in text
+            or "NSAppTransportSecurity" in text
+            or "pauseQueueRequest" in text
+            or "pairing" in text.lower()
         )
     watch = (
         root / "apps/WebMediaDLWatch/Sources/WebMediaDLWatch/WebMediaDLWatchRootView.swift"

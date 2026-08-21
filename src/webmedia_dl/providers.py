@@ -211,7 +211,7 @@ class ProviderRuntime:
             raise ProviderPolicyError(msg)
         inputs = request.typed_inputs
         if manifest.provider_id == "ytdlp":
-            return _ytdlp_argv(resolved, inputs, manifest)
+            return _ytdlp_argv(resolved, inputs, manifest, request.capability_id)
         if manifest.provider_id == "ffmpeg":
             return _ffmpeg_argv(resolved, inputs, request.capability_id)
         if manifest.provider_id == "gallery-dl":
@@ -222,11 +222,33 @@ class ProviderRuntime:
         raise ProviderPolicyError(msg)
 
 
-def _ytdlp_argv(binary: str, inputs: dict[str, Any], manifest: ProviderManifest) -> list[str]:
+def _ytdlp_argv(
+    binary: str,
+    inputs: dict[str, Any],
+    manifest: ProviderManifest,
+    capability_id: str,
+) -> list[str]:
     url = inputs.get("url")
+    if not isinstance(url, str):
+        msg = "yt-dlp requires typed input 'url'."
+        raise ProviderPolicyError(msg)
+    if capability_id == "discover.manifest":
+        argv = [
+            binary,
+            "--dump-json",
+            "--no-playlist",
+            "--no-progress",
+            "--no-mtime",
+            url,
+        ]
+        for flag in argv[1:-1]:
+            if flag.startswith("-") and flag not in manifest.allowed_flags:
+                msg = f"Flag {flag!r} is not allowlisted for yt-dlp."
+                raise ProviderPolicyError(msg)
+        return argv
     output = inputs.get("output")
-    if not isinstance(url, str) or not isinstance(output, str):
-        msg = "yt-dlp requires typed inputs 'url' and 'output'."
+    if not isinstance(output, str):
+        msg = "yt-dlp acquire requires typed inputs 'url' and 'output'."
         raise ProviderPolicyError(msg)
     argv = [
         binary,

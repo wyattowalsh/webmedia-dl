@@ -7,4 +7,16 @@ last_reviewed: 2026-08-18
 ---
 # Domain model
 
-See `src/webmedia_dl/domain/models.py` and `schemas/`.
+Canonical types live in `src/webmedia_dl/domain/models.py` and are exported to `schemas/`.
+
+| Type | Role |
+|---|---|
+| `MediaSource` | Typed intake. A URL never becomes `local_path`. |
+| `MediaCandidate` | Discovery node. `identity_key` is never a display title. |
+| `CandidateGraph` | Grouping, alternatives, DRM conflicts. |
+| `Job` | One typed job across every surface. |
+| `PolicyProfile` / `Worker` | Capability intersection. No privilege escalation. |
+| `AcquisitionPlan` / `ExportPlan` | Ranked strategies and least-destructive DAG. |
+| `Artifact` | Content-addressed `sha256:…`. Sources immutable. |
+| `ValidationResult` | PASS requires executed, non-simulated checks. |
+| `EventRecord` | Durable local lifecycle. Not provider console output. |

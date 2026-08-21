@@ -41,6 +41,22 @@ struct MacRootView: View {
                 Section("History") {
                     Text(historyText)
                         .accessibilityLabel("Job history")
+                    Button("Refresh history") {
+                        Task { await refreshHistory() }
+                    }
+                    .accessibilityLabel("Refresh history")
+                }
+                Section("Queue") {
+                    Button("Pause queue") {
+                        _ = WebMediaDLLoopbackClient(token: token).pauseQueueRequest()
+                        status = "Pause requested"
+                    }
+                    .accessibilityLabel("Pause queue")
+                    Button("Resume queue") {
+                        _ = WebMediaDLLoopbackClient(token: token).resumeQueueRequest()
+                        status = "Resume requested"
+                    }
+                    .accessibilityLabel("Resume queue")
                 }
             }
             .navigationTitle("WebMedia DL")
@@ -54,8 +70,19 @@ struct MacRootView: View {
         let client = WebMediaDLLoopbackClient(token: token)
         do {
             status = try await client.submit(locator: locator, surface: .macos)
+            historyText = try await client.history()
         } catch {
             status = error.localizedDescription
+        }
+    }
+
+    @MainActor
+    private func refreshHistory() async {
+        let client = WebMediaDLLoopbackClient(token: token)
+        do {
+            historyText = try await client.history()
+        } catch {
+            historyText = error.localizedDescription
         }
     }
 }

@@ -12,7 +12,7 @@ from loguru import logger
 from webmedia_dl.acquisition import plan_acquisition
 from webmedia_dl.artifacts import ArtifactStore
 from webmedia_dl.candidates import build_graph, preferred_candidates
-from webmedia_dl.discovery import discover
+from webmedia_dl.discovery import candidates_from_manifest_json, discover
 from webmedia_dl.domain.enums import ArtifactRole, EventType, JobState, MediaKind, Surface
 from webmedia_dl.domain.models import (
     BrowserEvidence,
@@ -25,6 +25,7 @@ from webmedia_dl.domain.models import (
 from webmedia_dl.errors import (
     CancelledError,
     DrmRefused,
+    PauseRequested,
     ProviderPolicyError,
     WebMediaError,
 )
@@ -45,9 +46,9 @@ from webmedia_dl.probe import probe_media
 from webmedia_dl.processing import execute_export_plan
 from webmedia_dl.providers import ProviderRequest, ProviderRuntime
 from webmedia_dl.publish import publish_artifacts
-from webmedia_dl.queue import QueueStore
+from webmedia_dl.queue import QUEUE_EVENT_JOB_ID, QueueStore
 from webmedia_dl.security import refuse_drm, resolve_cookie_path
-from webmedia_dl.validation import require_pass, validate_artifact
+from webmedia_dl.validation import require_pass, validate_artifact, validate_probe
 
 FetchFn = Callable[[str], tuple[int, str, bytes]]
 
@@ -111,6 +112,7 @@ class Pipeline:
         pairing_id: UUID | None = None,
         session_key: str | None = None,
         evidence: list[BrowserEvidence] | None = None,
+        wait: bool = True,
     ) -> Job:
         mac_owned = self._mac_owned(
             surface,
@@ -157,14 +159,14 @@ class Pipeline:
                 cookie_value = str(
                     resolve_cookie_path(client_profile, cookies, repo_root=repo_root())
                 )
+            self.queue.put_context(job.job_id, html=html, cookies=cookie_value, evidence=evidence)
+            if self.queue.is_paused() or not wait:
+                return job
             return self._run(job, html=html, cookies=cookie_value, evidence=evidence)
+        except PauseRequested:
+            return self.queue.get_job(job.job_id)
         except WebMediaError as exc:
-            logger.warning("job {} failed: {}", job.job_id, exc)
-            failed = self.queue.set_state(job.job_id, JobState.FAILED, error=str(exc))
-            self.queue.emit(
-                job.job_id, EventType.JOB_FAILED, {"code": exc.code, "message": str(exc)}
-            )
-            return failed
+            return self._fail(job.job_id, exc)
 
     def _run(
         self,
@@ -186,6 +188,7 @@ class Pipeline:
             html=html,
             evidence=evidence,
         )
+        candidates.extend(self._manifest_candidates(job, staging=None))
         graph = build_graph(job.job_id, candidates)
         if any(item.media_kind is MediaKind.PAGE for item in candidates):
             self.queue.emit(
@@ -400,20 +403,53 @@ class Pipeline:
             provenance={"provider": "live-clear-record", "job_id": str(job.job_id)},
         )
 
+    def _manifest_candidates(self, job: Job, *, staging: Path | None) -> list[MediaCandidate]:
+        url = job.source.normalized_url
+        if not url:
+            return []
+        if "discover.manifest" not in self.client_profile.allowed_capabilities:
+            return []
+        try:
+            self._authorize("discover.manifest")
+        except WebMediaError:
+            return []
+        dest = staging or (staging_dir(self.data_dir) / str(job.job_id))
+        dest.mkdir(parents=True, exist_ok=True)
+        try:
+            result = self.runtime.execute(
+                ProviderRequest(
+                    provider_id="ytdlp",
+                    capability_id="discover.manifest",
+                    typed_inputs={"url": url},
+                ),
+                dest,
+            )
+        except WebMediaError as exc:
+            logger.info("manifest discovery skipped: {}", exc)
+            return []
+        if result.exit_code != 0:
+            return []
+        return candidates_from_manifest_json(job.source, result.stdout)
+
     def _record_probe(self, job: Job, artifact, path: Path, candidate_id) -> None:
         probe = probe_media(path, candidate_id=candidate_id)
-        if probe is None:
-            return
-        self.queue.emit(
-            job.job_id,
-            EventType.PROBE_RECORDED,
-            {
-                "artifact_id": artifact.artifact_id,
-                "container": probe.container,
-                "streams": len(probe.streams),
-                "duration_ms": probe.duration_ms,
-            },
-        )
+        if probe is not None:
+            self.queue.emit(
+                job.job_id,
+                EventType.PROBE_RECORDED,
+                {
+                    "artifact_id": artifact.artifact_id,
+                    "container": probe.container,
+                    "streams": len(probe.streams),
+                    "duration_ms": probe.duration_ms,
+                },
+            )
+        for result in validate_probe(job.job_id, artifact, probe):
+            self.queue.emit(
+                job.job_id,
+                EventType.VALIDATION_RECORDED,
+                {"gate": result.gate_id, "status": result.status.value},
+            )
 
     def cancel(self, job_id: UUID) -> Job:
         job = self.queue.get_job(job_id)
@@ -423,6 +459,59 @@ class Pipeline:
         cancelled = self.queue.set_state(job_id, JobState.CANCELLED, error="cancelled by user")
         self.queue.emit(job_id, EventType.JOB_CANCELLED, {"state": "cancelled"})
         return cancelled
+
+    def pause_queue(self) -> dict[str, bool]:
+        self.queue.set_paused(True)
+        self.queue.emit(QUEUE_EVENT_JOB_ID, EventType.QUEUE_PAUSED, {"paused": True})
+        return {"paused": True}
+
+    def resume_queue(self) -> dict[str, bool]:
+        self.queue.set_paused(False)
+        self.queue.emit(QUEUE_EVENT_JOB_ID, EventType.QUEUE_RESUMED, {"paused": False})
+        return {"paused": False}
+
+    def pause_job(self, job_id: UUID) -> Job:
+        job = self.queue.get_job(job_id)
+        if job.state in {JobState.COMPLETED, JobState.FAILED, JobState.CANCELLED}:
+            msg = f"Job {job_id} cannot be paused from state {job.state.value}."
+            raise PauseRequested(msg)
+        paused = self.queue.set_state(job_id, JobState.PAUSED)
+        self.queue.emit(job_id, EventType.JOB_PAUSED, {"state": "paused"})
+        return paused
+
+    def resume_job(self, job_id: UUID) -> Job:
+        job = self.queue.get_job(job_id)
+        if job.state not in {JobState.PAUSED, JobState.ACCEPTED}:
+            msg = f"Job {job_id} cannot be resumed from state {job.state.value}."
+            raise PauseRequested(msg)
+        self.queue.emit(job_id, EventType.JOB_RESUMED, {"state": "resumed"})
+        return self._execute_stored(job)
+
+    def run_next(self) -> Job | None:
+        job = self.queue.next_runnable()
+        if job is None:
+            return None
+        return self._execute_stored(job)
+
+    def _execute_stored(self, job: Job) -> Job:
+        ctx = self.queue.get_context(job.job_id)
+        try:
+            return self._run(
+                job,
+                html=ctx.html,
+                cookies=ctx.cookies,
+                evidence=list(ctx.evidence) or None,
+            )
+        except PauseRequested:
+            return self.queue.get_job(job.job_id)
+        except WebMediaError as exc:
+            return self._fail(job.job_id, exc)
+
+    def _fail(self, job_id: UUID, exc: WebMediaError) -> Job:
+        logger.warning("job {} failed: {}", job_id, exc)
+        failed = self.queue.set_state(job_id, JobState.FAILED, error=str(exc))
+        self.queue.emit(job_id, EventType.JOB_FAILED, {"code": exc.code, "message": str(exc)})
+        return failed
 
     def _authorize(self, capability_id: str) -> None:
         assert_no_privilege_escalation(self.client_profile, self.worker_profile, capability_id)

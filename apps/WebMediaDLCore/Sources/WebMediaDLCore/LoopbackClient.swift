@@ -16,25 +16,32 @@ public struct WebMediaDLLoopbackClient: Sendable {
         return host == "127.0.0.1" || host == "localhost" || host == "::1"
     }
 
+    private func authorized(_ url: URL, method: String = "GET") -> URLRequest {
+        precondition(isLoopback, "Clients may only talk to the loopback worker.")
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        if !token.isEmpty {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        return request
+    }
+
     public func submitRequest(
         locator: String,
         surface: WebMediaDLSurface,
         pairingId: UUID? = nil,
         sessionKey: String? = nil,
-        evidence: [[String: String]] = []
+        evidence: [[String: String]] = [],
+        wait: Bool = false
     ) -> URLRequest {
-        precondition(isLoopback, "Clients may only talk to the loopback worker.")
-        var request = URLRequest(url: baseURL.appendingPathComponent("v1/jobs"))
-        request.httpMethod = "POST"
+        var request = authorized(baseURL.appendingPathComponent("v1/jobs"), method: "POST")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        if !token.isEmpty {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
         var body: [String: Any] = [
             "locator": locator,
             "surface": surface.rawValue,
             "local_user_confirmed": true,
             "evidence": evidence,
+            "wait": wait,
         ]
         if let pairingId {
             body["pairing_id"] = pairingId.uuidString
@@ -47,36 +54,64 @@ public struct WebMediaDLLoopbackClient: Sendable {
     }
 
     public func historyRequest() -> URLRequest {
-        precondition(isLoopback, "Clients may only talk to the loopback worker.")
-        var request = URLRequest(url: baseURL.appendingPathComponent("v1/jobs"))
-        request.httpMethod = "GET"
-        if !token.isEmpty {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
-        return request
+        authorized(baseURL.appendingPathComponent("v1/jobs"))
     }
 
     public func cancelRequest(jobId: UUID) -> URLRequest {
-        precondition(isLoopback, "Clients may only talk to the loopback worker.")
         let url = baseURL
             .appendingPathComponent("v1/jobs")
             .appendingPathComponent(jobId.uuidString)
             .appendingPathComponent("cancel")
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        if !token.isEmpty {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
+        return authorized(url, method: "POST")
+    }
+
+    public func pauseQueueRequest() -> URLRequest {
+        authorized(baseURL.appendingPathComponent("v1/queue/pause"), method: "POST")
+    }
+
+    public func resumeQueueRequest() -> URLRequest {
+        authorized(baseURL.appendingPathComponent("v1/queue/resume"), method: "POST")
+    }
+
+    public func pauseJobRequest(jobId: UUID) -> URLRequest {
+        let url = baseURL
+            .appendingPathComponent("v1/jobs")
+            .appendingPathComponent(jobId.uuidString)
+            .appendingPathComponent("pause")
+        return authorized(url, method: "POST")
+    }
+
+    public func pairConfirmRequest(pairingId: UUID) -> URLRequest {
+        var request = authorized(baseURL.appendingPathComponent("v1/pair/confirm"), method: "POST")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(
+            withJSONObject: ["pairing_id": pairingId.uuidString]
+        )
         return request
     }
 
     public func submit(
         locator: String,
-        surface: WebMediaDLSurface
+        surface: WebMediaDLSurface,
+        pairingId: UUID? = nil,
+        sessionKey: String? = nil
     ) async throws -> String {
         let (data, response) = try await URLSession.shared.data(
-            for: submitRequest(locator: locator, surface: surface)
+            for: submitRequest(
+                locator: locator,
+                surface: surface,
+                pairingId: pairingId,
+                sessionKey: sessionKey
+            )
         )
+        guard let http = response as? HTTPURLResponse else {
+            return String(data: data, encoding: .utf8) ?? "no response"
+        }
+        return "HTTP \(http.statusCode) \(String(data: data, encoding: .utf8) ?? "")"
+    }
+
+    public func history() async throws -> String {
+        let (data, response) = try await URLSession.shared.data(for: historyRequest())
         guard let http = response as? HTTPURLResponse else {
             return String(data: data, encoding: .utf8) ?? "no response"
         }

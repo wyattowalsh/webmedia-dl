@@ -11,3 +11,21 @@ provider console output as its public API. Default telemetry SHALL be false.
 
 - **WHEN** `webmedia-dl submit` completes a local file job
 - **THEN** stdout JSON includes a `job` object and a non-empty `events` list and no telemetry upload
+
+### Requirement: Queue pause SHALL prevent starting the next job
+
+The system SHALL persist a queue-level pause flag. While paused, `next_runnable`
+SHALL return nothing and workers SHALL NOT start a new job. Resume SHALL clear
+the flag. Per-job pause SHALL set job state to `PAUSED` and SHALL NOT be started
+by queue resume. `run_next` SHALL restore HTML, cookie path, and browser evidence
+from the job context store. Queue-level events SHALL use a well-known zero UUID.
+
+#### Scenario: Queue is paused
+
+- **WHEN** the operator pauses the queue
+- **THEN** a newly submitted job SHALL remain `accepted` until resume and `run-next`
+
+#### Scenario: Per-job pause is distinct from queue pause
+
+- **WHEN** a job is paused
+- **THEN** `run_next` SHALL skip it until `resume_job`

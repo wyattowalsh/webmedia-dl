@@ -19,6 +19,10 @@
         "job.failed",
         "job.completed",
         "job.cancelled",
+        "job.paused",
+        "job.resumed",
+        "queue.paused",
+        "queue.resumed",
         "media.probed"
       ],
       "title": "EventType",

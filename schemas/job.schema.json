@@ -95,6 +95,7 @@
         "completed",
         "failed",
         "cancelled",
+        "paused",
         "quarantined"
       ],
       "title": "JobState",

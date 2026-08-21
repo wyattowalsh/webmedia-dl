@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -32,3 +33,37 @@ def http_runtime(png_bytes: bytes) -> ProviderRuntime:
         return 200, {"content-type": "image/png"}, png_bytes
 
     return ProviderRuntime(http_get=http_get)
+
+
+def fake_ytdlp_run(
+    output_bytes: bytes = b"video-bytes",
+    *,
+    acquire_code: int = 0,
+):
+    def run(argv: list[str], _cwd: Path) -> tuple[int, bytes, bytes]:
+        if "--dump-json" in argv:
+            url = argv[-1]
+            body = {
+                "id": "vid",
+                "title": "Clip",
+                "webpage_url": url,
+                "formats": [
+                    {"format_id": "137", "ext": "mp4", "height": 1080, "tbr": 2500},
+                ],
+            }
+            return 0, json.dumps(body).encode(), b""
+        output = argv[argv.index("--output") + 1]
+        Path(output).write_bytes(output_bytes)
+        return acquire_code, b"", b"fail" if acquire_code else b""
+
+    return run
+
+
+@pytest.fixture
+def ytdlp_run_ok():
+    return fake_ytdlp_run()
+
+
+@pytest.fixture
+def ytdlp_run_fail():
+    return fake_ytdlp_run(b"partial", acquire_code=2)

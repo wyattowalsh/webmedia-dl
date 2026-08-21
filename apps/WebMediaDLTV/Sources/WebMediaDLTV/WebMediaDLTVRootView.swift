@@ -22,11 +22,16 @@ public struct WebMediaDLTVRootView: View {
                 Text("History")
                     .accessibilityLabel("Job history")
                 Button("Pause queue") {
-                    _ = client.cancelRequest(jobId: UUID())
+                    _ = client.pauseQueueRequest()
                     _ = bridge.controlMessage(kind: "pause", locator: nil)
                     status = "Pause requested"
                 }
                 .accessibilityLabel("Pause queue")
+                Button("Resume queue") {
+                    _ = client.resumeQueueRequest()
+                    status = "Resume requested"
+                }
+                .accessibilityLabel("Resume queue")
                 Text("Role \(role.rawValue). Loopback \(client.baseURL.absoluteString)")
             }
             .navigationTitle("WebMedia DL")

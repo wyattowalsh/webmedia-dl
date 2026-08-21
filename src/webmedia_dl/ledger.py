@@ -12,6 +12,8 @@ from webmedia_dl.errors import DelegationDenied
 
 
 class UsedNonce(SQLModel, table=True):
+    __tablename__ = "used_nonces"
+
     nonce: str = Field(primary_key=True)
     used_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -25,7 +27,8 @@ class NonceLedger:
             connect_args={"check_same_thread": False},
             poolclass=NullPool,
         )
-        SQLModel.metadata.create_all(self.engine)
+        tables = [table for table in SQLModel.metadata.sorted_tables if table.name == "used_nonces"]
+        SQLModel.metadata.create_all(self.engine, tables=tables)
 
     def consume(self, nonce: str) -> None:
         with Session(self.engine) as session:

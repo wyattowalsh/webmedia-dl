@@ -16,6 +16,7 @@ def test_envelope_roundtrip_and_tamper() -> None:
     sealed = seal_payload(key, {"locator": "https://example.com/a.png"})
     opened = open_payload(key, sealed)
     assert opened["locator"] == "https://example.com/a.png"
+    assert bytes.fromhex(sealed["ciphertext"]) != b'{"locator":"https://example.com/a.png"}'
     sealed["mac"] = "00" * 32
     with pytest.raises(DelegationDenied):
         open_payload(key, sealed)
@@ -34,15 +35,10 @@ def test_cancel_queued_job(tmp_data: Path, png_bytes: bytes) -> None:
         pipeline.cancel(job.job_id)
 
 
-def test_quarantine_on_failed_provider(tmp_data: Path) -> None:
-    def run(argv: list[str], _cwd: Path) -> tuple[int, bytes, bytes]:
-        output = argv[argv.index("--output") + 1]
-        Path(output).write_bytes(b"partial")
-        return 2, b"", b"fail"
-
+def test_quarantine_on_failed_provider(tmp_data: Path, ytdlp_run_fail) -> None:
     runtime = ProviderRuntime(
         which=lambda name: "/usr/bin/yt-dlp" if name == "yt-dlp" else None,
-        run=run,
+        run=ytdlp_run_fail,
         http_get=lambda url: (404, {}, b""),
     )
     pipeline = Pipeline(data_dir=tmp_data, runtime=runtime)

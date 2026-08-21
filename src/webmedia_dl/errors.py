@@ -64,3 +64,7 @@ class CookiePolicyError(WebMediaError):
 
 class CancelledError(WebMediaError):
     code = "job.cancelled"
+
+
+class PauseRequested(WebMediaError):
+    code = "job.paused"

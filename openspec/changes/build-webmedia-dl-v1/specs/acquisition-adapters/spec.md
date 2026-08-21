@@ -26,3 +26,13 @@ reported as `BLOCKED` by `doctor`, not silently downloaded.
 
 - **WHEN** `yt-dlp` is absent
 - **THEN** doctor reports BLOCKED for that provider and does not fetch it
+
+### Requirement: HTTP-direct is only for direct media locators
+
+`acquire.http` SHALL be planned only when the retrieval URL itself names a media
+object. Watch pages discovered via `discover.manifest` SHALL use `acquire.ytdlp`.
+
+#### Scenario: YouTube watch page is not fetched as HTTP bytes
+
+- **WHEN** a candidate's retrieval URL has no media extension
+- **THEN** the ranked plan SHALL NOT include `http-direct` for that URL
