@@ -75,6 +75,18 @@
           ],
           "default": null,
           "title": "Security Scoped Path"
+        },
+        "security_scoped_bookmark": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Security Scoped Bookmark"
         }
       },
       "title": "ExportIntent",

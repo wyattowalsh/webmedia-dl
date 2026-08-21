@@ -12,6 +12,7 @@ from tqdm import tqdm
 
 from webmedia_dl.domain.enums import MediaKind
 from webmedia_dl.errors import DiscoveryError, DrmRefused, NetworkPolicyError
+from webmedia_dl.security import detect_drm_signals, refuse_drm
 
 _ENCRYPTED_HLS = re.compile(r"#EXT-X-KEY:.*METHOD=(?!NONE)([A-Z0-9-]+)", re.I)
 _HLS_KEY_METHOD = re.compile(r"#EXT-X-KEY:.*METHOD=([A-Z0-9-]+)", re.I)
@@ -85,10 +86,15 @@ AddPart = Callable[[ManifestPart], None]
 
 
 def inspect_manifest(text: str) -> None:
+    refuse_drm(detect_drm_signals(text))
     if _DASH_CONTENT_PROTECTION.search(text):
         msg = "DASH ContentProtection is refused."
         raise DrmRefused(msg)
-    if recordable_parts(text, "https://live.invalid/") or "<MPD" in text or "<mpd" in text:
+    if (
+        recordable_parts(text, "https://live.invalid/", inspect=False)
+        or "<MPD" in text
+        or "<mpd" in text
+    ):
         return
     match = _ENCRYPTED_HLS.search(text)
     if match:
@@ -104,7 +110,9 @@ def recordable_segment_urls(text: str, base: str) -> list[str]:
     return [part.url for part in recordable_parts(text, base)]
 
 
-def recordable_parts(text: str, base: str) -> list[ManifestPart]:
+def recordable_parts(text: str, base: str, *, inspect: bool = True) -> list[ManifestPart]:
+    if inspect:
+        refuse_drm(detect_drm_signals(text))
     if "<MPD" in text or "<mpd" in text:
         if _DASH_CONTENT_PROTECTION.search(text):
             msg = "DASH ContentProtection is refused."

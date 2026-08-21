@@ -36,3 +36,8 @@
   outputs. Apple share principals await NSItemProvider load, Files bookmarks
   resolve and standardize paths, and watch/tv decode typed companion history
   over WatchConnectivity scaffolding.
+- Mandatory validation rejects `BLOCKED` and empty evidence; cookie grants merge
+  under a file lock at mode `0600`; empty approved roots no longer authorize
+  cwd. watchOS/tvOS speak intents use companion transport; Mac restores Files
+  bookmarks and activates `WCSessionDelegate`; share extensions ship App Group
+  entitlements; `companion capture <locator>` accepts a positional URL.

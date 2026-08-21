@@ -16,7 +16,17 @@ struct MacRootView: View {
     @State private var locator = ""
     @State private var token = ""
     @State private var pairingId = ""
+    @State private var sessionKey = ""
     @State private var status = "Ready"
+    @State private var historyText = "Jobs appear after the loopback worker accepts them."
+    @State private var history: [WebMediaDLHistoryEntry] = []
+    @State private var companionLocator = ""
+    @State private var companionRelay = WebMediaDLCompanionRelay()
+    @State private var lastJobId: UUID?
+    @State private var approvedRoot = ""
+    @State private var filesBookmark = WebMediaDLSecurityScopedBookmark(path: "")
+    @State private var fromClipboard = false
+    @State private var watchDelegate: WebMediaDLMacWatchConnectivityDelegate?
     @State private var historyText = "Jobs appear after the loopback worker accepts them."
     @State private var history: [WebMediaDLHistoryEntry] = []
     @State private var companionLocator = ""
@@ -156,6 +166,8 @@ struct MacRootView: View {
                 Section("Pairing") {
                     TextField("Pairing id to confirm", text: $pairingId)
                         .accessibilityLabel("Pairing id")
+                    SecureField("Pairing session key", text: $sessionKey)
+                        .accessibilityLabel("Pairing session key")
                     Button("Confirm pairing") {
                         Task {
                             guard let id = UUID(uuidString: pairingId) else {
@@ -178,24 +190,21 @@ struct MacRootView: View {
                     Button("Forward companion capture") {
                         Task {
                             do {
-                                let client = WebMediaDLLoopbackClient(token: token)
+                                let client = WebMediaDLLoopbackClient(
+                                    token: token,
+                                    pairingId: UUID(uuidString: pairingId),
+                                    sessionKey: sessionKey.isEmpty ? nil : sessionKey
+                                )
                                 var forwarder = WebMediaDLMacCompanionForwarder(client: client)
                                 forwarder.receiveWatchConnectivityUserInfo(
                                     ["kind": "capture", "locator": companionLocator, "surface": "watchos"],
                                     into: &companionRelay
                                 )
-                                if let id = UUID(uuidString: pairingId), !pairingId.isEmpty {
-                                    _ = client.sealedCompanionRequest(
-                                        pairingId: id,
-                                        sessionKey: token,
-                                        nonce: "wrap",
-                                        ciphertext: "wrap",
-                                        mac: "wrap"
-                                    )
+                                if let id = UUID(uuidString: pairingId), !pairingId.isEmpty, !sessionKey.isEmpty {
                                     try await forwarder.forwardSealed(
                                         &companionRelay,
                                         pairingId: id,
-                                        sessionKey: token
+                                        sessionKey: sessionKey
                                     )
                                 } else {
                                     try await forwarder.forward(&companionRelay)
@@ -215,8 +224,40 @@ struct MacRootView: View {
                 handleDrop(providers)
             }
             .accessibilityLabel("Drop media files")
+            .onAppear {
+                let defaults = WebMediaDLWorkerCredentials.defaults()
+                if token.isEmpty {
+                    token = defaults.string(forKey: WebMediaDLWorkerCredentials.tokenDefaultsKey) ?? ""
+                }
+                if pairingId.isEmpty {
+                    pairingId = defaults.string(forKey: WebMediaDLWorkerCredentials.pairingDefaultsKey) ?? ""
+                }
+                if sessionKey.isEmpty {
+                    sessionKey = defaults.string(forKey: WebMediaDLWorkerCredentials.sessionDefaultsKey) ?? ""
+                }
+                if let data = WebMediaDLWorkerCredentials.loadBookmark() {
+                    filesBookmark = WebMediaDLSecurityScopedBookmark(path: "", bookmarkData: data).resolve()
+                    approvedRoot = filesBookmark.path
+                }
+                let client = WebMediaDLLoopbackClient(
+                    token: token,
+                    pairingId: UUID(uuidString: pairingId),
+                    sessionKey: sessionKey.isEmpty ? nil : sessionKey
+                )
+                let delegate = WebMediaDLMacWatchConnectivityDelegate(
+                    forwarder: WebMediaDLMacCompanionForwarder(client: client)
+                )
+                delegate.activateSession()
+                watchDelegate = delegate
+            }
             .onChange(of: token) { _, value in
                 WebMediaDLWorkerCredentials.defaults().set(value, forKey: WebMediaDLWorkerCredentials.tokenDefaultsKey)
+            }
+            .onChange(of: pairingId) { _, value in
+                WebMediaDLWorkerCredentials.defaults().set(value, forKey: WebMediaDLWorkerCredentials.pairingDefaultsKey)
+            }
+            .onChange(of: sessionKey) { _, value in
+                WebMediaDLWorkerCredentials.defaults().set(value, forKey: WebMediaDLWorkerCredentials.sessionDefaultsKey)
             }
         }
         .frame(minWidth: 480, minHeight: 320)
@@ -236,7 +277,8 @@ struct MacRootView: View {
                 intakeKind: fromClipboard ? clip.intakeKind : nil,
                 destinationKind: files == nil ? nil : "files_app",
                 destinationPath: files?.approvedRoot,
-                approvedRoots: files.map { [$0.approvedRoot] } ?? []
+                approvedRoots: files.map { [$0.approvedRoot] } ?? [],
+                bookmarkData: filesBookmark.bookmarkData
             )
             lastJobId = WebMediaDLLoopbackClient.jobId(from: status)
             await refreshHistory()

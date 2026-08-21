@@ -139,6 +139,8 @@ def test_files_bookmark_and_photokit(tmp_path: Path) -> None:
     bookmark = SecurityScopedBookmark(resolved_path=str(dest))
     assert bookmark.allows(str(dest / "clip.mp4"))
     assert not bookmark.allows(str(tmp_path / "Movies-backup" / "clip.mp4"))
+    assert not SecurityScopedBookmark(resolved_path="").allows(str(dest / "clip.mp4"))
+    assert not SecurityScopedBookmark(resolved_path="   ").allows(str(dest / "clip.mp4"))
     intent = FilesAppDestination(bookmark=bookmark).as_intent()
     assert intent.destination_kind is DestinationKind.FILES_APP
     assert intent.security_scoped_path == str(dest.resolve())

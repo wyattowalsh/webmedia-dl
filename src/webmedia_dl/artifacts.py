@@ -84,6 +84,8 @@ class ArtifactStore:
             return updated
         if not dest.exists():
             shutil.copy2(src, dest)
+        if role == ArtifactRole.SOURCE:
+            dest.chmod(0o444)
         artifact = Artifact(
             artifact_id=artifact_id,
             role=role,

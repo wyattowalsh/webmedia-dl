@@ -100,6 +100,20 @@ final class IdentityTests: XCTestCase {
         let body = String(data: request.httpBody ?? Data(), encoding: .utf8) ?? ""
         XCTAssertTrue(body.contains("files_app"))
         XCTAssertTrue(body.contains("security_scoped_path"))
+        let bookmarked = WebMediaDLLoopbackClient().submitRequest(
+            locator: "https://example.com/a.mp4",
+            surface: .macos,
+            destinationKind: "files_app",
+            destinationPath: "/Users/me/Movies",
+            approvedRoots: ["/Users/me/Movies"],
+            bookmarkData: Data("bookmark".utf8)
+        )
+        let bookmarkedBody = String(data: bookmarked.httpBody ?? Data(), encoding: .utf8) ?? ""
+        XCTAssertTrue(bookmarkedBody.contains("security_scoped_bookmark"))
+        XCTAssertFalse(WebMediaDLSecurityScopedBookmark(path: "").allows("/Users/me/Movies/clip.mp4"))
+        XCTAssertFalse(WebMediaDLSecurityScopedBookmark(path: "   ").allows("/Users/me/Movies/clip.mp4"))
+        XCTAssertFalse(WebMediaDLDestinationPolicy(approvedRoots: ["", " "]).allows("/Users/me/Movies/clip.mp4"))
+        _ = WebMediaDLWorkerCredentials.loadBookmark()
     }
 
     func testCompanionKindEncodesNullNativeCommand() throws {

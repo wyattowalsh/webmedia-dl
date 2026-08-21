@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import fcntl
 import json
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -98,15 +100,16 @@ class CookieGrantLedger:
         self._grants: dict[str, CookieGrant] = {}
         self._load()
 
-    def _load(self) -> None:
+    def _read_store(self) -> dict[str, CookieGrant]:
+        grants: dict[str, CookieGrant] = {}
         if self._store is None or not self._store.is_file():
-            return
+            return grants
         try:
             payload = json.loads(self._store.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError, UnicodeDecodeError):
-            return
+            return grants
         if not isinstance(payload, list):
-            return
+            return grants
         for item in payload:
             if not isinstance(item, dict):
                 continue
@@ -119,35 +122,61 @@ class CookieGrantLedger:
                 )
             except (KeyError, TypeError, ValueError):
                 continue
-            self._grants[grant.grant_id] = grant
+            grants[grant.grant_id] = grant
+        return grants
+
+    def _load(self) -> None:
+        self._grants = self._read_store()
+
+    def _lock(self):
+        if self._store is None:
+            return None
+        self._store.parent.mkdir(parents=True, exist_ok=True)
+        lock_path = self._store.with_suffix(".lock")
+        handle = lock_path.open("a+")
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        return handle
 
     def _save(self) -> None:
         if self._store is None:
             return
-        self._store.parent.mkdir(parents=True, exist_ok=True)
-        payload = [
-            {
-                "grant_id": grant.grant_id,
-                "job_id": str(grant.job_id),
-                "path": str(grant.path),
-                "profile_id": grant.profile_id,
-            }
-            for grant in self._grants.values()
-        ]
-        tmp = self._store.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-        tmp.replace(self._store)
+        handle = self._lock()
+        try:
+            disk = self._read_store()
+            merged = {**disk, **self._grants}
+            self._grants = merged
+            self._store.parent.mkdir(parents=True, exist_ok=True)
+            payload = [
+                {
+                    "grant_id": grant.grant_id,
+                    "job_id": str(grant.job_id),
+                    "path": str(grant.path),
+                    "profile_id": grant.profile_id,
+                }
+                for grant in self._grants.values()
+            ]
+            tmp = self._store.with_suffix(".json.tmp")
+            tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+            tmp.replace(self._store)
+            os.chmod(self._store, 0o600)
+        finally:
+            if handle is not None:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+                handle.close()
 
     def issue(self, job_id: UUID, path: Path, profile_id: str) -> CookieGrant:
+        from webmedia_dl.paths import repo_root
         from webmedia_dl.policy.profiles import get_profile
 
-        if get_profile(profile_id).cookie_access == CookieAccess.NEVER:
-            msg = "This profile forbids cookie access."
+        profile = get_profile(profile_id)
+        resolved = resolve_cookie_path(profile, str(path), repo_root=repo_root())
+        if resolved is None:
+            msg = "Cookie files must be user-owned absolute paths."
             raise CookiePolicyError(msg)
         grant = CookieGrant(
             grant_id=str(uuid4()),
             job_id=job_id,
-            path=path,
+            path=resolved,
             profile_id=profile_id,
         )
         self._grants[grant.grant_id] = grant

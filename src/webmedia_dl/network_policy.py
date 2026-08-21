@@ -29,9 +29,21 @@ def authorize_url(url: str, profile: PolicyProfile) -> str:
 
 
 def authorize_destination(destination: Path, approved_roots: list[str]) -> Path:
+    roots: list[Path] = []
+    for raw in approved_roots:
+        text = str(raw).strip()
+        if not text:
+            continue
+        root = Path(text).expanduser()
+        if not root.is_absolute():
+            continue
+        roots.append(root)
+    if not roots:
+        msg = "Publication destinations require a non-blank absolute approved root."
+        raise NetworkPolicyError(msg)
     resolved = destination.expanduser().resolve()
-    for root in approved_roots:
-        if path_is_under(resolved, Path(root).expanduser()):
+    for root in roots:
+        if path_is_under(resolved, root):
             return resolved
     msg = "Destination is outside user-approved roots."
     raise NetworkPolicyError(msg)

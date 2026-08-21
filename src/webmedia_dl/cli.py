@@ -264,6 +264,10 @@ def drop(
 @app.command()
 def companion(
     kind: Annotated[str, typer.Argument(help="capture, pause, resume, history, status, cancel")],
+    locator_arg: Annotated[
+        str | None,
+        typer.Argument(help="Media locator for capture. Also accepted as --locator."),
+    ] = None,
     data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
     locator: Annotated[str | None, typer.Option("--locator")] = None,
     job_id: Annotated[UUID | None, typer.Option("--job")] = None,
@@ -272,8 +276,9 @@ def companion(
     """Forward a watchOS/tvOS companion message on the Mac worker."""
     pipeline = _pipeline(data_dir)
     payload: dict[str, object] = {"kind": kind, "nativeCommand": None, "subprocessWorker": False}
-    if locator:
-        payload["locator"] = locator
+    resolved_locator = locator or locator_arg
+    if resolved_locator:
+        payload["locator"] = resolved_locator
     if job_id is not None:
         payload["job_id"] = str(job_id)
     payload["surface"] = surface.value

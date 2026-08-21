@@ -73,6 +73,7 @@ public struct WebMediaDLWatchRootView: View {
         .onAppear {
             _ = role
             _ = bridge.isSubprocessWorker
+            transport.activateSession()
         }
     }
 

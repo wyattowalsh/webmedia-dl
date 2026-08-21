@@ -2,6 +2,7 @@ import AppIntents
 import WebMediaDLCore
 
 /// watchOS App Intent: speak or capture a URL for Mac relay. Not a subprocess worker.
+/// Speak intake uses intakeKind: "speak" on the Mac after companion transport delivery.
 public struct WebMediaDLWatchSubmitURLIntent: AppIntent {
     public static var title: LocalizedStringResource = "Send to WebMedia DL"
 
@@ -15,8 +16,10 @@ public struct WebMediaDLWatchSubmitURLIntent: AppIntent {
     }
 
     public func perform() async throws -> some IntentResult {
-        let client = WebMediaDLWorkerCredentials.loadClient()
-        _ = try await client.submit(locator: locator, surface: .watchos, intakeKind: "speak")
+        let bridge = WebMediaDLContinuityBridge()
+        var transport = WebMediaDLWatchConnectivityTransport()
+        let message = bridge.message(kind: .capture, locator: locator, surface: .watchos)
+        try await transport.send(message)
         return .result()
     }
 }

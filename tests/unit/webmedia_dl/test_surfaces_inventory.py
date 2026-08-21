@@ -48,6 +48,9 @@ CREDENTIAL_ADAPTERS = [
     "apps/WebMediaDLiOS/Sources/WebMediaDLiOS/WebMediaDLiOSRootView.swift",
     "apps/WebMediaDLiPadOS/Sources/WebMediaDLiPadOS/WebMediaDLiPadOSRootView.swift",
     "apps/WebMediaDLVision/Sources/WebMediaDLVision/WebMediaDLVisionRootView.swift",
+]
+
+COMPANION_INTENTS = [
     "apps/WebMediaDLWatch/Sources/WebMediaDLWatch/WebMediaDLWatchSubmitURLIntent.swift",
     "apps/WebMediaDLTV/Sources/WebMediaDLTV/WebMediaDLTVSubmitURLIntent.swift",
 ]
@@ -234,6 +237,7 @@ def test_apple_app_shells_exist() -> None:
         root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/Destinations.swift"
     ).read_text(encoding="utf-8")
     assert "WebMediaDLSecurityScopedBookmark" in destinations
+    assert "if trimmed.isEmpty { return false }" in destinations
     assert "libraryWriteAvailable" in destinations
     assert "exposesProviderConsole" in destinations
     assert "WebMediaDLShareItemExtractor" in destinations
@@ -317,9 +321,12 @@ def test_companion_transport_and_typed_history() -> None:
     assert "encodeNil(forKey: .nativeCommand)" in continuity
     assert "protocol WebMediaDLCompanionTransport" in continuity
     assert "struct WebMediaDLQueuedCompanionTransport" in continuity
-    assert "class WebMediaDLWatchConnectivityTransport" in continuity
-    assert "WCSession" in continuity
-    assert "transferUserInfo" in continuity
+    assert "WCSessionDelegate" in continuity
+    assert "WCSession.default.delegate" in continuity
+    assert "activate()" in continuity
+    assert "func activateSession()" in continuity
+    assert "didReceiveUserInfo" in continuity
+    assert "func sendResponse(" in continuity
     assert "struct WebMediaDLMacCompanionForwarder" in continuity
     assert "func send(_ message: WebMediaDLCompanionMessage)" in continuity
     assert "func forward(" in continuity
@@ -339,12 +346,20 @@ def test_companion_transport_and_typed_history() -> None:
     assert "UIPasteboard" in tv
     assert "transport.send" in watch
     assert "transport.send" in tv
+    assert "activateSession()" in watch
+    assert "activateSession()" in tv
     assert "relay.enqueue" not in watch
     assert "relay.enqueue" not in tv
     mac = (root / ROOT_VIEWS["macos"]).read_text(encoding="utf-8")
     assert "WebMediaDLMacCompanionForwarder" in mac
     assert "receiveWatchConnectivityUserInfo" in mac
     assert "forwarder.forward" in mac
+    assert "activateSession()" in mac
+    assert "loadBookmark()" in mac
+    assert "sessionKey: token" not in mac
+    assert 'nonce: "wrap"' not in mac
+    assert "forwardSealed(" in mac
+    assert "sessionKey: sessionKey" in mac
     loopback = (root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/LoopbackClient.swift").read_text(
         encoding="utf-8"
     )
@@ -353,6 +368,9 @@ def test_companion_transport_and_typed_history() -> None:
     assert "WebMediaDLPairingChallenge" in loopback or "startPairing" in loopback
     assert "UserDefaults(suiteName:" in loopback
     assert "group.local.webmedia-dl" in loopback
+    assert "func loadBookmark(" in loopback
+    assert "data(forKey: bookmarkDefaultsKey)" in loopback
+    assert "security_scoped_bookmark" in loopback
     assert "resolvingBookmarkData" in (
         root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/Destinations.swift"
     ).read_text(encoding="utf-8")
@@ -366,7 +384,8 @@ def test_companion_transport_and_typed_history() -> None:
         root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/Destinations.swift"
     ).read_text(encoding="utf-8")
     mac = (root / ROOT_VIEWS["macos"]).read_text(encoding="utf-8")
-    assert "sealedCompanionRequest(" in mac
+    assert "forwardSealed(" in mac
+    assert "WebMediaDLWorkerCredentials.loadBookmark()" in mac
     for rel in ("ios", "ipados", "visionos"):
         text = (root / ROOT_VIEWS[rel]).read_text(encoding="utf-8")
         assert "Start pairing" in text
@@ -384,6 +403,10 @@ def test_companion_transport_and_typed_history() -> None:
         "apps/WebMediaDLVision/Resources/WebMediaDL.entitlements",
         "apps/WebMediaDLWatch/Resources/WebMediaDL.entitlements",
         "apps/WebMediaDLTV/Resources/WebMediaDL.entitlements",
+        "apps/WebMediaDLMac/ShareExtension/WebMediaDL.entitlements",
+        "apps/WebMediaDLiOS/ShareExtension/WebMediaDL.entitlements",
+        "apps/WebMediaDLiPadOS/ShareExtension/WebMediaDL.entitlements",
+        "apps/WebMediaDLVision/ShareExtension/WebMediaDL.entitlements",
     ):
         payload = plistlib.loads((root / rel).read_bytes())
         assert "group.local.webmedia-dl" in payload["com.apple.security.application-groups"]
@@ -408,8 +431,7 @@ def test_companion_transport_and_typed_history() -> None:
         "apps/WebMediaDLiOS/Sources/WebMediaDLiOS/WebMediaDLSubmitURLIntent.swift",
         "apps/WebMediaDLiPadOS/Sources/WebMediaDLiPadOS/WebMediaDLiPadOSSubmitURLIntent.swift",
         "apps/WebMediaDLVision/Sources/WebMediaDLVision/WebMediaDLVisionSubmitURLIntent.swift",
-        "apps/WebMediaDLWatch/Sources/WebMediaDLWatch/WebMediaDLWatchSubmitURLIntent.swift",
-        "apps/WebMediaDLTV/Sources/WebMediaDLTV/WebMediaDLTVSubmitURLIntent.swift",
+        *COMPANION_INTENTS,
     ):
         text = (root / rel).read_text(encoding="utf-8")
         assert 'intakeKind: "speak"' in text
@@ -467,6 +489,12 @@ def test_intents_and_share_adapters_load_credentials() -> None:
         text = (root / rel).read_text(encoding="utf-8")
         assert "WebMediaDLWorkerCredentials.loadClient()" in text
         assert "WebMediaDLLoopbackClient()" not in text
+    for rel in COMPANION_INTENTS:
+        text = (root / rel).read_text(encoding="utf-8")
+        assert "WebMediaDLWatchConnectivityTransport" in text
+        assert "transport.send" in text
+        assert "loadClient()" not in text
+        assert 'intakeKind: "speak"' in text
 
 
 def test_browser_extension_trees() -> None:

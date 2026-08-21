@@ -40,8 +40,11 @@ public struct WebMediaDLSecurityScopedBookmark: Sendable, Equatable {
 
     public func allows(_ candidate: String) -> Bool {
         if stale { return false }
-        let root = Self.standardizedPath(path)
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return false }
+        let root = Self.standardizedPath(trimmed)
         let item = Self.standardizedPath(candidate)
+        if root.isEmpty || item.isEmpty { return false }
         if item == root { return true }
         let prefix = root.hasSuffix("/") ? root : root + "/"
         return item.hasPrefix(prefix)

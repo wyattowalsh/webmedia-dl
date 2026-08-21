@@ -172,6 +172,7 @@ class ExportIntent(StrictModel):
     container_preference: str | None = None
     approved_roots: list[str] = Field(default_factory=list)
     security_scoped_path: str | None = None
+    security_scoped_bookmark: str | None = None
 
     @model_validator(mode="after")
     def destination_requires_approval(self) -> Self:
@@ -180,12 +181,13 @@ class ExportIntent(StrictModel):
             DestinationKind.FILES_APP,
             DestinationKind.SHARE,
         }
-        if self.destination_kind in path_kinds and (
-            not self.destination_path or not self.approved_roots
-        ):
+        cleaned = [item.strip() for item in self.approved_roots if str(item).strip()]
+        if cleaned != list(self.approved_roots):
+            object.__setattr__(self, "approved_roots", cleaned)
+        if self.destination_kind in path_kinds and (not self.destination_path or not cleaned):
             msg = "Publication destinations require an approved path and root."
             raise ValueError(msg)
-        if self.destination_kind == DestinationKind.PHOTOS and not self.approved_roots:
+        if self.destination_kind == DestinationKind.PHOTOS and not cleaned:
             msg = "Photos publication requires a user-approved root."
             raise ValueError(msg)
         if self.destination_kind is DestinationKind.FILES_APP and not self.security_scoped_path:

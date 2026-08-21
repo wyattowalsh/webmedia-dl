@@ -638,3 +638,147 @@ def test_readme_lists_every_cli_command() -> None:
     assert pair_help.exit_code == 0
     for name in command_line.findall(pair_help.stdout):
         assert name in readme, f"pair {name}"
+
+
+def test_cookie_ledger_merges_and_rejects_relative(tmp_path: Path) -> None:
+    cookies_a = tmp_path / "cookies-a.txt"
+    cookies_b = tmp_path / "cookies-b.txt"
+    cookies_a.write_text("# Netscape HTTP Cookie File\n", encoding="utf-8")
+    cookies_b.write_text("# Netscape HTTP Cookie File\n", encoding="utf-8")
+    store = tmp_path / "data" / "cookie-grants.json"
+    first = CookieGrantLedger(store)
+    grant_a = first.issue(uuid4(), cookies_a, "personal-full")
+    stale = CookieGrantLedger(store)
+    stale._grants = {}
+    grant_b = stale.issue(uuid4(), cookies_b, "personal-full")
+    recovered = CookieGrantLedger(store)
+    assert (
+        recovered.resolve(grant_a.grant_id, job_id=grant_a.job_id, profile_id="personal-full")
+        == cookies_a.resolve()
+    )
+    assert (
+        recovered.resolve(grant_b.grant_id, job_id=grant_b.job_id, profile_id="personal-full")
+        == cookies_b.resolve()
+    )
+    assert store.stat().st_mode & 0o777 == 0o600
+    relative = CookieGrantLedger(store)
+    with pytest.raises(CookiePolicyError, match="absolute"):
+        relative.issue(uuid4(), Path("relative.txt"), "personal-full")
+    with pytest.raises(CookiePolicyError, match="repository"):
+        relative.issue(uuid4(), repo_root() / "README.md", "personal-full")
+    lock = store.with_suffix(".lock")
+    assert lock.is_file()
+
+
+def test_standalone_cenc_pssh_is_refused() -> None:
+    from webmedia_dl.errors import DrmRefused
+    from webmedia_dl.live import inspect_manifest
+
+    text = "<MPD><Period><cenc:pssh>AAAA</cenc:pssh></Period></MPD>"
+    with pytest.raises(DrmRefused):
+        inspect_manifest(text)
+    with pytest.raises(DrmRefused):
+        recordable_parts(text, "https://cdn.example.com/manifest.mpd")
+
+
+def test_source_artifact_file_is_not_writable(tmp_path: Path) -> None:
+    import os
+
+    from webmedia_dl.artifacts import ArtifactStore
+
+    src = tmp_path / "a.bin"
+    src.write_bytes(b"hello")
+    store = ArtifactStore(tmp_path / "data")
+    artifact = store.register(src, role=ArtifactRole.SOURCE, media_kind=MediaKind.UNKNOWN)
+    path = store.resolve(artifact)
+    assert path.stat().st_mode & 0o222 == 0
+    if os.geteuid() != 0:
+        with pytest.raises(PermissionError):
+            path.write_bytes(b"mutated")
+
+
+def test_publish_isolates_unreadable_sibling(tmp_path: Path) -> None:
+    good = tmp_path / "good.bin"
+    ghost = tmp_path / "ghost.bin"
+    good.write_bytes(b"good-bytes")
+    ghost.write_bytes(b"ghost-bytes")
+    good_digest = sha256_file(str(good))
+    ghost_digest = sha256_file(str(ghost))
+    good_artifact = Artifact(
+        artifact_id=f"sha256:{good_digest}",
+        role=ArtifactRole.SOURCE,
+        sha256=good_digest,
+        byte_size=good.stat().st_size,
+        media_kind=MediaKind.IMAGE,
+        storage_relpath="good.bin",
+    )
+    ghost_artifact = Artifact(
+        artifact_id=f"sha256:{ghost_digest}",
+        role=ArtifactRole.SOURCE,
+        sha256=ghost_digest,
+        byte_size=ghost.stat().st_size,
+        media_kind=MediaKind.IMAGE,
+        storage_relpath="ghost.bin",
+    )
+    dest = tmp_path / "out"
+    dest.mkdir()
+    intent = ExportIntent(
+        destination_kind=DestinationKind.USER_APPROVED_PATH,
+        destination_path=str(dest),
+        approved_roots=[str(dest)],
+    )
+    ghost_results = validate_artifact(uuid4(), ghost_artifact, ghost)
+    ghost.unlink()
+    published = publish_artifacts(
+        [
+            (good_artifact, good, validate_artifact(uuid4(), good_artifact, good)),
+            (ghost_artifact, ghost, ghost_results),
+        ],
+        intent,
+    )
+    assert len(published) == 1
+    assert published[0].read_bytes() == b"good-bytes"
+    reversed_published = publish_artifacts(
+        [
+            (ghost_artifact, ghost, ghost_results),
+            (good_artifact, good, validate_artifact(uuid4(), good_artifact, good)),
+        ],
+        intent,
+    )
+    assert len(reversed_published) == 1
+    with pytest.raises(OSError):
+        publish_artifacts([(ghost_artifact, ghost, ghost_results)], intent)
+
+
+def test_blank_export_roots_are_rejected() -> None:
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="approved"):
+        ExportIntent(
+            destination_kind=DestinationKind.USER_APPROVED_PATH,
+            destination_path="/tmp/webmedia-dl-out",
+            approved_roots=["", " "],
+        )
+
+
+def test_package_bundle_skips_coverage_and_caches(tmp_path: Path) -> None:
+    import importlib.util
+
+    path = repo_root() / "scripts" / "package_bundle.py"
+    spec = importlib.util.spec_from_file_location("package_bundle", path)
+    assert spec is not None and spec.loader is not None
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    tree = tmp_path / "tree"
+    tree.mkdir()
+    (tree / "keep.txt").write_text("ok", encoding="utf-8")
+    (tree / ".coverage").write_text("cov", encoding="utf-8")
+    (tree / "CACHEDIR.TAG").write_text("tag", encoding="utf-8")
+    cache = tree / ".ruff_cache"
+    cache.mkdir()
+    (cache / "x").write_text("x", encoding="utf-8")
+    names = {path.name for path in mod.iter_files(tree)}
+    assert "keep.txt" in names
+    assert ".coverage" not in names
+    assert "CACHEDIR.TAG" not in names
+    assert "x" not in names

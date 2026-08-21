@@ -41,6 +41,54 @@ def test_require_pass_raises() -> None:
         require_pass([result])
 
 
+def test_require_pass_rejects_blocked_and_empty() -> None:
+    blocked = record_result(
+        job_id=uuid4(),
+        artifact_id="sha256:x",
+        gate_id="container-match",
+        status=EvidenceStatus.BLOCKED,
+        message="probe missing",
+    )
+    with pytest.raises(ValidationFailed, match="BLOCKED"):
+        require_pass([blocked])
+    with pytest.raises(ValidationFailed, match="no executed evidence"):
+        require_pass([])
+    probe_only = record_result(
+        job_id=uuid4(),
+        artifact_id="sha256:x",
+        gate_id="probe-streams",
+        status=EvidenceStatus.PASS,
+        message="streams",
+    )
+    require_pass([probe_only], identity_gates=False)
+    require_pass([probe_only])
+    hash_only = record_result(
+        job_id=uuid4(),
+        artifact_id="sha256:x",
+        gate_id="hash-match",
+        status=EvidenceStatus.PASS,
+        message="hash",
+    )
+    with pytest.raises(ValidationFailed, match="size-match"):
+        require_pass([hash_only])
+
+
+def test_blank_approved_roots_are_denied(tmp_path: Path) -> None:
+    from webmedia_dl.errors import NetworkPolicyError
+
+    target = tmp_path / "out"
+    target.mkdir()
+    with pytest.raises(NetworkPolicyError, match="non-blank absolute"):
+        authorize_destination(target, [""])
+    with pytest.raises(NetworkPolicyError, match="non-blank absolute"):
+        authorize_destination(target, ["  "])
+    with pytest.raises(NetworkPolicyError, match="non-blank absolute"):
+        authorize_destination(target, ["."])
+    with pytest.raises(NetworkPolicyError, match="non-blank absolute"):
+        authorize_destination(target, [])
+    assert authorize_destination(target, [str(tmp_path)]) == target.resolve()
+
+
 def test_record_result_blocks_simulated_pass() -> None:
     with pytest.raises(SimulatedPassError):
         record_result(

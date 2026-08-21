@@ -51,7 +51,8 @@ public struct WebMediaDLLoopbackClient: Sendable {
         intakeKind: String? = nil,
         destinationKind: String? = nil,
         destinationPath: String? = nil,
-        approvedRoots: [String] = []
+        approvedRoots: [String] = [],
+        bookmarkData: Data? = nil
     ) -> URLRequest {
         var request = authorized(baseURL.appendingPathComponent("v1/jobs"), method: "POST")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -81,6 +82,9 @@ public struct WebMediaDLLoopbackClient: Sendable {
             }
             if destinationKind == "files_app", let destinationPath {
                 intent["security_scoped_path"] = destinationPath
+            }
+            if let bookmarkData {
+                intent["security_scoped_bookmark"] = bookmarkData.base64EncodedString()
             }
             body["intent"] = intent
         }
@@ -225,7 +229,8 @@ public struct WebMediaDLLoopbackClient: Sendable {
         intakeKind: String? = nil,
         destinationKind: String? = nil,
         destinationPath: String? = nil,
-        approvedRoots: [String] = []
+        approvedRoots: [String] = [],
+        bookmarkData: Data? = nil
     ) async throws -> String {
         try await send(
             submitRequest(
@@ -236,7 +241,8 @@ public struct WebMediaDLLoopbackClient: Sendable {
                 intakeKind: intakeKind,
                 destinationKind: destinationKind,
                 destinationPath: destinationPath,
-                approvedRoots: approvedRoots
+                approvedRoots: approvedRoots,
+                bookmarkData: bookmarkData
             )
         )
     }
@@ -349,6 +355,10 @@ public enum WebMediaDLWorkerCredentials {
             sessionKey: defaults.string(forKey: sessionDefaultsKey)
         )
     }
+
+    public static func loadBookmark(defaults: UserDefaults = WebMediaDLWorkerCredentials.defaults()) -> Data? {
+        defaults.data(forKey: bookmarkDefaultsKey)
+    }
 }
 
 /// Photos / Files / Share destinations require an explicit user-approved root.
@@ -361,8 +371,11 @@ public struct WebMediaDLDestinationPolicy: Sendable {
 
     public func allows(_ path: String) -> Bool {
         approvedRoots.contains { root in
-            let normalizedRoot = WebMediaDLSecurityScopedBookmark.standardizedPath(root)
+            let trimmed = root.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty { return false }
+            let normalizedRoot = WebMediaDLSecurityScopedBookmark.standardizedPath(trimmed)
             let item = WebMediaDLSecurityScopedBookmark.standardizedPath(path)
+            if normalizedRoot.isEmpty || item.isEmpty { return false }
             if item == normalizedRoot { return true }
             let prefix = normalizedRoot.hasSuffix("/") ? normalizedRoot : normalizedRoot + "/"
             return item.hasPrefix(prefix)

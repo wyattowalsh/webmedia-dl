@@ -185,7 +185,7 @@ def execute_export_plan(
                         {"gate": item.gate_id, "status": item.status.value},
                     )
                 if probe is not None:
-                    require_pass(probe_results)
+                    require_pass(probe_results, identity_gates=False)
             produced.append((derivative, result.output_path))
             artifacts[derivative.artifact_id] = (derivative, result.output_path)
             artifacts[operation.operation_id] = (derivative, result.output_path)

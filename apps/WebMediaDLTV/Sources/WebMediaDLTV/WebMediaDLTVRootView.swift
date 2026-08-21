@@ -70,6 +70,9 @@ public struct WebMediaDLTVRootView: View {
                 Text("Role \(role.rawValue). Companion to Mac worker.")
             }
             .navigationTitle("WebMedia DL")
+            .onAppear {
+                transport.activateSession()
+            }
         }
     }
 

@@ -14,7 +14,7 @@ def test_help() -> None:
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
     assert CLI_NAME in result.stdout
-    assert PERSONAL_ALIAS not in result.stdout.split("Usage")[0] or True
+    assert PERSONAL_ALIAS not in result.stdout.split("Usage")[0]
 
 
 def test_version() -> None:
@@ -194,6 +194,30 @@ def test_companion_cli_status(tmp_path: Path) -> None:
     payload = json.loads(result.stdout)
     assert payload["kind"] == "status"
     assert payload["paused"] is False
+
+
+def test_companion_cli_positional_locator(tmp_path: Path) -> None:
+    positional = runner.invoke(
+        app,
+        ["companion", "capture", "https://example.com/a.mp4", "--data-dir", str(tmp_path)],
+    )
+    assert positional.exit_code == 0
+    body = json.loads(positional.stdout)
+    assert body["kind"] == "capture"
+    assert body["job"]["source"]["locator"] == "https://example.com/a.mp4"
+    flagged = runner.invoke(
+        app,
+        [
+            "companion",
+            "capture",
+            "--locator",
+            "https://example.com/b.mp4",
+            "--data-dir",
+            str(tmp_path),
+        ],
+    )
+    assert flagged.exit_code == 0
+    assert json.loads(flagged.stdout)["job"]["source"]["locator"] == "https://example.com/b.mp4"
 
 
 def test_updates_never_auto_installs() -> None:

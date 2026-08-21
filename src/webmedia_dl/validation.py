@@ -210,9 +210,31 @@ def validate_probe(
     ]
 
 
-def require_pass(results: list[ValidationResult]) -> None:
-    failures = [item for item in results if item.status == EvidenceStatus.FAIL]
-    if failures:
-        names = ", ".join(item.gate_id for item in failures)
+IDENTITY_GATES = ("hash-match", "size-match")
+
+
+def require_pass(
+    results: list[ValidationResult],
+    *,
+    identity_gates: bool = True,
+) -> None:
+    if not results:
+        msg = "Mandatory validation produced no executed evidence."
+        raise ValidationFailed(msg)
+    closed = [
+        item for item in results if item.status in {EvidenceStatus.FAIL, EvidenceStatus.BLOCKED}
+    ]
+    if closed:
+        names = ", ".join(f"{item.gate_id}:{item.status.value}" for item in closed)
         msg = f"Mandatory validation failed: {names}."
         raise ValidationFailed(msg)
+    if not identity_gates:
+        return
+    by_gate = {item.gate_id: item for item in results}
+    if not any(gate in by_gate for gate in IDENTITY_GATES):
+        return
+    for gate in IDENTITY_GATES:
+        item = by_gate.get(gate)
+        if item is None or item.status is not EvidenceStatus.PASS or not item.executed:
+            msg = f"Mandatory validation missing executed PASS for {gate}."
+            raise ValidationFailed(msg)

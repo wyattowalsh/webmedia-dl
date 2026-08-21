@@ -16,9 +16,11 @@ SKIP_PARTS = {
     "node_modules",
     ".ruff_cache",
     ".pytest_cache",
+    ".ty",
     "htmlcov",
 }
-SKIP_SUFFIX = {".pyc", ".zip"}
+SKIP_NAMES = {".coverage", "CACHEDIR.TAG"}
+SKIP_SUFFIX = {".pyc", ".pyo", ".zip", ".whl", ".so"}
 
 
 def iter_files(root: Path) -> list[Path]:
@@ -27,6 +29,8 @@ def iter_files(root: Path) -> list[Path]:
         if not path.is_file():
             continue
         if any(part in SKIP_PARTS for part in path.parts):
+            continue
+        if path.name in SKIP_NAMES:
             continue
         if path.suffix in SKIP_SUFFIX:
             continue

@@ -26,8 +26,12 @@ class SecurityScopedBookmark(StrictModel):
     def allows(self, path: str) -> bool:
         if self.stale:
             return False
+        if not str(self.resolved_path).strip():
+            return False
         candidate = Path(path).expanduser()
         root = Path(self.resolved_path).expanduser()
+        if not root.is_absolute():
+            return False
         return path_is_under(candidate, root) or candidate.resolve() == root.resolve()
 
 
