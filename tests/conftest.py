@@ -1,0 +1,34 @@
+"""Shared fixtures. Network, clock, and provider binaries are mocked at unit boundaries."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from webmedia_dl.providers import ProviderRuntime
+
+
+@pytest.fixture
+def tmp_data(tmp_path: Path) -> Path:
+    return tmp_path / "worker-data"
+
+
+@pytest.fixture
+def png_bytes() -> bytes:
+    return (
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+        b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00"
+        b"\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x18\xd8N"
+        b"\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
+
+
+@pytest.fixture
+def http_runtime(png_bytes: bytes) -> ProviderRuntime:
+    def http_get(url: str) -> tuple[int, dict[str, str], bytes]:
+        if "missing" in url:
+            return 404, {}, b"not found"
+        return 200, {"content-type": "image/png"}, png_bytes
+
+    return ProviderRuntime(http_get=http_get)

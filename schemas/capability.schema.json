@@ -1,0 +1,69 @@
+{
+  "$defs": {
+    "Surface": {
+      "enum": [
+        "macos",
+        "ios",
+        "ipados",
+        "visionos",
+        "watchos",
+        "tvos",
+        "safari",
+        "chromium",
+        "firefox",
+        "cli"
+      ],
+      "title": "Surface",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "capability_id": {
+      "title": "Capability Id",
+      "type": "string"
+    },
+    "provider_id": {
+      "title": "Provider Id",
+      "type": "string"
+    },
+    "platforms": {
+      "items": {
+        "$ref": "#/$defs/Surface"
+      },
+      "title": "Platforms",
+      "type": "array"
+    },
+    "description": {
+      "title": "Description",
+      "type": "string"
+    },
+    "health": {
+      "default": "healthy",
+      "enum": [
+        "healthy",
+        "missing",
+        "unhealthy",
+        "disabled"
+      ],
+      "title": "Health",
+      "type": "string"
+    },
+    "required_entitlements": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Required Entitlements",
+      "type": "array"
+    }
+  },
+  "required": [
+    "capability_id",
+    "provider_id",
+    "platforms",
+    "description"
+  ],
+  "title": "Capability",
+  "type": "object",
+  "$id": "https://webmedia-dl.local/schemas/capability.schema.json"
+}

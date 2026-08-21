@@ -1,0 +1,209 @@
+{
+  "$defs": {
+    "FormatAlternative": {
+      "additionalProperties": false,
+      "properties": {
+        "format_id": {
+          "title": "Format Id",
+          "type": "string"
+        },
+        "container": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Container"
+        },
+        "codec": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Codec"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Width"
+        },
+        "height": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Height"
+        },
+        "bitrate": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bitrate"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        },
+        "drm": {
+          "default": false,
+          "title": "Drm",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "format_id"
+      ],
+      "title": "FormatAlternative",
+      "type": "object"
+    },
+    "MediaKind": {
+      "enum": [
+        "video",
+        "audio",
+        "image",
+        "gallery",
+        "document",
+        "subtitle",
+        "live_stream",
+        "page",
+        "unknown"
+      ],
+      "title": "MediaKind",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "candidate_id": {
+      "format": "uuid",
+      "title": "Candidate Id",
+      "type": "string"
+    },
+    "source_id": {
+      "format": "uuid",
+      "title": "Source Id",
+      "type": "string"
+    },
+    "media_kind": {
+      "$ref": "#/$defs/MediaKind"
+    },
+    "identity_key": {
+      "title": "Identity Key",
+      "type": "string"
+    },
+    "title_display": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Title Display"
+    },
+    "grouping_key": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Grouping Key"
+    },
+    "retrieval_urls": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Retrieval Urls",
+      "type": "array"
+    },
+    "alternatives": {
+      "items": {
+        "$ref": "#/$defs/FormatAlternative"
+      },
+      "title": "Alternatives",
+      "type": "array"
+    },
+    "drm_signals": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Drm Signals",
+      "type": "array"
+    },
+    "conflicts": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Conflicts",
+      "type": "array"
+    },
+    "evidence_refs": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Evidence Refs",
+      "type": "array"
+    },
+    "host": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Host"
+    }
+  },
+  "required": [
+    "source_id",
+    "media_kind",
+    "identity_key"
+  ],
+  "title": "MediaCandidate",
+  "type": "object",
+  "$id": "https://webmedia-dl.local/schemas/media-candidate.schema.json"
+}

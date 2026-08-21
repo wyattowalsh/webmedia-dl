@@ -1,0 +1,22 @@
+schema: spec-driven
+change: build-webmedia-dl-v1
+status: proposed
+capabilities:
+  - accessibility-ux
+  - acquisition-adapters
+  - apple-platform-clients
+  - apple-system-integrations
+  - asset-store-provenance
+  - browser-extensions
+  - cross-device-workers
+  - diagnostics-support
+  - discovery-candidates
+  - export-planning
+  - export-validation-publication
+  - intake-routing
+  - live-manifest-recording
+  - media-processing
+  - migration-compatibility
+  - packaging-distribution-updates
+  - queue-events-observability
+  - security-privacy-policy

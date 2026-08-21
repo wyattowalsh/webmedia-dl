@@ -1,0 +1,4 @@
+# W7 evidence
+
+- status: `BLOCKED`
+- reason: Apple/store/signing hardware or human review required.

@@ -141,3 +141,32 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Python / uv
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ty/
+.coverage
+htmlcov/
+*.whl
+
+# WebMedia DL local worker state (never commit)
+.webmedia-dl/
+worker.token
+
+# Apple / Xcode
+DerivedData/
+*.xcuserstate
+*.xccheckout
+*.moved-aside
+
+# Packing output
+dist-bundle/
+*.zip
+!fixtures/**/*.zip

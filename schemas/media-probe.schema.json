@@ -1,0 +1,159 @@
+{
+  "$defs": {
+    "MediaKind": {
+      "enum": [
+        "video",
+        "audio",
+        "image",
+        "gallery",
+        "document",
+        "subtitle",
+        "live_stream",
+        "page",
+        "unknown"
+      ],
+      "title": "MediaKind",
+      "type": "string"
+    },
+    "StreamInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "index": {
+          "title": "Index",
+          "type": "integer"
+        },
+        "codec": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Codec"
+        },
+        "media_kind": {
+          "$ref": "#/$defs/MediaKind",
+          "default": "unknown"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Width"
+        },
+        "height": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Height"
+        },
+        "sample_rate": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sample Rate"
+        },
+        "channels": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Channels"
+        },
+        "encrypted": {
+          "default": false,
+          "title": "Encrypted",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "index"
+      ],
+      "title": "StreamInfo",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "probe_id": {
+      "format": "uuid",
+      "title": "Probe Id",
+      "type": "string"
+    },
+    "candidate_id": {
+      "format": "uuid",
+      "title": "Candidate Id",
+      "type": "string"
+    },
+    "duration_ms": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Duration Ms"
+    },
+    "streams": {
+      "items": {
+        "$ref": "#/$defs/StreamInfo"
+      },
+      "title": "Streams",
+      "type": "array"
+    },
+    "container": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Container"
+    },
+    "drm_signals": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Drm Signals",
+      "type": "array"
+    }
+  },
+  "required": [
+    "candidate_id"
+  ],
+  "title": "MediaProbe",
+  "type": "object",
+  "$id": "https://webmedia-dl.local/schemas/media-probe.schema.json"
+}

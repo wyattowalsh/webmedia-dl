@@ -1,0 +1,79 @@
+{
+  "$defs": {
+    "CookieAccess": {
+      "enum": [
+        "never",
+        "explicit_path"
+      ],
+      "title": "CookieAccess",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "profile_id": {
+      "title": "Profile Id",
+      "type": "string"
+    },
+    "display_name": {
+      "title": "Display Name",
+      "type": "string"
+    },
+    "allowed_capabilities": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowed Capabilities",
+      "type": "array"
+    },
+    "cookie_access": {
+      "$ref": "#/$defs/CookieAccess",
+      "default": "never"
+    },
+    "drm_circumvention": {
+      "default": false,
+      "title": "Drm Circumvention",
+      "type": "boolean"
+    },
+    "can_delegate": {
+      "default": false,
+      "title": "Can Delegate",
+      "type": "boolean"
+    },
+    "subprocess_worker": {
+      "default": true,
+      "title": "Subprocess Worker",
+      "type": "boolean"
+    },
+    "network_schemes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Network Schemes",
+      "type": "array"
+    },
+    "max_html_bytes": {
+      "default": 2000000,
+      "title": "Max Html Bytes",
+      "type": "integer"
+    },
+    "max_redirects": {
+      "default": 5,
+      "title": "Max Redirects",
+      "type": "integer"
+    },
+    "telemetry_default": {
+      "default": false,
+      "title": "Telemetry Default",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "profile_id",
+    "display_name",
+    "allowed_capabilities"
+  ],
+  "title": "PolicyProfile",
+  "type": "object",
+  "$id": "https://webmedia-dl.local/schemas/policy-profile.schema.json"
+}

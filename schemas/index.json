@@ -1,0 +1,20 @@
+{
+  "schemas": {
+    "media-source": "media-source.schema.json",
+    "media-candidate": "media-candidate.schema.json",
+    "candidate-graph": "candidate-graph.schema.json",
+    "media-probe": "media-probe.schema.json",
+    "job": "job.schema.json",
+    "export-intent": "export-intent.schema.json",
+    "capability": "capability.schema.json",
+    "provider-manifest": "provider-manifest.schema.json",
+    "policy-profile": "policy-profile.schema.json",
+    "worker": "worker.schema.json",
+    "acquisition-plan": "acquisition-plan.schema.json",
+    "artifact": "artifact.schema.json",
+    "operation": "operation.schema.json",
+    "export-plan": "export-plan.schema.json",
+    "validation-result": "validation-result.schema.json",
+    "event": "event.schema.json"
+  }
+}

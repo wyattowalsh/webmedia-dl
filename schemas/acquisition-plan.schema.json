@@ -1,0 +1,93 @@
+{
+  "$defs": {
+    "AcquisitionStrategy": {
+      "additionalProperties": false,
+      "properties": {
+        "strategy_id": {
+          "title": "Strategy Id",
+          "type": "string"
+        },
+        "provider_id": {
+          "title": "Provider Id",
+          "type": "string"
+        },
+        "capability_id": {
+          "title": "Capability Id",
+          "type": "string"
+        },
+        "typed_inputs": {
+          "additionalProperties": true,
+          "title": "Typed Inputs",
+          "type": "object"
+        },
+        "estimated_loss": {
+          "$ref": "#/$defs/LossClass",
+          "default": "none"
+        },
+        "rank": {
+          "default": 0,
+          "title": "Rank",
+          "type": "integer"
+        },
+        "extra_args": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Extra Args",
+          "type": "array"
+        }
+      },
+      "required": [
+        "strategy_id",
+        "provider_id",
+        "capability_id"
+      ],
+      "title": "AcquisitionStrategy",
+      "type": "object"
+    },
+    "LossClass": {
+      "enum": [
+        "none",
+        "container_only",
+        "reversible_metadata",
+        "lossy_transcode",
+        "semantic_risk",
+        "forbidden"
+      ],
+      "title": "LossClass",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "plan_id": {
+      "format": "uuid",
+      "title": "Plan Id",
+      "type": "string"
+    },
+    "job_id": {
+      "format": "uuid",
+      "title": "Job Id",
+      "type": "string"
+    },
+    "candidate_id": {
+      "format": "uuid",
+      "title": "Candidate Id",
+      "type": "string"
+    },
+    "strategies": {
+      "items": {
+        "$ref": "#/$defs/AcquisitionStrategy"
+      },
+      "title": "Strategies",
+      "type": "array"
+    }
+  },
+  "required": [
+    "job_id",
+    "candidate_id"
+  ],
+  "title": "AcquisitionPlan",
+  "type": "object",
+  "$id": "https://webmedia-dl.local/schemas/acquisition-plan.schema.json"
+}

@@ -1,0 +1,22 @@
+{
+  "http-direct": {
+    "binary": null,
+    "auto_install": false
+  },
+  "ytdlp": {
+    "binary": "yt-dlp",
+    "auto_install": false
+  },
+  "gallery-dl": {
+    "binary": "gallery-dl",
+    "auto_install": false
+  },
+  "ffmpeg": {
+    "binary": "ffmpeg",
+    "auto_install": false
+  },
+  "imagemagick": {
+    "binary": "magick",
+    "auto_install": false
+  }
+}

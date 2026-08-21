@@ -1,0 +1,21 @@
+{
+  "direct_http": {
+    "kinds": [
+      "image",
+      "audio",
+      "video",
+      "document"
+    ]
+  },
+  "html_page": {
+    "kinds": [
+      "page",
+      "gallery"
+    ]
+  },
+  "clear_live_manifest": {
+    "kinds": [
+      "live_stream"
+    ]
+  }
+}

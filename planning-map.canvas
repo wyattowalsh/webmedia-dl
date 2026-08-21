@@ -1,0 +1,20 @@
+{
+  "nodes": [
+    {
+      "id": "start",
+      "type": "file",
+      "file": "START_HERE.md"
+    },
+    {
+      "id": "arch",
+      "type": "file",
+      "file": "docs/planning/build-webmedia-dl-v1/system-architecture.md"
+    }
+  ],
+  "edges": [
+    {
+      "fromNode": "start",
+      "toNode": "arch"
+    }
+  ]
+}

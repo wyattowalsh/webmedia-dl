@@ -1,0 +1,172 @@
+"""Typer CLI. Canonical command is `webmedia-dl`; `wmdl` is a personal alias only."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Annotated
+from uuid import UUID
+
+import typer
+from loguru import logger
+
+from webmedia_dl.compat import migrate_legacy, scan_legacy
+from webmedia_dl.diagnostics import doctor
+from webmedia_dl.domain.enums import DestinationKind, Surface
+from webmedia_dl.domain.models import ExportIntent
+from webmedia_dl.names import CLI_NAME, DISPLAY_NAME, PERSONAL_ALIAS
+from webmedia_dl.pipeline import Pipeline
+from webmedia_dl.policy.profiles import builtin_profiles
+from webmedia_dl.settings import Settings
+
+app = typer.Typer(
+    name=CLI_NAME,
+    help=f"{DISPLAY_NAME}: local-first media acquisition and export.",
+    no_args_is_help=True,
+    add_completion=False,
+)
+
+
+def _pipeline(data_dir: Path | None) -> Pipeline:
+    settings = Settings(data_dir=data_dir)
+    return Pipeline(data_dir=settings.resolved_data_dir())
+
+
+@app.callback()
+def _root() -> None:
+    """WebMedia DL command surface."""
+
+
+@app.command()
+def version() -> None:
+    """Print the package version."""
+    from webmedia_dl import __version__
+
+    typer.echo(f"{DISPLAY_NAME} {__version__} ({CLI_NAME})")
+
+
+@app.command("doctor")
+def doctor_cmd(
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+) -> None:
+    """Executed evidence for toolchain, providers, and blocked Apple/store gates."""
+    typer.echo(json.dumps(doctor(data_dir=data_dir), indent=2))
+
+
+@app.command()
+def submit(
+    locator: Annotated[str, typer.Argument(help="https URL or existing local file")],
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+    dest: Annotated[
+        Path | None, typer.Option("--dest", help="User-approved destination directory")
+    ] = None,
+    allow_lossy: Annotated[bool, typer.Option("--allow-lossy")] = False,
+    html: Annotated[
+        Path | None, typer.Option("--html", help="Local HTML fixture instead of fetching")
+    ] = None,
+    cookies: Annotated[
+        Path | None, typer.Option("--cookies", help="User-owned Netscape cookie file")
+    ] = None,
+    surface: Annotated[Surface, typer.Option("--surface")] = Surface.CLI,
+) -> None:
+    """Share, paste, or select a source. Runs the typed job pipeline."""
+    intent = ExportIntent()
+    if dest is not None:
+        intent = ExportIntent(
+            destination_kind=DestinationKind.USER_APPROVED_PATH,
+            destination_path=str(dest.resolve()),
+            approved_roots=[str(dest.resolve())],
+            allow_lossy=allow_lossy,
+        )
+    pipeline = _pipeline(data_dir)
+    html_text = html.read_text(encoding="utf-8") if html else None
+    cookie_path = str(cookies.resolve()) if cookies else None
+    job = pipeline.submit(
+        locator,
+        surface=surface,
+        intent=intent,
+        html=html_text,
+        cookies=cookie_path,
+    )
+    typer.echo(job.model_dump_json(indent=2))
+    if job.error:
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def job(
+    job_id: Annotated[UUID, typer.Argument()],
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+) -> None:
+    """Show one job and its events."""
+    pipeline = _pipeline(data_dir)
+    record = pipeline.job(job_id)
+    events = [event.model_dump(mode="json") for event in pipeline.queue.events_for(job_id)]
+    typer.echo(
+        json.dumps({"job": record.model_dump(mode="json"), "events": events}, indent=2, default=str)
+    )
+
+
+@app.command()
+def history(
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+) -> None:
+    """List jobs from the local queue."""
+    pipeline = _pipeline(data_dir)
+    payload = [item.model_dump(mode="json") for item in pipeline.history()]
+    typer.echo(json.dumps(payload, indent=2, default=str))
+
+
+@app.command()
+def policy() -> None:
+    """Show built-in policy profiles."""
+    payload = {key: value.model_dump(mode="json") for key, value in builtin_profiles().items()}
+    typer.echo(json.dumps(payload, indent=2))
+
+
+@app.command("migrate-scan")
+def migrate_scan(
+    root: Annotated[Path, typer.Argument()],
+) -> None:
+    """Scan a legacy command-tool directory without rewriting it."""
+    typer.echo(json.dumps(scan_legacy(root), indent=2))
+
+
+@app.command("migrate-apply")
+def migrate_apply(
+    root: Annotated[Path, typer.Argument()],
+) -> None:
+    """Copy a sidecar index for a legacy layout. Never rewrites originals."""
+    typer.echo(json.dumps(migrate_legacy(root, apply=True), indent=2))
+
+
+@app.command()
+def serve(
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+    host: Annotated[str, typer.Option("--host")] = "127.0.0.1",
+    port: Annotated[int, typer.Option("--port")] = 8765,
+) -> None:
+    """Run the authenticated loopback worker API."""
+    if host not in {"127.0.0.1", "localhost", "::1"}:
+        logger.error("Worker API binds loopback only.")
+        raise typer.Exit(code=2)
+    from webmedia_dl.service import serve_worker
+
+    serve_worker(data_dir=data_dir, host=host, port=port)
+
+
+@app.command()
+def alias_note() -> None:
+    """Remind that wmdl is a personal alias, not the public name."""
+    typer.echo(
+        f"The public command is `{CLI_NAME}`. `{PERSONAL_ALIAS}` may be aliased locally "
+        "but is not the canonical name."
+    )
+
+
+def main() -> None:
+    app()
+
+
+if __name__ == "__main__":
+    main()

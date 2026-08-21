@@ -1,0 +1,100 @@
+{
+  "$defs": {
+    "ArtifactRole": {
+      "enum": [
+        "source",
+        "derivative",
+        "preview",
+        "evidence",
+        "quarantine"
+      ],
+      "title": "ArtifactRole",
+      "type": "string"
+    },
+    "MediaKind": {
+      "enum": [
+        "video",
+        "audio",
+        "image",
+        "gallery",
+        "document",
+        "subtitle",
+        "live_stream",
+        "page",
+        "unknown"
+      ],
+      "title": "MediaKind",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "artifact_id": {
+      "title": "Artifact Id",
+      "type": "string"
+    },
+    "role": {
+      "$ref": "#/$defs/ArtifactRole"
+    },
+    "sha256": {
+      "title": "Sha256",
+      "type": "string"
+    },
+    "byte_size": {
+      "title": "Byte Size",
+      "type": "integer"
+    },
+    "media_kind": {
+      "$ref": "#/$defs/MediaKind"
+    },
+    "container": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Container"
+    },
+    "storage_relpath": {
+      "title": "Storage Relpath",
+      "type": "string"
+    },
+    "parent_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Parent Ids",
+      "type": "array"
+    },
+    "registered_at": {
+      "format": "date-time",
+      "title": "Registered At",
+      "type": "string"
+    },
+    "immutable": {
+      "default": false,
+      "title": "Immutable",
+      "type": "boolean"
+    },
+    "provenance": {
+      "additionalProperties": true,
+      "title": "Provenance",
+      "type": "object"
+    }
+  },
+  "required": [
+    "artifact_id",
+    "role",
+    "sha256",
+    "byte_size",
+    "media_kind",
+    "storage_relpath"
+  ],
+  "title": "Artifact",
+  "type": "object",
+  "$id": "https://webmedia-dl.local/schemas/artifact.schema.json"
+}

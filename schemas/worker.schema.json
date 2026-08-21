@@ -1,0 +1,60 @@
+{
+  "$defs": {
+    "Surface": {
+      "enum": [
+        "macos",
+        "ios",
+        "ipados",
+        "visionos",
+        "watchos",
+        "tvos",
+        "safari",
+        "chromium",
+        "firefox",
+        "cli"
+      ],
+      "title": "Surface",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "worker_id": {
+      "title": "Worker Id",
+      "type": "string"
+    },
+    "platform": {
+      "$ref": "#/$defs/Surface"
+    },
+    "profile_id": {
+      "title": "Profile Id",
+      "type": "string"
+    },
+    "capabilities": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Capabilities",
+      "type": "array"
+    },
+    "paired": {
+      "default": false,
+      "title": "Paired",
+      "type": "boolean"
+    },
+    "subprocess_capable": {
+      "default": true,
+      "title": "Subprocess Capable",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "worker_id",
+    "platform",
+    "profile_id",
+    "capabilities"
+  ],
+  "title": "Worker",
+  "type": "object",
+  "$id": "https://webmedia-dl.local/schemas/worker.schema.json"
+}

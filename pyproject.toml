@@ -1,0 +1,96 @@
+[project]
+name = "webmedia-dl"
+version = "0.1.0"
+description = "Local-first universal media acquisition and export for Apple devices and desktop browsers."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.13"
+keywords = ["media", "download", "local-first", "apple", "yt-dlp"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: End Users/Desktop",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Multimedia",
+  "Typing :: Typed",
+]
+dependencies = [
+  "fastapi>=0.128.0",
+  "httpx>=0.28.1",
+  "jsonschema>=4.25.1",
+  "loguru>=0.7.3",
+  "platformdirs>=4.5.0",
+  "pydantic-settings>=2.11.0",
+  "pydantic>=2.12.0",
+  "sqlmodel>=0.0.27",
+  "tenacity>=9.1.2",
+  "tqdm>=4.67.1",
+  "typer>=0.19.2",
+  "uvicorn>=0.35.0",
+]
+
+[project.scripts]
+webmedia-dl = "webmedia_dl.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/wyattowalsh/webmedia-dl"
+Repository = "https://github.com/wyattowalsh/webmedia-dl"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+  "pytest>=8.4.1",
+  "pytest-asyncio>=1.1.0",
+  "pytest-cov>=6.2.1",
+  "ruff>=0.12.10",
+  "ty>=0.0.1a19",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = [
+  "--strict-markers",
+  "--strict-config",
+  "-ra",
+]
+markers = [
+  "integration: uses real filesystem staging but mocks network and providers",
+  "e2e: end-to-end CLI/API journeys with mocked providers",
+]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+src = ["src", "tests", "scripts"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/webmedia_dl/service.py" = ["B008"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.ty.environment]
+python-version = "3.13"
+
+[tool.ty.src]
+include = ["src", "tests", "scripts"]
+
+[tool.coverage.run]
+source = ["webmedia_dl"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true
+skip_empty = true

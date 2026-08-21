@@ -1,0 +1,71 @@
+{
+  "$defs": {
+    "DestinationKind": {
+      "enum": [
+        "user_approved_path",
+        "photos",
+        "files_app",
+        "share",
+        "staging_only"
+      ],
+      "title": "DestinationKind",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "preset_id": {
+      "default": "original-sacred",
+      "title": "Preset Id",
+      "type": "string"
+    },
+    "destination_kind": {
+      "$ref": "#/$defs/DestinationKind",
+      "default": "staging_only"
+    },
+    "destination_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Destination Path"
+    },
+    "include_original": {
+      "default": true,
+      "title": "Include Original",
+      "type": "boolean"
+    },
+    "allow_lossy": {
+      "default": false,
+      "title": "Allow Lossy",
+      "type": "boolean"
+    },
+    "container_preference": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Container Preference"
+    },
+    "approved_roots": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Approved Roots",
+      "type": "array"
+    }
+  },
+  "title": "ExportIntent",
+  "type": "object",
+  "$id": "https://webmedia-dl.local/schemas/export-intent.schema.json"
+}

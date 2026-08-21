@@ -1,0 +1,64 @@
+{
+  "$defs": {
+    "EventType": {
+      "enum": [
+        "job.accepted",
+        "intake.normalized",
+        "discovery.partial",
+        "discovery.completed",
+        "graph.built",
+        "plan.ranked",
+        "acquisition.started",
+        "acquisition.quarantine",
+        "artifact.source_registered",
+        "export.planned",
+        "operation.completed",
+        "operation.failed",
+        "validation.recorded",
+        "publication.committed",
+        "job.failed",
+        "job.completed"
+      ],
+      "title": "EventType",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "event_id": {
+      "format": "uuid",
+      "title": "Event Id",
+      "type": "string"
+    },
+    "job_id": {
+      "format": "uuid",
+      "title": "Job Id",
+      "type": "string"
+    },
+    "type": {
+      "$ref": "#/$defs/EventType"
+    },
+    "sequence": {
+      "title": "Sequence",
+      "type": "integer"
+    },
+    "ts": {
+      "format": "date-time",
+      "title": "Ts",
+      "type": "string"
+    },
+    "payload": {
+      "additionalProperties": true,
+      "title": "Payload",
+      "type": "object"
+    }
+  },
+  "required": [
+    "job_id",
+    "type",
+    "sequence"
+  ],
+  "title": "EventRecord",
+  "type": "object",
+  "$id": "https://webmedia-dl.local/schemas/event.schema.json"
+}

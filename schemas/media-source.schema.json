@@ -1,0 +1,107 @@
+{
+  "$defs": {
+    "IntakeKind": {
+      "enum": [
+        "url",
+        "file",
+        "share_sheet",
+        "paste",
+        "drop",
+        "intent",
+        "cli",
+        "browser_evidence",
+        "live_manifest"
+      ],
+      "title": "IntakeKind",
+      "type": "string"
+    },
+    "Surface": {
+      "enum": [
+        "macos",
+        "ios",
+        "ipados",
+        "visionos",
+        "watchos",
+        "tvos",
+        "safari",
+        "chromium",
+        "firefox",
+        "cli"
+      ],
+      "title": "Surface",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "source_id": {
+      "format": "uuid",
+      "title": "Source Id",
+      "type": "string"
+    },
+    "kind": {
+      "$ref": "#/$defs/IntakeKind"
+    },
+    "locator": {
+      "title": "Locator",
+      "type": "string"
+    },
+    "normalized_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Normalized Url"
+    },
+    "local_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Local Path"
+    },
+    "submitted_at": {
+      "format": "date-time",
+      "title": "Submitted At",
+      "type": "string"
+    },
+    "surface": {
+      "$ref": "#/$defs/Surface"
+    },
+    "policy_profile_id": {
+      "title": "Policy Profile Id",
+      "type": "string"
+    },
+    "content_type_hint": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Content Type Hint"
+    }
+  },
+  "required": [
+    "kind",
+    "locator",
+    "surface",
+    "policy_profile_id"
+  ],
+  "title": "MediaSource",
+  "type": "object",
+  "$id": "https://webmedia-dl.local/schemas/media-source.schema.json"
+}

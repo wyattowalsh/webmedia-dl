@@ -1,0 +1,72 @@
+{
+  "$defs": {
+    "EvidenceStatus": {
+      "enum": [
+        "PASS",
+        "WARN",
+        "BLOCKED",
+        "FAIL"
+      ],
+      "title": "EvidenceStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "result_id": {
+      "format": "uuid",
+      "title": "Result Id",
+      "type": "string"
+    },
+    "job_id": {
+      "format": "uuid",
+      "title": "Job Id",
+      "type": "string"
+    },
+    "target_artifact_id": {
+      "title": "Target Artifact Id",
+      "type": "string"
+    },
+    "gate_id": {
+      "title": "Gate Id",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/EvidenceStatus"
+    },
+    "message": {
+      "title": "Message",
+      "type": "string"
+    },
+    "simulated": {
+      "default": false,
+      "title": "Simulated",
+      "type": "boolean"
+    },
+    "planned": {
+      "default": false,
+      "title": "Planned",
+      "type": "boolean"
+    },
+    "executed": {
+      "default": true,
+      "title": "Executed",
+      "type": "boolean"
+    },
+    "details": {
+      "additionalProperties": true,
+      "title": "Details",
+      "type": "object"
+    }
+  },
+  "required": [
+    "job_id",
+    "target_artifact_id",
+    "gate_id",
+    "status",
+    "message"
+  ],
+  "title": "ValidationResult",
+  "type": "object",
+  "$id": "https://webmedia-dl.local/schemas/validation-result.schema.json"
+}

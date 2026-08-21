@@ -1,0 +1,111 @@
+{
+  "$defs": {
+    "ArtifactRole": {
+      "enum": [
+        "source",
+        "derivative",
+        "preview",
+        "evidence",
+        "quarantine"
+      ],
+      "title": "ArtifactRole",
+      "type": "string"
+    },
+    "LossClass": {
+      "enum": [
+        "none",
+        "container_only",
+        "reversible_metadata",
+        "lossy_transcode",
+        "semantic_risk",
+        "forbidden"
+      ],
+      "title": "LossClass",
+      "type": "string"
+    },
+    "Operation": {
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "title": "Operation Id",
+          "type": "string"
+        },
+        "op_type": {
+          "title": "Op Type",
+          "type": "string"
+        },
+        "capability_id": {
+          "title": "Capability Id",
+          "type": "string"
+        },
+        "input_artifact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Input Artifact Ids",
+          "type": "array"
+        },
+        "output_role": {
+          "$ref": "#/$defs/ArtifactRole"
+        },
+        "loss_class": {
+          "$ref": "#/$defs/LossClass"
+        },
+        "validator_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Validator Ids",
+          "type": "array"
+        },
+        "typed_inputs": {
+          "additionalProperties": true,
+          "title": "Typed Inputs",
+          "type": "object"
+        }
+      },
+      "required": [
+        "operation_id",
+        "op_type",
+        "capability_id",
+        "input_artifact_ids",
+        "output_role",
+        "loss_class",
+        "validator_ids"
+      ],
+      "title": "Operation",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "plan_id": {
+      "format": "uuid",
+      "title": "Plan Id",
+      "type": "string"
+    },
+    "job_id": {
+      "format": "uuid",
+      "title": "Job Id",
+      "type": "string"
+    },
+    "operations": {
+      "items": {
+        "$ref": "#/$defs/Operation"
+      },
+      "title": "Operations",
+      "type": "array"
+    },
+    "publish_source": {
+      "default": true,
+      "title": "Publish Source",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "job_id"
+  ],
+  "title": "ExportPlan",
+  "type": "object",
+  "$id": "https://webmedia-dl.local/schemas/export-plan.schema.json"
+}

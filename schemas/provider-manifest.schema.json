@@ -1,0 +1,79 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "provider_id": {
+      "title": "Provider Id",
+      "type": "string"
+    },
+    "display_name": {
+      "title": "Display Name",
+      "type": "string"
+    },
+    "binary_name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Binary Name"
+    },
+    "capabilities": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Capabilities",
+      "type": "array"
+    },
+    "allowed_flags": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowed Flags",
+      "type": "array"
+    },
+    "install_automatic": {
+      "default": false,
+      "title": "Install Automatic",
+      "type": "boolean"
+    },
+    "license": {
+      "title": "License",
+      "type": "string"
+    },
+    "source_url": {
+      "title": "Source Url",
+      "type": "string"
+    },
+    "accepts_user_argv": {
+      "default": false,
+      "title": "Accepts User Argv",
+      "type": "boolean"
+    },
+    "notes": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Notes"
+    }
+  },
+  "required": [
+    "provider_id",
+    "display_name",
+    "capabilities",
+    "license",
+    "source_url"
+  ],
+  "title": "ProviderManifest",
+  "type": "object",
+  "$id": "https://webmedia-dl.local/schemas/provider-manifest.schema.json"
+}
