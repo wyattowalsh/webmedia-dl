@@ -55,4 +55,6 @@
   already-acquired kind skip, duplicate failed-kind containment, derivative
   validation skip with source publish, optional dependent skip, DASH
   video/audio kind split, live poll stop, and HTML gallery/embed discovery
-  fail closed with executed tests.
+  fail closed with executed tests. Queue-paused resume, empty output_paths
+  fallback, Photos/staging publication guards, probe timeout/encrypted tags,
+  and URL-never-path source validation fail closed with executed tests.

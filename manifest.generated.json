@@ -373,6 +373,7 @@
     "tests/unit/webmedia_dl/test_providers.py",
     "tests/unit/webmedia_dl/test_queue_manifest.py",
     "tests/unit/webmedia_dl/test_remainder_gates.py",
+    "tests/unit/webmedia_dl/test_remaining_contract_gates.py",
     "tests/unit/webmedia_dl/test_remaining_linux_gates.py",
     "tests/unit/webmedia_dl/test_runtime_gaps.py",
     "tests/unit/webmedia_dl/test_schema_export.py",

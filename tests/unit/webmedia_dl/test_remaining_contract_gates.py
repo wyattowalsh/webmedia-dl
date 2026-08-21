@@ -26,6 +26,7 @@ from webmedia_dl.domain.enums import (
     Surface,
 )
 from webmedia_dl.domain.models import (
+    AcquisitionStrategy,
     Artifact,
     ExportIntent,
     ExportPlan,
@@ -72,6 +73,10 @@ def test_resume_job_holds_when_queue_paused(
     pipeline.pause_queue()
     resumed = pipeline.resume_job(job.job_id)
     assert resumed.state is JobState.ACCEPTED
+    assert pipeline.queue.is_paused() is True
+    held = pipeline.submit(str(media), wait=False)
+    held_resume = pipeline.resume_job(held.job_id)
+    assert held_resume.state is JobState.ACCEPTED
     assert pipeline.queue.is_paused() is True
 
 
@@ -437,3 +442,14 @@ def test_url_never_becomes_path_and_title_identity() -> None:
             storage_relpath="x.bin",
             provenance={"title": "Clip Title"},
         )
+    with pytest.raises(ValueError, match="Photos publication"):
+        ExportIntent(destination_kind=DestinationKind.PHOTOS)
+    with pytest.raises(ValueError, match="arbitrary user arguments"):
+        AcquisitionStrategy(
+            strategy_id="s",
+            provider_id="http-direct",
+            capability_id="acquire.http",
+            extra_args=["-f"],
+        )
+    with pytest.raises(ValueError, match="must not include"):
+        sanitize_event_payload({"cookies_dir": "/tmp/cookies.txt"})

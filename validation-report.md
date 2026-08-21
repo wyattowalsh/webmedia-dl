@@ -2,8 +2,8 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 381 tests |
-| `uv run pytest --cov` | PASS | 97.13% (`fail_under` 85) |
+| `uv run pytest` | PASS | 395 tests |
+| `uv run pytest --cov` | PASS | 98.26% (`fail_under` 85) |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
 | `uv run ty check` | PASS | |
@@ -40,6 +40,11 @@
 | Live poll stop + audio 400 | PASS | `should_stop` after the first live round raises without refetch; HLS audio playlist HTTP 400 fails closed |
 | HTML gallery/embed | PASS | picture/srcset, embed/object, AMP media, JSON-LD URL lists, javascript: skip, three-image gallery |
 | CLI/schema `__main__` | PASS | `webmedia-dl alias-note` via `run_path` and `python -m webmedia_dl.schema_export` |
+| Queue-paused resume | PASS | `resume_job` returns `accepted` and does not execute while the queue is paused |
+| Empty output_paths fallback | PASS | provider result with no `output_paths` still registers `output_path` |
+| Photos/staging publication | PASS | Photos destination raises; staging-only returns source paths; missing approved path fails closed |
+| Probe timeout/encrypted tags | PASS | ffprobe timeout returns none; `ENCRYPTED=yes` tags mark the stream encrypted |
+| URL never a path | PASS | URL intake with `local_path` or `file:` normalized_url raises; extra provider argv is refused |
 | Live aggregate bound + kinds | PASS | cumulative byte budget; separate VIDEO/AUDIO artifacts; audio-only DASH uses the highest-bandwidth audio Representation; SegmentBase ranges including mediaRange; multi-period occurrences; empty recordings and HTTP 400 playlists fail closed; nested/audio `should_stop` aborts before further fetches |
 | DASH AdaptationSet + live poll | PASS | self-closing Representation inherits AdaptationSet BaseURL/template; dynamic MPD/HLS polls new segments; later ContentProtection/AES-128 stops without fetching protected parts; `startNumber` and `$$` template tokens expand without a phantom `$Number=1` segment |
 | Container gate | PASS | ffprobe evidence required; filename suffix cannot PASS; `BLOCKED`/empty evidence cannot publish |
