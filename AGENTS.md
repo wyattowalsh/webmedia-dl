@@ -6,7 +6,8 @@
 
 - Python **3.13** worker and CLI (`webmedia_dl` / `webmedia-dl`) managed with **uv**.
 - Browser capture extensions under `extensions/` (vanilla JS modules).
-- Swift packages under `apps/` for Apple clients (compiles on macOS; Linux CI skips `swift test`).
+- Swift packages under `apps/` for Apple clients. Core `swift test` runs on
+  GitHub `macos-15` CI; Linux workers do not compile Swift.
   Shells: `WebMediaDLMac`, `WebMediaDLiOS`, `WebMediaDLiPadOS`, `WebMediaDLVision`,
   `WebMediaDLWatch`, `WebMediaDLTV`, plus `WebMediaDLCore`.
 

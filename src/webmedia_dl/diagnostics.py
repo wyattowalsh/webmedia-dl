@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import shutil
 import sys
 from pathlib import Path
 from typing import Any
@@ -12,7 +11,7 @@ from webmedia_dl.capabilities import registry
 from webmedia_dl.domain.enums import EvidenceStatus
 from webmedia_dl.names import CLI_NAME, DISPLAY_NAME
 from webmedia_dl.policy.profiles import builtin_profiles
-from webmedia_dl.providers import builtin_manifests
+from webmedia_dl.providers import builtin_manifests, resolve_provider_binary
 
 APPLE_SURFACES = ("macos", "ios", "ipados", "visionos", "watchos", "tvos")
 
@@ -35,7 +34,7 @@ def doctor(*, data_dir: Path | None = None) -> dict[str, Any]:
         if manifest.binary_name is None:
             providers[provider_id] = _status(True, True)
             continue
-        path = shutil.which(manifest.binary_name)
+        path = resolve_provider_binary(manifest.binary_name)
         if path is None:
             providers[provider_id] = _status(
                 False,

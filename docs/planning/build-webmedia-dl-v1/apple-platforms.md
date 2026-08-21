@@ -13,4 +13,4 @@ last_reviewed: 2026-08-18
 | iPhone / iPad / visionOS | Complete clients | Lightweight HTTP locally; yt-dlp only after Mac pairing confirmation |
 | watchOS / tvOS | Capture, status, history, pause/resume controls | Never subprocess workers |
 
-Loopback only: `http://127.0.0.1:8765`. Photos/Files/Share destinations require a user-approved root. Swift packages are under `apps/`; `swift test` is gated to macOS CI.
+Loopback only: `http://127.0.0.1:8765`. Photos/Files/Share destinations require a user-approved root. Swift packages are under `apps/`. Core `swift test` runs on GitHub `macos-15` CI; Apple device runtime, signing, and store submission stay BLOCKED on Linux.

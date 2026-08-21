@@ -12,7 +12,7 @@ jobs:
         with:
           python-version: "3.13"
       - run: uv sync --locked --group dev
-      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick
       - run: uv run ruff check
       - run: uv run ruff format --check
       - run: uv run ty check
@@ -22,7 +22,6 @@ jobs:
       - run: node --test tests/unit/extensions/*.mjs
   swift:
     runs-on: macos-15
-    if: false
     steps:
       - uses: actions/checkout@v5
       - name: Swift tests (macOS only)

@@ -5,7 +5,7 @@ from __future__ import annotations
 import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import Body, Depends, FastAPI, Header, HTTPException
@@ -26,6 +26,25 @@ from webmedia_dl.settings import Settings
 from webmedia_dl.support import write_support_bundle
 
 bearer = HTTPBearer(auto_error=False)
+
+
+def job_detail_payload(pipeline: Pipeline, job_id: UUID) -> dict[str, Any]:
+    job = pipeline.job(job_id)
+    events = [event.model_dump(mode="json") for event in pipeline.queue.events_for(job_id)]
+    artifact_ids: list[str] = []
+    for item in pipeline.history_entries():
+        if item["job_id"] == str(job_id):
+            artifact_ids = list(item.get("artifact_ids") or [])
+            break
+    return {"job": job.model_dump(mode="json"), "events": events, "artifact_ids": artifact_ids}
+
+
+def run_next_payload(pipeline: Pipeline) -> dict[str, Any]:
+    job = pipeline.run_next()
+    if job is None:
+        return {"job": None, "events": []}
+    events = [event.model_dump(mode="json") for event in pipeline.queue.events_for(job.job_id)]
+    return {"job": job.model_dump(mode="json"), "events": events}
 
 
 class SubmitBody(BaseModel):
@@ -204,16 +223,9 @@ def create_app(data_dir: Path | None = None, *, enable_dispatcher: bool = False)
     @app.get("/v1/jobs/{job_id}", dependencies=[Depends(require_auth)])
     def get_job(job_id: UUID) -> dict:
         try:
-            job = pipeline.job(job_id)
+            return job_detail_payload(pipeline, job_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="Unknown job") from exc
-        events = [event.model_dump(mode="json") for event in pipeline.queue.events_for(job_id)]
-        artifact_ids: list[str] = []
-        for item in pipeline.history_entries():
-            if item["job_id"] == str(job_id):
-                artifact_ids = list(item.get("artifact_ids") or [])
-                break
-        return {"job": job.model_dump(mode="json"), "events": events, "artifact_ids": artifact_ids}
 
     @app.get("/v1/jobs", dependencies=[Depends(require_auth)])
     def list_jobs() -> list[dict]:
@@ -277,11 +289,7 @@ def create_app(data_dir: Path | None = None, *, enable_dispatcher: bool = False)
 
     @app.post("/v1/queue/run-next", dependencies=[Depends(require_auth)])
     def run_next() -> dict:
-        job = pipeline.run_next()
-        if job is None:
-            return {"job": None, "events": []}
-        events = [event.model_dump(mode="json") for event in pipeline.queue.events_for(job.job_id)]
-        return {"job": job.model_dump(mode="json"), "events": events}
+        return run_next_payload(pipeline)
 
     @app.post("/v1/jobs/{job_id}/pause", dependencies=[Depends(require_auth)])
     def pause_job(job_id: UUID) -> dict:

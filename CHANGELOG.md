@@ -65,3 +65,9 @@
   supplied HLS parts still refuse AES-128 on inspect; resume from
   `stage=exporting` restores `produced_ids`. Forbidden export loss classes
   cannot be planned; SegmentTimeline without `t` keeps a running clock.
+  Cooperative cancel/pause during subprocess `TimeoutExpired` stops the
+  provider; export progress accepts a null artifact and duplicate operation
+  keys; duplicate `produced_ids` at `stage=exported` still complete; acquired
+  remote resume does not refetch. ImageMagick health/argv accept IM6 `convert`.
+  Worker API job-detail and run-next payloads are module helpers. Core Swift
+  tests run on GitHub `macos-15` CI.

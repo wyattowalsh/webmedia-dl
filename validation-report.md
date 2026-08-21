@@ -2,8 +2,8 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 425 tests |
-| `uv run pytest --cov` | PASS | 99.50% (`fail_under` 85) |
+| `uv run pytest` | PASS | 433 tests |
+| `uv run pytest --cov` | PASS | 99.69% (`fail_under` 85) |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
 | `uv run ty check` | PASS | |
@@ -11,8 +11,9 @@
 | `uv run python -m webmedia_dl.schema_export` | PASS | 20 schemas + index |
 | `uv run python scripts/validate_bundle.py` | PASS | 159 pack paths + extension/app shells |
 | `uv run webmedia-dl doctor` ffmpeg | PASS | `/usr/bin/ffmpeg` executed PASS |
-| `uv run webmedia-dl doctor` yt-dlp / gallery-dl / magick | BLOCKED | binaries not installed |
-| Apple device runtime / Xcode | BLOCKED | Linux CI; Swift source contracts under `apps/` are not compiled here |
+| `uv run webmedia-dl doctor` ImageMagick | PASS | IM6 `convert` alias when `magick` is absent |
+| `uv run webmedia-dl doctor` yt-dlp / gallery-dl | BLOCKED | binaries not installed on Linux CI (PASS when present on PATH) |
+| Apple device runtime / Xcode | BLOCKED | Linux workers do not compile Swift; Core `swift test` runs on GitHub `macos-15` |
 | Signing / notarization / App Review / legal | BLOCKED | `webmedia-dl doctor` |
 | Browser store submission | BLOCKED | `webmedia-dl doctor` |
 | Simulated `PASS` | PASS | tests reject planned/simulated PASS |
@@ -58,6 +59,13 @@
 | Forbidden export loss | PASS | `plan_export` refuses `LossClass.FORBIDDEN` before returning a plan |
 | SegmentTimeline clock | PASS | `S` without `t` keeps the running `$Time$` clock |
 | Extra-args validator | PASS | `AcquisitionStrategy.forbid_user_argv` rejects non-empty extra argv |
+| TimeoutExpired cancel/pause | PASS | `_tracked_run` terminate-and-return 130/143 when cancel or pause is set during communicate timeout |
+| Export progress null/duplicate | PASS | `on_progress` accepts a null artifact and does not double-append a completed operation key |
+| Duplicate exported ids | PASS | `stage=exported` with duplicate `produced_ids` still completes |
+| Acquired remote skip | PASS | resume at `stage=acquired` does not refetch remote media |
+| ImageMagick convert alias | PASS | health and argv resolve IM6 `convert` when `magick` is missing |
+| Job-detail / run-next helpers | PASS | unrelated history rows are skipped; empty queue returns `job: null`; a queued job returns events |
+| Swift Core CI job | PASS | `.github/workflows/ci.yml` `swift` job is enabled on `macos-15`; Apple device runtime stays BLOCKED |
 | URL never a path | PASS | URL intake with `local_path` or `file:` normalized_url raises; extra provider argv is refused |
 | Live aggregate bound + kinds | PASS | cumulative byte budget; separate VIDEO/AUDIO artifacts; audio-only DASH uses the highest-bandwidth audio Representation; SegmentBase ranges including mediaRange; multi-period occurrences; empty recordings and HTTP 400 playlists fail closed; nested/audio `should_stop` aborts before further fetches |
 | DASH AdaptationSet + live poll | PASS | self-closing Representation inherits AdaptationSet BaseURL/template; dynamic MPD/HLS polls new segments; later ContentProtection/AES-128 stops without fetching protected parts; `startNumber` and `$$` template tokens expand without a phantom `$Number=1` segment |

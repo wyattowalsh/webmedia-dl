@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import zipfile
 from io import BytesIO
 from pathlib import Path
@@ -16,6 +17,7 @@ from fastapi.testclient import TestClient
 
 from webmedia_dl.compat import migrate_legacy
 from webmedia_dl.continuity import validate_companion_message
+from webmedia_dl.diagnostics import doctor
 from webmedia_dl.discovery import candidates_from_manifest_json, discover
 from webmedia_dl.domain.enums import (
     ArtifactRole,
@@ -46,9 +48,19 @@ from webmedia_dl.packaging import write_extension_zips
 from webmedia_dl.pipeline import Pipeline
 from webmedia_dl.policy.profiles import get_profile
 from webmedia_dl.probe import probe_media
-from webmedia_dl.providers import ProviderRequest, ProviderRuntime, _http_suffix
+from webmedia_dl.providers import (
+    ProviderRequest,
+    ProviderRuntime,
+    _http_suffix,
+    resolve_provider_binary,
+)
 from webmedia_dl.security import CookieGrantLedger, resolve_cookie_path
-from webmedia_dl.service import create_app, load_or_create_token
+from webmedia_dl.service import (
+    create_app,
+    job_detail_payload,
+    load_or_create_token,
+    run_next_payload,
+)
 from webmedia_dl.updates import check_updates
 from webmedia_dl.validation import container_matches, normalize_container
 
@@ -642,3 +654,230 @@ def test_get_job_history_skip_and_empty_run_next(
     empty = client.post("/v1/queue/run-next", headers=headers)
     assert empty.status_code == 200
     assert empty.json() == {"job": None, "events": []}
+
+
+def test_tracked_run_cancel_during_timeout_expired(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runtime = ProviderRuntime()
+    proc = MagicMock()
+    proc.pid = 4242
+    proc.returncode = None
+
+    def communicate(timeout: float | None = None) -> tuple[bytes, bytes]:
+        if timeout is not None:
+            runtime._cancel_event("_").set()
+            raise subprocess.TimeoutExpired(cmd="sleep", timeout=timeout)
+        proc.returncode = 130
+        return b"", b"cancelled"
+
+    proc.communicate.side_effect = communicate
+    monkeypatch.setattr("webmedia_dl.providers.subprocess.Popen", lambda *_a, **_k: proc)
+    monkeypatch.setattr("webmedia_dl.providers._terminate_process", lambda _proc: None)
+    code, _out, err = runtime._tracked_run(["sleep", "5"], tmp_path)
+    assert code == 130
+    assert err == b"cancelled"
+
+
+def test_tracked_run_pause_during_timeout_expired(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runtime = ProviderRuntime()
+    proc = MagicMock()
+    proc.pid = 4243
+    proc.returncode = None
+
+    def communicate(timeout: float | None = None) -> tuple[bytes, bytes]:
+        if timeout is not None:
+            runtime._pause_event("_").set()
+            raise subprocess.TimeoutExpired(cmd="sleep", timeout=timeout)
+        proc.returncode = 143
+        return b"", b"paused"
+
+    proc.communicate.side_effect = communicate
+    monkeypatch.setattr("webmedia_dl.providers.subprocess.Popen", lambda *_a, **_k: proc)
+    monkeypatch.setattr("webmedia_dl.providers._terminate_process", lambda _proc: None)
+    code, _out, err = runtime._tracked_run(["sleep", "5"], tmp_path)
+    assert code == 143
+    assert err == b"paused"
+
+
+def test_export_progress_accepts_null_and_duplicate_keys(
+    tmp_data: Path, tmp_path: Path, png_bytes: bytes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from webmedia_dl.processing import execute_export_plan as original
+
+    def wrapped(*args: Any, **kwargs: Any) -> Any:
+        on_progress = kwargs.get("on_progress")
+        produced = original(*args, **kwargs)
+        if on_progress is not None and produced:
+            artifact = produced[0][0]
+            keep = Operation(
+                operation_id="keep-original",
+                op_type="identity.copy",
+                capability_id="export.plan",
+                input_artifact_ids=[artifact.artifact_id],
+                output_role=ArtifactRole.SOURCE,
+                loss_class=LossClass.NONE,
+                validator_ids=["hash-match", "size-match"],
+                typed_inputs={},
+            )
+            on_progress(keep, None)
+            on_progress(keep, artifact)
+        return produced
+
+    monkeypatch.setattr("webmedia_dl.pipeline.execute_export_plan", wrapped)
+    media = tmp_path / "hero.png"
+    media.write_bytes(png_bytes)
+    pipeline = Pipeline(data_dir=tmp_data)
+    result = pipeline.submit(str(media))
+    assert result.state is JobState.COMPLETED
+
+
+def test_exported_duplicate_produced_ids_still_complete(
+    tmp_data: Path, tmp_path: Path, png_bytes: bytes
+) -> None:
+    media = tmp_path / "hero.png"
+    media.write_bytes(png_bytes)
+    pipeline = Pipeline(data_dir=tmp_data)
+    job = pipeline.submit(str(media), wait=False)
+    source = pipeline.store.register(
+        media,
+        role=ArtifactRole.SOURCE,
+        media_kind=MediaKind.IMAGE,
+        provenance={"job_id": str(job.job_id)},
+    )
+    pipeline.queue.put_checkpoint(
+        job.job_id,
+        {
+            "stage": "exported",
+            "source_ids": [source.artifact_id],
+            "produced_ids": [source.artifact_id, source.artifact_id],
+            "acquired_kinds": ["image"],
+        },
+    )
+    result = pipeline.run_next()
+    assert result is not None
+    assert result.state is JobState.COMPLETED
+
+
+def test_resume_acquired_remote_skips_refetch(
+    tmp_data: Path, tmp_path: Path, png_bytes: bytes
+) -> None:
+    media = tmp_path / "hero.png"
+    media.write_bytes(png_bytes)
+
+    def fetch(url: str) -> tuple[int, str, bytes]:
+        raise AssertionError(url)
+
+    pipeline = Pipeline(
+        data_dir=tmp_data,
+        runtime=ProviderRuntime(which=lambda _name: None),
+        fetch=fetch,
+    )
+    job = pipeline.submit(
+        "https://cdn.example.com/hero.png",
+        wait=False,
+        html='<html><img src="https://cdn.example.com/hero.png"></html>',
+    )
+    source = pipeline.store.register(
+        media,
+        role=ArtifactRole.SOURCE,
+        media_kind=MediaKind.IMAGE,
+        provenance={"job_id": str(job.job_id)},
+    )
+    pipeline.queue.put_checkpoint(
+        job.job_id,
+        {
+            "stage": "acquired",
+            "source_ids": [source.artifact_id],
+            "produced_ids": [source.artifact_id],
+            "acquired_kinds": ["image"],
+        },
+    )
+    result = pipeline.run_next()
+    assert result is not None
+    assert result.state is JobState.COMPLETED
+
+
+def test_imagemagick_accepts_convert_alias(tmp_path: Path) -> None:
+    captured: list[list[str]] = []
+
+    def run(argv: list[str], _cwd: Path) -> tuple[int, bytes, bytes]:
+        captured.append(argv)
+        Path(argv[-1]).write_bytes(b"ok")
+        return 0, b"", b""
+
+    runtime = ProviderRuntime(
+        which=lambda name: "/usr/bin/convert" if name == "convert" else None,
+        run=run,
+    )
+    assert runtime.health("imagemagick") == "healthy"
+    assert (
+        resolve_provider_binary(
+            "magick",
+            which=lambda name: "/usr/bin/convert" if name == "convert" else None,
+        )
+        == "/usr/bin/convert"
+    )
+    result = runtime.execute(
+        ProviderRequest(
+            provider_id="imagemagick",
+            capability_id="process.imagemagick.convert",
+            typed_inputs={
+                "input": str(tmp_path / "a.png"),
+                "output": str(tmp_path / "b.png"),
+            },
+        ),
+        tmp_path,
+    )
+    assert result.exit_code == 0
+    assert captured[0][0] == "/usr/bin/convert"
+    assert resolve_provider_binary(None) is None
+    assert resolve_provider_binary("") is None
+
+
+def test_job_detail_skips_unrelated_history_and_run_next_payload(
+    tmp_data: Path, tmp_path: Path, png_bytes: bytes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    media = tmp_path / "hero.png"
+    media.write_bytes(png_bytes)
+    pipeline = Pipeline(data_dir=tmp_data)
+    empty = run_next_payload(pipeline)
+    assert empty == {"job": None, "events": []}
+    job = pipeline.submit(str(media), wait=False)
+    original = pipeline.history_entries
+
+    def history(_self: Pipeline) -> list[dict[str, Any]]:
+        return [
+            {"job_id": "00000000-0000-0000-0000-000000000000", "artifact_ids": ["skip"]},
+            *original(),
+        ]
+
+    monkeypatch.setattr(Pipeline, "history_entries", history)
+    detail = job_detail_payload(pipeline, job.job_id)
+    assert detail["job"]["job_id"] == str(job.job_id)
+    assert "skip" not in detail["artifact_ids"]
+    monkeypatch.setattr(Pipeline, "history_entries", lambda _self: [])
+    assert job_detail_payload(pipeline, job.job_id)["artifact_ids"] == []
+    monkeypatch.setattr(
+        Pipeline,
+        "history_entries",
+        lambda _self: [{"job_id": str(job.job_id)}],
+    )
+    assert job_detail_payload(pipeline, job.job_id)["artifact_ids"] == []
+    ran = run_next_payload(pipeline)
+    assert ran["job"] is not None
+    assert ran["job"]["job_id"] == str(job.job_id)
+    assert ran["events"]
+
+
+def test_doctor_reports_missing_provider_binaries(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("webmedia_dl.diagnostics.resolve_provider_binary", lambda _name: None)
+    payload = doctor()
+    assert payload["providers"]["http-direct"]["status"] == "PASS"
+    assert payload["providers"]["ytdlp"]["status"] == "BLOCKED"
+    assert payload["providers"]["gallery-dl"]["status"] == "BLOCKED"
+    assert payload["providers"]["ffmpeg"]["status"] == "BLOCKED"
+    assert payload["providers"]["imagemagick"]["status"] == "BLOCKED"
+    assert payload["providers"]["ytdlp"]["binary"] is None

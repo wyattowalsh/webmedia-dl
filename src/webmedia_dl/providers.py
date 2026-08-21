@@ -38,6 +38,26 @@ MAGICK_FORMATS = {
     "tiff": "tiff",
     "avif": "avif",
 }
+BINARY_ALIASES: dict[str, tuple[str, ...]] = {
+    "magick": ("magick", "convert"),
+}
+
+
+def resolve_provider_binary(
+    name: str | None,
+    *,
+    which: Callable[[str], str | None] | None = None,
+) -> str | None:
+    """Resolve a provider binary, including ImageMagick `convert` on IM6 hosts."""
+    if not name:
+        return None
+    finder = which or shutil.which
+    for candidate in BINARY_ALIASES.get(name, (name,)):
+        found = finder(candidate)
+        if found:
+            return found
+    return None
+
 
 RunFn = Callable[[list[str], Path], tuple[int, bytes, bytes]]
 
@@ -290,7 +310,11 @@ class ProviderRuntime:
         manifest = self._manifests[provider_id]
         if manifest.binary_name is None:
             return "healthy"
-        return "healthy" if self._which(manifest.binary_name) else "missing"
+        return (
+            "healthy"
+            if resolve_provider_binary(manifest.binary_name, which=self._which)
+            else "missing"
+        )
 
     def execute(self, request: ProviderRequest, staging: Path) -> ProviderResult:
         key = self._job_key(request.job_id)
@@ -380,7 +404,7 @@ class ProviderRuntime:
         if not binary:
             msg = f"Provider {manifest.provider_id!r} has no binary."
             raise ProviderPolicyError(msg)
-        resolved = self._which(binary)
+        resolved = resolve_provider_binary(binary, which=self._which)
         if not resolved:
             msg = f"Provider binary {binary!r} is not installed."
             raise ProviderPolicyError(msg)

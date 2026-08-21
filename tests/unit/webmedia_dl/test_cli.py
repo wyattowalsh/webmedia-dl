@@ -50,6 +50,17 @@ def test_doctor_json() -> None:
     else:
         assert ytdlp["status"] == "BLOCKED"
         assert "not installed" in ytdlp["reason"]
+    gallery = payload["providers"]["gallery-dl"]
+    if shutil.which("gallery-dl"):
+        assert gallery["status"] == "PASS"
+    else:
+        assert gallery["status"] == "BLOCKED"
+    magick = payload["providers"]["imagemagick"]
+    if shutil.which("magick") or shutil.which("convert"):
+        assert magick["status"] == "PASS"
+        assert magick["binary"]
+    else:
+        assert magick["status"] == "BLOCKED"
 
 
 def test_submit_with_html_and_data_dir(tmp_path: Path, png_bytes: bytes) -> None:
