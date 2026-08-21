@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from io import BytesIO
 from pathlib import Path
+from types import TracebackType
 from urllib.error import URLError
 from uuid import uuid4
 
@@ -400,11 +401,22 @@ def test_support_sanitizes_nested_console_and_cookie_paths() -> None:
 
 
 def test_updates_reports_newer_equal_malformed_and_offline(monkeypatch) -> None:
-    class _Resp(BytesIO):
-        def __enter__(self):
+    class _Resp:
+        def __init__(self, payload: bytes) -> None:
+            self._buf = BytesIO(payload)
+
+        def read(self) -> bytes:
+            return self._buf.read()
+
+        def __enter__(self) -> _Resp:
             return self
 
-        def __exit__(self, *_args):
+        def __exit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc_val: BaseException | None,
+            exc_tb: TracebackType | None,
+        ) -> bool:
             return False
 
     def newer(_url, timeout=2.5):

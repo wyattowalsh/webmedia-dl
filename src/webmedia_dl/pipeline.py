@@ -34,6 +34,7 @@ from webmedia_dl.domain.models import (
 )
 from webmedia_dl.errors import (
     CancelledError,
+    CookiePolicyError,
     DrmRefused,
     PauseRequested,
     ProviderPolicyError,
@@ -207,13 +208,16 @@ class Pipeline:
                 except FileNotFoundError:
                     cookie_root = None
                 cookie_path = resolve_cookie_path(client_profile, cookies, repo_root=cookie_root)
+                if cookie_path is None:
+                    msg = "Cookie file path could not be resolved."
+                    raise CookiePolicyError(msg)
                 grant = self.cookie_ledger.issue(job.job_id, cookie_path, client_profile.profile_id)
                 cookie_value = grant.grant_id
                 self.queue.emit(
                     job.job_id,
                     EventType.COOKIE_ATTACHED,
                     {
-                        "cookies_path_basename": Path(cookie_path).name,
+                        "cookies_path_basename": cookie_path.name,
                         "profile_id": client_profile.profile_id,
                     },
                 )

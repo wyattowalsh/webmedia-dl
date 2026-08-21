@@ -31,6 +31,30 @@
           "default": null,
           "title": "Codec"
         },
+        "vcodec": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vcodec"
+        },
+        "acodec": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Acodec"
+        },
         "width": {
           "anyOf": [
             {

@@ -180,15 +180,26 @@ def main() -> int:
     ):
         if not (ROOT / "apps" / app).is_dir():
             errors.append(f"missing Apple surface {app}")
+    skip_parts = {
+        ".git",
+        ".venv",
+        "__pycache__",
+        "node_modules",
+        ".ruff_cache",
+        ".pytest_cache",
+        ".ty",
+        "htmlcov",
+    }
+    skip_names = {".coverage", "CACHEDIR.TAG"}
+    skip_suffix = {".pyc", ".pyo", ".whl", ".so"}
     manifest = {
         "files": sorted(
             str(path.relative_to(ROOT))
             for path in ROOT.rglob("*")
             if path.is_file()
-            and ".git" not in path.parts
-            and ".venv" not in path.parts
-            and "__pycache__" not in path.parts
-            and "node_modules" not in path.parts
+            and not any(part in skip_parts for part in path.parts)
+            and path.name not in skip_names
+            and path.suffix not in skip_suffix
         )
     }
     (ROOT / "manifest.generated.json").write_text(
