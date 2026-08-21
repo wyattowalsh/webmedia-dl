@@ -15,10 +15,23 @@ from fastapi.testclient import TestClient
 from webmedia_dl.compat import migrate_legacy
 from webmedia_dl.continuity import validate_companion_message
 from webmedia_dl.discovery import candidates_from_manifest_json, discover
-from webmedia_dl.domain.enums import EventType, IntakeKind, JobState, MediaKind, Surface
+from webmedia_dl.domain.enums import (
+    ArtifactRole,
+    EventType,
+    IntakeKind,
+    JobState,
+    MediaKind,
+    Surface,
+)
 from webmedia_dl.domain.models import MediaSource
-from webmedia_dl.errors import CookiePolicyError, ProviderPolicyError
-from webmedia_dl.live import _expand_dash_template, inspect_manifest, record_clear_stream
+from webmedia_dl.errors import CookiePolicyError, DrmRefused, ProviderPolicyError
+from webmedia_dl.live import (
+    ManifestPart,
+    _expand_dash_template,
+    inspect_manifest,
+    record_clear_stream,
+    recordable_segment_urls,
+)
 from webmedia_dl.packaging import write_extension_zips
 from webmedia_dl.pipeline import Pipeline
 from webmedia_dl.policy.profiles import get_profile
@@ -75,6 +88,8 @@ def test_discovery_skips_empty_tokens_and_jsonld_kinds() -> None:
       <head>
         <title>   </title>
         <title>Album</title>
+        <meta property="og:title">
+        <meta content="orphan">
         <script type="application/ld+json">not-json</script>
         <script type="application/ld+json">
           [{"@type": "AudioObject", "contentUrl": "https://cdn.example.com/song"}]
@@ -134,7 +149,11 @@ def test_manifest_json_ndjson_skips_and_unusable_urls() -> None:
         json.dumps([{"url": "https://cdn.example.com/listed.mp4"}, "skip", None]).encode(),
     )
     assert [item.retrieval_urls[0] for item in listed] == ["https://cdn.example.com/listed.mp4"]
-    assert candidates_from_manifest_json(_page(), b"\n\nnot-json\n") == []
+    ndjson = b'not-json\n\n{"url": "https://cdn.example.com/ndjson.mp4"}\n'
+    ndjson_found = candidates_from_manifest_json(_page(), ndjson)
+    assert [item.retrieval_urls[0] for item in ndjson_found] == [
+        "https://cdn.example.com/ndjson.mp4"
+    ]
 
 
 def test_probe_encrypted_field_true_and_non_dict_tags(tmp_path: Path) -> None:
@@ -445,3 +464,79 @@ def test_manifest_discovery_nonzero_exit_returns_empty(tmp_data: Path, tmp_path:
     job = pipeline.submit("https://example.com/watch?v=1", wait=False)
     found = pipeline._manifest_candidates(job, staging=tmp_path)
     assert found == []
+
+
+def test_leftover_dash_media_without_template_is_recorded() -> None:
+    text = """
+    <MPD><Period>
+      <Foo media="clip.m4s"/>
+      <Foo media="clip.m4s"/>
+    </Period></MPD>
+    """
+    assert recordable_segment_urls(text, "https://cdn.example.com/") == [
+        "https://cdn.example.com/clip.m4s"
+    ]
+
+
+def test_record_clear_stream_uses_supplied_parts(tmp_path: Path) -> None:
+    parts = [ManifestPart("https://cdn.example.com/a.ts")]
+
+    def fetch(url: str) -> tuple[int, str, bytes]:
+        assert url == "https://cdn.example.com/a.ts"
+        return 200, "video/MP2T", b"SEG"
+
+    dest = tmp_path / "live.bin"
+    record_clear_stream(
+        "#EXTM3U\n#EXT-X-VERSION:3\n",
+        "https://cdn.example.com/live.m3u8",
+        dest,
+        fetch,
+        parts=parts,
+    )
+    assert dest.read_bytes() == b"SEG"
+
+
+def test_supplied_parts_do_not_bypass_hls_encryption(tmp_path: Path) -> None:
+    parts = [ManifestPart("https://cdn.example.com/a.ts")]
+    playlist = '#EXTM3U\n#EXT-X-KEY:METHOD=AES-128,URI="https://example.com/key"\nseg.ts\n'
+
+    def fetch(url: str) -> tuple[int, str, bytes]:
+        raise AssertionError(url)
+
+    with pytest.raises(DrmRefused, match="AES-128"):
+        record_clear_stream(
+            playlist,
+            "https://cdn.example.com/live.m3u8",
+            tmp_path / "live.bin",
+            fetch,
+            parts=parts,
+        )
+
+
+def test_resume_exporting_restores_produced_ids(
+    tmp_data: Path, tmp_path: Path, png_bytes: bytes
+) -> None:
+    media = tmp_path / "hero.png"
+    media.write_bytes(png_bytes)
+    pipeline = Pipeline(data_dir=tmp_data)
+    job = pipeline.submit(str(media), wait=False)
+    source = pipeline.store.register(
+        media,
+        role=ArtifactRole.SOURCE,
+        media_kind=MediaKind.IMAGE,
+        provenance={"job_id": str(job.job_id)},
+    )
+    pipeline.queue.put_checkpoint(
+        job.job_id,
+        {
+            "stage": "exporting",
+            "source_ids": [source.artifact_id],
+            "produced_ids": [source.artifact_id],
+            "acquired_kinds": ["image"],
+            "completed_operations": [f"{source.artifact_id}:keep-original"],
+            "operation_artifacts": {f"{source.artifact_id}:keep-original": source.artifact_id},
+        },
+    )
+    result = pipeline.run_next()
+    assert result is not None
+    assert result.state is JobState.COMPLETED
