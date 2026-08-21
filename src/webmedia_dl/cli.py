@@ -176,6 +176,7 @@ def companion(
     typer.echo(json.dumps(result, indent=2, default=str))
 
 
+@app.command("plan")
 def plan_cmd(
     locator: Annotated[str, typer.Argument(help="https URL or existing local file")],
     data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,

@@ -29,6 +29,20 @@ def test_companion_message_rejects_native_command_and_argv() -> None:
         validate_companion_message(
             {"kind": "capture", "subprocessWorker": True, "locator": "https://x"}
         )
+    with pytest.raises(ProviderPolicyError):
+        companion_message("explode")
+    with pytest.raises(ProviderPolicyError):
+        validate_companion_message({"kind": "status", "ffmpeg": "-i"})
+    with pytest.raises(ProviderPolicyError):
+        validate_companion_message({"kind": "capture"})
+    with pytest.raises(ProviderPolicyError):
+        validate_companion_message({"kind": "cancel"})
+    with pytest.raises(ProviderPolicyError):
+        validate_companion_message({"kind": "status", "locator": 1})
+    fallback = validate_companion_message({"kind": "status", "surface": "not-a-surface"})
+    assert fallback["surface"] == "watchos"
+    cancel = companion_message("cancel", job_id="11111111-1111-1111-1111-111111111111")
+    assert cancel["job_id"]
 
 
 def test_mac_companion_capture_is_host_owned(tmp_data: Path, png_bytes: bytes) -> None:
@@ -142,3 +156,21 @@ def test_companion_endpoint_requires_mac_actor(tmp_path: Path) -> None:
         headers={"Authorization": f"Bearer {token}"},
     )
     assert argv.status_code == 400
+    history = client.post(
+        "/v1/companion",
+        json={"kind": "history"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert history.status_code == 200
+    assert history.json()["kind"] == "history"
+    pause = client.post(
+        "/v1/companion",
+        json={"kind": "pause"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert pause.json()["paused"] is True
+    client.post(
+        "/v1/companion",
+        json={"kind": "resume"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
