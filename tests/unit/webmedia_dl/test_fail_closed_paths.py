@@ -5,7 +5,6 @@ from __future__ import annotations
 import signal
 import sqlite3
 import subprocess
-from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, cast
 from unittest.mock import MagicMock
@@ -31,7 +30,6 @@ from webmedia_dl.domain.models import (
 from webmedia_dl.errors import (
     ArtifactImmutabilityError,
     CancelledError,
-    DrmRefused,
     PauseRequested,
     ProviderPolicyError,
     RequiredOperationFailed,
@@ -141,7 +139,9 @@ def test_queue_control_emit_pause_checkpoint_and_invalid_json(
     assert store.get_context(job.job_id).checkpoint == {}
 
 
-def test_next_runnable_skips_non_accepted_jobs(tmp_data: Path, tmp_path: Path, png_bytes: bytes) -> None:
+def test_next_runnable_skips_non_accepted_jobs(
+    tmp_data: Path, tmp_path: Path, png_bytes: bytes
+) -> None:
     media = _png(tmp_path, png_bytes)
     pipeline = Pipeline(data_dir=tmp_data)
     failed = pipeline.submit(
@@ -154,37 +154,48 @@ def test_next_runnable_skips_non_accepted_jobs(tmp_data: Path, tmp_path: Path, p
     nxt = pipeline.queue.next_runnable()
     assert nxt is not None
     assert nxt.job_id == held.job_id
+    empty = Pipeline(data_dir=tmp_data / "empty")
+    only_failed = empty.submit(
+        "https://example.com/none",
+        html="<html><body>no media</body></html>",
+    )
+    assert only_failed.state is JobState.FAILED
+    assert empty.queue.next_runnable() is None
+
+
+def test_discovery_without_candidates_fails_job(
+    tmp_data: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("webmedia_dl.pipeline.discover", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(
+        "webmedia_dl.pipeline.Pipeline._manifest_candidates",
+        lambda *_args, **_kwargs: [],
+    )
+    pipeline = Pipeline(data_dir=tmp_data)
+    job = pipeline.submit("https://example.com/page", html="<html></html>")
+    assert job.state is JobState.FAILED
+    assert job.error is not None
+    assert "no candidates" in job.error.lower()
 
 
 def test_claim_next_returns_none_after_cas_misses(
-    tmp_data: Path, tmp_path: Path, png_bytes: bytes, monkeypatch: pytest.MonkeyPatch
+    tmp_data: Path, tmp_path: Path, png_bytes: bytes
 ) -> None:
     media = _png(tmp_path, png_bytes, "held.png")
     pipeline = Pipeline(data_dir=tmp_data)
-    pipeline.submit(str(media), wait=False)
+    job = pipeline.submit(str(media), wait=False)
     store = pipeline.queue
-    orig_begin = store.engine.begin
-
-    @contextmanager
-    def fake_begin():
-        with orig_begin() as conn:
-
-            class Wrapper:
-                def execute(self, clause: object, parameters: object = None) -> object:
-                    result = conn.execute(clause, parameters)  # type: ignore[arg-type]
-                    if "UPDATE jobs SET state" in str(clause):
-                        missed = MagicMock()
-                        missed.rowcount = 0
-                        return missed
-                    return result
-
-                def __getattr__(self, name: str) -> object:
-                    return getattr(conn, name)
-
-            yield Wrapper()
-
-    monkeypatch.setattr(store.engine, "begin", fake_begin)
+    with store.engine.begin() as conn:
+        conn.exec_driver_sql(
+            """
+            CREATE TRIGGER jobs_cas_miss BEFORE UPDATE ON jobs
+            BEGIN
+              SELECT RAISE(IGNORE);
+            END
+            """
+        )
     assert store.claim_next() is None
+    assert store.get_job(job.job_id).state is JobState.ACCEPTED
 
 
 def test_pipeline_skips_missing_checkpoint_artifacts_and_preview(
@@ -339,11 +350,13 @@ def test_companion_cancel_and_explain_fetch(
     monkeypatch.setattr("webmedia_dl.pipeline.bound_fetch", fake_fetch)
     explained = pipeline.explain("https://example.com/page")
     assert explained["acquired"] is False
-    urls = [item["retrieval_urls"][0] for item in explained["candidates"] if item["retrieval_urls"]]
-    assert any("a.png" in item for item in urls)
+    assert explained["candidates"]
+    assert any("a.png" in item["identity_key"] for item in explained["candidates"])
 
 
-def test_pause_requested_set_state_intercept(tmp_data: Path, tmp_path: Path, png_bytes: bytes) -> None:
+def test_pause_requested_set_state_intercept(
+    tmp_data: Path, tmp_path: Path, png_bytes: bytes
+) -> None:
     media = _png(tmp_path, png_bytes)
     pipeline = Pipeline(data_dir=tmp_data)
     job = pipeline.submit(str(media), wait=False)
@@ -472,7 +485,10 @@ def test_http_direct_uses_default_get_and_jpeg_content_type(
         ProviderRequest(
             provider_id="http-direct",
             capability_id="acquire.http",
-            typed_inputs={"url": "https://cdn.example.com/photo", "output": str(tmp_path / "out.bin")},
+            typed_inputs={
+                "url": "https://cdn.example.com/photo",
+                "output": str(tmp_path / "out.bin"),
+            },
         ),
         tmp_path,
     )
@@ -596,7 +612,9 @@ def test_processing_skips_existing_compound_and_failed_inputs(
     src = tmp_path / "source.jpg"
     src.write_bytes(png_bytes)
     store = ArtifactStore(tmp_path / "data")
-    source = store.register(src, role=ArtifactRole.SOURCE, media_kind=MediaKind.IMAGE, container="jpg")
+    source = store.register(
+        src, role=ArtifactRole.SOURCE, media_kind=MediaKind.IMAGE, container="jpg"
+    )
     queue = QueueStore(tmp_path / "data" / "queue")
     job = Job(
         source=MediaSource(
@@ -748,13 +766,21 @@ def test_service_error_paths_and_companion_surface(
     denied = client.post(
         "/v1/jobs",
         headers=mac,
-        json={"locator": "https://cdn.example.com/a.png", "pairing_id": unknown, "session_key": "x"},
+        json={
+            "locator": "https://cdn.example.com/a.png",
+            "pairing_id": unknown,
+            "session_key": "x",
+        },
     )
     assert denied.status_code == 400
     planned = client.post(
         "/v1/plan",
         headers=mac,
-        json={"locator": "https://cdn.example.com/a.png", "pairing_id": unknown, "session_key": "x"},
+        json={
+            "locator": "https://cdn.example.com/a.png",
+            "pairing_id": unknown,
+            "session_key": "x",
+        },
     )
     assert planned.status_code == 400
     envelope = client.post(
