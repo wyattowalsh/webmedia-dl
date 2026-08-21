@@ -289,9 +289,11 @@ def test_files_destinations_use_bookmarks_not_typed_paths() -> None:
     mac = (root / "apps/WebMediaDLMac/Sources/WebMediaDLMac/WebMediaDLMacApp.swift").read_text(
         encoding="utf-8"
     )
-    share_intake = (root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/ShareIntake.swift").read_text(
-        encoding="utf-8"
-    )
+    assert "fromPickedURL" in mac
+    assert "bookmarkData" in mac
+    share_intake = (
+        root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/ShareIntake.swift"
+    ).read_text(encoding="utf-8")
     assert "bookmarkData: bookmarkData" in share_intake
     assert "bookmarkData: Data? = nil" in share_intake
     for rel in (

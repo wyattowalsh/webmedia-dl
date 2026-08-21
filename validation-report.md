@@ -2,8 +2,8 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 232 tests |
-| `uv run pytest --cov` | PASS | 86.96% (`fail_under` 85) |
+| `uv run pytest` | PASS | 235 tests |
+| `uv run pytest --cov` | PASS | 87.15% (`fail_under` 85) |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
 | `uv run ty check` | PASS | |

@@ -34,9 +34,10 @@ def test_pairing_expiry() -> None:
 
 
 def test_derive_session_key_is_sha256_nonce_mac_confirm() -> None:
-    assert derive_session_key("pairing-nonce", "mac-confirm") == sha256(
-        b"pairing-nonce:mac-confirm"
-    ).hexdigest()
+    assert (
+        derive_session_key("pairing-nonce", "mac-confirm")
+        == sha256(b"pairing-nonce:mac-confirm").hexdigest()
+    )
     assert (
         derive_session_key("pairing-nonce", "mac-confirm")
         == "bc863f6d9e1fc62a49c474506a660ac0a6f44a19d97e41348d3a2e682c1cdf63"
