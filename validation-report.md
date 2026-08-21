@@ -2,7 +2,7 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 192 tests |
+| `uv run pytest` | PASS | 196 tests |
 | `uv run pytest --cov` | PASS | 87% (`fail_under` 85) |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
@@ -29,6 +29,9 @@
 | History schema | PASS | `HistoryEntry` JSON schema + Swift `WebMediaDLHistoryEntry` |
 | DASH AdaptationSet + live poll | PASS | self-closing Representation inherits AdaptationSet BaseURL/template; dynamic MPD/HLS polls new segments |
 | DASH/HLS rendition selection | PASS | highest-bandwidth video Representation; audio-only picks highest audio; HLS master follows highest BANDWIDTH |
+| Multi-period DASH | PASS | each Period keeps its selected video; later Periods are concatenated, not dropped |
+| Sealed companion envelope | PASS | `/v1/companion` opens AES-GCM pairing envelope once and rejects replay |
+| Vision share + Files destinations | PASS | visionOS share adapter; share Info.plist activation rules; iOS/iPad/vision Files approved roots |
 | Typed event payloads | PASS | `EventRecord` rejects stdout/stderr/argv/nativeCommand/cookie paths |
 | Files/clipboard/PhotoKit contracts | PASS | security-scoped path boundary; clipboard URL is never `local_path`; PhotoKit write stays closed |
 | Share sheet extractors | PASS | HTTPS locators stay URL intake; `file://` paths use drop intake; Mac/iOS/iPadOS share adapters |
