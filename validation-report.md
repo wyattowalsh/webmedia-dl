@@ -2,8 +2,8 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 420 tests |
-| `uv run pytest --cov` | PASS | 99.38% (`fail_under` 85) |
+| `uv run pytest` | PASS | 425 tests |
+| `uv run pytest --cov` | PASS | 99.50% (`fail_under` 85) |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
 | `uv run ty check` | PASS | |
@@ -55,6 +55,9 @@
 | Supplied live parts | PASS | explicit HLS parts are written; AES-128 inspect still refuses before fetch |
 | Exporting resume | PASS | `stage=exporting` with restored `produced_ids` completes without empty-source fill |
 | Discovery HTML 100% | PASS | empty srcset/poster, meta without content, picture source without MIME, track preload, NDJSON blank lines |
+| Forbidden export loss | PASS | `plan_export` refuses `LossClass.FORBIDDEN` before returning a plan |
+| SegmentTimeline clock | PASS | `S` without `t` keeps the running `$Time$` clock |
+| Extra-args validator | PASS | `AcquisitionStrategy.forbid_user_argv` rejects non-empty extra argv |
 | URL never a path | PASS | URL intake with `local_path` or `file:` normalized_url raises; extra provider argv is refused |
 | Live aggregate bound + kinds | PASS | cumulative byte budget; separate VIDEO/AUDIO artifacts; audio-only DASH uses the highest-bandwidth audio Representation; SegmentBase ranges including mediaRange; multi-period occurrences; empty recordings and HTTP 400 playlists fail closed; nested/audio `should_stop` aborts before further fetches |
 | DASH AdaptationSet + live poll | PASS | self-closing Representation inherits AdaptationSet BaseURL/template; dynamic MPD/HLS polls new segments; later ContentProtection/AES-128 stops without fetching protected parts; `startNumber` and `$$` template tokens expand without a phantom `$Number=1` segment |
