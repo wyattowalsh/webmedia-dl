@@ -481,7 +481,11 @@ def pair_create(
 ) -> None:
     """Create an expiring pairing nonce. The Mac user must confirm it."""
     pipeline = _pipeline(data_dir)
-    challenge = pipeline.pairing.create(client_profile, pipeline.host_worker.worker_id)
+    try:
+        challenge = pipeline.pairing.create(client_profile, pipeline.host_worker.worker_id)
+    except WebMediaError as exc:
+        typer.echo(str(exc))
+        raise typer.Exit(code=1) from exc
     typer.echo(
         json.dumps(
             {
@@ -503,7 +507,11 @@ def pair_confirm(
 ) -> None:
     """Confirm pairing on the Mac worker. Restricted clients cannot self-confirm."""
     pipeline = _pipeline(data_dir)
-    record = pipeline.pairing.confirm(pairing_id)
+    try:
+        record = pipeline.pairing.confirm(pairing_id)
+    except WebMediaError as exc:
+        typer.echo(str(exc))
+        raise typer.Exit(code=1) from exc
     typer.echo(
         json.dumps(
             {

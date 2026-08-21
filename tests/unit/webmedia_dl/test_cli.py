@@ -72,6 +72,22 @@ def test_pair_create_and_confirm(tmp_path: Path) -> None:
     assert body["session_key"]
 
 
+def test_pair_create_rejects_full_profile(tmp_path: Path) -> None:
+    data = tmp_path / "data"
+    created = runner.invoke(
+        app,
+        ["pair", "create", "--client-profile", "personal-full", "--data-dir", str(data)],
+    )
+    assert created.exit_code == 1
+    assert "full profile" in created.stdout
+    missing = runner.invoke(
+        app,
+        ["pair", "confirm", "11111111-1111-1111-1111-111111111111", "--data-dir", str(data)],
+    )
+    assert missing.exit_code == 1
+    assert "Unknown pairing" in missing.stdout
+
+
 def test_alias_note() -> None:
     result = runner.invoke(app, ["alias-note"])
     assert result.exit_code == 0

@@ -1,3 +1,4 @@
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import UUID
 
@@ -105,3 +106,35 @@ def test_service_confirm_and_paired_job(tmp_path: Path, png_bytes: bytes) -> Non
     body = paired.json()
     assert body["job"]["state"] in {"completed", "failed"}
     assert body["events"]
+
+
+def test_pairing_unknown_profile_and_expired_and_session_key(tmp_data: Path) -> None:
+    pipeline = Pipeline(data_dir=tmp_data)
+    with pytest.raises(DelegationDenied, match="Unknown client profile"):
+        pipeline.pairing.create("not-a-profile", pipeline.host_worker.worker_id)
+    challenge = pipeline.pairing.create("personal-restricted", pipeline.host_worker.worker_id)
+    with pytest.raises(DelegationDenied, match="has not confirmed"):
+        pipeline.pairing.require_confirmed(challenge.pairing_id, "preview")
+    record = pipeline.pairing.confirm(challenge.pairing_id)
+    with pytest.raises(DelegationDenied, match="session key is required"):
+        pipeline.pairing.require_confirmed(challenge.pairing_id, session_key=None)
+    with pytest.raises(DelegationDenied, match="does not match"):
+        pipeline.pairing.require_confirmed(challenge.pairing_id, "wrong-key")
+    pipeline.pairing.require_confirmed(challenge.pairing_id, record.session_key)
+    expired = pipeline.pairing.get(challenge.pairing_id)
+    assert expired is not None
+    pipeline.pairing._records[str(challenge.pairing_id)] = expired.model_copy(
+        update={"expires_at": datetime.now(UTC) - timedelta(seconds=1)}
+    )
+    with pytest.raises(DelegationDenied, match="expired"):
+        pipeline.pairing.require_confirmed(challenge.pairing_id, record.session_key)
+    with pytest.raises(DelegationDenied, match="Unknown pairing"):
+        pipeline.pairing.confirm(UUID("11111111-1111-1111-1111-111111111111"))
+    stale = pipeline.pairing.create("browser-capture", pipeline.host_worker.worker_id)
+    stale_record = pipeline.pairing.get(stale.pairing_id)
+    assert stale_record is not None
+    pipeline.pairing._records[str(stale.pairing_id)] = stale_record.model_copy(
+        update={"expires_at": datetime.now(UTC) - timedelta(seconds=1)}
+    )
+    with pytest.raises(DelegationDenied, match="expired"):
+        pipeline.pairing.confirm(stale.pairing_id)

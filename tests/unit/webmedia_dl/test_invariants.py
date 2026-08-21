@@ -7,11 +7,19 @@ import pytest
 from pydantic import ValidationError
 
 from webmedia_dl.artifacts import ArtifactStore
-from webmedia_dl.domain.enums import ArtifactRole, EvidenceStatus, IntakeKind, MediaKind, Surface
+from webmedia_dl.domain.enums import (
+    ArtifactRole,
+    CookieAccess,
+    EvidenceStatus,
+    IntakeKind,
+    MediaKind,
+    Surface,
+)
 from webmedia_dl.domain.models import (
     AcquisitionStrategy,
     MediaCandidate,
     MediaSource,
+    PolicyProfile,
     ProviderManifest,
     ValidationResult,
 )
@@ -111,4 +119,23 @@ def test_simulated_check_cannot_pass() -> None:
             message="planned",
             planned=True,
             executed=False,
+        )
+
+
+def test_policy_profile_forbids_drm_and_default_telemetry() -> None:
+    with pytest.raises(ValidationError, match="DRM circumvention"):
+        PolicyProfile(
+            profile_id="bad",
+            display_name="bad",
+            allowed_capabilities=["intake.normalize"],
+            cookie_access=CookieAccess.NEVER,
+            drm_circumvention=True,
+        )
+    with pytest.raises(ValidationError, match="Default telemetry"):
+        PolicyProfile(
+            profile_id="bad",
+            display_name="bad",
+            allowed_capabilities=["intake.normalize"],
+            cookie_access=CookieAccess.NEVER,
+            telemetry_default=True,
         )

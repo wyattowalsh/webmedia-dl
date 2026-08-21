@@ -4,7 +4,7 @@ import pytest
 
 from webmedia_dl.domain.enums import IntakeKind, Surface
 from webmedia_dl.errors import IntakeError, NetworkPolicyError
-from webmedia_dl.intake import normalize_source
+from webmedia_dl.intake import classify_locator, normalize_source
 
 
 def test_https_url_stays_a_url() -> None:
@@ -76,3 +76,9 @@ def test_missing_file_intake_fails_closed(tmp_path: Path) -> None:
             policy_profile_id="personal-full",
             kind=IntakeKind.DROP,
         )
+
+
+def test_browser_evidence_and_unclassified_locator() -> None:
+    assert classify_locator('{"browser_evidence": []}') is IntakeKind.BROWSER_EVIDENCE
+    with pytest.raises(IntakeError, match="Unable to classify"):
+        classify_locator("not-a-url-or-file")
