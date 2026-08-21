@@ -22,13 +22,16 @@ _HLS_MAP = re.compile(
 _HLS_BYTERANGE = re.compile(r"#EXT-X-BYTERANGE:(\d+)(?:@(\d+))?", re.I)
 _DASH_CONTENT_PROTECTION = re.compile(r"ContentProtection", re.I)
 _DASH_BASE_URL = re.compile(r"<BaseURL>\s*([^<\s]+)\s*</BaseURL>", re.I)
-_DASH_MEDIA = re.compile(r'\b(?:media|initialization|sourceURL)="([^"]+)"', re.I)
+_DASH_MEDIA = re.compile(
+    r"""\b(?:media|initialization|sourceURL)=(?:"([^"]+)"|'([^']+)')""",
+    re.I,
+)
 _DASH_TEMPLATE = re.compile(
     r"<SegmentTemplate\b([^>]*)(?:/>|>(.*?)</SegmentTemplate>)",
     re.I | re.S,
 )
 _DASH_S = re.compile(r"<S\b([^>]*)/?>", re.I)
-_DASH_ATTR = re.compile(r'([A-Za-z_:][\w:.-]*)="([^"]*)"')
+_DASH_ATTR = re.compile(r"([A-Za-z_:][\w:.-]*)=(?:\"([^\"]*)\"|'([^']*)')")
 _NUMBER_TOKEN = re.compile(r"\$Number(%[^$]+)?\$")
 _TIME_TOKEN = re.compile(r"\$Time(%[^$]+)?\$")
 MAX_TIMELINE_SEGMENTS = 64
@@ -159,7 +162,10 @@ def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
 
 
 def _attrs(blob: str) -> dict[str, str]:
-    return {key.lower(): value for key, value in _DASH_ATTR.findall(blob)}
+    parsed: dict[str, str] = {}
+    for key, double, single in _DASH_ATTR.findall(blob):
+        parsed[key.lower()] = double or single
+    return parsed
 
 
 def _format_token(value: int, spec: str | None) -> str:
@@ -273,7 +279,8 @@ def _dash_parts(text: str, base: str) -> list[ManifestPart]:
         if href:
             start, length = _parse_dash_range(attrs.get("mediarange"))
             add(ManifestPart(_join(resolve_base, href.strip()), start, length))
-    for media in _DASH_MEDIA.findall(text):
+    for double, single in _DASH_MEDIA.findall(text):
+        media = double or single
         resolved = _expand_dash_template(media, number=1, time_value=0)
         if "$" in resolved:
             continue

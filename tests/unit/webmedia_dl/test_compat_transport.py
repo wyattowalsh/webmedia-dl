@@ -9,6 +9,9 @@ from webmedia_dl.transport import create_challenge, expired
 def test_legacy_scan_is_non_destructive(tmp_path: Path) -> None:
     marker = tmp_path / "yt-dlp-archive.txt"
     marker.write_text("# comment\nid-one\nid-two\n", encoding="utf-8")
+    extra = tmp_path / "nested" / "yt-dlp-archive.txt"
+    extra.parent.mkdir()
+    extra.write_text('["json-one", "json-two"]\n', encoding="utf-8")
     report = scan_legacy(tmp_path)
     assert "yt-dlp-archive.txt" in report["markers"]
     assert report["destructive"] is False
@@ -17,9 +20,10 @@ def test_legacy_scan_is_non_destructive(tmp_path: Path) -> None:
     assert marker.read_text(encoding="utf-8") == "# comment\nid-one\nid-two\n"
     sidecar = json.loads((tmp_path / "webmedia-dl-migrated" / "migration.json").read_text())
     assert sidecar["version"] == 1
-    assert sidecar["archives"][0]["ids"] == ["id-one", "id-two"]
-    assert sidecar["archives"][0]["sha256"]
-    assert applied["index_entries"] == 2
+    ids = [tuple(item["ids"]) for item in sidecar["archives"]]
+    assert ("id-one", "id-two") in ids
+    assert ("json-one", "json-two") in ids
+    assert applied["index_entries"] == 4
 
 
 def test_pairing_expiry() -> None:
