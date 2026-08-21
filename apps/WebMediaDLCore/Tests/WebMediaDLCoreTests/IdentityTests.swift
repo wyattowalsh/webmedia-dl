@@ -24,6 +24,11 @@ final class IdentityTests: XCTestCase {
         let bridge = WebMediaDLContinuityBridge()
         XCTAssertFalse(bridge.isSubprocessWorker)
         XCTAssertEqual(WebMediaDLContinuityBridge.loopbackURL.host, "127.0.0.1")
+        let message = bridge.message(kind: "capture", locator: "https://example.com/a.mp4")
+        XCTAssertNil(message.nativeCommand)
+        XCTAssertFalse(message.subprocessWorker)
+        XCTAssertTrue(bridge.companionRequest().url?.absoluteString.contains("companion") ?? false)
+        XCTAssertTrue(WebMediaDLContinuityBridge.allowedKinds.contains("history"))
     }
 
     func testPhotosDestinationRequiresApprovedRoot() {

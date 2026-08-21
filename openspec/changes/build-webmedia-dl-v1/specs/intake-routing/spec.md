@@ -25,3 +25,13 @@ A network locator SHALL NOT be copied into `local_path`.
 
 - **WHEN** a `MediaSource` is constructed with both a URL kind and `local_path`
 - **THEN** validation fails
+
+### Requirement: Drop intake
+
+File-drop intake SHALL classify existing local files as `drop` without copying a
+URL into `local_path`.
+
+#### Scenario: drop of an existing file
+
+- **WHEN** `webmedia-dl drop` is given an existing PNG
+- **THEN** the source kind is `drop` and `local_path` is the resolved file

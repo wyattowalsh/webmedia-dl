@@ -19,6 +19,6 @@ recovered architecture. Implementation maps components as follows:
 | Validation | `validation.py` |
 | Publisher | `publish.py` |
 | Queue/event store | `queue.py` |
-| Cross-device transport | `transport.py` |
+| Cross-device transport | `transport.py`, `continuity.py`, `envelope.py` |
 
 Control flow is `Pipeline.submit` in `pipeline.py`.

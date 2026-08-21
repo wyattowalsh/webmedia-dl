@@ -12,9 +12,9 @@ from loguru import logger
 
 from webmedia_dl.compat import migrate_legacy, scan_legacy
 from webmedia_dl.diagnostics import doctor
-from webmedia_dl.domain.enums import DestinationKind, Surface
+from webmedia_dl.domain.enums import DestinationKind, IntakeKind, Surface
 from webmedia_dl.domain.models import ExportIntent
-from webmedia_dl.errors import CancelledError
+from webmedia_dl.errors import CancelledError, WebMediaError
 from webmedia_dl.names import CLI_NAME, DISPLAY_NAME, PERSONAL_ALIAS
 from webmedia_dl.pipeline import Pipeline
 from webmedia_dl.policy.profiles import builtin_profiles
@@ -120,7 +120,62 @@ def submit(
         raise typer.Exit(code=1)
 
 
-@app.command("plan")
+@app.command()
+def drop(
+    path: Annotated[Path, typer.Argument(help="Existing local file dropped onto the worker")],
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+    dest: Annotated[Path | None, typer.Option("--dest")] = None,
+    wait: Annotated[bool, typer.Option("--wait/--no-wait")] = True,
+) -> None:
+    """File-drop intake. Same pipeline as submit; kind is `drop`, not a URL path."""
+    intent = ExportIntent()
+    if dest is not None:
+        intent = ExportIntent(
+            destination_kind=DestinationKind.USER_APPROVED_PATH,
+            destination_path=str(dest.resolve()),
+            approved_roots=[str(dest.resolve())],
+        )
+    pipeline = _pipeline(data_dir)
+    job = pipeline.submit(
+        str(path.expanduser().resolve()),
+        surface=Surface.CLI,
+        intent=intent,
+        local_user_confirmed=True,
+        wait=wait,
+        intake_kind=IntakeKind.DROP,
+    )
+    events = [event.model_dump(mode="json") for event in pipeline.queue.events_for(job.job_id)]
+    typer.echo(
+        json.dumps({"job": job.model_dump(mode="json"), "events": events}, indent=2, default=str)
+    )
+    if job.error:
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def companion(
+    kind: Annotated[str, typer.Argument(help="capture, pause, resume, history, status, cancel")],
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+    locator: Annotated[str | None, typer.Option("--locator")] = None,
+    job_id: Annotated[UUID | None, typer.Option("--job")] = None,
+    surface: Annotated[Surface, typer.Option("--surface")] = Surface.WATCHOS,
+) -> None:
+    """Forward a watchOS/tvOS companion message on the Mac worker."""
+    pipeline = _pipeline(data_dir)
+    payload: dict[str, object] = {"kind": kind, "nativeCommand": None, "subprocessWorker": False}
+    if locator:
+        payload["locator"] = locator
+    if job_id is not None:
+        payload["job_id"] = str(job_id)
+    payload["surface"] = surface.value
+    try:
+        result = pipeline.handle_companion(payload)
+    except WebMediaError as exc:
+        typer.echo(str(exc))
+        raise typer.Exit(code=1) from exc
+    typer.echo(json.dumps(result, indent=2, default=str))
+
+
 def plan_cmd(
     locator: Annotated[str, typer.Argument(help="https URL or existing local file")],
     data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,

@@ -65,6 +65,8 @@ def test_apple_app_shells_exist() -> None:
     ).read_text(encoding="utf-8")
     assert "isSubprocessWorker" in continuity
     assert "false" in continuity.lower() or "Bool { false }" in continuity
+    assert "companion" in continuity.lower()
+    assert "nativeCommand" in continuity
     tv = (root / "apps/WebMediaDLTV/Sources/WebMediaDLTV/WebMediaDLTVRootView.swift").read_text(
         encoding="utf-8"
     )

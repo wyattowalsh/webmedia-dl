@@ -86,6 +86,14 @@ class _MediaHTMLParser(HTMLParser):
                     token = part.strip().split()[0]
                     if token:
                         self.urls.append((token, kind))
+        if tag == "track":
+            src = mapping.get("src")
+            if src:
+                self.urls.append((src, MediaKind.SUBTITLE))
+        if tag == "a":
+            href = mapping.get("href")
+            if href:
+                self.urls.append((href, MediaKind.UNKNOWN))
         if tag == "meta":
             key = mapping.get("property") or mapping.get("name")
             content = mapping.get("content")
@@ -316,10 +324,12 @@ def discover(
         absolute = urljoin(url, raw)
         if absolute in seen:
             continue
-        seen.add(absolute)
         item_kind = _kind_from_url(absolute)
         if item_kind == MediaKind.PAGE:
+            if guessed in {MediaKind.UNKNOWN, MediaKind.PAGE}:
+                continue
             item_kind = guessed
+        seen.add(absolute)
         found.append(
             _candidate(
                 source,

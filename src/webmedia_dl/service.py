@@ -12,6 +12,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 
 from webmedia_dl import __version__
+from webmedia_dl.continuity import validate_companion_message
 from webmedia_dl.diagnostics import doctor
 from webmedia_dl.dispatcher import QueueDispatcher
 from webmedia_dl.domain.enums import Surface
@@ -65,6 +66,16 @@ class OpenEnvelopeBody(BaseModel):
     nonce: str
     ciphertext: str
     mac: str
+
+
+class CompanionBody(BaseModel):
+    kind: str
+    locator: str | None = None
+    job_id: UUID | None = None
+    jobId: UUID | None = None
+    surface: Surface | None = None
+    nativeCommand: str | None = None
+    subprocessWorker: bool = False
 
 
 def _token_file(data_dir: Path) -> Path:
@@ -276,6 +287,22 @@ def create_app(data_dir: Path | None = None, *, enable_dispatcher: bool = False)
         except DelegationDenied as exc:
             raise HTTPException(status_code=401, detail=str(exc)) from exc
         return opened
+
+    @app.post("/v1/companion")
+    def companion(body: CompanionBody, auth: dict[str, str] = Depends(require_auth)) -> dict:
+        if auth.get("actor") != "mac":
+            raise HTTPException(
+                status_code=403,
+                detail="Companion messages are forwarded by the Mac worker only.",
+            )
+        payload = body.model_dump(exclude_none=True)
+        if body.jobId is not None and payload.get("job_id") is None:
+            payload["job_id"] = str(body.jobId)
+        try:
+            validate_companion_message(payload)
+            return pipeline.handle_companion(payload)
+        except WebMediaError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return app
 

@@ -6,8 +6,17 @@
 
 macOS SHALL host the full local worker. iPhone, iPad, and visionOS SHALL be complete
 clients that may perform lightweight transfers and MUST pair for heavy work.
-watchOS and tvOS SHALL provide capture, status, history, and controls and SHALL NOT
-pretend to be subprocess workers.
+watchOS and tvOS SHALL send typed companion messages (`capture`, `pause`,
+`resume`, `history`, `status`, `cancel`) to the Mac. Those messages SHALL set
+`nativeCommand` to null and SHALL NOT carry provider argv. The Mac worker
+`POST /v1/companion` SHALL accept them only from the Mac actor and MAY mark the
+job host-owned so heavy work runs on the Mac without granting the watch a
+subprocess runtime.
+
+#### Scenario: companion capture has no native command
+
+- **WHEN** a watch companion message is built for capture
+- **THEN** `nativeCommand` is null and `subprocessWorker` is false
 
 #### Scenario: watch worker cannot run yt-dlp
 

@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.pool import NullPool
@@ -12,6 +13,7 @@ from sqlmodel import Field, Session, SQLModel, create_engine, select
 
 from webmedia_dl.domain.enums import EventType, JobState
 from webmedia_dl.domain.models import BrowserEvidence, EventRecord, Job
+from webmedia_dl.errors import CancelledError, PauseRequested
 
 QUEUE_EVENT_JOB_ID = UUID(int=0)
 _QUEUE_TABLES = frozenset({"jobs", "events", "queue_control", "job_context"})
@@ -22,6 +24,9 @@ class JobContext:
     html: str | None = None
     cookies: str | None = None
     evidence: tuple[BrowserEvidence, ...] = ()
+    checkpoint: dict[str, Any] = field(default_factory=dict)
+    pause_requested: bool = False
+    cancel_requested: bool = False
 
 
 class JobRow(SQLModel, table=True):
@@ -57,6 +62,9 @@ class JobContextRow(SQLModel, table=True):
     html: str | None = None
     cookies: str | None = None
     evidence_json: str = "[]"
+    checkpoint_json: str = "{}"
+    pause_requested: bool = False
+    cancel_requested: bool = False
 
 
 class QueueStore:
@@ -71,6 +79,7 @@ class QueueStore:
         tables = [table for table in SQLModel.metadata.sorted_tables if table.name in _QUEUE_TABLES]
         SQLModel.metadata.create_all(self.engine, tables=tables)
         self._ensure_control()
+        self._migrate_context()
 
     def _ensure_control(self) -> None:
         with Session(self.engine) as session:
@@ -78,6 +87,24 @@ class QueueStore:
             if row is None:
                 session.add(QueueControlRow(id=1, paused=False, seq=0))
                 session.commit()
+
+    def _migrate_context(self) -> None:
+        statements = {
+            "checkpoint_json": "ALTER TABLE job_context ADD COLUMN checkpoint_json TEXT DEFAULT '{}'",
+            "pause_requested": (
+                "ALTER TABLE job_context ADD COLUMN pause_requested INTEGER DEFAULT 0"
+            ),
+            "cancel_requested": (
+                "ALTER TABLE job_context ADD COLUMN cancel_requested INTEGER DEFAULT 0"
+            ),
+        }
+        with self.engine.connect() as conn:
+            info = conn.exec_driver_sql("PRAGMA table_info(job_context)").fetchall()
+            names = {row[1] for row in info}
+            for column, sql in statements.items():
+                if column not in names:
+                    conn.exec_driver_sql(sql)
+            conn.commit()
 
     def put_job(self, job: Job) -> Job:
         payload = job.model_dump_json()
@@ -121,7 +148,23 @@ class QueueStore:
         return None
 
     def set_state(self, job_id: UUID, state: JobState, error: str | None = None) -> Job:
+        ctx = self.get_context(job_id)
         job = self.get_job(job_id)
+        if ctx.cancel_requested and state is not JobState.CANCELLED:
+            cancelled = job.model_copy(
+                update={"state": JobState.CANCELLED, "error": error or "cancelled by user"}
+            )
+            self.put_job(cancelled)
+            raise CancelledError(f"Job {job_id} was cancelled.")
+        if ctx.pause_requested and state not in {
+            JobState.PAUSED,
+            JobState.CANCELLED,
+            JobState.COMPLETED,
+            JobState.FAILED,
+        }:
+            paused = job.model_copy(update={"state": JobState.PAUSED, "error": error})
+            self.put_job(paused)
+            raise PauseRequested(f"Job {job_id} is paused.")
         updated = job.model_copy(update={"state": state, "error": error})
         return self.put_job(updated)
 
@@ -201,6 +244,34 @@ class QueueStore:
                 row.evidence_json = payload
             session.commit()
 
+    def put_checkpoint(self, job_id: UUID, checkpoint: dict) -> None:
+        encoded = json.dumps(checkpoint, default=str)
+        with Session(self.engine) as session:
+            row = session.get(JobContextRow, str(job_id))
+            if row is None:
+                session.add(JobContextRow(job_id=str(job_id), checkpoint_json=encoded))
+            else:
+                row.checkpoint_json = encoded
+            session.commit()
+
+    def set_job_flags(
+        self,
+        job_id: UUID,
+        *,
+        pause_requested: bool | None = None,
+        cancel_requested: bool | None = None,
+    ) -> None:
+        with Session(self.engine) as session:
+            row = session.get(JobContextRow, str(job_id))
+            if row is None:
+                row = JobContextRow(job_id=str(job_id))
+                session.add(row)
+            if pause_requested is not None:
+                row.pause_requested = pause_requested
+            if cancel_requested is not None:
+                row.cancel_requested = cancel_requested
+            session.commit()
+
     def get_context(self, job_id: UUID) -> JobContext:
         with Session(self.engine) as session:
             row = session.get(JobContextRow, str(job_id))
@@ -208,4 +279,17 @@ class QueueStore:
             return JobContext()
         raw = json.loads(row.evidence_json or "[]")
         evidence = tuple(BrowserEvidence.model_validate(item) for item in raw)
-        return JobContext(html=row.html, cookies=row.cookies, evidence=evidence)
+        try:
+            checkpoint = json.loads(row.checkpoint_json or "{}")
+        except (TypeError, json.JSONDecodeError):
+            checkpoint = {}
+        if not isinstance(checkpoint, dict):
+            checkpoint = {}
+        return JobContext(
+            html=row.html,
+            cookies=row.cookies,
+            evidence=evidence,
+            checkpoint=checkpoint,
+            pause_requested=bool(row.pause_requested),
+            cancel_requested=bool(row.cancel_requested),
+        )

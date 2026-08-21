@@ -46,6 +46,27 @@ def test_html_discovery_extracts_media_without_using_title_as_id() -> None:
     assert graph.nodes
 
 
+def test_html_discovery_extracts_track_and_media_anchors() -> None:
+    html = """
+    <html><body>
+      <video src="https://cdn.example.com/clip.mp4">
+        <track src="https://cdn.example.com/clip.vtt" kind="subtitles">
+      </video>
+      <a href="https://cdn.example.com/notes.pdf">PDF</a>
+      <a href="/about">About</a>
+    </body></html>
+    """
+    profile = get_profile("personal-full")
+    candidates = discover(_source(), profile, html=html)
+    kinds = {item.media_kind for item in candidates}
+    urls = [item.retrieval_urls[0] for item in candidates if item.retrieval_urls]
+    assert MediaKind.SUBTITLE in kinds
+    assert MediaKind.DOCUMENT in kinds
+    assert "https://cdn.example.com/clip.vtt" in urls
+    assert "https://cdn.example.com/notes.pdf" in urls
+    assert not any(item.endswith("/about") for item in urls)
+
+
 def test_direct_png_skips_html() -> None:
     profile = get_profile("personal-full")
     source = MediaSource(

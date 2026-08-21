@@ -76,6 +76,17 @@ export function pageCollector(doc) {
       /* ignore malformed JSON-LD */
     }
   });
+  root.querySelectorAll?.("a[href]").forEach((el) => {
+    const href = el.getAttribute?.("href");
+    if (
+      typeof href === "string" &&
+      /\.(mp4|webm|mkv|mov|m4v|mp3|m4a|aac|flac|wav|ogg|opus|jpg|jpeg|png|gif|webp|avif|pdf|vtt|srt|m3u8|mpd)(\?|#|$)/i.test(
+        href,
+      )
+    ) {
+      push(href, "unknown");
+    }
+  });
   return {
     pageUrl: root.location?.href ?? null,
     evidence: urls,

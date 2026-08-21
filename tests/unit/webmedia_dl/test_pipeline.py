@@ -31,6 +31,8 @@ def test_pipeline_html_fixture_without_network(tmp_data: Path, png_bytes: bytes)
         surface=Surface.CLI,
     )
     assert job.state is JobState.COMPLETED
+    types = [event.type.value for event in pipeline.queue.events_for(job.job_id)]
+    assert "artifact.evidence_registered" in types
 
 
 def test_pipeline_records_drm_failure(tmp_data: Path) -> None:

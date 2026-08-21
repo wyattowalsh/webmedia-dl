@@ -7,11 +7,18 @@
 Discovery SHALL produce `MediaCandidate` nodes from direct URLs or bounded HTML
 (size-capped, redirect-capped). It SHALL NOT decide final acquisition.
 Mixed-media pages SHALL keep one preferred candidate per media kind.
+HTML discovery SHALL include `track[src]` subtitles and `a[href]` locators that
+name a direct media or document object. Non-media anchors SHALL be ignored.
 
 #### Scenario: HTML extracts media without using the title as identity
 
 - **WHEN** a page contains `og:image`, `video[src]`, and JSON-LD `contentUrl`
 - **THEN** candidates exist for those URLs and `identity_key` is not the page title
+
+#### Scenario: track and media anchors
+
+- **WHEN** a page contains `track[src]` and an `a[href]` to a PDF
+- **THEN** subtitle and document candidates exist and `/about` is ignored
 
 ### Requirement: Candidate graph grouping
 

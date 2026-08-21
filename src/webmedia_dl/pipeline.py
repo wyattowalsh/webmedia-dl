@@ -13,7 +13,14 @@ from webmedia_dl.acquisition import plan_acquisition
 from webmedia_dl.artifacts import ArtifactStore
 from webmedia_dl.candidates import build_graph, preferred_by_kind
 from webmedia_dl.discovery import candidates_from_manifest_json, discover
-from webmedia_dl.domain.enums import ArtifactRole, EventType, JobState, MediaKind, Surface
+from webmedia_dl.domain.enums import (
+    ArtifactRole,
+    EventType,
+    IntakeKind,
+    JobState,
+    MediaKind,
+    Surface,
+)
 from webmedia_dl.domain.models import (
     BrowserEvidence,
     ExportIntent,
@@ -94,7 +101,10 @@ class Pipeline:
         local_user_confirmed: bool,
         pairing_id: UUID | None,
         session_key: str | None,
+        host_owned: bool = False,
     ) -> bool:
+        if host_owned:
+            return True
         if pairing_id is not None:
             self.pairing.require_confirmed(pairing_id, session_key)
             return True
@@ -113,12 +123,15 @@ class Pipeline:
         session_key: str | None = None,
         evidence: list[BrowserEvidence] | None = None,
         wait: bool = True,
+        intake_kind: IntakeKind | None = None,
+        host_owned: bool = False,
     ) -> Job:
         mac_owned = self._mac_owned(
             surface,
             local_user_confirmed=local_user_confirmed,
             pairing_id=pairing_id,
             session_key=session_key,
+            host_owned=host_owned,
         )
         if mac_owned:
             job_worker = self.host_worker
@@ -133,6 +146,7 @@ class Pipeline:
             locator,
             surface=surface,
             policy_profile_id=client_profile.profile_id,
+            kind=intake_kind,
         )
         job = Job(
             source=source,
@@ -159,11 +173,18 @@ class Pipeline:
                 cookie_value = str(
                     resolve_cookie_path(client_profile, cookies, repo_root=repo_root())
                 )
+                self.queue.emit(
+                    job.job_id,
+                    EventType.COOKIE_ATTACHED,
+                    {"path": cookie_value},
+                )
             self.queue.put_context(job.job_id, html=html, cookies=cookie_value, evidence=evidence)
             if self.queue.is_paused() or not wait:
                 return job
             return self._run(job, html=html, cookies=cookie_value, evidence=evidence)
         except PauseRequested:
+            return self.queue.get_job(job.job_id)
+        except CancelledError:
             return self.queue.get_job(job.job_id)
         except WebMediaError as exc:
             return self._fail(job.job_id, exc)
@@ -176,6 +197,17 @@ class Pipeline:
         cookies: str | None,
         evidence: list[BrowserEvidence] | None = None,
     ) -> Job:
+        self._check_control(job.job_id)
+        stored = self.queue.get_context(job.job_id)
+        checkpoint = dict(stored.checkpoint)
+        acquired_kinds = {str(item) for item in checkpoint.get("acquired_kinds") or []}
+        sources: list[Any] = []
+        for artifact_id in checkpoint.get("source_ids") or []:
+            try:
+                sources.append(self.store.get(str(artifact_id)))
+            except KeyError:
+                continue
+
         self.queue.set_state(job.job_id, JobState.DISCOVERING)
 
         def page_fetch(url: str) -> tuple[int, str, bytes]:
@@ -215,7 +247,7 @@ class Pipeline:
 
         staging = staging_dir(self.data_dir) / str(job.job_id)
         staging.mkdir(parents=True, exist_ok=True)
-        if html:
+        if html and not checkpoint.get("evidence_id"):
             evidence_path = staging / "page.html"
             evidence_path.write_text(html, encoding="utf-8")
             recorded = self.store.register(
@@ -226,29 +258,41 @@ class Pipeline:
             )
             self.queue.emit(
                 job.job_id,
-                EventType.SOURCE_REGISTERED,
-                {"artifact_id": recorded.artifact_id, "provider": "html-evidence"},
+                EventType.EVIDENCE_REGISTERED,
+                {"artifact_id": recorded.artifact_id, "kind": "html"},
             )
+            checkpoint["evidence_id"] = recorded.artifact_id
+            self.queue.put_checkpoint(job.job_id, checkpoint)
 
-        sources: list[Any] = []
+        stage = checkpoint.get("stage")
         if job.source.local_path:
-            self.queue.set_state(job.job_id, JobState.ACQUIRING)
-            artifact = self.store.register(
-                Path(job.source.local_path),
-                role=ArtifactRole.SOURCE,
-                media_kind=chosen[0].media_kind,
-                provenance={"provider": "local-file", "job_id": str(job.job_id)},
-            )
-            self.queue.emit(
-                job.job_id,
-                EventType.SOURCE_REGISTERED,
-                {"artifact_id": artifact.artifact_id, "provider": "local-file"},
-            )
-            self._record_probe(job, artifact, Path(job.source.local_path), chosen[0].candidate_id)
-            sources.append(artifact)
-        else:
+            if not sources:
+                self._check_control(job.job_id)
+                self.queue.set_state(job.job_id, JobState.ACQUIRING)
+                artifact = self.store.register(
+                    Path(job.source.local_path),
+                    role=ArtifactRole.SOURCE,
+                    media_kind=chosen[0].media_kind,
+                    provenance={"provider": "local-file", "job_id": str(job.job_id)},
+                )
+                self.queue.emit(
+                    job.job_id,
+                    EventType.SOURCE_REGISTERED,
+                    {"artifact_id": artifact.artifact_id, "provider": "local-file"},
+                )
+                self._record_probe(
+                    job, artifact, Path(job.source.local_path), chosen[0].candidate_id
+                )
+                sources.append(artifact)
+                acquired_kinds.add(chosen[0].media_kind.value)
+                self._save_acquire_checkpoint(job, sources, acquired_kinds, stage="acquired")
+            self._check_control(job.job_id)
+        elif stage not in {"acquired", "exporting", "validating", "publishing"}:
             last_error: Exception | None = None
             for index, candidate in enumerate(chosen):
+                self._check_control(job.job_id)
+                if candidate.media_kind.value in acquired_kinds:
+                    continue
                 try:
                     kind_dir = staging / f"{index}-{candidate.media_kind.value}"
                     kind_dir.mkdir(parents=True, exist_ok=True)
@@ -259,6 +303,10 @@ class Pipeline:
                         cookies=cookies,
                     )
                     sources.append(artifact)
+                    acquired_kinds.add(candidate.media_kind.value)
+                    self._save_acquire_checkpoint(job, sources, acquired_kinds, stage="acquiring")
+                except (PauseRequested, CancelledError):
+                    raise
                 except (DrmRefused, WebMediaError) as exc:
                     last_error = exc
                     continue
@@ -267,52 +315,73 @@ class Pipeline:
                     raise last_error
                 msg = "Acquisition produced no source artifact."
                 raise ProviderPolicyError(msg)
+            self._save_acquire_checkpoint(job, sources, acquired_kinds, stage="acquired")
 
         produced: list[tuple[Any, Path]] = []
+        export_errors: list[WebMediaError] = []
         for artifact in sources:
-            export_plan = plan_export(job.job_id, artifact, job.intent)
-            self.queue.emit(
-                job.job_id,
-                EventType.EXPORT_PLANNED,
-                {"operations": [item.operation_id for item in export_plan.operations]},
-            )
-            export_dir = staging / artifact.artifact_id.replace(":", "_")[:40]
-            export_dir.mkdir(parents=True, exist_ok=True)
-            produced.extend(
-                execute_export_plan(
-                    export_plan,
-                    job_id=job.job_id,
-                    source=artifact,
-                    source_path=self.store.resolve(artifact),
-                    store=self.store,
-                    runtime=self.runtime,
-                    staging=export_dir,
-                    queue=self.queue,
-                    authorize=self._authorize,
-                )
-            )
-
-        self.queue.set_state(job.job_id, JobState.VALIDATING)
-        publishable: list[tuple[Any, Path, list]] = []
-        source_ids = {item.artifact_id for item in sources}
-        for item, path in produced:
-            if (
-                item.role.value == "derivative"
-                and not job.intent.include_original
-                and item.artifact_id in source_ids
-            ):
-                continue
-            results = validate_artifact(job.job_id, item, path)
-            for result in results:
+            self._check_control(job.job_id)
+            try:
+                export_plan = plan_export(job.job_id, artifact, job.intent)
                 self.queue.emit(
                     job.job_id,
-                    EventType.VALIDATION_RECORDED,
-                    {"gate": result.gate_id, "status": result.status.value},
+                    EventType.EXPORT_PLANNED,
+                    {"operations": [item.operation_id for item in export_plan.operations]},
                 )
-            require_pass(results)
-            if item.role.value == "source" and not job.intent.include_original:
+                export_dir = staging / artifact.artifact_id.replace(":", "_")[:40]
+                export_dir.mkdir(parents=True, exist_ok=True)
+                produced.extend(
+                    execute_export_plan(
+                        export_plan,
+                        job_id=job.job_id,
+                        source=artifact,
+                        source_path=self.store.resolve(artifact),
+                        store=self.store,
+                        runtime=self.runtime,
+                        staging=export_dir,
+                        queue=self.queue,
+                        authorize=self._authorize,
+                    )
+                )
+            except (PauseRequested, CancelledError):
+                raise
+            except WebMediaError as exc:
+                export_errors.append(exc)
+                self.queue.emit(
+                    job.job_id,
+                    EventType.OPERATION_FAILED,
+                    {"artifact_id": artifact.artifact_id, "message": str(exc)},
+                )
+                produced.append((artifact, self.store.resolve(artifact)))
+
+        self._check_control(job.job_id)
+        self.queue.set_state(job.job_id, JobState.VALIDATING)
+        publishable: list[tuple[Any, Path, list]] = []
+        for item, path in produced:
+            self._check_control(job.job_id)
+            if item.role is ArtifactRole.SOURCE and not job.intent.include_original:
                 continue
-            publishable.append((item, path, results))
+            try:
+                results = validate_artifact(job.job_id, item, path)
+                for result in results:
+                    self.queue.emit(
+                        job.job_id,
+                        EventType.VALIDATION_RECORDED,
+                        {"gate": result.gate_id, "status": result.status.value},
+                    )
+                require_pass(results)
+                publishable.append((item, path, results))
+            except WebMediaError as exc:
+                export_errors.append(exc)
+                if item.role is ArtifactRole.SOURCE:
+                    continue
+                continue
+
+        if not publishable:
+            if export_errors:
+                raise export_errors[0]
+            msg = "No publishable artifacts remained after validation."
+            raise ProviderPolicyError(msg)
 
         self.queue.set_state(job.job_id, JobState.PUBLISHING)
         published = publish_artifacts(publishable, job.intent)
@@ -419,6 +488,8 @@ class Pipeline:
                     job, artifact, self.store.resolve(artifact), candidate.candidate_id
                 )
                 break
+            except (PauseRequested, CancelledError):
+                raise
             except (DrmRefused, WebMediaError) as exc:
                 last_error = exc
                 continue
@@ -502,6 +573,7 @@ class Pipeline:
         if job.state in {JobState.COMPLETED, JobState.FAILED, JobState.CANCELLED}:
             msg = f"Job {job_id} cannot be cancelled from state {job.state.value}."
             raise CancelledError(msg)
+        self.queue.set_job_flags(job_id, cancel_requested=True)
         cancelled = self.queue.set_state(job_id, JobState.CANCELLED, error="cancelled by user")
         self.queue.emit(job_id, EventType.JOB_CANCELLED, {"state": "cancelled"})
         return cancelled
@@ -521,6 +593,7 @@ class Pipeline:
         if job.state in {JobState.COMPLETED, JobState.FAILED, JobState.CANCELLED}:
             msg = f"Job {job_id} cannot be paused from state {job.state.value}."
             raise PauseRequested(msg)
+        self.queue.set_job_flags(job_id, pause_requested=True)
         paused = self.queue.set_state(job_id, JobState.PAUSED)
         self.queue.emit(job_id, EventType.JOB_PAUSED, {"state": "paused"})
         return paused
@@ -530,8 +603,11 @@ class Pipeline:
         if job.state not in {JobState.PAUSED, JobState.ACCEPTED}:
             msg = f"Job {job_id} cannot be resumed from state {job.state.value}."
             raise PauseRequested(msg)
+        self.queue.set_job_flags(job_id, pause_requested=False)
+        if job.state is JobState.PAUSED:
+            self.queue.set_state(job_id, JobState.ACCEPTED)
         self.queue.emit(job_id, EventType.JOB_RESUMED, {"state": "resumed"})
-        return self._execute_stored(job)
+        return self._execute_stored(self.queue.get_job(job_id))
 
     def run_next(self) -> Job | None:
         job = self.queue.next_runnable()
@@ -550,14 +626,88 @@ class Pipeline:
             )
         except PauseRequested:
             return self.queue.get_job(job.job_id)
+        except CancelledError:
+            return self.queue.get_job(job.job_id)
         except WebMediaError as exc:
             return self._fail(job.job_id, exc)
 
     def _fail(self, job_id: UUID, exc: WebMediaError) -> Job:
         logger.warning("job {} failed: {}", job_id, exc)
-        failed = self.queue.set_state(job_id, JobState.FAILED, error=str(exc))
+        try:
+            failed = self.queue.set_state(job_id, JobState.FAILED, error=str(exc))
+        except (CancelledError, PauseRequested):
+            return self.queue.get_job(job_id)
         self.queue.emit(job_id, EventType.JOB_FAILED, {"code": exc.code, "message": str(exc)})
         return failed
+
+    def _check_control(self, job_id: UUID) -> None:
+        ctx = self.queue.get_context(job_id)
+        job = self.queue.get_job(job_id)
+        if ctx.cancel_requested or job.state is JobState.CANCELLED:
+            if job.state is not JobState.CANCELLED:
+                self.queue.set_state(job_id, JobState.CANCELLED, error="cancelled by user")
+            msg = f"Job {job_id} was cancelled."
+            raise CancelledError(msg)
+        if ctx.pause_requested or job.state is JobState.PAUSED:
+            if job.state is not JobState.PAUSED:
+                self.queue.set_state(job_id, JobState.PAUSED)
+            msg = f"Job {job_id} is paused."
+            raise PauseRequested(msg)
+
+    def _save_acquire_checkpoint(
+        self,
+        job: Job,
+        sources: list[Any],
+        acquired_kinds: set[str],
+        *,
+        stage: str,
+    ) -> None:
+        self.queue.put_checkpoint(
+            job.job_id,
+            {
+                "stage": stage,
+                "source_ids": [item.artifact_id for item in sources],
+                "acquired_kinds": sorted(acquired_kinds),
+            },
+        )
+
+    def handle_companion(self, payload: dict[str, Any]) -> dict[str, Any]:
+        from webmedia_dl.continuity import validate_companion_message
+
+        message = validate_companion_message(payload)
+        self.queue.emit(
+            QUEUE_EVENT_JOB_ID,
+            EventType.COMPANION_RECEIVED,
+            {"kind": message["kind"]},
+        )
+        kind = message["kind"]
+        if kind == "capture":
+            surface = Surface(message.get("surface") or Surface.WATCHOS.value)
+            job = self.submit(
+                str(message["locator"]),
+                surface=surface,
+                wait=False,
+                host_owned=True,
+                local_user_confirmed=True,
+            )
+            return {"kind": kind, "job": job.model_dump(mode="json")}
+        if kind == "pause":
+            return {**self.pause_queue(), "kind": kind}
+        if kind == "resume":
+            return {**self.resume_queue(), "kind": kind}
+        if kind == "history":
+            return {
+                "kind": kind,
+                "jobs": [item.model_dump(mode="json") for item in self.history()],
+            }
+        if kind == "status":
+            return {"kind": kind, "paused": self.queue.is_paused()}
+        job_id = UUID(str(message["job_id"]))
+        if kind == "cancel":
+            return {"kind": kind, "job": self.cancel(job_id).model_dump(mode="json")}
+        if kind == "pause_job":
+            return {"kind": kind, "job": self.pause_job(job_id).model_dump(mode="json")}
+        return {"kind": kind, "job": self.resume_job(job_id).model_dump(mode="json")}
 
     def _authorize(self, capability_id: str) -> None:
         assert_no_privilege_escalation(self.client_profile, self.worker_profile, capability_id)
@@ -574,6 +724,7 @@ class Pipeline:
         local_user_confirmed: bool = False,
         pairing_id: UUID | None = None,
         session_key: str | None = None,
+        host_owned: bool = False,
     ) -> dict[str, Any]:
         """Ranked acquisition/export plan. Does not retrieve media bytes."""
         mac_owned = self._mac_owned(
@@ -581,6 +732,7 @@ class Pipeline:
             local_user_confirmed=local_user_confirmed,
             pairing_id=pairing_id,
             session_key=session_key,
+            host_owned=host_owned,
         )
         if mac_owned:
             job_worker = self.host_worker

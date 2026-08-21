@@ -17,6 +17,8 @@ recorded as `PASS`.
 
 Publication SHALL write to a temporary directory under an approved root and atomically
 replace into the destination. Paths outside approved roots SHALL be denied.
+A failed derivative SHALL NOT invalidate other publishable outputs from the same
+job. Optional preview operations MAY fail independently.
 
 #### Scenario: outside approved root
 

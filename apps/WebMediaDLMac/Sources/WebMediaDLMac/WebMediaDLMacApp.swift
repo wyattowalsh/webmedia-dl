@@ -13,9 +13,12 @@ struct WebMediaDLMacApp: App {
 struct MacRootView: View {
     @State private var locator = ""
     @State private var token = ""
+    @State private var pairingId = ""
     @State private var status = "Ready"
     @State private var historyText = "Jobs appear after the loopback worker accepts them."
+    @State private var companionLocator = ""
     private let role = WebMediaDLClientRole.fullWorker
+    private let bridge = WebMediaDLContinuityBridge()
 
     var body: some View {
         NavigationStack {
@@ -57,6 +60,33 @@ struct MacRootView: View {
                         status = "Resume requested"
                     }
                     .accessibilityLabel("Resume queue")
+                }
+                Section("Pairing") {
+                    TextField("Pairing id to confirm", text: $pairingId)
+                        .accessibilityLabel("Pairing id")
+                    Button("Confirm pairing") {
+                        if let id = UUID(uuidString: pairingId) {
+                            _ = WebMediaDLLoopbackClient(token: token).pairConfirmRequest(pairingId: id)
+                            status = "Pairing confirm requested"
+                        } else {
+                            status = "Pairing id is not a UUID"
+                        }
+                    }
+                    .accessibilityLabel("Confirm pairing")
+                    Text("Restricted clients cannot self-confirm.")
+                }
+                Section("Companion") {
+                    TextField("Watch or TV locator", text: $companionLocator)
+                        .accessibilityLabel("Companion locator")
+                    Button("Forward companion capture") {
+                        _ = WebMediaDLLoopbackClient(token: token).companionRequest(
+                            kind: "capture",
+                            locator: companionLocator
+                        )
+                        _ = bridge.message(kind: "capture", locator: companionLocator)
+                        status = "Companion capture forwarded"
+                    }
+                    .accessibilityLabel("Forward companion capture")
                 }
             }
             .navigationTitle("WebMedia DL")

@@ -2,10 +2,11 @@ import SwiftUI
 import WebMediaDLCore
 
 /// tvOS capture, status, history, and controls. Not a subprocess worker.
+/// The paired Mac forwards companion messages to the loopback worker.
 public struct WebMediaDLTVRootView: View {
     private let role = WebMediaDLClientRole.captureAndStatus
-    private let client = WebMediaDLLoopbackClient()
     private let bridge = WebMediaDLContinuityBridge()
+    @State private var locator = ""
     @State private var status = "Status: idle"
 
     public init() {}
@@ -13,26 +14,27 @@ public struct WebMediaDLTVRootView: View {
     public var body: some View {
         NavigationStack {
             List {
+                TextField("Clipboard or typed URL", text: $locator)
+                    .accessibilityLabel("Media URL")
                 Button("Capture from clipboard") {
-                    status = "Capture queued on loopback \(client.baseURL.absoluteString)"
+                    status = bridge.message(kind: "capture", locator: locator).kind
                 }
                 .accessibilityLabel("Capture from clipboard")
                 Text(status)
                     .accessibilityLabel("Job status")
-                Text("History")
-                    .accessibilityLabel("Job history")
+                Button("History") {
+                    status = bridge.message(kind: "history").kind
+                }
+                .accessibilityLabel("Job history")
                 Button("Pause queue") {
-                    _ = client.pauseQueueRequest()
-                    _ = bridge.controlMessage(kind: "pause", locator: nil)
-                    status = "Pause requested"
+                    status = bridge.message(kind: "pause").kind
                 }
                 .accessibilityLabel("Pause queue")
                 Button("Resume queue") {
-                    _ = client.resumeQueueRequest()
-                    status = "Resume requested"
+                    status = bridge.message(kind: "resume").kind
                 }
                 .accessibilityLabel("Resume queue")
-                Text("Role \(role.rawValue). Loopback \(client.baseURL.absoluteString)")
+                Text("Role \(role.rawValue). Companion to Mac worker.")
             }
             .navigationTitle("WebMedia DL")
         }

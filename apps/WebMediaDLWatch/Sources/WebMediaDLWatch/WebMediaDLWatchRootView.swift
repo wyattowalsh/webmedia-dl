@@ -2,27 +2,34 @@ import SwiftUI
 import WebMediaDLCore
 
 /// watchOS capture, status, history, and controls. Not a subprocess worker.
+/// Control messages go to the paired Mac over Continuity. This device has no provider runtime.
 public struct WebMediaDLWatchRootView: View {
     private let role = WebMediaDLClientRole.captureAndStatus
-    private let client = WebMediaDLLoopbackClient()
     private let bridge = WebMediaDLContinuityBridge()
+    @State private var locator = ""
     @State private var status = "Idle"
 
     public init() {}
 
     public var body: some View {
         TabView {
-            Button("Capture URL") {
-                status = bridge.controlMessage(kind: "capture", locator: nil)["kind"] ?? "capture"
+            VStack {
+                TextField("URL", text: $locator)
+                    .accessibilityLabel("Media URL")
+                Button("Capture URL") {
+                    let message = bridge.message(kind: "capture", locator: locator)
+                    status = message.kind
+                }
+                .accessibilityLabel("Capture URL")
             }
-            .accessibilityLabel("Capture URL")
             Text(status)
                 .accessibilityLabel("Job status")
-            Text("History")
-                .accessibilityLabel("Job history")
+            Button("History") {
+                status = bridge.message(kind: "history").kind
+            }
+            .accessibilityLabel("Job history")
             Button("Pause") {
-                _ = client.pauseQueueRequest()
-                status = bridge.controlMessage(kind: "pause", locator: nil)["kind"] ?? "pause"
+                status = bridge.message(kind: "pause").kind
             }
             .accessibilityLabel("Pause current job")
         }
@@ -30,7 +37,6 @@ public struct WebMediaDLWatchRootView: View {
         .accessibilityLabel("WebMedia DL watch capture and status")
         .onAppear {
             _ = role
-            _ = client.isLoopback
             _ = bridge.isSubprocessWorker
         }
     }

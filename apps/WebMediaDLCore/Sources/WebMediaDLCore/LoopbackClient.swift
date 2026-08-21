@@ -90,6 +90,36 @@ public struct WebMediaDLLoopbackClient: Sendable {
         return request
     }
 
+    public func artifactsRequest() -> URLRequest {
+        authorized(baseURL.appendingPathComponent("v1/artifacts"))
+    }
+
+    public func resumeJobRequest(jobId: UUID) -> URLRequest {
+        let url = baseURL
+            .appendingPathComponent("v1/jobs")
+            .appendingPathComponent(jobId.uuidString)
+            .appendingPathComponent("resume")
+        return authorized(url, method: "POST")
+    }
+
+    public func companionRequest(kind: String, locator: String? = nil, jobId: UUID? = nil) -> URLRequest {
+        var request = authorized(baseURL.appendingPathComponent("v1/companion"), method: "POST")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        var body: [String: Any] = [
+            "kind": kind,
+            "nativeCommand": NSNull(),
+            "subprocessWorker": false,
+        ]
+        if let locator {
+            body["locator"] = locator
+        }
+        if let jobId {
+            body["job_id"] = jobId.uuidString
+        }
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        return request
+    }
+
     public func submit(
         locator: String,
         surface: WebMediaDLSurface,

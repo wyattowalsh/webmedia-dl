@@ -115,5 +115,5 @@ def execute_export_plan(
             )
             if operation.optional:
                 continue
-            raise
+            break
     return produced

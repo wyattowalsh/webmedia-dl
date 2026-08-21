@@ -116,3 +116,21 @@ def test_migrate_scan(tmp_path: Path) -> None:
     payload = json.loads(result.stdout)
     assert "archive.txt" in payload["markers"]
     assert payload["destructive"] is False
+
+
+def test_drop_command(tmp_path: Path, png_bytes: bytes) -> None:
+    media = tmp_path / "dropped.png"
+    media.write_bytes(png_bytes)
+    result = runner.invoke(app, ["drop", str(media), "--data-dir", str(tmp_path / "data")])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["job"]["state"] == "completed"
+    assert payload["job"]["source"]["kind"] == "drop"
+
+
+def test_companion_cli_status(tmp_path: Path) -> None:
+    result = runner.invoke(app, ["companion", "status", "--data-dir", str(tmp_path)])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["kind"] == "status"
+    assert payload["paused"] is False
