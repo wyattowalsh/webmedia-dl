@@ -7,10 +7,17 @@ public struct WebMediaDLiOSRootView: View {
     @State private var pairingId = ""
     @State private var sessionKey = ""
     @State private var status = "Pair with a Mac to run yt-dlp or ffmpeg jobs."
-    private let client = WebMediaDLLoopbackClient()
+    @State private var historyText = "Lightweight HTTP jobs stay on-device. Heavy work waits for Mac confirmation."
     private let role = WebMediaDLClientRole.pairedClient
 
     public init() {}
+
+    private var client: WebMediaDLLoopbackClient {
+        WebMediaDLLoopbackClient(
+            pairingId: UUID(uuidString: pairingId),
+            sessionKey: sessionKey.isEmpty ? nil : sessionKey
+        )
+    }
 
     public var body: some View {
         NavigationStack {
@@ -45,8 +52,14 @@ public struct WebMediaDLiOSRootView: View {
                     Text("Role \(role.rawValue). Loopback \(client.baseURL.absoluteString)")
                 }
                 Section("History") {
-                    Text("Lightweight HTTP jobs stay on-device. Heavy work waits for Mac confirmation.")
+                    Text(historyText)
                         .accessibilityLabel("Job history")
+                    Button("Refresh history") {
+                        Task {
+                            historyText = (try? await client.history()) ?? "Pairing required"
+                        }
+                    }
+                    .accessibilityLabel("Refresh history")
                 }
             }
             .navigationTitle("WebMedia DL")

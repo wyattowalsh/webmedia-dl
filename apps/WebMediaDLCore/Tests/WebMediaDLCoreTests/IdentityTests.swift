@@ -18,6 +18,16 @@ final class IdentityTests: XCTestCase {
         XCTAssertTrue(client.isLoopback)
         XCTAssertEqual(client.baseURL.host, "127.0.0.1")
         XCTAssertTrue(client.pauseQueueRequest().url?.absoluteString.contains("queue/pause") ?? false)
+        XCTAssertTrue(client.companionRequest(kind: "status").url?.absoluteString.contains("companion") ?? false)
+        let paired = WebMediaDLLoopbackClient(
+            pairingId: UUID(uuidString: "11111111-1111-1111-1111-111111111111"),
+            sessionKey: "session"
+        )
+        XCTAssertEqual(
+            paired.historyRequest().value(forHTTPHeaderField: "X-WebMedia-Pairing"),
+            "11111111-1111-1111-1111-111111111111"
+        )
+        XCTAssertEqual(paired.historyRequest().value(forHTTPHeaderField: "X-WebMedia-Session"), "session")
     }
 
     func testContinuityIsNotASubprocessWorker() {

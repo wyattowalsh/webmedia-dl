@@ -8,8 +8,14 @@ import Foundation
     @objc public func beginRequest(with item: Any?) {
         precondition(SafariWebExtensionHandler.loopbackURL.host == "127.0.0.1")
         var locator = ""
-        if let payload = item as? [String: Any], let value = payload["locator"] as? String {
-            locator = value
+        var evidence: [[String: String]] = []
+        if let payload = item as? [String: Any] {
+            if let value = payload["locator"] as? String {
+                locator = value
+            }
+            if let rows = payload["evidence"] as? [[String: String]] {
+                evidence = rows
+            }
         }
         var request = URLRequest(
             url: SafariWebExtensionHandler.loopbackURL.appendingPathComponent("v1/jobs")
@@ -22,8 +28,10 @@ import Foundation
                 "surface": "safari",
                 "local_user_confirmed": true,
                 "wait": false,
+                "evidence": evidence,
                 "nativeCommand": NSNull(),
             ]
         )
+        URLSession.shared.dataTask(with: request).resume()
     }
 }

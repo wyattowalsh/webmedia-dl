@@ -19,6 +19,7 @@ from webmedia_dl.names import CLI_NAME, DISPLAY_NAME, PERSONAL_ALIAS
 from webmedia_dl.pipeline import Pipeline
 from webmedia_dl.policy.profiles import builtin_profiles
 from webmedia_dl.settings import Settings
+from webmedia_dl.support import write_support_bundle
 
 app = typer.Typer(
     name=CLI_NAME,
@@ -52,6 +53,19 @@ def doctor_cmd(
 ) -> None:
     """Executed evidence for toolchain, providers, and blocked Apple/store gates."""
     typer.echo(json.dumps(doctor(data_dir=data_dir), indent=2))
+
+
+@app.command("support-bundle")
+def support_bundle_cmd(
+    data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
+    out: Annotated[Path | None, typer.Option("--out")] = None,
+) -> None:
+    """Write a local diagnostics zip. Does not upload telemetry or provider consoles."""
+    settings = Settings(data_dir=data_dir)
+    root = settings.resolved_data_dir()
+    dest = out or (root / "support" / "webmedia-dl-support.zip")
+    payload = write_support_bundle(data_dir=root, dest=dest)
+    typer.echo(json.dumps(payload, indent=2))
 
 
 @app.command()

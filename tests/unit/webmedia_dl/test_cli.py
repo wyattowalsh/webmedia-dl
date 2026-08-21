@@ -1,4 +1,5 @@
 import json
+import zipfile
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -76,6 +77,32 @@ def test_alias_note() -> None:
     assert result.exit_code == 0
     assert PERSONAL_ALIAS in result.stdout
     assert CLI_NAME in result.stdout
+
+
+def test_support_bundle_is_local_and_strips_console(tmp_path: Path, png_bytes: bytes) -> None:
+    media = tmp_path / "hero.png"
+    media.write_bytes(png_bytes)
+    data = tmp_path / "data"
+    submitted = runner.invoke(app, ["submit", str(media), "--data-dir", str(data)])
+    assert submitted.exit_code == 0
+    dest = tmp_path / "bundle.zip"
+    result = runner.invoke(app, ["support-bundle", "--data-dir", str(data), "--out", str(dest)])
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["telemetry"] is False
+    assert dest.is_file()
+    with zipfile.ZipFile(dest) as archive:
+        names = set(archive.namelist())
+        assert "doctor.json" in names
+        assert "jobs.json" in names
+        assert "events.json" in names
+        events = json.loads(archive.read("events.json"))
+        for records in events.values():
+            for event in records:
+                keys = event.get("payload", {})
+                assert "stdout" not in keys
+                assert "stderr" not in keys
+                assert "argv" not in keys
 
 
 def test_plan_command_local_file(tmp_path: Path, png_bytes: bytes) -> None:

@@ -296,6 +296,7 @@
     "src/webmedia_dl/security.py",
     "src/webmedia_dl/service.py",
     "src/webmedia_dl/settings.py",
+    "src/webmedia_dl/support.py",
     "src/webmedia_dl/transport.py",
     "src/webmedia_dl/validation.py",
     "tests/conftest.py",

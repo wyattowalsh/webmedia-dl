@@ -5,10 +5,19 @@ public struct WebMediaDLLoopbackClient: Sendable {
 
     public var baseURL: URL
     public var token: String
+    public var pairingId: UUID?
+    public var sessionKey: String?
 
-    public init(baseURL: URL = WebMediaDLLoopbackClient.defaultBaseURL, token: String = "") {
+    public init(
+        baseURL: URL = WebMediaDLLoopbackClient.defaultBaseURL,
+        token: String = "",
+        pairingId: UUID? = nil,
+        sessionKey: String? = nil
+    ) {
         self.baseURL = baseURL
         self.token = token
+        self.pairingId = pairingId
+        self.sessionKey = sessionKey
     }
 
     public var isLoopback: Bool {
@@ -22,6 +31,12 @@ public struct WebMediaDLLoopbackClient: Sendable {
         request.httpMethod = method
         if !token.isEmpty {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        if let pairingId {
+            request.setValue(pairingId.uuidString, forHTTPHeaderField: "X-WebMedia-Pairing")
+        }
+        if let sessionKey, !sessionKey.isEmpty {
+            request.setValue(sessionKey, forHTTPHeaderField: "X-WebMedia-Session")
         }
         return request
     }
@@ -120,32 +135,52 @@ public struct WebMediaDLLoopbackClient: Sendable {
         return request
     }
 
-    public func submit(
-        locator: String,
-        surface: WebMediaDLSurface,
-        pairingId: UUID? = nil,
-        sessionKey: String? = nil
-    ) async throws -> String {
-        let (data, response) = try await URLSession.shared.data(
-            for: submitRequest(
-                locator: locator,
-                surface: surface,
-                pairingId: pairingId,
-                sessionKey: sessionKey
-            )
-        )
+    public func send(_ request: URLRequest) async throws -> String {
+        let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else {
             return String(data: data, encoding: .utf8) ?? "no response"
         }
         return "HTTP \(http.statusCode) \(String(data: data, encoding: .utf8) ?? "")"
     }
 
+    public func submit(
+        locator: String,
+        surface: WebMediaDLSurface,
+        pairingId: UUID? = nil,
+        sessionKey: String? = nil
+    ) async throws -> String {
+        try await send(
+            submitRequest(
+                locator: locator,
+                surface: surface,
+                pairingId: pairingId ?? self.pairingId,
+                sessionKey: sessionKey ?? self.sessionKey
+            )
+        )
+    }
+
     public func history() async throws -> String {
-        let (data, response) = try await URLSession.shared.data(for: historyRequest())
-        guard let http = response as? HTTPURLResponse else {
-            return String(data: data, encoding: .utf8) ?? "no response"
-        }
-        return "HTTP \(http.statusCode) \(String(data: data, encoding: .utf8) ?? "")"
+        try await send(historyRequest())
+    }
+
+    public func pauseQueue() async throws -> String {
+        try await send(pauseQueueRequest())
+    }
+
+    public func resumeQueue() async throws -> String {
+        try await send(resumeQueueRequest())
+    }
+
+    public func confirmPairing(_ pairingId: UUID) async throws -> String {
+        try await send(pairConfirmRequest(pairingId: pairingId))
+    }
+
+    public func forwardCompanion(kind: String, locator: String? = nil, jobId: UUID? = nil) async throws -> String {
+        try await send(companionRequest(kind: kind, locator: locator, jobId: jobId))
+    }
+
+    public func artifacts() async throws -> String {
+        try await send(artifactsRequest())
     }
 }
 

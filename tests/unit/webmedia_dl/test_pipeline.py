@@ -17,6 +17,18 @@ def test_pipeline_downloads_direct_png(tmp_data: Path, png_bytes: bytes) -> None
     assert job.error is None
 
 
+def test_pipeline_emits_cookie_attached(tmp_data: Path, tmp_path: Path, png_bytes: bytes) -> None:
+    cookies = tmp_path / "user-cookies.txt"
+    cookies.write_text("# Netscape HTTP Cookie File\n", encoding="utf-8")
+    media = tmp_path / "hero.png"
+    media.write_bytes(png_bytes)
+    pipeline = Pipeline(data_dir=tmp_data)
+    job = pipeline.submit(str(media), cookies=str(cookies))
+    assert job.state is JobState.COMPLETED
+    types = [event.type.value for event in pipeline.queue.events_for(job.job_id)]
+    assert "cookie.attached" in types
+
+
 def test_pipeline_html_fixture_without_network(tmp_data: Path, png_bytes: bytes) -> None:
     html = """
     <html><body>

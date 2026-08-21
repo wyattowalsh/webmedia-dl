@@ -22,6 +22,7 @@ from webmedia_dl.errors import CancelledError, DelegationDenied, PauseRequested,
 from webmedia_dl.names import DISPLAY_NAME
 from webmedia_dl.pipeline import Pipeline
 from webmedia_dl.settings import Settings
+from webmedia_dl.support import write_support_bundle
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -174,6 +175,11 @@ def create_app(data_dir: Path | None = None, *, enable_dispatcher: bool = False)
     @app.get("/v1/doctor", dependencies=[Depends(require_auth)])
     def doctor_endpoint() -> dict:
         return doctor(data_dir=root)
+
+    @app.get("/v1/support-bundle", dependencies=[Depends(require_auth)])
+    def support_bundle() -> dict:
+        dest = root / "support" / "webmedia-dl-support.zip"
+        return write_support_bundle(data_dir=root, dest=dest)
 
     @app.get("/v1/jobs/{job_id}", dependencies=[Depends(require_auth)])
     def get_job(job_id: UUID) -> dict:

@@ -60,6 +60,11 @@ def test_apple_app_shells_exist() -> None:
     ).read_text(encoding="utf-8")
     assert "Not a subprocess worker" in watch
     assert "yt-dlp" not in watch
+    safari_handler = (root / "extensions/safari/SafariWebExtensionHandler.swift").read_text(
+        encoding="utf-8"
+    )
+    assert "URLSession.shared.dataTask" in safari_handler
+    assert "nativeCommand" in safari_handler
     continuity = (
         root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/ContinuityBridge.swift"
     ).read_text(encoding="utf-8")

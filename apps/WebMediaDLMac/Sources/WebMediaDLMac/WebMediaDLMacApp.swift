@@ -51,13 +51,23 @@ struct MacRootView: View {
                 }
                 Section("Queue") {
                     Button("Pause queue") {
-                        _ = WebMediaDLLoopbackClient(token: token).pauseQueueRequest()
-                        status = "Pause requested"
+                        Task {
+                            do {
+                                status = try await WebMediaDLLoopbackClient(token: token).pauseQueue()
+                            } catch {
+                                status = error.localizedDescription
+                            }
+                        }
                     }
                     .accessibilityLabel("Pause queue")
                     Button("Resume queue") {
-                        _ = WebMediaDLLoopbackClient(token: token).resumeQueueRequest()
-                        status = "Resume requested"
+                        Task {
+                            do {
+                                status = try await WebMediaDLLoopbackClient(token: token).resumeQueue()
+                            } catch {
+                                status = error.localizedDescription
+                            }
+                        }
                     }
                     .accessibilityLabel("Resume queue")
                 }
@@ -65,11 +75,16 @@ struct MacRootView: View {
                     TextField("Pairing id to confirm", text: $pairingId)
                         .accessibilityLabel("Pairing id")
                     Button("Confirm pairing") {
-                        if let id = UUID(uuidString: pairingId) {
-                            _ = WebMediaDLLoopbackClient(token: token).pairConfirmRequest(pairingId: id)
-                            status = "Pairing confirm requested"
-                        } else {
-                            status = "Pairing id is not a UUID"
+                        Task {
+                            guard let id = UUID(uuidString: pairingId) else {
+                                status = "Pairing id is not a UUID"
+                                return
+                            }
+                            do {
+                                status = try await WebMediaDLLoopbackClient(token: token).confirmPairing(id)
+                            } catch {
+                                status = error.localizedDescription
+                            }
                         }
                     }
                     .accessibilityLabel("Confirm pairing")
@@ -79,12 +94,17 @@ struct MacRootView: View {
                     TextField("Watch or TV locator", text: $companionLocator)
                         .accessibilityLabel("Companion locator")
                     Button("Forward companion capture") {
-                        _ = WebMediaDLLoopbackClient(token: token).companionRequest(
-                            kind: "capture",
-                            locator: companionLocator
-                        )
-                        _ = bridge.message(kind: "capture", locator: companionLocator)
-                        status = "Companion capture forwarded"
+                        Task {
+                            _ = bridge.message(kind: "capture", locator: companionLocator)
+                            do {
+                                status = try await WebMediaDLLoopbackClient(token: token).forwardCompanion(
+                                    kind: "capture",
+                                    locator: companionLocator
+                                )
+                            } catch {
+                                status = error.localizedDescription
+                            }
+                        }
                     }
                     .accessibilityLabel("Forward companion capture")
                 }
