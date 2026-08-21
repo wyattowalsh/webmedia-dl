@@ -327,7 +327,7 @@ class ProviderRuntime:
                 output_path = max(created, key=lambda path: path.stat().st_mtime)
             elif output_path is not None:
                 if "%(ext)s" in str(output_path):
-                    stem = Path(str(output).replace("%(ext)s", "")).stem
+                    stem = Path(str(output).replace("%(ext)s", "bin")).stem
                     matches = [path for path in created if path.stem == stem]
                     if matches:
                         output_path = matches[0]

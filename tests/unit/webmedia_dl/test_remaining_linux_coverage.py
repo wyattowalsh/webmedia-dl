@@ -23,7 +23,7 @@ from webmedia_dl.packaging import write_extension_zips
 from webmedia_dl.pipeline import Pipeline
 from webmedia_dl.policy.profiles import get_profile
 from webmedia_dl.probe import probe_media
-from webmedia_dl.providers import ProviderRuntime, _http_suffix
+from webmedia_dl.providers import ProviderRequest, ProviderRuntime, _http_suffix
 from webmedia_dl.security import CookieGrantLedger, resolve_cookie_path
 from webmedia_dl.service import create_app, load_or_create_token
 from webmedia_dl.updates import check_updates
@@ -51,6 +51,13 @@ def test_legacy_download_archive_dict_is_indexed(tmp_path: Path) -> None:
     by_name = {Path(item["source_path"]).name: item["ids"] for item in sidecar["archives"]}
     assert by_name[".ytdlp-history.json"] == ["keep-me", "also-me"]
     assert applied["index_entries"] == 2
+    scalar = tmp_path / "archive.txt"
+    scalar.write_text('{"ids": "one"}\n', encoding="utf-8")
+    later = migrate_legacy(tmp_path, apply=True)
+    sidecar = json.loads((tmp_path / "webmedia-dl-migrated" / "migration.json").read_text())
+    by_name = {Path(item["source_path"]).name: item["ids"] for item in sidecar["archives"]}
+    assert '{"ids": "one"}' in by_name["archive.txt"]
+    assert later["migrated"] is True
 
 
 def test_companion_kind_missing_or_unknown_is_refused() -> None:
@@ -75,10 +82,15 @@ def test_discovery_skips_empty_tokens_and_jsonld_kinds() -> None:
         <script type="application/ld+json">
           {"@type": "Photograph", "embedUrl": "https://cdn.example.com/photo"}
         </script>
+        <link rel="preload" as="track" href="https://cdn.example.com/sub.vtt">
       </head>
       <body>
         <video poster="" src="https://cdn.example.com/clip.mp4"
                srcset=",  , https://cdn.example.com/poster.jpg 1x"></video>
+        <picture>
+          <source srcset="https://cdn.example.com/plain.jpg">
+        </picture>
+        <video><source type="application/octet-stream" src="https://cdn.example.com/typed.mp4"></video>
         <track>
         <a>nohref</a>
         <iframe></iframe>
@@ -95,6 +107,9 @@ def test_discovery_skips_empty_tokens_and_jsonld_kinds() -> None:
     assert "https://cdn.example.com/photo" in urls
     assert kinds["https://cdn.example.com/song"] is MediaKind.AUDIO
     assert kinds["https://cdn.example.com/photo"] is MediaKind.IMAGE
+    assert kinds["https://cdn.example.com/plain.jpg"] is MediaKind.IMAGE
+    assert kinds["https://cdn.example.com/sub.vtt"] is MediaKind.SUBTITLE
+    assert kinds["https://cdn.example.com/typed.mp4"] is MediaKind.VIDEO
     assert not any(item == "" for item in urls)
     assert found[0].title_display == "Album"
 
@@ -119,6 +134,7 @@ def test_manifest_json_ndjson_skips_and_unusable_urls() -> None:
         json.dumps([{"url": "https://cdn.example.com/listed.mp4"}, "skip", None]).encode(),
     )
     assert [item.retrieval_urls[0] for item in listed] == ["https://cdn.example.com/listed.mp4"]
+    assert candidates_from_manifest_json(_page(), b"\n\nnot-json\n") == []
 
 
 def test_probe_encrypted_field_true_and_non_dict_tags(tmp_path: Path) -> None:
@@ -335,6 +351,15 @@ def test_cancel_unknown_job_and_history_skip(tmp_path: Path, png_bytes: bytes) -
     assert empty.status_code == 200
     cancelled = client.post(f"/v1/jobs/{uuid4()}/cancel", headers=headers)
     assert cancelled.status_code == 400
+    accepted = client.post(
+        f"/v1/jobs/{newer_id}/cancel",
+        headers=headers,
+    )
+    assert accepted.status_code == 200
+    assert accepted.json()["state"] == "cancelled"
+    empty_run = client.post("/v1/queue/run-next", headers=headers)
+    assert empty_run.status_code == 200
+    assert empty_run.json() == {"job": None, "events": []}
 
 
 def test_http_suffix_skips_non_content_type_headers() -> None:
@@ -367,3 +392,56 @@ def test_inspect_manifest_empty_clear_hls_is_not_drm() -> None:
 def test_invalid_dash_number_format_falls_back_to_decimal() -> None:
     assert _expand_dash_template("seg$Number%q$.m4s", number=7) == "seg7.m4s"
     assert _expand_dash_template("seg$Number$.m4s", number=7) == "seg7.m4s"
+
+
+def test_cookie_save_without_lock_handle_still_persists(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cookies = tmp_path / "user-cookies.txt"
+    cookies.write_text("# Netscape HTTP Cookie File\n", encoding="utf-8")
+    store = tmp_path / "cookie-grants.json"
+    ledger = CookieGrantLedger(store)
+    monkeypatch.setattr(ledger, "_lock", lambda: None)
+    grant = ledger.issue(uuid4(), cookies, "personal-full")
+    payload = json.loads(store.read_text(encoding="utf-8"))
+    assert payload[0]["grant_id"] == grant.grant_id
+
+
+def test_ffmpeg_ext_template_prefers_matching_stem(tmp_path: Path) -> None:
+    def run(_argv: list[str], _cwd: Path) -> tuple[int, bytes, bytes]:
+        (tmp_path / "other.mkv").write_bytes(b"other")
+        (tmp_path / "clip.mkv").write_bytes(b"clip")
+        return 0, b"", b""
+
+    runtime = ProviderRuntime(which=lambda name: "/usr/bin/ffmpeg", run=run)
+    result = runtime.execute(
+        ProviderRequest(
+            provider_id="ffmpeg",
+            capability_id="process.ffmpeg.remux",
+            typed_inputs={
+                "input": str(tmp_path / "a.mp4"),
+                "output": str(tmp_path / "clip.%(ext)s"),
+            },
+        ),
+        tmp_path,
+    )
+    assert result.output_path is not None
+    assert result.output_path.name == "clip.mkv"
+
+
+def test_manifest_discovery_nonzero_exit_returns_empty(tmp_data: Path, tmp_path: Path) -> None:
+    def run(argv: list[str], _cwd: Path) -> tuple[int, bytes, bytes]:
+        if "--dump-json" in argv:
+            return 2, b"", b"fail"
+        return 0, b"", b""
+
+    pipeline = Pipeline(
+        data_dir=tmp_data,
+        runtime=ProviderRuntime(
+            which=lambda name: "/usr/bin/yt-dlp" if name == "yt-dlp" else None,
+            run=run,
+        ),
+    )
+    job = pipeline.submit("https://example.com/watch?v=1", wait=False)
+    found = pipeline._manifest_candidates(job, staging=tmp_path)
+    assert found == []
