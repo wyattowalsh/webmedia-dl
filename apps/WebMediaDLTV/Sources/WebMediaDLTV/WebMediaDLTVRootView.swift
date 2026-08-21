@@ -35,6 +35,7 @@ public struct WebMediaDLTVRootView: View {
                         await send(kind: "history")
                         if let data = transport.lastResponse?.data(using: .utf8) {
                             history = (try? WebMediaDLHistoryEntry.decodeCompanionHistory(from: data)) ?? []
+                            lastJobId = history.first?.jobId.uuidString ?? lastJobId
                         }
                     }
                 }
@@ -81,8 +82,9 @@ public struct WebMediaDLTVRootView: View {
         let message = bridge.message(kind: kind, locator: locator, jobId: jobId, surface: .tvos)
         try? await transport.send(message)
         status = "Queued \(message.kind) for Mac relay"
-        if kind == "capture" {
-            lastJobId = nil
+        if let body = transport.lastResponse,
+           let parsed = WebMediaDLLoopbackClient.jobId(from: body) {
+            lastJobId = parsed.uuidString
         }
     }
 }

@@ -43,6 +43,7 @@ uv run webmedia-dl history --data-dir /tmp/webmedia-dl-demo
 uv run webmedia-dl cancel <job-id> --data-dir /tmp/webmedia-dl-demo
 uv run webmedia-dl pair create --client-profile personal-restricted
 uv run webmedia-dl pair confirm <pairing-id>
+# confirm JSON includes session_key; the Mac app stores it after Confirm pairing
 uv run webmedia-dl companion capture https://example.com/a.mp4
 uv run webmedia-dl policy
 uv run webmedia-dl migrate-scan ./legacy

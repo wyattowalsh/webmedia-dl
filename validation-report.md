@@ -39,13 +39,13 @@
 | Sealed companion envelope | PASS | `/v1/companion` opens AES-GCM pairing envelope once and rejects replay |
 | Vision share + Files destinations | PASS | share Info.plist principals; `fileImporter` + `bookmarkData`; PhotoKit write stays closed |
 | Typed event payloads | PASS | `EventRecord` rejects stdout/stderr/argv/nativeCommand/cookie paths |
-| Files/clipboard/PhotoKit contracts | PASS | security-scoped bookmark boundary; clipboard URL is never `local_path`; PhotoKit write stays closed |
+| Files/clipboard/PhotoKit contracts | PASS | security-scoped bookmark boundary; complete clients persist and submit `security_scoped_bookmark`; clipboard URL is never `local_path`; PhotoKit write stays closed |
 | Share sheet extractors | PASS | HTTPS locators stay URL intake; `file://` paths use drop intake; awaited `NSItemProvider` load |
 | Companion Mac relay | PASS | watchOS/tvOS `WCSessionDelegate` activate + `transferUserInfo`; Mac `forwardSealed` with pairing session key; `nativeCommand` null |
 | HTTP stream stop | PASS | `bound_fetch(..., should_stop=)` aborts mid-stream; cancel discards completed HTTP fetch; pause commits |
 | Wheel install | PASS | isolated `uv` venv import of packaged `runtime/export-presets.json` and `webmedia-dl --help` |
 | CLI names in README | PASS | every Typer command name appears in `README.md` |
-| App Group + pairing clients | PASS | `group.local.webmedia-dl` on apps and share extensions; unauthenticated loopback `POST /v1/pair` bootstrap; Mac-only confirm; watch/tv history uses companion `lastResponse` |
+| App Group + pairing clients | PASS | `group.local.webmedia-dl` on apps and share extensions; unauthenticated loopback `POST /v1/pair` bootstrap; Mac-only confirm parses `session_key` into the pairing field; iPhone/iPad/vision restore pairing and Files bookmarks; watch/tv `lastJobId` comes from companion history/response |
 | Original planning-pack ZIP byte compare | BLOCKED | zip not in this workspace; 156 overlay files reconstructed |
 | Real WatchConnectivity radio | BLOCKED | WCSession scaffolding + queued fallback; no Apple radio on Linux |
 | Safari wrapping / signed NSExtension | BLOCKED | source handler conforms to `NSExtensionRequestHandling`; Xcode wrapping is not executed |

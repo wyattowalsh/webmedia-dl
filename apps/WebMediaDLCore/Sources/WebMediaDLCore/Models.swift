@@ -115,6 +115,20 @@ public struct WebMediaDLPairingChallenge: Codable, Sendable {
     }
 }
 
+public struct WebMediaDLPairingConfirmation: Codable, Sendable {
+    public var pairingId: UUID
+    public var confirmed: Bool
+    public var sessionKey: String?
+    public var expiresAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case pairingId = "pairing_id"
+        case confirmed
+        case sessionKey = "session_key"
+        case expiresAt = "expires_at"
+    }
+}
+
 /// watchOS and tvOS expose capture/status/history/controls, not subprocess workers.
 public enum WebMediaDLClientRole: String, Codable, Sendable {
     case fullWorker

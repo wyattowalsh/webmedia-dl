@@ -205,6 +205,8 @@ def test_apple_app_shells_exist() -> None:
     assert "Resume last job" in ipad
     assert "Pause last job" in vision
     assert "Resume last job" in vision
+    assert "Pause queue" in ipad
+    assert "Pause queue" in vision
     assert "Pause last job" in tv
     assert "Resume last job" in tv
     assert "pause_job" in watch
@@ -299,6 +301,8 @@ def test_files_destinations_use_bookmarks_not_typed_paths() -> None:
         assert "fromPickedURL" in text
         assert "Choose Files destination" in text
         assert 'TextField("Approved Files destination"' not in text
+        assert "bookmarkData: filesBookmark.bookmarkData" in text
+        assert "loadBookmark()" in text
 
 
 def test_companion_transport_and_typed_history() -> None:
@@ -365,6 +369,9 @@ def test_companion_transport_and_typed_history() -> None:
     assert "forwardSealed(" in mac
     assert "sessionKey: sessionKey" in mac
     assert "sendResponse(" in mac
+    assert "sessionKey(from:" in mac
+    assert mac.count("@State private var historyText") == 1
+    assert mac.count("@State private var companionLocator") == 1
     loopback = (root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/LoopbackClient.swift").read_text(
         encoding="utf-8"
     )
@@ -372,6 +379,8 @@ def test_companion_transport_and_typed_history() -> None:
     assert "func pairRequest(" in loopback
     assert "WebMediaDLPairingChallenge" in loopback or "startPairing" in loopback
     assert "does not require a stored worker token" in loopback
+    assert "func sessionKey(from" in loopback
+    assert "func jsonObject(from" in loopback
     assert "lastResponse" in continuity
     assert "UserDefaults(suiteName:" in loopback
     assert "group.local.webmedia-dl" in loopback
@@ -398,6 +407,22 @@ def test_companion_transport_and_typed_history() -> None:
         assert "Start pairing" in text
         assert "startPairing" in text
         assert "clip.intakeKind" in text
+        assert "onAppear" in text
+        assert "loadBookmark()" in text
+        assert "bookmarkData: filesBookmark.bookmarkData" in text
+        assert "defaults.string(forKey: WebMediaDLWorkerCredentials.pairingDefaultsKey)" in text
+        assert "defaults.string(forKey: WebMediaDLWorkerCredentials.sessionDefaultsKey)" in text
+        assert "Pause queue" in text
+        assert "Resume queue" in text
+        assert "bookmarkDefaultsKey" in text
+    watch = (root / ROOT_VIEWS["watchos"]).read_text(encoding="utf-8")
+    tv = (root / ROOT_VIEWS["tvos"]).read_text(encoding="utf-8")
+    assert "history.first?.jobId" in watch
+    assert "history.first?.jobId" in tv
+    assert "jobId(from:" in watch
+    assert "jobId(from:" in tv
+    assert "lastJobId = nil" not in watch
+    assert "lastJobId = nil" not in tv
     watch_plist = plistlib.loads((root / "apps/WebMediaDLWatch/Resources/Info.plist").read_bytes())
     assert watch_plist["CFBundleIdentifier"] == "local.webmedia-dl.watch"
     assert watch_plist["WKApplication"] is True

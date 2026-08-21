@@ -37,6 +37,12 @@ final class IdentityTests: XCTestCase {
             "11111111-1111-1111-1111-111111111111"
         )
         XCTAssertEqual(paired.historyRequest().value(forHTTPHeaderField: "X-WebMedia-Session"), "session")
+        XCTAssertEqual(
+            WebMediaDLLoopbackClient.sessionKey(from: "HTTP 200 {\"session_key\":\"abc\",\"confirmed\":true}"),
+            "abc"
+        )
+        XCTAssertNil(WebMediaDLLoopbackClient.sessionKey(from: "HTTP 400 {\"detail\":\"no\"}"))
+        XCTAssertNil(WebMediaDLLoopbackClient.sessionKey(from: "HTTP 200 {\"session_key\":\"  \"}"))
     }
 
     func testContinuityIsNotASubprocessWorker() {

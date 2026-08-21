@@ -60,6 +60,12 @@ public struct WebMediaDLiPadOSRootView: View {
                     guard case .success(let urls) = result, let url = urls.first else { return }
                     let accessed = url.startAccessingSecurityScopedResource()
                     filesBookmark = WebMediaDLSecurityScopedBookmark.fromPickedURL(url)
+                    if let data = filesBookmark.bookmarkData {
+                        WebMediaDLWorkerCredentials.defaults().set(
+                            data,
+                            forKey: WebMediaDLWorkerCredentials.bookmarkDefaultsKey
+                        )
+                    }
                     if accessed {
                         url.stopAccessingSecurityScopedResource()
                     }
@@ -70,7 +76,9 @@ public struct WebMediaDLiPadOSRootView: View {
                 }
                 Button("Send to paired Mac") {
                     Task {
-                        let roots = filesBookmark.path.isEmpty ? [] : [filesBookmark.path]
+                        let files = filesBookmark.path.isEmpty
+                            ? nil
+                            : WebMediaDLFilesDestination(bookmark: filesBookmark)
                         let clip = WebMediaDLClipboardIntake(text: locator)
                         let response = (try? await pairedClient.submit(
                             locator: locator,
@@ -78,9 +86,10 @@ public struct WebMediaDLiPadOSRootView: View {
                             pairingId: UUID(uuidString: pairingId),
                             sessionKey: sessionKey.isEmpty ? nil : sessionKey,
                             intakeKind: fromClipboard ? clip.intakeKind : nil,
-                            destinationKind: roots.isEmpty ? nil : "files_app",
-                            destinationPath: roots.first,
-                            approvedRoots: roots
+                            destinationKind: files == nil ? nil : "files_app",
+                            destinationPath: files?.approvedRoot,
+                            approvedRoots: files.map { [$0.approvedRoot] } ?? [],
+                            bookmarkData: filesBookmark.bookmarkData
                         )) ?? "Pairing required"
                         status = response
                         lastJobId = WebMediaDLLoopbackClient.jobId(from: response)
@@ -125,6 +134,14 @@ public struct WebMediaDLiPadOSRootView: View {
                     }
                 }
                 .accessibilityLabel("Refresh history")
+                Button("Pause queue") {
+                    Task { status = (try? await pairedClient.pauseQueue()) ?? "Pairing required" }
+                }
+                .accessibilityLabel("Pause queue")
+                Button("Resume queue") {
+                    Task { status = (try? await pairedClient.resumeQueue()) ?? "Pairing required" }
+                }
+                .accessibilityLabel("Resume queue")
                 Button("Cancel last job") {
                     Task {
                         guard let lastJobId else {
@@ -159,6 +176,18 @@ public struct WebMediaDLiPadOSRootView: View {
                 Spacer()
             }
             .padding()
+            .onAppear {
+                let defaults = WebMediaDLWorkerCredentials.defaults()
+                if pairingId.isEmpty {
+                    pairingId = defaults.string(forKey: WebMediaDLWorkerCredentials.pairingDefaultsKey) ?? ""
+                }
+                if sessionKey.isEmpty {
+                    sessionKey = defaults.string(forKey: WebMediaDLWorkerCredentials.sessionDefaultsKey) ?? ""
+                }
+                if let data = WebMediaDLWorkerCredentials.loadBookmark() {
+                    filesBookmark = WebMediaDLSecurityScopedBookmark(path: "", bookmarkData: data).resolve()
+                }
+            }
             .onChange(of: pairingId) { _, value in
                 WebMediaDLWorkerCredentials.defaults().set(value, forKey: WebMediaDLWorkerCredentials.pairingDefaultsKey)
             }

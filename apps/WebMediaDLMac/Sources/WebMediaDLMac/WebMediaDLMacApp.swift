@@ -27,14 +27,6 @@ struct MacRootView: View {
     @State private var filesBookmark = WebMediaDLSecurityScopedBookmark(path: "")
     @State private var fromClipboard = false
     @State private var watchDelegate: WebMediaDLMacWatchConnectivityDelegate?
-    @State private var historyText = "Jobs appear after the loopback worker accepts them."
-    @State private var history: [WebMediaDLHistoryEntry] = []
-    @State private var companionLocator = ""
-    @State private var companionRelay = WebMediaDLCompanionRelay()
-    @State private var lastJobId: UUID?
-    @State private var approvedRoot = ""
-    @State private var filesBookmark = WebMediaDLSecurityScopedBookmark(path: "")
-    @State private var fromClipboard = false
     private let role = WebMediaDLClientRole.fullWorker
     private let bridge = WebMediaDLContinuityBridge()
 
@@ -175,7 +167,11 @@ struct MacRootView: View {
                                 return
                             }
                             do {
-                                status = try await WebMediaDLLoopbackClient(token: token).confirmPairing(id)
+                                let response = try await WebMediaDLLoopbackClient(token: token).confirmPairing(id)
+                                status = response
+                                if let key = WebMediaDLLoopbackClient.sessionKey(from: response) {
+                                    sessionKey = key
+                                }
                             } catch {
                                 status = error.localizedDescription
                             }

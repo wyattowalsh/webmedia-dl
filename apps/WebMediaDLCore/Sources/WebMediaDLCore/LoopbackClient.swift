@@ -318,14 +318,25 @@ public struct WebMediaDLLoopbackClient: Sendable {
         return try await send(authorized(url))
     }
 
-    public static func jobId(from response: String) -> UUID? {
+    public static func jsonObject(from response: String) -> [String: Any]? {
         guard let start = response.firstIndex(of: "{") else { return nil }
         let json = String(response[start...])
-        guard let data = json.data(using: .utf8),
-              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        guard let data = json.data(using: .utf8) else { return nil }
+        return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+    }
+
+    public static func sessionKey(from response: String) -> String? {
+        guard let root = jsonObject(from: response),
+              let key = root["session_key"] as? String
         else {
             return nil
         }
+        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    public static func jobId(from response: String) -> UUID? {
+        guard let root = jsonObject(from: response) else { return nil }
         if let job = root["job"] as? [String: Any], let value = job["job_id"] as? String {
             return UUID(uuidString: value)
         }

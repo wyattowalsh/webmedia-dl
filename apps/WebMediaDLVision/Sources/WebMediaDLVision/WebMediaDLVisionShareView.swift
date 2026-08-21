@@ -24,7 +24,8 @@ public struct WebMediaDLVisionShareView: View {
                         intakeKind: "share_sheet",
                         destinationKind: files == nil ? nil : "files_app",
                         destinationPath: files?.approvedRoot,
-                        approvedRoots: files.map { [$0.approvedRoot] } ?? []
+                        approvedRoots: files.map { [$0.approvedRoot] } ?? [],
+                        bookmarkData: files?.bookmark.bookmarkData ?? WebMediaDLWorkerCredentials.loadBookmark()
                     )
                 }
             }
