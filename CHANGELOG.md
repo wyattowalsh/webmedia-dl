@@ -31,3 +31,8 @@
   provided-HTML byte cap; `plan --container` explains the export DAG; support
   bundles recursively strip console/cookie fields; `updates` checks PyPI without
   installing; migration recursively indexes every allowlisted archive marker.
+- Cookie grants persist across worker processes; yt-dlp dump-json uses the same
+  job-bound grant; a failed publish sibling does not abort other validated
+  outputs. Apple share principals await NSItemProvider load, Files bookmarks
+  resolve and standardize paths, and watch/tv decode typed companion history
+  over WatchConnectivity scaffolding.

@@ -34,10 +34,46 @@ public struct WebMediaDLSecurityScopedBookmark: Sendable, Equatable {
         return WebMediaDLSecurityScopedBookmark(path: url.path, bookmarkData: data)
     }
 
+    public static func standardizedPath(_ raw: String) -> String {
+        URL(fileURLWithPath: raw).standardizedFileURL.resolvingSymlinksInPath().path
+    }
+
     public func allows(_ candidate: String) -> Bool {
         if stale { return false }
-        let prefix = path.hasSuffix("/") ? path : path + "/"
-        return candidate == path || candidate.hasPrefix(prefix)
+        let root = Self.standardizedPath(path)
+        let item = Self.standardizedPath(candidate)
+        if item == root { return true }
+        let prefix = root.hasSuffix("/") ? root : root + "/"
+        return item.hasPrefix(prefix)
+    }
+
+    public func resolve() -> WebMediaDLSecurityScopedBookmark {
+        guard let bookmarkData else { return self }
+        var isStale = false
+        let resolved: URL?
+        do {
+            #if os(macOS)
+            resolved = try URL(
+                resolvingBookmarkData: bookmarkData,
+                options: .withSecurityScope,
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale
+            )
+            #else
+            resolved = try URL(
+                resolvingBookmarkData: bookmarkData,
+                options: [],
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale
+            )
+            #endif
+        } catch {
+            return WebMediaDLSecurityScopedBookmark(path: path, stale: true, bookmarkData: bookmarkData)
+        }
+        guard let resolved else {
+            return WebMediaDLSecurityScopedBookmark(path: path, stale: true, bookmarkData: bookmarkData)
+        }
+        return WebMediaDLSecurityScopedBookmark(path: resolved.path, stale: isStale, bookmarkData: bookmarkData)
     }
 }
 
@@ -56,7 +92,8 @@ public struct WebMediaDLFilesDestination: Sendable {
     }
 }
 
-/// Photos library writes stay closed without PhotoKit on a signed device.
+/// CLOSED: apple-system-integrations — PhotoKit library writes stay closed until a
+/// signed Apple Photos API is available. `libraryWriteAvailable` is fail-closed.
 public struct WebMediaDLPhotoKitDestination: Sendable {
     public var approvedRoot: String?
     public static let libraryWriteAvailable = false
@@ -66,8 +103,9 @@ public struct WebMediaDLPhotoKitDestination: Sendable {
     }
 
     public var canPublish: Bool {
+        if !Self.libraryWriteAvailable { return false }
         guard let approvedRoot, !approvedRoot.isEmpty else { return false }
-        return Self.libraryWriteAvailable
+        return true
     }
 }
 
@@ -98,6 +136,44 @@ public enum WebMediaDLShareItemExtractor {
             }
             return nil
         }
+    }
+}
+
+/// Await NSItemProvider.loadItem before submitting so share extensions keep locators.
+public enum WebMediaDLShareExtensionLoader {
+    public static func loadSharedValues(from context: NSExtensionContext) async -> [String] {
+        var values: [String] = []
+        for item in context.inputItems {
+            guard let extensionItem = item as? NSExtensionItem else { continue }
+            for provider in extensionItem.attachments ?? [] {
+                if let loaded = await loadItem(from: provider) {
+                    values.append(loaded)
+                }
+            }
+        }
+        return values
+    }
+
+    public static func loadItem(from provider: NSItemProvider) async -> String? {
+        let identifiers = [
+            WebMediaDLShareItemExtractor.urlTypeIdentifier,
+            WebMediaDLShareItemExtractor.fileURLTypeIdentifier,
+            WebMediaDLShareItemExtractor.textTypeIdentifier,
+        ]
+        for identifier in identifiers where provider.hasItemConformingToTypeIdentifier(identifier) {
+            return await withCheckedContinuation { continuation in
+                provider.loadItem(forTypeIdentifier: identifier, options: nil) { loaded, _ in
+                    if let url = loaded as? URL {
+                        continuation.resume(returning: url.absoluteString)
+                    } else if let text = loaded as? String {
+                        continuation.resume(returning: text)
+                    } else {
+                        continuation.resume(returning: nil)
+                    }
+                }
+            }
+        }
+        return nil
     }
 }
 

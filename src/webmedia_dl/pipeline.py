@@ -79,7 +79,7 @@ class Pipeline:
         self.queue = QueueStore(self.data_dir / "queue")
         self.store = ArtifactStore(self.data_dir)
         self.pairing = PairingStore(self.data_dir / "pairing")
-        self.cookie_ledger = CookieGrantLedger()
+        self.cookie_ledger = CookieGrantLedger(self.data_dir / "cookie-grants.json")
         self.runtime = runtime or ProviderRuntime()
         self.runtime.cookie_ledger = self.cookie_ledger
         self.fetch = fetch
@@ -725,13 +725,17 @@ class Pipeline:
             return []
         dest = staging or (staging_dir(self.data_dir) / str(job.job_id))
         dest.mkdir(parents=True, exist_ok=True)
+        typed_inputs: dict[str, str] = {"url": url}
+        grant_id = self.queue.get_context(job.job_id).cookies
+        if grant_id:
+            typed_inputs["cookie_grant_id"] = grant_id
         try:
             result = self.runtime.execute(
                 ProviderRequest(
                     provider_id="ytdlp",
                     capability_id="discover.manifest",
                     job_id=job.job_id,
-                    typed_inputs={"url": url},
+                    typed_inputs=typed_inputs,
                 ),
                 dest,
             )

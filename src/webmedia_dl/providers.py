@@ -419,6 +419,12 @@ def _ytdlp_argv(
     if not isinstance(url, str):
         msg = "yt-dlp requires typed input 'url'."
         raise ProviderPolicyError(msg)
+    cookie_flags = _cookie_argv_flags(
+        inputs,
+        job_id=job_id,
+        ledger=ledger,
+        profile_id=profile_id,
+    )
     if capability_id == "discover.manifest":
         argv = [
             binary,
@@ -426,6 +432,7 @@ def _ytdlp_argv(
             "--no-playlist",
             "--no-progress",
             "--no-mtime",
+            *cookie_flags,
             url,
         ]
         for flag in argv[1:-1]:
@@ -453,21 +460,7 @@ def _ytdlp_argv(
             msg = "yt-dlp format_id must match the allowlisted token pattern."
             raise ProviderPolicyError(msg)
         argv.extend(["--format", format_id])
-    cookies = inputs.get("cookies")
-    if cookies:
-        msg = "Raw cookie paths are not accepted; issue a job-bound cookie grant."
-        raise CookiePolicyError(msg)
-    grant_id = inputs.get("cookie_grant_id")
-    if grant_id:
-        if ledger is None:
-            msg = "Cookie grant ledger is unavailable."
-            raise CookiePolicyError(msg)
-        cookie_path = ledger.resolve(
-            str(grant_id),
-            job_id=job_id,
-            profile_id=profile_id,
-        )
-        argv.extend(["--cookies", str(cookie_path)])
+    argv.extend(cookie_flags)
     merge = inputs.get("merge_output_format")
     if merge:
         if merge not in {"mp4", "mkv", "webm", "mov"}:
@@ -480,6 +473,30 @@ def _ytdlp_argv(
             raise ProviderPolicyError(msg)
     argv.append(url)
     return argv
+
+
+def _cookie_argv_flags(
+    inputs: dict[str, Any],
+    *,
+    job_id: UUID | str | None,
+    ledger: CookieGrantLedger | None,
+    profile_id: str | None,
+) -> list[str]:
+    if inputs.get("cookies"):
+        msg = "Raw cookie paths are not accepted; issue a job-bound cookie grant."
+        raise CookiePolicyError(msg)
+    grant_id = inputs.get("cookie_grant_id")
+    if not grant_id:
+        return []
+    if ledger is None:
+        msg = "Cookie grant ledger is unavailable."
+        raise CookiePolicyError(msg)
+    cookie_path = ledger.resolve(
+        str(grant_id),
+        job_id=job_id,
+        profile_id=profile_id,
+    )
+    return ["--cookies", str(cookie_path)]
 
 
 def _ffmpeg_argv(binary: str, inputs: dict[str, Any], capability_id: str) -> list[str]:

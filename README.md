@@ -37,6 +37,18 @@ The loopback worker binds `127.0.0.1` only and runs accepted jobs from the queue
 
 ```bash
 uv run webmedia-dl serve --data-dir /tmp/webmedia-dl-demo
+uv run webmedia-dl run-next --data-dir /tmp/webmedia-dl-demo
+uv run webmedia-dl job <job-id> --data-dir /tmp/webmedia-dl-demo
+uv run webmedia-dl history --data-dir /tmp/webmedia-dl-demo
+uv run webmedia-dl cancel <job-id> --data-dir /tmp/webmedia-dl-demo
+uv run webmedia-dl pair create --client-profile personal-restricted
+uv run webmedia-dl pair confirm <pairing-id>
+uv run webmedia-dl companion capture https://example.com/a.mp4
+uv run webmedia-dl policy
+uv run webmedia-dl migrate-scan ./legacy
+uv run webmedia-dl migrate-apply ./legacy
+uv run webmedia-dl version
+uv run webmedia-dl alias-note
 ```
 
 ## Layout

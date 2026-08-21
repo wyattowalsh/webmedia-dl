@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -92,8 +93,50 @@ class CookieGrant:
 class CookieGrantLedger:
     """Job-bound cookie grants. Providers never receive a raw filesystem path."""
 
-    def __init__(self) -> None:
+    def __init__(self, store: Path | None = None) -> None:
+        self._store = store
         self._grants: dict[str, CookieGrant] = {}
+        self._load()
+
+    def _load(self) -> None:
+        if self._store is None or not self._store.is_file():
+            return
+        try:
+            payload = json.loads(self._store.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+            return
+        if not isinstance(payload, list):
+            return
+        for item in payload:
+            if not isinstance(item, dict):
+                continue
+            try:
+                grant = CookieGrant(
+                    grant_id=str(item["grant_id"]),
+                    job_id=UUID(str(item["job_id"])),
+                    path=Path(str(item["path"])),
+                    profile_id=str(item["profile_id"]),
+                )
+            except (KeyError, TypeError, ValueError):
+                continue
+            self._grants[grant.grant_id] = grant
+
+    def _save(self) -> None:
+        if self._store is None:
+            return
+        self._store.parent.mkdir(parents=True, exist_ok=True)
+        payload = [
+            {
+                "grant_id": grant.grant_id,
+                "job_id": str(grant.job_id),
+                "path": str(grant.path),
+                "profile_id": grant.profile_id,
+            }
+            for grant in self._grants.values()
+        ]
+        tmp = self._store.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        tmp.replace(self._store)
 
     def issue(self, job_id: UUID, path: Path, profile_id: str) -> CookieGrant:
         from webmedia_dl.policy.profiles import get_profile
@@ -108,6 +151,7 @@ class CookieGrantLedger:
             profile_id=profile_id,
         )
         self._grants[grant.grant_id] = grant
+        self._save()
         return grant
 
     def resolve(
@@ -126,5 +170,8 @@ class CookieGrantLedger:
             raise CookiePolicyError(msg)
         if profile_id is None or profile_id != grant.profile_id:
             msg = "Cookie grants are bound to the issuing policy profile."
+            raise CookiePolicyError(msg)
+        if not grant.path.is_file():
+            msg = f"Cookie file does not exist: {grant.path}"
             raise CookiePolicyError(msg)
         return grant.path

@@ -43,27 +43,32 @@ def publish_artifacts(
         dest_root = authorize_destination(dest_root, [intent.security_scoped_path])
     dest_root.mkdir(parents=True, exist_ok=True)
     published: list[Path] = []
+    failures: list[ValidationFailed] = []
     tmp_dir = Path(tempfile.mkdtemp(prefix="webmedia-dl-pub-", dir=dest_root))
     primary_stem = _primary_stem(artifacts)
     try:
         for artifact, src, results in artifacts:
             if artifact.role not in PUBLISHABLE_ROLES:
                 continue
-            require_pass(results)
+            try:
+                require_pass(results)
+            except ValidationFailed as exc:
+                failures.append(exc)
+                continue
             name = _publish_name(artifact, src, primary_stem)
             staged = tmp_dir / name
             staged.write_bytes(src.read_bytes())
             final = dest_root / name
             os.replace(staged, final)
             published.append(final)
-    except ValidationFailed:
-        raise
     except Exception as exc:
         raise PublicationError(str(exc)) from exc
     finally:
         for leftover in tmp_dir.glob("*"):
             leftover.unlink(missing_ok=True)
         tmp_dir.rmdir()
+    if failures and not published:
+        raise failures[0]
     return published
 
 

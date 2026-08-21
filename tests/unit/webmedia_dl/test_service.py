@@ -38,6 +38,13 @@ def test_pair_and_envelope_and_plan(tmp_path: Path, png_bytes: bytes) -> None:
     client = TestClient(app)
     headers = {"Authorization": f"Bearer {token}"}
     created = client.post("/v1/pair", headers=headers)
+    assert created.status_code == 200
+    typed = client.post(
+        "/v1/pair",
+        headers=headers,
+        json={"client_profile_id": "personal-restricted"},
+    )
+    assert typed.status_code == 200
     pairing_id = created.json()["pairing_id"]
     confirmed = client.post("/v1/pair/confirm", headers=headers, json={"pairing_id": pairing_id})
     session_key = confirmed.json()["session_key"]

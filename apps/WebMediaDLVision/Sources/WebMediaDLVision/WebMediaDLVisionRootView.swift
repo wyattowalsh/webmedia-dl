@@ -14,16 +14,16 @@ public struct WebMediaDLVisionRootView: View {
     @State private var lastJobId: UUID?
     @State private var filesBookmark = WebMediaDLSecurityScopedBookmark(path: "")
     @State private var pickingDestination = false
+    @State private var fromClipboard = false
     private let role = WebMediaDLClientRole.pairedClient
-    private let client = WebMediaDLLoopbackClient()
 
     public init() {}
 
     private var pairedClient: WebMediaDLLoopbackClient {
-        WebMediaDLLoopbackClient(
-            pairingId: UUID(uuidString: pairingId),
-            sessionKey: sessionKey.isEmpty ? nil : sessionKey
-        )
+        var loaded = WebMediaDLWorkerCredentials.loadClient()
+        loaded.pairingId = UUID(uuidString: pairingId) ?? loaded.pairingId
+        loaded.sessionKey = sessionKey.isEmpty ? loaded.sessionKey : sessionKey
+        return loaded
     }
 
     public var body: some View {
@@ -37,6 +37,7 @@ public struct WebMediaDLVisionRootView: View {
                 if let text = UIPasteboard.general.string {
                     let clip = WebMediaDLClipboardIntake(text: text)
                     locator = clip.locator ?? text.trimmingCharacters(in: .whitespacesAndNewlines)
+                    fromClipboard = true
                 }
             }
             .accessibilityLabel("Paste from clipboard")
@@ -63,11 +64,13 @@ public struct WebMediaDLVisionRootView: View {
             Button("Send to paired Mac") {
                 Task {
                     let roots = filesBookmark.path.isEmpty ? [] : [filesBookmark.path]
+                    let clip = WebMediaDLClipboardIntake(text: locator)
                     let response = (try? await pairedClient.submit(
                         locator: locator,
                         surface: .visionos,
                         pairingId: UUID(uuidString: pairingId),
                         sessionKey: sessionKey.isEmpty ? nil : sessionKey,
+                        intakeKind: fromClipboard ? clip.intakeKind : nil,
                         destinationKind: roots.isEmpty ? nil : "files_app",
                         destinationPath: roots.first,
                         approvedRoots: roots
@@ -81,6 +84,18 @@ public struct WebMediaDLVisionRootView: View {
                 .accessibilityLabel("Pairing id")
             SecureField("Session key", text: $sessionKey)
                 .accessibilityLabel("Session key")
+            Button("Start pairing") {
+                Task {
+                    do {
+                        let challenge = try await pairedClient.startPairing()
+                        pairingId = challenge.pairingId.uuidString
+                        status = "Pairing nonce \(challenge.nonce). Confirm on the Mac before \(challenge.expiresAt)."
+                    } catch {
+                        status = error.localizedDescription
+                    }
+                }
+            }
+            .accessibilityLabel("Start pairing")
             Text(status)
                 .accessibilityLabel("Job status")
             Text(historyText)
@@ -92,7 +107,8 @@ public struct WebMediaDLVisionRootView: View {
                 Task {
                     do {
                         let (data, _) = try await URLSession.shared.data(for: pairedClient.historyRequest())
-                        history = (try? JSONDecoder().decode([WebMediaDLHistoryEntry].self, from: data)) ?? []
+                        history = (try? WebMediaDLHistoryEntry.decodeCompanionHistory(from: data))
+                            ?? ((try? JSONDecoder().decode([WebMediaDLHistoryEntry].self, from: data)) ?? [])
                         historyText = history.isEmpty
                             ? "No jobs yet."
                             : history.map { "\($0.jobId.uuidString.prefix(8)) \($0.state)" }.joined(separator: "\n")
@@ -132,14 +148,14 @@ public struct WebMediaDLVisionRootView: View {
                 }
             }
             .accessibilityLabel("Resume last job")
-            Text("Role \(role.rawValue). Loopback \(client.baseURL.absoluteString)")
+            Text("Role \(role.rawValue). Loopback \(pairedClient.baseURL.absoluteString)")
         }
         .padding(32)
         .onChange(of: pairingId) { _, value in
-            UserDefaults.standard.set(value, forKey: WebMediaDLWorkerCredentials.pairingDefaultsKey)
+            WebMediaDLWorkerCredentials.defaults().set(value, forKey: WebMediaDLWorkerCredentials.pairingDefaultsKey)
         }
         .onChange(of: sessionKey) { _, value in
-            UserDefaults.standard.set(value, forKey: WebMediaDLWorkerCredentials.sessionDefaultsKey)
+            WebMediaDLWorkerCredentials.defaults().set(value, forKey: WebMediaDLWorkerCredentials.sessionDefaultsKey)
         }
     }
 }

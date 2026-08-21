@@ -85,6 +85,34 @@ public struct WebMediaDLHistoryEntry: Codable, Sendable, Identifiable {
     public static func decodeList(from data: Data) throws -> [WebMediaDLHistoryEntry] {
         try JSONDecoder().decode([WebMediaDLHistoryEntry].self, from: data)
     }
+
+    public static func decodeCompanionHistory(from data: Data) throws -> [WebMediaDLHistoryEntry] {
+        if let wrapped = try? JSONDecoder().decode(WebMediaDLCompanionHistoryEnvelope.self, from: data) {
+            return wrapped.jobs
+        }
+        return try decodeList(from: data)
+    }
+}
+
+public struct WebMediaDLCompanionHistoryEnvelope: Codable, Sendable {
+    public var kind: String?
+    public var jobs: [WebMediaDLHistoryEntry]
+}
+
+public struct WebMediaDLPairingChallenge: Codable, Sendable {
+    public var pairingId: UUID
+    public var nonce: String
+    public var expiresAt: String
+    public var workerId: String?
+    public var confirmed: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case pairingId = "pairing_id"
+        case nonce
+        case expiresAt = "expires_at"
+        case workerId = "worker_id"
+        case confirmed
+    }
 }
 
 /// watchOS and tvOS expose capture/status/history/controls, not subprocess workers.

@@ -5,9 +5,10 @@ from __future__ import annotations
 import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Body, Depends, FastAPI, Header, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 
@@ -50,6 +51,10 @@ class PlanBody(BaseModel):
     local_user_confirmed: bool = False
     pairing_id: UUID | None = None
     session_key: str | None = None
+
+
+class PairStartBody(BaseModel):
+    client_profile_id: str = "personal-restricted"
 
 
 class PairConfirmBody(BaseModel):
@@ -218,8 +223,9 @@ def create_app(data_dir: Path | None = None, *, enable_dispatcher: bool = False)
             raise HTTPException(status_code=404, detail="Unknown artifact") from exc
 
     @app.post("/v1/pair", dependencies=[Depends(require_auth)])
-    def pair(client_profile_id: str = "personal-restricted") -> dict:
-        challenge = pipeline.pairing.create(client_profile_id, pipeline.host_worker.worker_id)
+    def pair(body: Annotated[PairStartBody | None, Body()] = None) -> dict:
+        profile_id = body.client_profile_id if body is not None else "personal-restricted"
+        challenge = pipeline.pairing.create(profile_id, pipeline.host_worker.worker_id)
         return {
             "pairing_id": str(challenge.pairing_id),
             "nonce": challenge.nonce,

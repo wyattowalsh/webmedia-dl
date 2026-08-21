@@ -14,15 +14,16 @@ public struct WebMediaDLiOSRootView: View {
     @State private var lastJobId: UUID?
     @State private var filesBookmark = WebMediaDLSecurityScopedBookmark(path: "")
     @State private var pickingDestination = false
+    @State private var fromClipboard = false
     private let role = WebMediaDLClientRole.pairedClient
 
     public init() {}
 
     private var client: WebMediaDLLoopbackClient {
-        WebMediaDLLoopbackClient(
-            pairingId: UUID(uuidString: pairingId),
-            sessionKey: sessionKey.isEmpty ? nil : sessionKey
-        )
+        var loaded = WebMediaDLWorkerCredentials.loadClient()
+        loaded.pairingId = UUID(uuidString: pairingId) ?? loaded.pairingId
+        loaded.sessionKey = sessionKey.isEmpty ? loaded.sessionKey : sessionKey
+        return loaded
     }
 
     public var body: some View {
@@ -36,6 +37,7 @@ public struct WebMediaDLiOSRootView: View {
                         if let text = UIPasteboard.general.string {
                             let clip = WebMediaDLClipboardIntake(text: text)
                             locator = clip.locator ?? text.trimmingCharacters(in: .whitespacesAndNewlines)
+                            fromClipboard = true
                         }
                     }
                     .accessibilityLabel("Paste from clipboard")
@@ -62,11 +64,13 @@ public struct WebMediaDLiOSRootView: View {
                     Button("Send to paired Mac") {
                         Task {
                             let roots = filesBookmark.path.isEmpty ? [] : [filesBookmark.path]
+                            let clip = WebMediaDLClipboardIntake(text: locator)
                             let response = (try? await client.submit(
                                 locator: locator,
                                 surface: .ios,
                                 pairingId: UUID(uuidString: pairingId),
                                 sessionKey: sessionKey.isEmpty ? nil : sessionKey,
+                                intakeKind: fromClipboard ? clip.intakeKind : nil,
                                 destinationKind: roots.isEmpty ? nil : "files_app",
                                 destinationPath: roots.first,
                                 approvedRoots: roots
@@ -83,6 +87,18 @@ public struct WebMediaDLiOSRootView: View {
                         .accessibilityLabel("Pairing id")
                     SecureField("Session key", text: $sessionKey)
                         .accessibilityLabel("Session key")
+                    Button("Start pairing") {
+                        Task {
+                            do {
+                                let challenge = try await client.startPairing()
+                                pairingId = challenge.pairingId.uuidString
+                                status = "Pairing nonce \(challenge.nonce). Confirm on the Mac before \(challenge.expiresAt)."
+                            } catch {
+                                status = error.localizedDescription
+                            }
+                        }
+                    }
+                    .accessibilityLabel("Start pairing")
                     Text("The Mac user must confirm pairing. This client cannot self-confirm.")
                 }
                 Section("Status") {
@@ -100,7 +116,8 @@ public struct WebMediaDLiOSRootView: View {
                         Task {
                             do {
                                 let (data, _) = try await URLSession.shared.data(for: client.historyRequest())
-                                history = (try? JSONDecoder().decode([WebMediaDLHistoryEntry].self, from: data)) ?? []
+                                history = (try? WebMediaDLHistoryEntry.decodeCompanionHistory(from: data))
+                                    ?? ((try? JSONDecoder().decode([WebMediaDLHistoryEntry].self, from: data)) ?? [])
                                 historyText = history.isEmpty
                                     ? "No jobs yet."
                                     : history.map { "\($0.jobId.uuidString.prefix(8)) \($0.state)" }.joined(separator: "\n")
@@ -154,10 +171,10 @@ public struct WebMediaDLiOSRootView: View {
             }
             .navigationTitle("WebMedia DL")
             .onChange(of: pairingId) { _, value in
-                UserDefaults.standard.set(value, forKey: WebMediaDLWorkerCredentials.pairingDefaultsKey)
+                WebMediaDLWorkerCredentials.defaults().set(value, forKey: WebMediaDLWorkerCredentials.pairingDefaultsKey)
             }
             .onChange(of: sessionKey) { _, value in
-                UserDefaults.standard.set(value, forKey: WebMediaDLWorkerCredentials.sessionDefaultsKey)
+                WebMediaDLWorkerCredentials.defaults().set(value, forKey: WebMediaDLWorkerCredentials.sessionDefaultsKey)
             }
         }
     }

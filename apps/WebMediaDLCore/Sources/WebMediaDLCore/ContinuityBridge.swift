@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(WatchConnectivity)
+import WatchConnectivity
+#endif
 
 /// Allowlisted companion kinds. Never a provider argv or native command runner.
 public enum WebMediaDLCompanionKind: String, Codable, Sendable, CaseIterable {
@@ -18,16 +21,23 @@ public struct WebMediaDLCompanionMessage: Codable, Sendable, Equatable {
     public var kind: WebMediaDLCompanionKind
     public var locator: String?
     public var jobId: String?
+    public var surface: WebMediaDLSurface
 
-    public init(kind: WebMediaDLCompanionKind, locator: String? = nil, jobId: String? = nil) {
+    public init(
+        kind: WebMediaDLCompanionKind,
+        locator: String? = nil,
+        jobId: String? = nil,
+        surface: WebMediaDLSurface = .watchos
+    ) {
         self.kind = kind
         self.locator = locator
         self.jobId = jobId
+        self.surface = surface
     }
 
-    public init?(kind: String, locator: String? = nil, jobId: String? = nil) {
+    public init?(kind: String, locator: String? = nil, jobId: String? = nil, surface: WebMediaDLSurface = .watchos) {
         guard let value = WebMediaDLCompanionKind(rawValue: kind) else { return nil }
-        self.init(kind: value, locator: locator, jobId: jobId)
+        self.init(kind: value, locator: locator, jobId: jobId, surface: surface)
     }
 
     public var nativeCommand: String? { nil }
@@ -37,6 +47,7 @@ public struct WebMediaDLCompanionMessage: Codable, Sendable, Equatable {
         case kind
         case locator
         case jobId
+        case surface
         case nativeCommand
         case subprocessWorker
     }
@@ -46,6 +57,7 @@ public struct WebMediaDLCompanionMessage: Codable, Sendable, Equatable {
         try container.encode(kind, forKey: .kind)
         try container.encodeIfPresent(locator, forKey: .locator)
         try container.encodeIfPresent(jobId, forKey: .jobId)
+        try container.encode(surface, forKey: .surface)
         try container.encodeNil(forKey: .nativeCommand)
         try container.encode(false, forKey: .subprocessWorker)
     }
@@ -55,6 +67,7 @@ public struct WebMediaDLCompanionMessage: Codable, Sendable, Equatable {
         kind = try container.decode(WebMediaDLCompanionKind.self, forKey: .kind)
         locator = try container.decodeIfPresent(String.self, forKey: .locator)
         jobId = try container.decodeIfPresent(String.self, forKey: .jobId)
+        surface = try container.decodeIfPresent(WebMediaDLSurface.self, forKey: .surface) ?? .watchos
         let native = try container.decodeIfPresent(String.self, forKey: .nativeCommand)
         if native != nil {
             throw DecodingError.dataCorruptedError(
@@ -69,6 +82,7 @@ public struct WebMediaDLCompanionMessage: Codable, Sendable, Equatable {
         var payload = [
             "kind": kind.rawValue,
             "subprocessWorker": "false",
+            "surface": surface.rawValue,
         ]
         if let locator {
             payload["locator"] = locator
@@ -117,6 +131,51 @@ public struct WebMediaDLQueuedCompanionTransport: WebMediaDLCompanionTransport {
     }
 }
 
+/// Typed WatchConnectivity userInfo transport. Radio delivery is BLOCKED without a paired Apple device.
+public final class WebMediaDLWatchConnectivityTransport: NSObject, WebMediaDLCompanionTransport {
+    public var fallback = WebMediaDLQueuedCompanionTransport()
+
+    public override init() {
+        super.init()
+    }
+
+    public func send(_ message: WebMediaDLCompanionMessage) async throws {
+        #if canImport(WatchConnectivity)
+        if WCSession.isSupported() {
+            WCSession.default.transferUserInfo(message.dictionary())
+            return
+        }
+        #endif
+        var queued = fallback
+        try await queued.send(message)
+        fallback = queued
+    }
+}
+
+/// Mac WCSessionDelegate adapter. Converts userInfo dictionaries into typed companion messages.
+public final class WebMediaDLMacWatchConnectivityDelegate: NSObject {
+    public var forwarder: WebMediaDLMacCompanionForwarder
+    public var relay = WebMediaDLCompanionRelay()
+
+    public init(forwarder: WebMediaDLMacCompanionForwarder) {
+        self.forwarder = forwarder
+    }
+
+    public func session(_ sessionName: String, didReceiveUserInfo userInfo: [String: Any]) {
+        var typed: [String: String] = [:]
+        for (key, value) in userInfo {
+            if let text = value as? String {
+                typed[key] = text
+            }
+        }
+        forwarder.receiveWatchConnectivityUserInfo(typed, into: &relay)
+        _ = sessionName
+        #if canImport(WatchConnectivity)
+        _ = WCSession.default.activationState
+        #endif
+    }
+}
+
 /// Mac receives drained companion messages and forwards them to loopback.
 public struct WebMediaDLMacCompanionForwarder: Sendable {
     public var client: WebMediaDLLoopbackClient
@@ -130,7 +189,33 @@ public struct WebMediaDLMacCompanionForwarder: Sendable {
             _ = try await client.forwardCompanion(
                 kind: message.kind.rawValue,
                 locator: message.locator,
-                jobId: message.jobId.flatMap(UUID.init(uuidString:))
+                jobId: message.jobId.flatMap(UUID.init(uuidString:)),
+                surface: message.surface
+            )
+        }
+    }
+
+    public func forwardSealed(
+        _ relay: inout WebMediaDLCompanionRelay,
+        pairingId: UUID,
+        sessionKey: String
+    ) async throws {
+        for message in relay.drain() {
+            let wrap = client.envelopeWrapRequest(
+                pairingId: pairingId,
+                sessionKey: sessionKey,
+                payload: message.dictionary()
+            )
+            let (data, _) = try await URLSession.shared.data(for: wrap)
+            let object = (try JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
+            _ = try await client.send(
+                client.sealedCompanionRequest(
+                    pairingId: pairingId,
+                    sessionKey: sessionKey,
+                    nonce: object["nonce"] as? String ?? "",
+                    ciphertext: object["ciphertext"] as? String ?? "",
+                    mac: object["mac"] as? String ?? ""
+                )
             )
         }
     }
@@ -142,8 +227,14 @@ public struct WebMediaDLMacCompanionForwarder: Sendable {
         guard let kind = userInfo["kind"].flatMap(WebMediaDLCompanionKind.init(rawValue:)) else {
             return
         }
+        let surface = userInfo["surface"].flatMap(WebMediaDLSurface.init(rawValue:)) ?? .watchos
         relay.enqueue(
-            WebMediaDLCompanionMessage(kind: kind, locator: userInfo["locator"], jobId: userInfo["jobId"])
+            WebMediaDLCompanionMessage(
+                kind: kind,
+                locator: userInfo["locator"],
+                jobId: userInfo["jobId"],
+                surface: surface
+            )
         )
     }
 }
@@ -161,13 +252,23 @@ public struct WebMediaDLContinuityBridge: Sendable {
         self.workerURL = workerURL
     }
 
-    public func message(kind: WebMediaDLCompanionKind, locator: String? = nil, jobId: String? = nil) -> WebMediaDLCompanionMessage {
-        WebMediaDLCompanionMessage(kind: kind, locator: locator, jobId: jobId)
+    public func message(
+        kind: WebMediaDLCompanionKind,
+        locator: String? = nil,
+        jobId: String? = nil,
+        surface: WebMediaDLSurface = .watchos
+    ) -> WebMediaDLCompanionMessage {
+        WebMediaDLCompanionMessage(kind: kind, locator: locator, jobId: jobId, surface: surface)
     }
 
-    public func message(kind: String, locator: String? = nil, jobId: String? = nil) -> WebMediaDLCompanionMessage {
-        WebMediaDLCompanionMessage(kind: kind, locator: locator, jobId: jobId)
-            ?? WebMediaDLCompanionMessage(kind: .status, locator: locator, jobId: jobId)
+    public func message(
+        kind: String,
+        locator: String? = nil,
+        jobId: String? = nil,
+        surface: WebMediaDLSurface = .watchos
+    ) -> WebMediaDLCompanionMessage {
+        WebMediaDLCompanionMessage(kind: kind, locator: locator, jobId: jobId, surface: surface)
+            ?? WebMediaDLCompanionMessage(kind: .status, locator: locator, jobId: jobId, surface: surface)
     }
 
     public func controlMessage(kind: String, locator: String?) -> [String: String] {
@@ -192,6 +293,7 @@ public struct WebMediaDLContinuityBridge: Sendable {
             "kind": kind,
             "nativeCommand": NSNull(),
             "subprocessWorker": false,
+            "surface": "watchos",
         ]
         if let locator {
             body["locator"] = locator

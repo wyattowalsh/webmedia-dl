@@ -13,6 +13,7 @@ SHARE_VIEWS = [
     "apps/WebMediaDLMac/Sources/WebMediaDLMac/WebMediaDLMacShareView.swift",
     "apps/WebMediaDLiOS/Sources/WebMediaDLiOS/WebMediaDLiOSShareView.swift",
     "apps/WebMediaDLiPadOS/Sources/WebMediaDLiPadOS/WebMediaDLiPadOSShareView.swift",
+    "apps/WebMediaDLVision/Sources/WebMediaDLVision/WebMediaDLVisionShareView.swift",
 ]
 
 

@@ -116,6 +116,15 @@ public struct WebMediaDLLoopbackClient: Sendable {
         return authorized(url, method: "POST")
     }
 
+    public func pairRequest(clientProfileId: String = "personal-restricted") -> URLRequest {
+        var request = authorized(baseURL.appendingPathComponent("v1/pair"), method: "POST")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(
+            withJSONObject: ["client_profile_id": clientProfileId]
+        )
+        return request
+    }
+
     public func pairConfirmRequest(pairingId: UUID) -> URLRequest {
         var request = authorized(baseURL.appendingPathComponent("v1/pair/confirm"), method: "POST")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -137,13 +146,19 @@ public struct WebMediaDLLoopbackClient: Sendable {
         return authorized(url, method: "POST")
     }
 
-    public func companionRequest(kind: String, locator: String? = nil, jobId: UUID? = nil) -> URLRequest {
+    public func companionRequest(
+        kind: String,
+        locator: String? = nil,
+        jobId: UUID? = nil,
+        surface: WebMediaDLSurface = .watchos
+    ) -> URLRequest {
         var request = authorized(baseURL.appendingPathComponent("v1/companion"), method: "POST")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         var body: [String: Any] = [
             "kind": kind,
             "nativeCommand": NSNull(),
             "subprocessWorker": false,
+            "surface": surface.rawValue,
         ]
         if let locator {
             body["locator"] = locator
@@ -152,6 +167,23 @@ public struct WebMediaDLLoopbackClient: Sendable {
             body["job_id"] = jobId.uuidString
         }
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        return request
+    }
+
+    public func envelopeWrapRequest(
+        pairingId: UUID,
+        sessionKey: String,
+        payload: [String: Any]
+    ) -> URLRequest {
+        var request = authorized(baseURL.appendingPathComponent("v1/pair/envelope"), method: "POST")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(
+            withJSONObject: [
+                "pairing_id": pairingId.uuidString,
+                "session_key": sessionKey,
+                "payload": payload,
+            ]
+        )
         return request
     }
 
@@ -216,7 +248,7 @@ public struct WebMediaDLLoopbackClient: Sendable {
     public func historyEntries() async throws -> [WebMediaDLHistoryEntry] {
         let (data, _) = try await URLSession.shared.data(for: historyRequest())
         return (try? JSONDecoder().decode([WebMediaDLHistoryEntry].self, from: data))
-            ?? ((try? WebMediaDLHistoryEntry.decodeList(from: data)) ?? [])
+            ?? ((try? WebMediaDLHistoryEntry.decodeCompanionHistory(from: data)) ?? [])
     }
 
     public func historySummary() async throws -> String {
@@ -235,12 +267,22 @@ public struct WebMediaDLLoopbackClient: Sendable {
         try await send(resumeQueueRequest())
     }
 
+    public func startPairing(clientProfileId: String = "personal-restricted") async throws -> WebMediaDLPairingChallenge {
+        let (data, _) = try await URLSession.shared.data(for: pairRequest(clientProfileId: clientProfileId))
+        return try JSONDecoder().decode(WebMediaDLPairingChallenge.self, from: data)
+    }
+
     public func confirmPairing(_ pairingId: UUID) async throws -> String {
         try await send(pairConfirmRequest(pairingId: pairingId))
     }
 
-    public func forwardCompanion(kind: String, locator: String? = nil, jobId: UUID? = nil) async throws -> String {
-        try await send(companionRequest(kind: kind, locator: locator, jobId: jobId))
+    public func forwardCompanion(
+        kind: String,
+        locator: String? = nil,
+        jobId: UUID? = nil,
+        surface: WebMediaDLSurface = .watchos
+    ) async throws -> String {
+        try await send(companionRequest(kind: kind, locator: locator, jobId: jobId, surface: surface))
     }
 
     public func artifacts() async throws -> String {
@@ -293,7 +335,14 @@ public enum WebMediaDLWorkerCredentials {
     public static let pairingDefaultsKey = "webmedia-dl.pairing-id"
     public static let sessionDefaultsKey = "webmedia-dl.session-key"
 
-    public static func loadClient(defaults: UserDefaults = .standard) -> WebMediaDLLoopbackClient {
+    public static let appGroupIdentifier = "group.local.webmedia-dl"
+    public static let bookmarkDefaultsKey = "webmedia-dl.files-bookmark"
+
+    public static func defaults() -> UserDefaults {
+        UserDefaults(suiteName: appGroupIdentifier) ?? .standard
+    }
+
+    public static func loadClient(defaults: UserDefaults = WebMediaDLWorkerCredentials.defaults()) -> WebMediaDLLoopbackClient {
         WebMediaDLLoopbackClient(
             token: defaults.string(forKey: tokenDefaultsKey) ?? "",
             pairingId: defaults.string(forKey: pairingDefaultsKey).flatMap(UUID.init(uuidString:)),
@@ -312,8 +361,11 @@ public struct WebMediaDLDestinationPolicy: Sendable {
 
     public func allows(_ path: String) -> Bool {
         approvedRoots.contains { root in
-            let prefix = root.hasSuffix("/") ? String(root) : root + "/"
-            return path == root || path.hasPrefix(prefix)
+            let normalizedRoot = WebMediaDLSecurityScopedBookmark.standardizedPath(root)
+            let item = WebMediaDLSecurityScopedBookmark.standardizedPath(path)
+            if item == normalizedRoot { return true }
+            let prefix = normalizedRoot.hasSuffix("/") ? normalizedRoot : normalizedRoot + "/"
+            return item.hasPrefix(prefix)
         }
     }
 }

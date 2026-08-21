@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from io import BytesIO
 from pathlib import Path
 from types import TracebackType
@@ -12,24 +13,41 @@ import pytest
 from webmedia_dl.acquisition import plan_acquisition, preferred_format_id
 from webmedia_dl.compat import migrate_legacy, scan_legacy
 from webmedia_dl.discovery import candidates_from_manifest_json, discover
-from webmedia_dl.domain.enums import ArtifactRole, IntakeKind, JobState, MediaKind, Surface
+from webmedia_dl.domain.enums import (
+    ArtifactRole,
+    DestinationKind,
+    EvidenceStatus,
+    IntakeKind,
+    JobState,
+    MediaKind,
+    Surface,
+)
 from webmedia_dl.domain.models import (
     Artifact,
     ExportIntent,
     FormatAlternative,
     MediaCandidate,
     MediaSource,
+    path_is_under,
 )
-from webmedia_dl.errors import CookiePolicyError, DelegationDenied, NetworkPolicyError
+from webmedia_dl.errors import (
+    CookiePolicyError,
+    DelegationDenied,
+    NetworkPolicyError,
+    ValidationFailed,
+)
+from webmedia_dl.identity import sha256_file
 from webmedia_dl.live import record_clear_stream, record_kind_streams, recordable_parts
+from webmedia_dl.paths import repo_root
 from webmedia_dl.pipeline import Pipeline
 from webmedia_dl.policy.profiles import get_profile
 from webmedia_dl.processing import execute_export_plan
 from webmedia_dl.providers import ProviderRuntime
+from webmedia_dl.publish import publish_artifacts
 from webmedia_dl.security import CookieGrantLedger
 from webmedia_dl.support import _sanitize
 from webmedia_dl.updates import check_updates
-from webmedia_dl.validation import validate_artifact
+from webmedia_dl.validation import record_result, validate_artifact
 
 
 def test_pairing_rejects_full_client_profile(tmp_data: Path) -> None:
@@ -459,3 +477,164 @@ def test_nested_archive_txt_is_indexed(tmp_path: Path) -> None:
     applied = migrate_legacy(tmp_path, apply=True)
     assert nested.read_text(encoding="utf-8") == "id-nested\n"
     assert applied["index_entries"] >= 1
+
+
+def test_cookie_grants_persist_across_pipeline_instances(
+    tmp_data: Path, tmp_path: Path, ytdlp_run_ok
+) -> None:
+    cookies = tmp_path / "user-cookies.txt"
+    cookies.write_text("# Netscape HTTP Cookie File\n", encoding="utf-8")
+    captured: list[list[str]] = []
+
+    def run(argv: list[str], cwd: Path) -> tuple[int, bytes, bytes]:
+        captured.append(list(argv))
+        return ytdlp_run_ok(argv, cwd)
+
+    def runtime() -> ProviderRuntime:
+        return ProviderRuntime(
+            which=lambda name: "/usr/bin/yt-dlp" if name == "yt-dlp" else None,
+            run=run,
+            http_get=lambda _url: (404, {}, b""),
+        )
+
+    first = Pipeline(data_dir=tmp_data, runtime=runtime())
+    job = first.submit(
+        "https://example.com/watch",
+        html="<html><title>Video</title></html>",
+        cookies=str(cookies),
+        wait=False,
+    )
+    assert job.state is JobState.ACCEPTED
+    assert (tmp_data / "cookie-grants.json").is_file()
+    attached = next(
+        event
+        for event in first.queue.events_for(job.job_id)
+        if event.type.value == "cookie.attached"
+    )
+    assert attached.payload["cookies_path_basename"] == cookies.name
+    assert "cookies_path" not in attached.payload
+    for event in first.queue.events_for(job.job_id):
+        dumped = json.dumps(event.model_dump(mode="json"))
+        assert str(cookies.resolve()) not in dumped
+
+    second = Pipeline(data_dir=tmp_data, runtime=runtime())
+    ran = second.run_next()
+    assert ran is not None
+    assert ran.state is JobState.COMPLETED
+    cookie_argv = [argv for argv in captured if "--cookies" in argv]
+    assert cookie_argv
+    resolved = str(cookies.resolve())
+    assert any(resolved in argv for argv in cookie_argv)
+    dump_json = [argv for argv in captured if "--dump-json" in argv]
+    assert dump_json
+    assert "--cookies" in dump_json[0]
+
+
+def test_cookie_grant_ledger_reloads_and_rechecks_file(tmp_path: Path) -> None:
+    cookies = tmp_path / "user-cookies.txt"
+    cookies.write_text("# Netscape HTTP Cookie File\n", encoding="utf-8")
+    store = tmp_path / "data" / "cookie-grants.json"
+    job_id = uuid4()
+    first = CookieGrantLedger(store)
+    grant = first.issue(job_id, cookies, "personal-full")
+    second = CookieGrantLedger(store)
+    assert (
+        second.resolve(grant.grant_id, job_id=job_id, profile_id="personal-full")
+        == cookies.resolve()
+    )
+    cookies.unlink()
+    with pytest.raises(CookiePolicyError, match="does not exist"):
+        second.resolve(grant.grant_id, job_id=job_id, profile_id="personal-full")
+    store.write_text("{not-json", encoding="utf-8")
+    recovered = CookieGrantLedger(store)
+    cookies.write_text("# Netscape HTTP Cookie File\n", encoding="utf-8")
+    later = recovered.issue(uuid4(), cookies, "personal-full")
+    assert (
+        CookieGrantLedger(store).resolve(
+            later.grant_id, job_id=later.job_id, profile_id="personal-full"
+        )
+        == cookies.resolve()
+    )
+
+
+def test_publish_skips_failed_sibling(tmp_path: Path) -> None:
+    good = tmp_path / "good.bin"
+    bad = tmp_path / "bad.bin"
+    good.write_bytes(b"good-bytes")
+    bad.write_bytes(b"bad-bytes")
+    good_digest = sha256_file(str(good))
+    bad_digest = sha256_file(str(bad))
+    good_artifact = Artifact(
+        artifact_id=f"sha256:{good_digest}",
+        role=ArtifactRole.SOURCE,
+        sha256=good_digest,
+        byte_size=good.stat().st_size,
+        media_kind=MediaKind.IMAGE,
+        storage_relpath="good.bin",
+    )
+    bad_artifact = Artifact(
+        artifact_id=f"sha256:{bad_digest}",
+        role=ArtifactRole.SOURCE,
+        sha256=bad_digest,
+        byte_size=bad.stat().st_size,
+        media_kind=MediaKind.IMAGE,
+        storage_relpath="bad.bin",
+    )
+    dest = tmp_path / "out"
+    dest.mkdir()
+    intent = ExportIntent(
+        destination_kind=DestinationKind.USER_APPROVED_PATH,
+        destination_path=str(dest),
+        approved_roots=[str(dest)],
+    )
+    failed = record_result(
+        job_id=uuid4(),
+        artifact_id=bad_artifact.artifact_id,
+        gate_id="hash-match",
+        status=EvidenceStatus.FAIL,
+        message="hash mismatch",
+    )
+    published = publish_artifacts(
+        [
+            (good_artifact, good, validate_artifact(uuid4(), good_artifact, good)),
+            (bad_artifact, bad, [failed]),
+        ],
+        intent,
+    )
+    assert len(published) == 1
+    assert published[0].is_file()
+    assert published[0].read_bytes() == b"good-bytes"
+    with pytest.raises(ValidationFailed):
+        publish_artifacts([(bad_artifact, bad, [failed])], intent)
+
+
+def test_path_is_under_rejects_dotdot_sibling(tmp_path: Path) -> None:
+    movies = tmp_path / "Movies"
+    movies.mkdir()
+    backup = tmp_path / "Movies-backup"
+    backup.mkdir()
+    (backup / "clip.mp4").write_bytes(b"x")
+    sneaky = movies / ".." / "Movies-backup" / "clip.mp4"
+    assert not path_is_under(sneaky, movies)
+    assert path_is_under(movies / "inside" / "clip.mp4", movies)
+
+
+def test_readme_lists_every_cli_command() -> None:
+    from typer.testing import CliRunner
+
+    from webmedia_dl.cli import app
+
+    command_line = re.compile(r"^│ ([a-z][a-z0-9-]+)  ", re.MULTILINE)
+    runner = CliRunner()
+    readme = (repo_root() / "README.md").read_text(encoding="utf-8")
+    root_help = runner.invoke(app, ["--help"])
+    assert root_help.exit_code == 0
+    names = command_line.findall(root_help.stdout)
+    assert "submit" in names
+    assert "pair" in names
+    for name in names:
+        assert name in readme, name
+    pair_help = runner.invoke(app, ["pair", "--help"])
+    assert pair_help.exit_code == 0
+    for name in command_line.findall(pair_help.stdout):
+        assert name in readme, f"pair {name}"

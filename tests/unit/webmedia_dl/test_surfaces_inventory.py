@@ -40,10 +40,16 @@ CREDENTIAL_ADAPTERS = [
     "apps/WebMediaDLMac/Sources/WebMediaDLMac/WebMediaDLMacShareView.swift",
     "apps/WebMediaDLiOS/Sources/WebMediaDLiOS/WebMediaDLiOSShareView.swift",
     "apps/WebMediaDLiPadOS/Sources/WebMediaDLiPadOS/WebMediaDLiPadOSShareView.swift",
+    "apps/WebMediaDLVision/Sources/WebMediaDLVision/WebMediaDLVisionShareView.swift",
     "apps/WebMediaDLMac/ShareExtension/WebMediaDLMacShareExtension.swift",
     "apps/WebMediaDLiOS/ShareExtension/WebMediaDLiOSShareExtension.swift",
     "apps/WebMediaDLiPadOS/ShareExtension/WebMediaDLiPadOSShareExtension.swift",
     "apps/WebMediaDLVision/ShareExtension/WebMediaDLVisionShareExtension.swift",
+    "apps/WebMediaDLiOS/Sources/WebMediaDLiOS/WebMediaDLiOSRootView.swift",
+    "apps/WebMediaDLiPadOS/Sources/WebMediaDLiPadOS/WebMediaDLiPadOSRootView.swift",
+    "apps/WebMediaDLVision/Sources/WebMediaDLVision/WebMediaDLVisionRootView.swift",
+    "apps/WebMediaDLWatch/Sources/WebMediaDLWatch/WebMediaDLWatchSubmitURLIntent.swift",
+    "apps/WebMediaDLTV/Sources/WebMediaDLTV/WebMediaDLTVSubmitURLIntent.swift",
 ]
 
 
@@ -85,8 +91,11 @@ def test_apple_app_shells_exist() -> None:
         "apps/WebMediaDLVision/ShareExtension/WebMediaDLVisionShareExtension.swift",
         "apps/WebMediaDLWatch/Sources/WebMediaDLWatch/WebMediaDLWatchRootView.swift",
         "apps/WebMediaDLWatch/Sources/WebMediaDLWatch/WebMediaDLWatchApp.swift",
+        "apps/WebMediaDLWatch/Resources/Info.plist",
         "apps/WebMediaDLTV/Sources/WebMediaDLTV/WebMediaDLTVRootView.swift",
         "apps/WebMediaDLTV/Sources/WebMediaDLTV/WebMediaDLTVApp.swift",
+        "apps/WebMediaDLTV/Resources/Info.plist",
+        "apps/WebMediaDLVision/Sources/WebMediaDLVision/WebMediaDLVisionShareView.swift",
         "apps/WebMediaDLCore/Sources/WebMediaDLCore/LoopbackClient.swift",
         "apps/WebMediaDLCore/Sources/WebMediaDLCore/Destinations.swift",
         "apps/WebMediaDLCore/Sources/WebMediaDLCore/ShareIntake.swift",
@@ -251,7 +260,7 @@ def test_share_extension_principals_match_plists() -> None:
         assert "beginRequest(with context: NSExtensionContext)" in source
         assert 'intakeKind: "share_sheet"' in source
         assert 'intakeKind: "drop"' in source
-        assert "NSItemProvider" in source or "attachments" in source
+        assert "NSItemProvider" in source or "attachments" in source or "loadSharedValues" in source
     for package in (
         "apps/WebMediaDLMac/Package.swift",
         "apps/WebMediaDLiOS/Package.swift",
@@ -308,12 +317,26 @@ def test_companion_transport_and_typed_history() -> None:
     assert "encodeNil(forKey: .nativeCommand)" in continuity
     assert "protocol WebMediaDLCompanionTransport" in continuity
     assert "struct WebMediaDLQueuedCompanionTransport" in continuity
+    assert "class WebMediaDLWatchConnectivityTransport" in continuity
+    assert "WCSession" in continuity
+    assert "transferUserInfo" in continuity
     assert "struct WebMediaDLMacCompanionForwarder" in continuity
     assert "func send(_ message: WebMediaDLCompanionMessage)" in continuity
     assert "func forward(" in continuity
     assert "receiveWatchConnectivityUserInfo" in continuity
+    assert "var surface:" in continuity
     watch = (root / ROOT_VIEWS["watchos"]).read_text(encoding="utf-8")
     tv = (root / ROOT_VIEWS["tvos"]).read_text(encoding="utf-8")
+    assert "WebMediaDLWatchConnectivityTransport" in watch
+    assert "WebMediaDLWatchConnectivityTransport" in tv
+    assert 'Data("[]".utf8)' not in watch
+    assert 'Data("[]".utf8)' not in tv
+    assert "decodeCompanionHistory" in watch
+    assert "decodeCompanionHistory" in tv
+    assert "surface: .watchos" in watch
+    assert "surface: .tvos" in tv
+    assert "WebMediaDLClipboardIntake" in tv
+    assert "UIPasteboard" in tv
     assert "transport.send" in watch
     assert "transport.send" in tv
     assert "relay.enqueue" not in watch
@@ -326,15 +349,108 @@ def test_companion_transport_and_typed_history() -> None:
         encoding="utf-8"
     )
     assert "func historyEntries() async throws -> [WebMediaDLHistoryEntry]" in loopback
-    assert "JSONDecoder()" in loopback
+    assert "func pairRequest(" in loopback
+    assert "WebMediaDLPairingChallenge" in loopback or "startPairing" in loopback
+    assert "UserDefaults(suiteName:" in loopback
+    assert "group.local.webmedia-dl" in loopback
+    assert "resolvingBookmarkData" in (
+        root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/Destinations.swift"
+    ).read_text(encoding="utf-8")
+    assert "standardizedPath" in (
+        root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/Destinations.swift"
+    ).read_text(encoding="utf-8")
+    assert "CLOSED:" in (
+        root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/Destinations.swift"
+    ).read_text(encoding="utf-8")
+    assert "withCheckedContinuation" in (
+        root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/Destinations.swift"
+    ).read_text(encoding="utf-8")
+    mac = (root / ROOT_VIEWS["macos"]).read_text(encoding="utf-8")
+    assert "sealedCompanionRequest(" in mac
+    for rel in ("ios", "ipados", "visionos"):
+        text = (root / ROOT_VIEWS[rel]).read_text(encoding="utf-8")
+        assert "Start pairing" in text
+        assert "startPairing" in text
+        assert "clip.intakeKind" in text
+    watch_plist = plistlib.loads((root / "apps/WebMediaDLWatch/Resources/Info.plist").read_bytes())
+    assert watch_plist["CFBundleIdentifier"] == "local.webmedia-dl.watch"
+    assert watch_plist["WKApplication"] is True
+    tv_plist = plistlib.loads((root / "apps/WebMediaDLTV/Resources/Info.plist").read_bytes())
+    assert tv_plist["CFBundleIdentifier"] == "local.webmedia-dl.tv"
+    for rel in (
+        "apps/WebMediaDLMac/Resources/WebMediaDL.entitlements",
+        "apps/WebMediaDLiOS/Resources/WebMediaDL.entitlements",
+        "apps/WebMediaDLiPadOS/Resources/WebMediaDL.entitlements",
+        "apps/WebMediaDLVision/Resources/WebMediaDL.entitlements",
+        "apps/WebMediaDLWatch/Resources/WebMediaDL.entitlements",
+        "apps/WebMediaDLTV/Resources/WebMediaDL.entitlements",
+    ):
+        payload = plistlib.loads((root / rel).read_bytes())
+        assert "group.local.webmedia-dl" in payload["com.apple.security.application-groups"]
+    for rel in (
+        "apps/WebMediaDLMac/Resources/Info.plist",
+        "apps/WebMediaDLiOS/Resources/Info.plist",
+        "apps/WebMediaDLiPadOS/Resources/Info.plist",
+        "apps/WebMediaDLVision/Resources/Info.plist",
+        "apps/WebMediaDLWatch/Resources/Info.plist",
+        "apps/WebMediaDLTV/Resources/Info.plist",
+    ):
+        info = plistlib.loads((root / rel).read_bytes())
+        assert "NSPhotoLibraryAddUsageDescription" not in info
+        assert "NSPhotoLibraryUsageDescription" not in info
+    vision_share = (
+        root / "apps/WebMediaDLVision/Sources/WebMediaDLVision/WebMediaDLVisionShareView.swift"
+    ).read_text(encoding="utf-8")
+    assert 'accessibilityLabel("Shared locator")' in vision_share
+    assert "WebMediaDLWorkerCredentials.loadClient()" in vision_share
+    for rel in (
+        "apps/WebMediaDLMac/Sources/WebMediaDLMac/WebMediaDLMacSubmitURLIntent.swift",
+        "apps/WebMediaDLiOS/Sources/WebMediaDLiOS/WebMediaDLSubmitURLIntent.swift",
+        "apps/WebMediaDLiPadOS/Sources/WebMediaDLiPadOS/WebMediaDLiPadOSSubmitURLIntent.swift",
+        "apps/WebMediaDLVision/Sources/WebMediaDLVision/WebMediaDLVisionSubmitURLIntent.swift",
+        "apps/WebMediaDLWatch/Sources/WebMediaDLWatch/WebMediaDLWatchSubmitURLIntent.swift",
+        "apps/WebMediaDLTV/Sources/WebMediaDLTV/WebMediaDLTVSubmitURLIntent.swift",
+    ):
+        text = (root / rel).read_text(encoding="utf-8")
+        assert 'intakeKind: "speak"' in text
+        assert "AppShortcutsProvider" in text
+    for rel in SHARE_PRINCIPALS:
+        sources = list((root / rel).glob("*ShareExtension.swift"))
+        assert sources, rel
+        text = sources[0].read_text(encoding="utf-8")
+        assert "WebMediaDLShareExtensionLoader.loadSharedValues" in text
+        assert "beginRequest(with context: NSExtensionContext)" in text
+        assert 'URLQueryItem(name: "url"' not in text
+        assert "form-urlencoded" not in text
     models = (root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/Models.swift").read_text(
         encoding="utf-8"
     )
+    assert "JSONDecoder()" in loopback
     assert "JSONDecoder()" in models
     for rel in ROOT_VIEWS.values():
         text = (root / rel).read_text(encoding="utf-8")
         assert "WebMediaDLHistoryEntry" in text
-        assert "JSONDecoder()" in text
+        assert "JSONDecoder()" in text or "decodeCompanionHistory" in text
+
+
+def test_runtime_assets_match_authored_trees() -> None:
+    root = repo_root()
+    runtime = root / "src" / "webmedia_dl" / "runtime"
+    authored = {
+        "policy-profiles.json": root / "resources" / "policy-profiles.json",
+        "export-presets.json": root / "resources" / "export-presets.json",
+        "platform-capability-matrix.json": root / "resources" / "platform-capability-matrix.json",
+        "imagemagick-runtime/policy.xml": root / "resources" / "imagemagick-runtime" / "policy.xml",
+    }
+    for rel, source in authored.items():
+        packaged = runtime / rel
+        assert packaged.read_bytes() == source.read_bytes(), rel
+    for browser in ("chromium", "chrome", "brave", "edge", "firefox", "safari"):
+        for name in ("capture.js", "popup.html", "popup.js", "manifest.json"):
+            left = root / "extensions" / browser / name
+            right = runtime / "extensions" / browser / name
+            if left.is_file() and right.is_file():
+                assert left.read_bytes() == right.read_bytes(), f"{browser}/{name}"
 
 
 def test_platform_app_entry_points() -> None:

@@ -4,26 +4,8 @@ import WebMediaDLCore
 @objc(WebMediaDLVisionShareExtensionPrincipal)
 public final class WebMediaDLVisionShareExtensionPrincipal: NSObject, NSExtensionRequestHandling {
     public func beginRequest(with context: NSExtensionContext) {
-        var values: [String] = []
-        for item in context.inputItems {
-            guard let extensionItem = item as? NSExtensionItem else { continue }
-            for provider in extensionItem.attachments ?? [] {
-                for identifier in [
-                    WebMediaDLShareItemExtractor.urlTypeIdentifier,
-                    WebMediaDLShareItemExtractor.fileURLTypeIdentifier,
-                    WebMediaDLShareItemExtractor.textTypeIdentifier,
-                ] where provider.hasItemConformingToTypeIdentifier(identifier) {
-                    provider.loadItem(forTypeIdentifier: identifier, options: nil) { loaded, _ in
-                        if let url = loaded as? URL {
-                            values.append(url.absoluteString)
-                        } else if let text = loaded as? String {
-                            values.append(text)
-                        }
-                    }
-                }
-            }
-        }
         Task {
+            let values = await WebMediaDLShareExtensionLoader.loadSharedValues(from: context)
             _ = try? await WebMediaDLVisionShareExtension.submitShared(values)
             context.completeRequest(returningItems: [], completionHandler: nil)
         }

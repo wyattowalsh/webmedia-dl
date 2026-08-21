@@ -47,14 +47,24 @@ def companion_message(
     *,
     locator: str | None = None,
     job_id: UUID | str | None = None,
+    surface: str | Surface | None = None,
 ) -> dict[str, Any]:
     if kind not in ALLOWED_KINDS:
         msg = f"Companion kind {kind!r} is not allowlisted."
         raise ProviderPolicyError(msg)
+    resolved = Surface.WATCHOS
+    if isinstance(surface, Surface):
+        resolved = surface
+    elif isinstance(surface, str):
+        try:
+            resolved = Surface(surface)
+        except ValueError:
+            resolved = Surface.WATCHOS
     payload: dict[str, Any] = {
         "kind": kind,
         "nativeCommand": None,
         "subprocessWorker": False,
+        "surface": resolved.value,
     }
     if locator:
         payload["locator"] = locator
@@ -90,15 +100,12 @@ def validate_companion_message(payload: dict[str, Any]) -> dict[str, Any]:
     if kind in {"cancel", "pause_job", "resume_job"} and not job_id:
         msg = f"Companion {kind} requires a job_id."
         raise ProviderPolicyError(msg)
-    surface_raw = payload.get("surface")
-    surface = Surface.WATCHOS
-    if isinstance(surface_raw, str):
-        try:
-            surface = Surface(surface_raw)
-        except ValueError:
-            surface = Surface.WATCHOS
-    return companion_message(kind, locator=locator, job_id=job_id) | {
-        "surface": surface.value,
+    return companion_message(
+        kind,
+        locator=locator,
+        job_id=job_id,
+        surface=payload.get("surface"),
+    ) | {
         "job_id": str(job_id) if job_id else None,
         "locator": locator,
     }
