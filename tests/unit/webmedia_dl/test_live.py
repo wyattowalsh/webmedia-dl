@@ -5,8 +5,8 @@ import pytest
 from webmedia_dl.domain.enums import MediaKind
 from webmedia_dl.errors import DiscoveryError, DrmRefused, PauseRequested
 from webmedia_dl.live import (
-    _select_dash_group,
     ManifestPart,
+    _select_dash_group,
     inspect_manifest,
     manifest_is_live,
     record_clear_stream,

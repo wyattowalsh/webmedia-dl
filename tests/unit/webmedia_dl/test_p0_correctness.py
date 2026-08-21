@@ -369,9 +369,7 @@ def test_runtime_file_falls_back_to_checkout_resources(
     assert missing == tmp_path / "absent" / "does-not-exist.json"
 
 
-def test_worker_data_dir_uses_platformdirs(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_worker_data_dir_uses_platformdirs(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     from webmedia_dl import paths as paths_mod
 
     monkeypatch.setattr(paths_mod, "user_data_dir", lambda *_args, **_kwargs: str(tmp_path / "xdg"))
