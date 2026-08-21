@@ -2,8 +2,8 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 239 tests |
-| `uv run pytest --cov` | PASS | 87.63% (`fail_under` 85) |
+| `uv run pytest` | PASS | 244 tests |
+| `uv run pytest --cov` | PASS | 88.02% (`fail_under` 85) |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
 | `uv run ty check` | PASS | |
@@ -24,8 +24,7 @@
 | Live aggregate bound + kinds | PASS | cumulative byte budget; separate VIDEO/AUDIO artifacts; SegmentBase ranges; multi-period occurrences |
 | Container gate | PASS | ffprobe evidence required; filename suffix cannot PASS; `BLOCKED`/empty evidence cannot publish |
 | Wheel package-extensions | PASS | isolated wheel install writes six extension archives from packaged runtime trees |
-| Default telemetry | PASS | false in doctor and profiles |
-| Envelope replay | PASS | consumed nonce cannot be opened twice |
+| Envelope replay | PASS | consumed nonce cannot be opened twice; malformed envelopes and tampered MAC fail closed; non-hex session keys still round-trip |
 | Companion native command | PASS | `/v1/companion` rejects `nativeCommand` and provider argv |
 | Cooperative per-job pause checkpoint | PASS | mixed-media pause keeps registered sources; resume acquires remaining kinds |
 | Pause/resume last job | PASS | CLI `--job`, `/v1/jobs/{id}/pause`, companion `pause_job`/`resume_job`, Apple shells |

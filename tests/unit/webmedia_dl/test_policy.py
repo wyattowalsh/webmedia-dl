@@ -94,3 +94,27 @@ def test_builtin_profile_ids_must_match_resource_file(monkeypatch) -> None:
             profiles_mod.builtin_profiles()
     finally:
         profiles_mod.builtin_profiles.cache_clear()
+
+
+def test_subprocess_flag_and_worker_capability_list() -> None:
+    from webmedia_dl.domain.models import Worker
+
+    profile = get_profile("personal-full")
+    watch = Worker(
+        worker_id="watch-misconfigured",
+        platform=Surface.WATCHOS,
+        profile_id=profile.profile_id,
+        capabilities=list(profile.allowed_capabilities),
+        subprocess_capable=False,
+    )
+    with pytest.raises(CapabilityDenied, match="not a subprocess worker"):
+        assert_worker_capability(watch, profile, "acquire.ytdlp")
+    thin = Worker(
+        worker_id="thin",
+        platform=Surface.MACOS,
+        profile_id=profile.profile_id,
+        capabilities=["intake.normalize"],
+        subprocess_capable=True,
+    )
+    with pytest.raises(CapabilityDenied, match="cannot execute capability"):
+        assert_worker_capability(thin, profile, "acquire.http")
