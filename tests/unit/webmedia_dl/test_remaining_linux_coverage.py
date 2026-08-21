@@ -7,6 +7,8 @@ import zipfile
 from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
+from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
@@ -20,11 +22,19 @@ from webmedia_dl.domain.enums import (
     EventType,
     IntakeKind,
     JobState,
+    LossClass,
     MediaKind,
     Surface,
 )
-from webmedia_dl.domain.models import MediaSource
+from webmedia_dl.domain.models import (
+    AcquisitionStrategy,
+    Artifact,
+    ExportIntent,
+    MediaSource,
+    Operation,
+)
 from webmedia_dl.errors import CookiePolicyError, DrmRefused, ProviderPolicyError
+from webmedia_dl.export import plan_export
 from webmedia_dl.live import (
     ManifestPart,
     _expand_dash_template,
@@ -540,3 +550,95 @@ def test_resume_exporting_restores_produced_ids(
     result = pipeline.run_next()
     assert result is not None
     assert result.state is JobState.COMPLETED
+
+
+def test_segment_timeline_without_t_keeps_running_clock() -> None:
+    text = """
+    <MPD><Period>
+      <SegmentTemplate media="s$Number$-t$Time$.m4s" startNumber="1">
+        <SegmentTimeline>
+          <S d="1000" r="1"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+    </Period></MPD>
+    """
+    urls = recordable_segment_urls(text, "https://cdn.example.com/")
+    assert urls == [
+        "https://cdn.example.com/s1-t0.m4s",
+        "https://cdn.example.com/s2-t1000.m4s",
+    ]
+
+
+def test_forbidden_loss_class_cannot_be_planned(monkeypatch: pytest.MonkeyPatch) -> None:
+    def forbidden_operation(**kwargs: Any) -> Operation:
+        kwargs["loss_class"] = LossClass.FORBIDDEN
+        return Operation(**kwargs)
+
+    monkeypatch.setattr("webmedia_dl.export.Operation", forbidden_operation)
+    artifact = Artifact(
+        artifact_id="sha256:ab",
+        role=ArtifactRole.SOURCE,
+        sha256="ab",
+        byte_size=1,
+        media_kind=MediaKind.IMAGE,
+        storage_relpath="a.png",
+        container="png",
+    )
+    with pytest.raises(ProviderPolicyError, match="Forbidden loss class"):
+        plan_export(uuid4(), artifact, ExportIntent())
+
+
+def test_acquisition_strategy_validator_rejects_extra_args() -> None:
+    with pytest.raises(ValueError, match="arbitrary user arguments"):
+        AcquisitionStrategy.forbid_user_argv(["-f"])
+    assert AcquisitionStrategy.forbid_user_argv([]) == []
+
+
+def test_tracked_run_finally_skips_unknown_proc(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runtime = ProviderRuntime()
+    proc = MagicMock()
+    proc.returncode = 0
+
+    def communicate(timeout: float | None = None) -> tuple[bytes, bytes]:
+        runtime._procs.clear()
+        return b"", b""
+
+    proc.communicate.side_effect = communicate
+    monkeypatch.setattr("webmedia_dl.providers.subprocess.Popen", lambda *_a, **_k: proc)
+    code, _out, _err = runtime._tracked_run(["true"], tmp_path)
+    assert code == 0
+
+
+def test_get_job_history_skip_and_empty_run_next(
+    tmp_path: Path, png_bytes: bytes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def history(self: Pipeline) -> list[dict[str, Any]]:
+        entries: list[dict[str, Any]] = [
+            {"job_id": "00000000-0000-0000-0000-000000000000", "artifact_ids": ["skip"]},
+        ]
+        for job in self.history():
+            entries.append({"job_id": str(job.job_id)})
+        return entries
+
+    monkeypatch.setattr(Pipeline, "history_entries", history)
+    monkeypatch.setattr(Pipeline, "run_next", lambda self: None)
+    app_api = create_app(tmp_path)
+    token = load_or_create_token(tmp_path)
+    client = TestClient(app_api)
+    headers = {"Authorization": f"Bearer {token}"}
+    media = tmp_path / "hero.png"
+    media.write_bytes(png_bytes)
+    created = client.post(
+        "/v1/jobs",
+        headers=headers,
+        json={"locator": str(media), "wait": False},
+    )
+    job_id = created.json()["job"]["job_id"]
+    detail = client.get(f"/v1/jobs/{job_id}", headers=headers)
+    assert detail.status_code == 200
+    assert detail.json()["artifact_ids"] == []
+    empty = client.post("/v1/queue/run-next", headers=headers)
+    assert empty.status_code == 200
+    assert empty.json() == {"job": None, "events": []}
