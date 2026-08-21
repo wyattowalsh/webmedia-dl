@@ -46,7 +46,7 @@ Original pack SHALL text remains unverified until the 2026-08-18 ZIP is re-attac
 | export-planning | `openspec/.../export-planning/spec.md` | `test_coverage_gaps.py` |
 | export-validation-publication | `openspec/.../export-validation-publication/spec.md` | `test_validation_publish.py` |
 | intake-routing | `openspec/.../intake-routing/spec.md` | `test_intake.py` |
-| live-manifest-recording | `openspec/.../live-manifest-recording/spec.md` | `test_live.py` |
+| live-manifest-recording | `openspec/.../live-manifest-recording/spec.md` | `test_live.py`, `test_p2_contracts.py` |
 | media-processing | `openspec/.../media-processing/spec.md` | `test_processing.py` |
 | migration-compatibility | `openspec/.../migration-compatibility/spec.md` | `test_compat_transport.py` |
 | packaging-distribution-updates | `openspec/.../packaging-distribution-updates/spec.md` | `test_names.py`, `validate_bundle.py` |

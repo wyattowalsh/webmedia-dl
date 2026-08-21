@@ -2,7 +2,7 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 184 tests |
+| `uv run pytest` | PASS | 192 tests |
 | `uv run pytest --cov` | PASS | 87% (`fail_under` 85) |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
@@ -28,8 +28,12 @@
 | Browser one-tap token | PASS | extension storage persists the worker token after first paste |
 | History schema | PASS | `HistoryEntry` JSON schema + Swift `WebMediaDLHistoryEntry` |
 | DASH AdaptationSet + live poll | PASS | self-closing Representation inherits AdaptationSet BaseURL/template; dynamic MPD/HLS polls new segments |
+| DASH/HLS rendition selection | PASS | highest-bandwidth video Representation; audio-only picks highest audio; HLS master follows highest BANDWIDTH |
 | Typed event payloads | PASS | `EventRecord` rejects stdout/stderr/argv/nativeCommand/cookie paths |
 | Files/clipboard/PhotoKit contracts | PASS | security-scoped path boundary; clipboard URL is never `local_path`; PhotoKit write stays closed |
+| Share sheet extractors | PASS | HTTPS locators stay URL intake; `file://` paths use drop intake; Mac/iOS/iPadOS share adapters |
+| Companion Mac relay | PASS | watchOS/tvOS enqueue for Mac relay; `nativeCommand` null; not subprocess workers |
+| HTTP stream stop | PASS | `bound_fetch(..., should_stop=)` aborts mid-stream; cancel discards completed HTTP fetch; pause commits |
 | Wheel install | PASS | isolated `uv` venv import of packaged `runtime/export-presets.json` and `webmedia-dl --help` |
 | Original planning-pack ZIP byte compare | BLOCKED | zip not in this workspace; 156 overlay files reconstructed |
 
