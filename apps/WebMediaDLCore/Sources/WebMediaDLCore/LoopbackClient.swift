@@ -48,7 +48,10 @@ public struct WebMediaDLLoopbackClient: Sendable {
         sessionKey: String? = nil,
         evidence: [[String: String]] = [],
         wait: Bool = false,
-        intakeKind: String? = nil
+        intakeKind: String? = nil,
+        destinationKind: String? = nil,
+        destinationPath: String? = nil,
+        approvedRoots: [String] = []
     ) -> URLRequest {
         var request = authorized(baseURL.appendingPathComponent("v1/jobs"), method: "POST")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -67,6 +70,19 @@ public struct WebMediaDLLoopbackClient: Sendable {
         }
         if let intakeKind {
             body["intake_kind"] = intakeKind
+        }
+        if let destinationKind, !destinationKind.isEmpty {
+            var intent: [String: Any] = ["destination_kind": destinationKind]
+            if let destinationPath {
+                intent["destination_path"] = destinationPath
+            }
+            if !approvedRoots.isEmpty {
+                intent["approved_roots"] = approvedRoots
+            }
+            if destinationKind == "files_app", let destinationPath {
+                intent["security_scoped_path"] = destinationPath
+            }
+            body["intent"] = intent
         }
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
         return request
@@ -152,7 +168,10 @@ public struct WebMediaDLLoopbackClient: Sendable {
         surface: WebMediaDLSurface,
         pairingId: UUID? = nil,
         sessionKey: String? = nil,
-        intakeKind: String? = nil
+        intakeKind: String? = nil,
+        destinationKind: String? = nil,
+        destinationPath: String? = nil,
+        approvedRoots: [String] = []
     ) async throws -> String {
         try await send(
             submitRequest(
@@ -160,7 +179,10 @@ public struct WebMediaDLLoopbackClient: Sendable {
                 surface: surface,
                 pairingId: pairingId ?? self.pairingId,
                 sessionKey: sessionKey ?? self.sessionKey,
-                intakeKind: intakeKind
+                intakeKind: intakeKind,
+                destinationKind: destinationKind,
+                destinationPath: destinationPath,
+                approvedRoots: approvedRoots
             )
         )
     }

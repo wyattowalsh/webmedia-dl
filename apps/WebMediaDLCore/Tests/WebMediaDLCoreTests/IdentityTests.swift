@@ -48,5 +48,28 @@ final class IdentityTests: XCTestCase {
         XCTAssertFalse(policy.allows("/Users/me/Movies-backup/clip.mp4"))
         let share = WebMediaDLShareIntake(locator: "https://example.com/a.mp4")
         XCTAssertFalse(share.canPublishToPhotos)
+        XCTAssertFalse(share.canPublishToFiles)
+        let bookmark = WebMediaDLSecurityScopedBookmark(path: "/Users/me/Movies")
+        XCTAssertTrue(bookmark.allows("/Users/me/Movies/clip.mp4"))
+        XCTAssertFalse(bookmark.allows("/Users/me/Movies-backup/clip.mp4"))
+        XCTAssertFalse(WebMediaDLPhotoKitDestination(approvedRoot: "/Users/me/Movies").canPublish)
+        let clip = WebMediaDLClipboardIntake(text: "see https://cdn.example.com/a.mp4 please")
+        XCTAssertEqual(clip.locator, "https://cdn.example.com/a.mp4")
+        XCTAssertFalse(clip.usesURLAsPath)
+        XCTAssertEqual(clip.intakeKind, "paste")
+        let event = WebMediaDLEvent(jobId: UUID(), type: "job.completed", sequence: 1)
+        XCTAssertFalse(event.exposesProviderConsole)
+        let files = WebMediaDLFilesDestination(bookmark: bookmark)
+        XCTAssertTrue(files.allows("/Users/me/Movies/out.mp4"))
+        let request = WebMediaDLLoopbackClient().submitRequest(
+            locator: "https://example.com/a.mp4",
+            surface: .macos,
+            destinationKind: "files_app",
+            destinationPath: "/Users/me/Movies",
+            approvedRoots: ["/Users/me/Movies"]
+        )
+        let body = String(data: request.httpBody ?? Data(), encoding: .utf8) ?? ""
+        XCTAssertTrue(body.contains("files_app"))
+        XCTAssertTrue(body.contains("security_scoped_path"))
     }
 }

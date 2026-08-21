@@ -63,6 +63,18 @@
       },
       "title": "Approved Roots",
       "type": "array"
+    },
+    "security_scoped_path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Security Scoped Path"
     }
   },
   "title": "ExportIntent",

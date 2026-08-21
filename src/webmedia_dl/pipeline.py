@@ -42,7 +42,7 @@ from webmedia_dl.errors import (
 from webmedia_dl.export import plan_export
 from webmedia_dl.fetch import bound_fetch
 from webmedia_dl.intake import normalize_source
-from webmedia_dl.live import record_clear_stream
+from webmedia_dl.live import manifest_is_live, record_clear_stream
 from webmedia_dl.pairing import PairingStore
 from webmedia_dl.paths import repo_root, staging_dir, worker_data_dir
 from webmedia_dl.policy.profiles import (
@@ -686,13 +686,15 @@ class Pipeline:
         if status >= 400:
             msg = f"Live playlist fetch failed with HTTP {status}."
             raise ProviderPolicyError(msg)
+        text = data.decode("utf-8", errors="replace")
         output = staging / "live.bin"
         record_clear_stream(
-            data.decode("utf-8", errors="replace"),
+            text,
             url,
             output,
             lambda item: self._fetch_bytes(item, self.client_profile, html=False),
             should_stop=lambda: self._check_control(job.job_id),
+            live_polls=8 if manifest_is_live(text) else 1,
         )
         return self.store.register(
             output,

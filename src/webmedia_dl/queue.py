@@ -12,7 +12,7 @@ from sqlalchemy.pool import NullPool
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 
 from webmedia_dl.domain.enums import EventType, JobState
-from webmedia_dl.domain.models import BrowserEvidence, EventRecord, Job
+from webmedia_dl.domain.models import BrowserEvidence, EventRecord, Job, sanitize_event_payload
 from webmedia_dl.errors import CancelledError, PauseRequested
 
 QUEUE_EVENT_JOB_ID = UUID(int=0)
@@ -218,7 +218,7 @@ class QueueStore:
                 job_id=job_id,
                 type=event_type,
                 sequence=sequence,
-                payload=payload or {},
+                payload=sanitize_event_payload(payload),
             )
             session.add(
                 EventRow(

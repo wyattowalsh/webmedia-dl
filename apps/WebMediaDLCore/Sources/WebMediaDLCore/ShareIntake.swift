@@ -10,7 +10,18 @@ public struct WebMediaDLShareIntake: Sendable {
         self.approvedRoot = approvedRoot
     }
 
+    public var filesDestination: WebMediaDLFilesDestination? {
+        guard let approvedRoot, !approvedRoot.isEmpty else { return nil }
+        return WebMediaDLFilesDestination(
+            bookmark: WebMediaDLSecurityScopedBookmark(path: approvedRoot)
+        )
+    }
+
+    public var canPublishToFiles: Bool {
+        filesDestination != nil
+    }
+
     public var canPublishToPhotos: Bool {
-        approvedRoot != nil && !(approvedRoot?.isEmpty ?? true)
+        WebMediaDLPhotoKitDestination(approvedRoot: approvedRoot).canPublish
     }
 }

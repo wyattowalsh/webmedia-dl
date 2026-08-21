@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Literal
 
 import httpx
@@ -32,6 +33,7 @@ def bound_fetch(
     on_overflow: OverflowMode = "error",
     client: httpx.Client | None = None,
     timeout_s: float = 30.0,
+    should_stop: Callable[[], None] | None = None,
 ) -> tuple[int, str, bytes]:
     """Return ``(status, content_type, body)`` under profile network and size bounds."""
     authorize_url(url, profile)
@@ -46,9 +48,31 @@ def bound_fetch(
         },
     )
     try:
-        response = _send(http, url)
-        content_type = response.headers.get("content-type", "")
-        body = response.content
+        if should_stop is None:
+            response = _send(http, url)
+            content_type = response.headers.get("content-type", "")
+            body = response.content
+        else:
+            should_stop()
+            with http.stream("GET", url) as response:
+                content_type = response.headers.get("content-type", "")
+                chunks: list[bytes] = []
+                total = 0
+                for chunk in response.iter_bytes():
+                    should_stop()
+                    total += len(chunk)
+                    if total > limit:
+                        if on_overflow == "truncate":
+                            remain = limit - (total - len(chunk))
+                            if remain > 0:
+                                chunks.append(chunk[:remain])
+                            body = b"".join(chunks)
+                            return response.status_code, content_type, body
+                        msg = f"Response from {url!r} exceeds the {limit} byte bound."
+                        raise NetworkPolicyError(msg)
+                    chunks.append(chunk)
+                body = b"".join(chunks)
+            return response.status_code, content_type, body
         if len(body) > limit:
             if on_overflow == "truncate":
                 body = body[:limit]

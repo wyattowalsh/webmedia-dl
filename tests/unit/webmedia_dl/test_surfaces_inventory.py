@@ -34,6 +34,7 @@ def test_apple_app_shells_exist() -> None:
         "apps/WebMediaDLWatch/Sources/WebMediaDLWatch/WebMediaDLWatchRootView.swift",
         "apps/WebMediaDLTV/Sources/WebMediaDLTV/WebMediaDLTVRootView.swift",
         "apps/WebMediaDLCore/Sources/WebMediaDLCore/LoopbackClient.swift",
+        "apps/WebMediaDLCore/Sources/WebMediaDLCore/Destinations.swift",
         "apps/WebMediaDLCore/Sources/WebMediaDLCore/ShareIntake.swift",
         "apps/WebMediaDLCore/Sources/WebMediaDLCore/ContinuityBridge.swift",
         "extensions/safari/SafariWebExtensionHandler.swift",
@@ -54,6 +55,8 @@ def test_apple_app_shells_exist() -> None:
             or "NSAppTransportSecurity" in text
             or "pauseQueueRequest" in text
             or "pairing" in text.lower()
+            or "SecurityScopedBookmark" in text
+            or "canPublish" in text
         )
     watch = (
         root / "apps/WebMediaDLWatch/Sources/WebMediaDLWatch/WebMediaDLWatchRootView.swift"
@@ -118,6 +121,8 @@ def test_apple_app_shells_exist() -> None:
     assert "Cancel last job" in mac
     assert "Pause last job" in mac
     assert "Resume last job" in mac
+    assert "Choose Files destination" in mac
+    assert "WebMediaDLClipboardIntake" in mac
     assert "Paste from clipboard" in mac
     assert "Paste from clipboard" in ipad
     assert "Paste from clipboard" in vision
@@ -137,6 +142,12 @@ def test_apple_app_shells_exist() -> None:
     assert "func jobId(from" in (
         root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/LoopbackClient.swift"
     ).read_text(encoding="utf-8")
+    destinations = (
+        root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/Destinations.swift"
+    ).read_text(encoding="utf-8")
+    assert "WebMediaDLSecurityScopedBookmark" in destinations
+    assert "libraryWriteAvailable" in destinations
+    assert "exposesProviderConsole" in destinations
 
 
 def test_browser_extension_trees() -> None:

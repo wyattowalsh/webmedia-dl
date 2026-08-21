@@ -38,7 +38,8 @@ public struct WebMediaDLiPadOSRootView: View {
                     .textFieldStyle(.roundedBorder)
                 Button("Paste from clipboard") {
                     if let text = UIPasteboard.general.string {
-                        locator = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let clip = WebMediaDLClipboardIntake(text: text)
+                        locator = clip.locator ?? text.trimmingCharacters(in: .whitespacesAndNewlines)
                     }
                 }
                 .accessibilityLabel("Paste from clipboard")

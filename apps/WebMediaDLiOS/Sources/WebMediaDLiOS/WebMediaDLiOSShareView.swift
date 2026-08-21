@@ -17,10 +17,14 @@ public struct WebMediaDLiOSShareView: View {
                 .accessibilityLabel("Shared locator")
             Button("Send to paired Mac") {
                 Task {
+                    let files = intake.filesDestination
                     _ = try? await WebMediaDLLoopbackClient().submit(
                         locator: intake.locator,
                         surface: .ios,
-                        intakeKind: "share_sheet"
+                        intakeKind: "share_sheet",
+                        destinationKind: files == nil ? nil : "files_app",
+                        destinationPath: files?.approvedRoot,
+                        approvedRoots: files.map { [$0.approvedRoot] } ?? []
                     )
                 }
             }

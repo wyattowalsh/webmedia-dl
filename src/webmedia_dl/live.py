@@ -35,10 +35,20 @@ _DASH_ATTR = re.compile(r"([A-Za-z_:][\w:.-]*)=(?:\"([^\"]*)\"|'([^']*)')")
 _NUMBER_TOKEN = re.compile(r"\$Number(%[^$]+)?\$")
 _TIME_TOKEN = re.compile(r"\$Time(%[^$]+)?\$")
 _REPRESENTATION = re.compile(
-    r"<Representation\b([^>]*)>(.*?)</Representation>",
+    r"<Representation\b([^>]*)(?:/>|>(.*?)</Representation>)",
     re.I | re.S,
 )
+_ADAPTATION_SET = re.compile(
+    r"<AdaptationSet\b([^>]*)(?:/>|>(.*?)</AdaptationSet>)",
+    re.I | re.S,
+)
+_PERIOD = re.compile(
+    r"<Period\b([^>]*)(?:/>|>(.*?)</Period>)",
+    re.I | re.S,
+)
+_MPD_OPEN = re.compile(r"<MPD\b([^>]*)>", re.I)
 MAX_TIMELINE_SEGMENTS = 64
+MAX_LIVE_POLLS = 8
 
 FetchFn = Callable[[str], tuple[int, str, bytes]]
 StopFn = Callable[[], None]
@@ -277,16 +287,18 @@ def _collect_segments(
     *,
     representation: str | None = None,
     bandwidth: str | None = None,
+    include_templates: bool = True,
 ) -> None:
-    for match in _DASH_TEMPLATE.finditer(text):
-        for url in _template_urls(
-            match.group(1),
-            match.group(2) or "",
-            current,
-            representation=representation,
-            bandwidth=bandwidth,
-        ):
-            add(ManifestPart(url))
+    if include_templates:
+        for match in _DASH_TEMPLATE.finditer(text):
+            for url in _template_urls(
+                match.group(1),
+                match.group(2) or "",
+                current,
+                representation=representation,
+                bandwidth=bandwidth,
+            ):
+                add(ManifestPart(url))
     for match in re.finditer(r"<Initialization\b([^>]*)/?>", text, flags=re.I):
         attrs = _attrs(match.group(1))
         href = attrs.get("sourceurl")
@@ -299,6 +311,8 @@ def _collect_segments(
         if href:
             start, length = _parse_dash_range(attrs.get("mediarange"))
             add(ManifestPart(_join(current, href.strip()), start, length))
+    if not include_templates:
+        return
     for double, single in _DASH_MEDIA.findall(text):
         media = double or single
         resolved = _expand_dash_template(
@@ -316,6 +330,69 @@ def _collect_segments(
         add(ManifestPart(url))
 
 
+def _strip_blocks(text: str, pattern: re.Pattern[str]) -> str:
+    chunks: list[str] = []
+    cursor = 0
+    for match in pattern.finditer(text):
+        chunks.append(text[cursor : match.start()])
+        cursor = match.end()
+    chunks.append(text[cursor:])
+    return "".join(chunks)
+
+
+def _collect_representation(
+    match: re.Match[str],
+    current: str,
+    add,
+    seen_urls: set[str],
+    *,
+    inherited_templates: str = "",
+) -> None:
+    rattrs = _attrs(match.group(1))
+    body = match.group(2) or ""
+    local_base = _collect_baseurls(body, current, add)
+    combined = body if _DASH_TEMPLATE.search(body) else f"{inherited_templates}{body}"
+    _collect_segments(
+        combined,
+        local_base,
+        add,
+        seen_urls,
+        representation=rattrs.get("id"),
+        bandwidth=rattrs.get("bandwidth"),
+    )
+
+
+def _dash_scope(text: str, base: str, add, seen_urls: set[str]) -> None:
+    representations = list(_REPRESENTATION.finditer(text))
+    prefix = text[: representations[0].start()] if representations else text
+    resolve_base = _collect_baseurls(prefix, base, add)
+    inherited = prefix if representations and _DASH_TEMPLATE.search(prefix) else ""
+    for rep in representations:
+        _collect_representation(rep, resolve_base, add, seen_urls, inherited_templates=inherited)
+    remainder = _strip_blocks(text, _REPRESENTATION) if representations else text
+    if representations:
+        resolve_base = _collect_baseurls(text[representations[-1].end() :], resolve_base, add)
+    _collect_segments(
+        remainder,
+        resolve_base,
+        add,
+        seen_urls,
+        include_templates=not representations,
+    )
+
+
+def _dash_adaptation(text: str, base: str, add, seen_urls: set[str]) -> None:
+    without_rep = _strip_blocks(text, _REPRESENTATION)
+    as_base = _collect_baseurls(without_rep, base, add)
+    inherited = without_rep if _DASH_TEMPLATE.search(without_rep) else ""
+    representations = list(_REPRESENTATION.finditer(text))
+    if not representations:
+        _collect_segments(text, as_base, add, seen_urls)
+        return
+    for rep in representations:
+        _collect_representation(rep, as_base, add, seen_urls, inherited_templates=inherited)
+
+
 def _dash_parts(text: str, base: str) -> list[ManifestPart]:
     parts: list[ManifestPart] = []
     seen: set[tuple[str, int | None, int | None]] = set()
@@ -329,33 +406,32 @@ def _dash_parts(text: str, base: str) -> list[ManifestPart]:
         seen_urls.add(part.url)
         parts.append(part)
 
-    representations = list(_REPRESENTATION.finditer(text))
-    prefix = text[: representations[0].start()] if representations else text
-    resolve_base = _collect_baseurls(prefix, base, add)
-    for rep in representations:
-        rattrs = _attrs(rep.group(1))
-        body = rep.group(2) or ""
-        local_base = _collect_baseurls(body, resolve_base, add)
-        _collect_segments(
-            body,
-            local_base,
-            add,
-            seen_urls,
-            representation=rattrs.get("id"),
-            bandwidth=rattrs.get("bandwidth"),
-        )
-    remainder = text
-    if representations:
-        chunks: list[str] = []
-        cursor = 0
-        for rep in representations:
-            chunks.append(text[cursor : rep.start()])
-            cursor = rep.end()
-        chunks.append(text[cursor:])
-        remainder = "".join(chunks)
-        resolve_base = _collect_baseurls(text[representations[-1].end() :], resolve_base, add)
-    _collect_segments(remainder, resolve_base, add, seen_urls)
+    periods = list(_PERIOD.finditer(text))
+    mpd_prefix = text[: periods[0].start()] if periods else _strip_blocks(text, _PERIOD)
+    mpd_base = _collect_baseurls(mpd_prefix, base, add)
+    scopes = [(match.group(2) or "") for match in periods] or [text]
+    for body in scopes:
+        period_without_as = _strip_blocks(body, _ADAPTATION_SET)
+        period_base = _collect_baseurls(period_without_as, mpd_base, add)
+        adaptations = list(_ADAPTATION_SET.finditer(body))
+        if not adaptations:
+            _dash_scope(body, period_base, add, seen_urls)
+            continue
+        _collect_segments(period_without_as, period_base, add, seen_urls)
+        for adaptation in adaptations:
+            _dash_adaptation(adaptation.group(2) or "", period_base, add, seen_urls)
     return parts
+
+
+def manifest_is_live(text: str) -> bool:
+    if "<MPD" in text or "<mpd" in text:
+        match = _MPD_OPEN.search(text)
+        if match is None:
+            return False
+        return _attrs(match.group(1)).get("type", "").lower() == "dynamic"
+    if "#EXTM3U" in text:
+        return "#EXT-X-ENDLIST" not in text
+    return False
 
 
 def record_clear_stream(
@@ -367,14 +443,16 @@ def record_clear_stream(
     max_segments: int = 128,
     depth: int = 0,
     should_stop: StopFn | None = None,
+    live_polls: int = 1,
 ) -> Path:
     dest = output
-    if _DASH_CONTENT_PROTECTION.search(playlist_text):
+    playlist = playlist_text
+    if _DASH_CONTENT_PROTECTION.search(playlist):
         msg = "DASH ContentProtection is refused."
         raise DrmRefused(msg)
-    parts = recordable_parts(playlist_text, playlist_url)
+    parts = recordable_parts(playlist, playlist_url)
     if not parts:
-        match = _ENCRYPTED_HLS.search(playlist_text)
+        match = _ENCRYPTED_HLS.search(playlist)
         if match:
             method = match.group(1)
             msg = (
@@ -386,7 +464,7 @@ def record_clear_stream(
         raise DiscoveryError(msg)
     first = parts[0].url
     if depth < 2 and (
-        first.endswith(".m3u8") or first.endswith(".mpd") or "#EXT-X-STREAM-INF" in playlist_text
+        first.endswith(".m3u8") or first.endswith(".mpd") or "#EXT-X-STREAM-INF" in playlist
     ):
         nested = [
             item.url for item in parts if item.url.endswith(".m3u8") or item.url.endswith(".mpd")
@@ -406,30 +484,51 @@ def record_clear_stream(
             max_segments=max_segments,
             depth=depth + 1,
             should_stop=should_stop,
+            live_polls=live_polls,
         )
     dest.parent.mkdir(parents=True, exist_ok=True)
     cache: dict[str, bytes] = {}
+    recorded: set[tuple[str, int | None, int | None]] = set()
+    polls = max(1, min(live_polls, MAX_LIVE_POLLS))
+    written = 0
     with dest.open("wb") as handle:
-        for part in tqdm(
-            parts[:max_segments],
-            desc="live-record",
-            disable=True,
-            unit="seg",
-        ):
+        for round_index in range(polls):
+            inspect_manifest(playlist)
+            round_parts = recordable_parts(playlist, playlist_url)
+            for part in tqdm(
+                round_parts[:max_segments],
+                desc="live-record",
+                disable=True,
+                unit="seg",
+            ):
+                key = (part.url, part.start, part.length)
+                if key in recorded:
+                    continue
+                if should_stop is not None:
+                    should_stop()
+                if part.url not in cache:
+                    status, _, data = fetch(part.url)
+                    if status >= 400:
+                        msg = f"Live segment fetch failed with HTTP {status}."
+                        raise DiscoveryError(msg)
+                    cache[part.url] = data
+                chunk = cache[part.url]
+                if part.start is not None:
+                    end = part.start + (part.length if part.length is not None else len(chunk))
+                    chunk = chunk[part.start : end]
+                handle.write(chunk)
+                written += len(chunk)
+                recorded.add(key)
+            more = round_index + 1 < polls and manifest_is_live(playlist)
+            if not more:
+                break
             if should_stop is not None:
                 should_stop()
-            if part.url not in cache:
-                status, _, data = fetch(part.url)
-                if status >= 400:
-                    msg = f"Live segment fetch failed with HTTP {status}."
-                    raise DiscoveryError(msg)
-                cache[part.url] = data
-            chunk = cache[part.url]
-            if part.start is not None:
-                end = part.start + (part.length if part.length is not None else len(chunk))
-                chunk = chunk[part.start : end]
-            handle.write(chunk)
-    if dest.stat().st_size == 0:
+            status, _, data = fetch(playlist_url)
+            if status >= 400:
+                break
+            playlist = data.decode("utf-8", errors="replace")
+    if dest.stat().st_size == 0 or written == 0:
         msg = "Live recording produced an empty artifact."
         raise DiscoveryError(msg)
     return dest

@@ -6,11 +6,18 @@
 
 Every job SHALL emit typed events to a local store. The queue SHALL NOT expose raw
 provider console output as its public API. Default telemetry SHALL be false.
+Event payloads SHALL reject `stdout`, `stderr`, `argv`, `nativeCommand`,
+`providerArgv`, and cookie file paths.
 
 #### Scenario: completed job has events
 
 - **WHEN** `webmedia-dl submit` completes a local file job
 - **THEN** stdout JSON includes a `job` object and a non-empty `events` list and no telemetry upload
+
+#### Scenario: event payload is not a provider console
+
+- **WHEN** code constructs an `EventRecord` with `stdout` in the payload
+- **THEN** validation fails closed
 
 ### Requirement: Queue pause SHALL prevent starting the next job
 

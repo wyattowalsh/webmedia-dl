@@ -74,7 +74,10 @@ def default_subprocess_run(argv: list[str], staging: Path) -> tuple[int, bytes, 
 
 
 def default_http_get(
-    url: str, *, profile: PolicyProfile | None = None
+    url: str,
+    *,
+    profile: PolicyProfile | None = None,
+    should_stop: Callable[[], None] | None = None,
 ) -> tuple[int, dict[str, str], bytes]:
     policy = profile or get_profile("personal-full")
     status, content_type, body = bound_fetch(
@@ -82,6 +85,7 @@ def default_http_get(
         profile=policy,
         max_bytes=policy.max_download_bytes,
         on_overflow="error",
+        should_stop=should_stop,
     )
     return status, {"content-type": content_type}, body
 
@@ -338,8 +342,17 @@ class ProviderRuntime:
         if not isinstance(url, str):
             msg = "http-direct requires typed input 'url'."
             raise ProviderPolicyError(msg)
-        getter = self._http_get or default_http_get
-        status, headers, body = getter(url)
+        key = self._job_key(request.job_id)
+        self._raise_if_stopped(key)
+        getter = self._http_get
+        if getter is None:
+            status, headers, body = default_http_get(
+                url, should_stop=lambda: self._raise_if_stopped(key)
+            )
+        else:
+            status, headers, body = getter(url)
+        if self._cancel_event(key).is_set():
+            self._raise_if_stopped(key)
         requested = request.typed_inputs.get("output")
         base = Path(requested) if isinstance(requested, str) else staging / "source.bin"
         output = base.with_suffix(_http_suffix(url, headers, body))

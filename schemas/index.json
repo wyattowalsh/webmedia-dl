@@ -16,6 +16,8 @@
     "export-plan": "export-plan.schema.json",
     "validation-result": "validation-result.schema.json",
     "event": "event.schema.json",
-    "history-entry": "history-entry.schema.json"
+    "history-entry": "history-entry.schema.json",
+    "security-scoped-bookmark": "security-scoped-bookmark.schema.json",
+    "clipboard-locator": "clipboard-locator.schema.json"
   }
 }

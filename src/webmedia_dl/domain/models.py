@@ -168,6 +168,7 @@ class ExportIntent(StrictModel):
     allow_lossy: bool = False
     container_preference: str | None = None
     approved_roots: list[str] = Field(default_factory=list)
+    security_scoped_path: str | None = None
 
     @model_validator(mode="after")
     def destination_requires_approval(self) -> Self:
@@ -184,6 +185,8 @@ class ExportIntent(StrictModel):
         if self.destination_kind == DestinationKind.PHOTOS and not self.approved_roots:
             msg = "Photos publication requires a user-approved root."
             raise ValueError(msg)
+        if self.destination_kind is DestinationKind.FILES_APP and not self.security_scoped_path:
+            object.__setattr__(self, "security_scoped_path", self.destination_path)
         return self
 
 
@@ -360,6 +363,22 @@ class ValidationResult(StrictModel):
         return self
 
 
+FORBIDDEN_EVENT_PAYLOAD_KEYS = frozenset(
+    {"stdout", "stderr", "argv", "nativeCommand", "providerArgv", "cookies_path"}
+)
+
+
+def sanitize_event_payload(payload: dict[str, Any] | None) -> dict[str, Any]:
+    """Public events are typed lifecycle records, never provider consoles."""
+    if not payload:
+        return {}
+    forbidden = FORBIDDEN_EVENT_PAYLOAD_KEYS.intersection(payload)
+    if forbidden:
+        msg = f"Event payloads must not include {sorted(forbidden)}."
+        raise ValueError(msg)
+    return dict(payload)
+
+
 class EventRecord(StrictModel):
     event_id: UUID = Field(default_factory=uuid4)
     job_id: UUID
@@ -367,6 +386,11 @@ class EventRecord(StrictModel):
     sequence: int
     ts: datetime = Field(default_factory=utcnow)
     payload: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("payload")
+    @classmethod
+    def payload_is_not_provider_console(cls, value: dict[str, Any]) -> dict[str, Any]:
+        return sanitize_event_payload(value)
 
 
 class HistoryEntry(StrictModel):

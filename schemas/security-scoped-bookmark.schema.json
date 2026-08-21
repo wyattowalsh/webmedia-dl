@@ -1,0 +1,26 @@
+{
+  "additionalProperties": false,
+  "description": "Bookmark for a user-granted Files/Share root. Never a silent home-path write.",
+  "properties": {
+    "bookmark_id": {
+      "format": "uuid",
+      "title": "Bookmark Id",
+      "type": "string"
+    },
+    "resolved_path": {
+      "title": "Resolved Path",
+      "type": "string"
+    },
+    "stale": {
+      "default": false,
+      "title": "Stale",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "resolved_path"
+  ],
+  "title": "SecurityScopedBookmark",
+  "type": "object",
+  "$id": "https://webmedia-dl.local/schemas/security-scoped-bookmark.schema.json"
+}

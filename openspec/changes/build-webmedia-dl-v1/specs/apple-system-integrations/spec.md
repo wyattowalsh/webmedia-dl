@@ -5,7 +5,26 @@
 ### Requirement: User-approved destinations
 
 Share sheet, Files, and Photos destinations SHALL be user-approved roots. The worker
-SHALL NOT silently write into the photo library or arbitrary home paths.
+SHALL NOT silently write into the photo library or arbitrary home paths. Files
+destinations SHALL carry a security-scoped bookmark whose path boundary matches
+the approved root. Clipboard/paste adapters SHALL extract an http(s) locator and
+SHALL NOT copy that locator into `local_path`. PhotoKit library writes SHALL stay
+closed until a signed Apple Photos API is available.
+
+#### Scenario: publication requires approved roots
+
+- **WHEN** `destination_kind` is `user_approved_path` without `approved_roots`
+- **THEN** the export intent fails validation
+
+#### Scenario: files bookmark path boundary
+
+- **WHEN** a Files destination bookmark is `/Users/me/Movies`
+- **THEN** `/Users/me/Movies-backup/clip.mp4` is denied
+
+#### Scenario: clipboard url is not a path
+
+- **WHEN** clipboard text contains `https://cdn.example.com/a.mp4`
+- **THEN** intake kind is `paste` and `local_path` is unset
 
 #### Scenario: publication requires approved roots
 

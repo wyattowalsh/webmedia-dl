@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from webmedia_dl.destinations import ClipboardLocator, SecurityScopedBookmark
 from webmedia_dl.domain.models import (
     AcquisitionPlan,
     Artifact,
@@ -44,6 +45,8 @@ MODELS = {
     "validation-result": ValidationResult,
     "event": EventRecord,
     "history-entry": HistoryEntry,
+    "security-scoped-bookmark": SecurityScopedBookmark,
+    "clipboard-locator": ClipboardLocator,
 }
 
 

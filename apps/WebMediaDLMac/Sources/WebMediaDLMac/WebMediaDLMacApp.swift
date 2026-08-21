@@ -20,6 +20,8 @@ struct MacRootView: View {
     @State private var historyText = "Jobs appear after the loopback worker accepts them."
     @State private var companionLocator = ""
     @State private var lastJobId: UUID?
+    @State private var approvedRoot = ""
+    @State private var fromClipboard = false
     private let role = WebMediaDLClientRole.fullWorker
     private let bridge = WebMediaDLContinuityBridge()
 
@@ -40,11 +42,21 @@ struct MacRootView: View {
                     Button("Paste from clipboard") {
                         #if os(macOS)
                         if let text = NSPasteboard.general.string(forType: .string) {
-                            locator = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                            let clip = WebMediaDLClipboardIntake(text: text)
+                            locator = clip.locator ?? text.trimmingCharacters(in: .whitespacesAndNewlines)
+                            fromClipboard = true
                         }
                         #endif
                     }
                     .accessibilityLabel("Paste from clipboard")
+                    Button("Choose Files destination") {
+                        chooseFilesDestination()
+                    }
+                    .accessibilityLabel("Choose Files destination")
+                    if !approvedRoot.isEmpty {
+                        Text(approvedRoot)
+                            .accessibilityLabel("Approved Files destination")
+                    }
                 }
                 Section("Status") {
                     Text(status)
@@ -175,13 +187,42 @@ struct MacRootView: View {
     @MainActor
     private func submit() async {
         let client = WebMediaDLLoopbackClient(token: token)
+        let clip = WebMediaDLClipboardIntake(text: locator)
+        let files = approvedRoot.isEmpty
+            ? nil
+            : WebMediaDLFilesDestination(
+                bookmark: WebMediaDLSecurityScopedBookmark(path: approvedRoot)
+            )
         do {
-            status = try await client.submit(locator: locator, surface: .macos)
+            status = try await client.submit(
+                locator: clip.locator ?? locator,
+                surface: .macos,
+                intakeKind: fromClipboard ? clip.intakeKind : nil,
+                destinationKind: files == nil ? nil : "files_app",
+                destinationPath: files?.approvedRoot,
+                approvedRoots: files.map { [$0.approvedRoot] } ?? []
+            )
             lastJobId = WebMediaDLLoopbackClient.jobId(from: status)
             historyText = try await client.history()
         } catch {
             status = error.localizedDescription
         }
+    }
+
+    private func chooseFilesDestination() {
+        #if os(macOS)
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.message = "Choose a WebMedia DL Files destination"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let accessed = url.startAccessingSecurityScopedResource()
+        approvedRoot = url.path
+        if accessed {
+            url.stopAccessingSecurityScopedResource()
+        }
+        #endif
     }
 
     @MainActor

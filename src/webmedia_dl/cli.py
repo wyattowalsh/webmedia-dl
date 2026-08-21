@@ -12,10 +12,11 @@ import typer
 from loguru import logger
 
 from webmedia_dl.compat import migrate_legacy, scan_legacy
+from webmedia_dl.destinations import extract_clipboard_locator
 from webmedia_dl.diagnostics import doctor
 from webmedia_dl.domain.enums import DestinationKind, IntakeKind, Surface
 from webmedia_dl.domain.models import ExportIntent
-from webmedia_dl.errors import CancelledError, WebMediaError
+from webmedia_dl.errors import CancelledError, IntakeError, WebMediaError
 from webmedia_dl.export import load_presets
 from webmedia_dl.names import CLI_NAME, DISPLAY_NAME, PERSONAL_ALIAS
 from webmedia_dl.packaging import write_extension_zips
@@ -160,10 +161,11 @@ def paste(
     wait: Annotated[bool, typer.Option("--wait/--no-wait")] = True,
 ) -> None:
     """Paste-intake a URL. Does not treat the locator as a filesystem path."""
-    text = (locator or sys.stdin.read()).strip()
-    if not text:
-        typer.echo("Paste intake requires a URL argument or stdin.")
-        raise typer.Exit(code=1)
+    try:
+        text = extract_clipboard_locator((locator or sys.stdin.read()).strip())
+    except IntakeError as exc:
+        typer.echo(str(exc))
+        raise typer.Exit(code=1) from exc
     intent = ExportIntent()
     if dest is not None:
         intent = ExportIntent(

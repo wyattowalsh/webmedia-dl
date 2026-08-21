@@ -1,0 +1,16 @@
+{
+  "additionalProperties": false,
+  "description": "Clipboard/paste text becomes a URL locator, never a filesystem path.",
+  "properties": {
+    "text": {
+      "title": "Text",
+      "type": "string"
+    }
+  },
+  "required": [
+    "text"
+  ],
+  "title": "ClipboardLocator",
+  "type": "object",
+  "$id": "https://webmedia-dl.local/schemas/clipboard-locator.schema.json"
+}

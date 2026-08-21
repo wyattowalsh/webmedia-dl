@@ -39,6 +39,8 @@ def publish_artifacts(
         msg = "Publication requires a destination path."
         raise PublicationError(msg)
     dest_root = authorize_destination(Path(intent.destination_path), intent.approved_roots)
+    if intent.security_scoped_path:
+        dest_root = authorize_destination(dest_root, [intent.security_scoped_path])
     dest_root.mkdir(parents=True, exist_ok=True)
     published: list[Path] = []
     tmp_dir = Path(tempfile.mkdtemp(prefix="webmedia-dl-pub-", dir=dest_root))
