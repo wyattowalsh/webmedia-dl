@@ -9,6 +9,8 @@
   after `GET /health` returns `{"status":"ok"}`. Cancel/pause_job/resume_job
   App Intents throw when the job id is not a UUID instead of succeeding as a
   no-op. Queue pause/cancel CAS retries until `TRANSITION_ATTEMPTS` is exhausted.
+  Local `uv run pytest --cov` is 580 tests at 100% (`fail_under` stays 99 until
+  GitHub HEAD also reports 100%).
 - GitHub Actions `32563044217` on `c347068` passed Python (578 pytest, 99.97%)
   and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED). Unsigned
   `xcodebuild` produced Mach-O share-sheet `.appex` products (`iphoneos`/`xros`

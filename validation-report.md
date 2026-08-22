@@ -2,8 +2,8 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 580 tests locally pending this revision; GitHub Actions `ci` run `32563044217` (`c347068`) was 578 pytest at 99.97% with Swift 18/0 and 12× BUILD SUCCEEDED including unsigned `com.apple.product-type.app-extension` Mach-O `.appex` products |
-| `uv run pytest --cov` | PASS | 99.99% locally (`fail_under` 99); GitHub `c347068` is 99.97% |
+| `uv run pytest` | PASS | 580 tests locally; GitHub Actions `ci` run `32563044217` (`c347068`) was 578 pytest at 99.97% with Swift 18/0 and 12× BUILD SUCCEEDED including unsigned `com.apple.product-type.app-extension` Mach-O `.appex` products |
+| `uv run pytest --cov` | PASS | 100% locally (`fail_under` 99); GitHub `c347068` is 99.97% |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
 | `uv run ty check` | PASS | |
