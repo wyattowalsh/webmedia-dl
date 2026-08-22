@@ -2,6 +2,12 @@
 
 ## 0.1.0
 
+- Parse locator schemes with `urlparse` so `data:` and `file:/` (no `://`)
+  cannot masquerade as relative HTML/JSON-LD/browser-evidence URLs.
+  Capture skips the same blocked schemes. GitHub Actions `32581963314` on
+  `9b29491` passed Python (624 pytest, 100%), doctor provider probes, and
+  Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after joining relative
+  HLS names that start with `http`.
 - Join live segment URIs with `urljoin` so a relative `http-seg.ts` is not
   treated as an absolute URL. `startswith("http")` stole those names from
   the playlist base.

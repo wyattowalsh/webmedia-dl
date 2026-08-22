@@ -51,6 +51,8 @@ describe("collectMediaEvidence", () => {
         return [
           { tagName: "VIDEO", getAttribute: () => "https://cdn.example.com/a.mp4" },
           { tagName: "IMG", getAttribute: () => "javascript:alert(1)" },
+          { tagName: "IMG", getAttribute: () => "data:image/png;base64,AAAA" },
+          { tagName: "IMG", getAttribute: () => "file:/tmp/secret.png" },
         ];
       },
     };
@@ -65,6 +67,8 @@ describe("collectMediaEvidence", () => {
     assert.ok(urls.includes("https://cdn.example.com/charset.mp4"));
     assert.ok(urls.includes("https://cdn.example.com/commented.mp4"));
     assert.ok(!urls.some((item) => item.startsWith("javascript:")));
+    assert.ok(!urls.some((item) => item.startsWith("data:")));
+    assert.ok(!urls.some((item) => item.startsWith("file:")));
   });
 
   it("classifies video source, amp-img, data-src, and twitter:player", () => {

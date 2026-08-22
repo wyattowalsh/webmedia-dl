@@ -28,10 +28,19 @@ def _page_source() -> MediaSource:
 
 
 def test_javascript_urls_are_ignored() -> None:
-    html = '<img src="javascript:alert(1)"><img src="https://cdn.example.com/ok.png">'
+    html = """
+    <img src="javascript:alert(1)">
+    <img src="data:image/png;base64,AAAA">
+    <img src="file:/tmp/secret.png">
+    <img src="blob:https://example.com/1">
+    <img src="https://cdn.example.com/ok.png">
+    """
     candidates = discover(_page_source(), get_profile("personal-full"), html=html)
     urls = [item.retrieval_urls[0] for item in candidates if item.retrieval_urls]
     assert all(not item.startswith("javascript:") for item in urls)
+    assert not any(item.startswith("data:") for item in urls)
+    assert not any(item.startswith("file:") for item in urls)
+    assert not any(item.startswith("blob:") for item in urls)
     assert any(item.endswith("ok.png") for item in urls)
 
 
@@ -46,6 +55,8 @@ def test_srcset_poster_and_browser_evidence() -> None:
         BrowserEvidence(url="https://example.com/watch?v=hinted", kind=MediaKind.VIDEO),
         BrowserEvidence(url="https://example.com/bare-page", kind=MediaKind.UNKNOWN),
         BrowserEvidence(url="javascript:void(0)", kind=MediaKind.IMAGE),
+        BrowserEvidence(url="data:image/png;base64,AAAA", kind=MediaKind.IMAGE),
+        BrowserEvidence(url="file:/tmp/secret.png", kind=MediaKind.IMAGE),
     ]
     candidates = discover(
         _page_source(),
@@ -63,6 +74,8 @@ def test_srcset_poster_and_browser_evidence() -> None:
     assert any(item.endswith("poster.jpg") for item in urls)
     assert "https://cdn.example.com/tw.png" in urls
     assert not any(item.startswith("javascript:") for item in urls)
+    assert not any(item.startswith("data:") for item in urls)
+    assert not any(item.startswith("file:") for item in urls)
 
 
 def test_gallery_candidate_when_three_images() -> None:

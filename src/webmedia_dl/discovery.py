@@ -209,7 +209,6 @@ def _kind_from_mime(mime: str | None) -> MediaKind | None:
     text = mime.lower()
     if "mpegurl" in text or "dash+xml" in text:
         return MediaKind.LIVE_STREAM
-        return MediaKind.LIVE_STREAM
     if text.startswith("video/"):
         return MediaKind.VIDEO
     if text.startswith("audio/"):
@@ -256,17 +255,18 @@ def _candidate(
 
 
 def _usable_url(value: str, profile: PolicyProfile | None = None) -> bool:
-    if not value or value.lower().startswith("javascript:"):
+    text = value.strip()
+    if not text:
         return False
-    if "://" not in value:
-        return True
-    scheme = value.split(":", 1)[0].lower()
+    scheme = (urlparse(text).scheme or "").lower()
     if scheme in BLOCKED_SCHEMES:
         return False
+    if not scheme:
+        return True
     if profile is None:
         return True
     try:
-        authorize_url(value, profile)
+        authorize_url(text, profile)
     except NetworkPolicyError:
         return False
     return True

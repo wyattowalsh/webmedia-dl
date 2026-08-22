@@ -1383,6 +1383,9 @@ final class ContractTests: XCTestCase {
         XCTAssertNil(WebMediaDLHttpDirect.mediaURL(from: "https://"))
         XCTAssertNil(WebMediaDLHttpDirect.mediaURL(from: "data:text/plain,x"))
         XCTAssertNil(WebMediaDLHttpDirect.mediaURL(from: "file:///tmp/a.mp4"))
+        XCTAssertNil(WebMediaDLHttpDirect.mediaURL(from: "file:/tmp/a.mp4"))
+        XCTAssertFalse(WebMediaDLHttpDirect.isDirectMediaURL("data:image/png;base64,AAAA"))
+        XCTAssertFalse(WebMediaDLHttpDirect.isDirectMediaURL("file:/tmp/a.mp4"))
         XCTAssertNotNil(WebMediaDLHttpDirect.mediaURL(from: "https://cdn.example.com/a.mp4"))
         XCTAssertNotNil(WebMediaDLHttpDirect.mediaURL(from: "http://cdn.example.com/a.mp4"))
         XCTAssertNil(

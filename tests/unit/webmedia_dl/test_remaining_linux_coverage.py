@@ -159,6 +159,8 @@ def test_manifest_json_ndjson_skips_and_unusable_urls() -> None:
         b'{"url": 123}\n'
         b'{"url": "javascript:alert(1)"}\n'
         b'{"url": "file:///tmp/secret.mp4"}\n'
+        b'{"url": "file:/tmp/also-secret.mp4"}\n'
+        b'{"url": "data:video/mp4;base64,AAAA"}\n'
         b'{"url": "clip.mp4"}\n'
         b'{"webpage_url": "https://cdn.example.com/ok.mp4", "id": "ok",'
         b' "formats": [{"format_id": "18", "vcodec": "null", "acodec": "none"}]}\n'

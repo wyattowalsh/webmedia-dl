@@ -1487,7 +1487,8 @@ def test_extension_collector_returns_no_native_command() -> None:
     text = (repo_root() / "extensions/shared/capture.js").read_text(encoding="utf-8")
     assert "Never becomes a generic native command runner" in text
     assert "nativeCommand: null" in text
-    assert '!value.toLowerCase().startsWith("javascript:")' in text
+    assert "/^(javascript|data|blob|file|about|chrome|chrome-extension):/i" in text
+    assert "blockedScheme.test(value.trim())" in text
     node = shutil.which("node")
     if node is None:
         pytest.skip("node is not installed")

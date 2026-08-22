@@ -46,8 +46,13 @@ def test_bound_fetch_errors_on_oversized_media() -> None:
 
 
 def test_bound_fetch_rejects_javascript_scheme() -> None:
+    profile = get_profile("personal-full")
     with pytest.raises(NetworkPolicyError):
-        bound_fetch("javascript:alert(1)", profile=get_profile("personal-full"))
+        bound_fetch("javascript:alert(1)", profile=profile)
+    with pytest.raises(NetworkPolicyError):
+        bound_fetch("data:text/plain,x", profile=profile)
+    with pytest.raises(NetworkPolicyError):
+        bound_fetch("file:/tmp/secret.mp4", profile=profile)
 
 
 def test_bound_fetch_stop_during_stream() -> None:

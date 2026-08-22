@@ -12,11 +12,13 @@ export function pageCollector(doc) {
   const root = doc && typeof doc.querySelectorAll === "function" ? doc : globalThis.document;
   const urls = [];
   const seen = new Set();
+  const blockedScheme =
+    /^(javascript|data|blob|file|about|chrome|chrome-extension):/i;
   const push = (value, kind) => {
     if (
       typeof value === "string" &&
       value &&
-      !value.toLowerCase().startsWith("javascript:") &&
+      !blockedScheme.test(value.trim()) &&
       !seen.has(value)
     ) {
       seen.add(value);

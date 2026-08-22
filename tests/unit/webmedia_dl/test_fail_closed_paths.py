@@ -1089,6 +1089,8 @@ def test_discovery_link_iframe_jsonld_and_duplicates() -> None:
       <iframe src="https://cdn.example.com/player.mp4"></iframe>
       <a href="javascript:alert(1)">skip</a>
       <a href="file:///tmp/secret.mp4">skip file</a>
+      <a href="file:/tmp/also-secret.mp4">skip file-slash</a>
+      <a href="data:video/mp4;base64,AAAA">skip data</a>
       <a href="http://cdn.example.com/insecure.mp4">skip http</a>
       <video src="https://cdn.example.com/clip.mp4"></video>
       <video src="https://cdn.example.com/clip.mp4"></video>
@@ -1110,6 +1112,7 @@ def test_discovery_link_iframe_jsonld_and_duplicates() -> None:
     assert "https://cdn.example.com/photo.jpg" in urls
     assert not any(item.startswith("javascript:") for item in urls)
     assert not any(item.startswith("file:") for item in urls)
+    assert not any(item.startswith("data:") for item in urls)
     assert not any(item.startswith("http:") for item in urls)
     photo = next(item for item in found if item.retrieval_urls[0].endswith("photo.jpg"))
     assert photo.media_kind is MediaKind.IMAGE
