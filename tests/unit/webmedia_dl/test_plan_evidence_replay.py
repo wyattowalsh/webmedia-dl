@@ -1,7 +1,9 @@
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from sqlmodel import Session
 
 from webmedia_dl.discovery import discover
 from webmedia_dl.domain.enums import IntakeKind, JobState, MediaKind, Surface
@@ -9,7 +11,7 @@ from webmedia_dl.domain.models import BrowserEvidence, ExportIntent, MediaSource
 from webmedia_dl.envelope import open_payload, seal_payload
 from webmedia_dl.errors import DelegationDenied
 from webmedia_dl.export import plan_export
-from webmedia_dl.ledger import NonceLedger
+from webmedia_dl.ledger import NONCE_RETENTION, NonceLedger, UsedNonce
 from webmedia_dl.pipeline import Pipeline
 from webmedia_dl.policy.profiles import get_profile
 from webmedia_dl.providers import ProviderRequest, ProviderRuntime
@@ -84,6 +86,47 @@ def test_nonce_ledger_rejects_replay(tmp_path: Path) -> None:
     assert opened["locator"] == "https://example.com/a.png"
     with pytest.raises(DelegationDenied):
         open_payload(key, sealed, ledger=ledger)
+
+
+def _backdate_nonce(ledger: NonceLedger, nonce: str, *, age: timedelta) -> None:
+    with Session(ledger.engine) as session:
+        row = session.get(UsedNonce, nonce)
+        assert row is not None
+        row.used_at = datetime.now(UTC).replace(tzinfo=None) - age
+        session.add(row)
+        session.commit()
+
+
+def test_nonce_ledger_prunes_expired_rows(tmp_path: Path) -> None:
+    ledger = NonceLedger(tmp_path / "nonces.sqlite")
+    nonce = "cd" * 16
+    ledger.consume(nonce)
+    _backdate_nonce(ledger, nonce, age=NONCE_RETENTION + timedelta(hours=1))
+    ledger.consume(nonce)
+    with pytest.raises(DelegationDenied, match="already consumed"):
+        ledger.consume(nonce)
+
+
+def test_nonce_ledger_prunes_on_open(tmp_path: Path) -> None:
+    path = tmp_path / "nonces.sqlite"
+    first = NonceLedger(path)
+    nonce = "ef" * 16
+    first.consume(nonce)
+    _backdate_nonce(first, nonce, age=NONCE_RETENTION + timedelta(hours=1))
+    first.engine.dispose()
+    second = NonceLedger(path)
+    second.consume(nonce)
+    with pytest.raises(DelegationDenied, match="already consumed"):
+        second.consume(nonce)
+
+
+def test_nonce_ledger_keeps_fresh_rows(tmp_path: Path) -> None:
+    ledger = NonceLedger(tmp_path / "nonces.sqlite")
+    nonce = "aa" * 16
+    ledger.consume(nonce)
+    _backdate_nonce(ledger, nonce, age=NONCE_RETENTION - timedelta(hours=1))
+    with pytest.raises(DelegationDenied, match="already consumed"):
+        ledger.consume(nonce)
 
 
 def test_optional_image_orient_does_not_fail_job(tmp_data: Path, png_bytes: bytes) -> None:

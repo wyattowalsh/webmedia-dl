@@ -287,6 +287,11 @@ A restricted client SHALL NOT delegate disallowed capabilities to a full worker.
 
 - **WHEN** `personal-restricted` asks `personal-full` to run `acquire.ytdlp`
 - **THEN** `DelegationDenied` is raised
+
+#### Scenario: consumed envelope nonces expire from the ledger
+
+- **WHEN** a consumed pairing envelope nonce is older than the ledger retention window
+- **THEN** the ledger forgets that row so `nonces.sqlite` cannot grow without bound; a later consume of the same nonce is recorded and a replay is denied
 """,
     "diagnostics-support": """
 # Delta: diagnostics-support

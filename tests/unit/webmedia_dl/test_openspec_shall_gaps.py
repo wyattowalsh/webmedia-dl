@@ -349,78 +349,239 @@ def test_doctor_version_probe_oserror_is_fail(monkeypatch: pytest.MonkeyPatch) -
     assert "did not report a version" in ffmpeg["reason"]
 
 
-SCENARIO_EVIDENCE = {
-    "publication requires approved roots": "test_user_approved_path_omits_approved_roots",
-    "files bookmark path boundary": "test_files_bookmark_and_photokit",
-    "clipboard url is not a path": "test_clipboard_locator_extracts_url",
-    "photos without approval": "testPhotosDestinationRequiresApprovedRoot",
-    "share sheet url versus file": "testContinuityIsNotASubprocessWorker",
-    "complete clients carry files destinations": "testPhotosDestinationRequiresApprovedRoot",
-    "share destination publishes under approved root": "test_share_destination_publishes_under_approved_root",
-    "AES-128 playlist": "test_aes128_playlist_refused_before_any_segment_fetch",
-    "two clear transport segments": "test_record_clear_stream_concatenates_segments",
-    "DASH SegmentList byte ranges": "test_dash_segment_timeline",
+SCENARIO_EVIDENCE: dict[str, tuple[str, str]] = {
+    "publication requires approved roots": (
+        "tests/unit/webmedia_dl/test_fail_closed_followups.py",
+        "test_user_approved_path_omits_approved_roots",
+    ),
+    "files bookmark path boundary": (
+        "tests/unit/webmedia_dl/test_p2_contracts.py",
+        "test_files_bookmark_and_photokit",
+    ),
+    "clipboard url is not a path": (
+        "tests/unit/webmedia_dl/test_p2_contracts.py",
+        "test_clipboard_locator_extracts_url",
+    ),
+    "photos without approval": (
+        "apps/WebMediaDLCore/Tests/WebMediaDLCoreTests/IdentityTests.swift",
+        "testPhotosDestinationRequiresApprovedRoot",
+    ),
+    "share sheet url versus file": (
+        "apps/WebMediaDLCore/Tests/WebMediaDLCoreTests/IdentityTests.swift",
+        "testContinuityIsNotASubprocessWorker",
+    ),
+    "complete clients carry files destinations": (
+        "apps/WebMediaDLCore/Tests/WebMediaDLCoreTests/IdentityTests.swift",
+        "testPhotosDestinationRequiresApprovedRoot",
+    ),
+    "share destination publishes under approved root": (
+        "tests/unit/webmedia_dl/test_pack_gaps.py",
+        "test_share_destination_publishes_under_approved_root",
+    ),
+    "AES-128 playlist": (
+        "tests/unit/webmedia_dl/test_live.py",
+        "test_aes128_playlist_refused_before_any_segment_fetch",
+    ),
+    "two clear transport segments": (
+        "tests/unit/webmedia_dl/test_live.py",
+        "test_record_clear_stream_concatenates_segments",
+    ),
+    "DASH SegmentList byte ranges": (
+        "tests/unit/webmedia_dl/test_runtime_gaps.py",
+        "test_dash_segment_timeline",
+    ),
     "AdaptationSet binds Representation identifiers": (
-        "test_dash_adaptationset_binds_self_closing_representation"
+        "tests/unit/webmedia_dl/test_p2_contracts.py",
+        "test_dash_adaptationset_binds_self_closing_representation",
     ),
-    "highest-bandwidth video representation": "test_dash_prefers_highest_video_representation",
-    "HLS master highest bandwidth": "test_hls_master_prefers_highest_bandwidth",
-    "multi-period DASH concatenates each period": "test_multi_period_same_uri_is_appended_twice",
-    "dynamic MPD polls new segments": "test_dynamic_mpd_polls_new_segments",
-    "DASH SegmentTemplate endNumber": "test_dash_template_tokens_and_period_fallback",
-    "DASH SegmentTemplate presentation duration": "test_dash_template_tokens_and_period_fallback",
-    "companion capture has no native command": "testContinuityIsNotASubprocessWorker",
-    "watch worker cannot run yt-dlp": "test_watch_is_not_a_subprocess_worker",
-    "watch queues for Mac relay": "test_watch_tv_capture_queues_without_ytdlp",
-    "watch control intents queue companion kinds": "test_sealed_companion_cancel_requires_job_uuid",
-    "sealed companion envelope": "test_companion_accepts_sealed_pairing_envelope",
-    "unconfirmed pairing": "test_unconfirmed_pairing_does_not_escalate",
+    "highest-bandwidth video representation": (
+        "tests/unit/webmedia_dl/test_p2_contracts.py",
+        "test_dash_prefers_highest_video_representation",
+    ),
+    "HLS master highest bandwidth": (
+        "tests/unit/webmedia_dl/test_p2_contracts.py",
+        "test_hls_master_prefers_highest_bandwidth",
+    ),
+    "multi-period DASH concatenates each period": (
+        "tests/unit/webmedia_dl/test_pack_gap_fixes.py",
+        "test_multi_period_same_uri_is_appended_twice",
+    ),
+    "dynamic MPD polls new segments": (
+        "tests/unit/webmedia_dl/test_p2_contracts.py",
+        "test_dynamic_mpd_polls_new_segments",
+    ),
+    "DASH SegmentTemplate endNumber": (
+        "tests/unit/webmedia_dl/test_fail_closed_paths.py",
+        "test_dash_template_tokens_and_period_fallback",
+    ),
+    "DASH SegmentTemplate presentation duration": (
+        "tests/unit/webmedia_dl/test_fail_closed_paths.py",
+        "test_dash_template_tokens_and_period_fallback",
+    ),
+    "companion capture has no native command": (
+        "apps/WebMediaDLCore/Tests/WebMediaDLCoreTests/IdentityTests.swift",
+        "testContinuityIsNotASubprocessWorker",
+    ),
+    "watch worker cannot run yt-dlp": (
+        "tests/unit/webmedia_dl/test_policy.py",
+        "test_watch_is_not_a_subprocess_worker",
+    ),
+    "watch queues for Mac relay": (
+        "tests/unit/webmedia_dl/test_fail_closed_followups.py",
+        "test_watch_tv_capture_queues_without_ytdlp",
+    ),
+    "watch control intents queue companion kinds": (
+        "tests/unit/webmedia_dl/test_companion_checkpoint.py",
+        "test_sealed_companion_cancel_requires_job_uuid",
+    ),
+    "sealed companion envelope": (
+        "tests/unit/webmedia_dl/test_companion_checkpoint.py",
+        "test_companion_accepts_sealed_pairing_envelope",
+    ),
+    "unconfirmed pairing": (
+        "tests/unit/webmedia_dl/test_pairing_surfaces.py",
+        "test_unconfirmed_pairing_does_not_escalate",
+    ),
     "confirmed pairing lets mac execute without widening": (
-        "test_pairing_confirmation_lets_mac_own_without_widening"
+        "tests/unit/webmedia_dl/test_pairing_surfaces.py",
+        "test_pairing_confirmation_lets_mac_own_without_widening",
     ),
-    "mac lan relay rewrites to loopback": "testLoopbackRequestBuildersStayOnLoopback",
-    "complete-client history uses mac relay": "testLoopbackRequestBuildersStayOnLoopback",
-    "complete-client control intents use mac relay": "test_complete_clients_http_direct_and_shared_domain",
+    "mac lan relay rewrites to loopback": (
+        "apps/WebMediaDLCore/Tests/WebMediaDLCoreTests/ContractTests.swift",
+        "testLoopbackRequestBuildersStayOnLoopback",
+    ),
+    "complete-client history uses mac relay": (
+        "apps/WebMediaDLCore/Tests/WebMediaDLCoreTests/ContractTests.swift",
+        "testLoopbackRequestBuildersStayOnLoopback",
+    ),
+    "complete-client control intents use mac relay": (
+        "tests/unit/webmedia_dl/test_surfaces_inventory.py",
+        "test_complete_clients_http_direct_and_shared_domain",
+    ),
     "HTML extracts media without using the title as identity": (
-        "test_html_discovery_extracts_media_without_using_title_as_id"
+        "tests/unit/webmedia_dl/test_discovery.py",
+        "test_html_discovery_extracts_media_without_using_title_as_id",
     ),
-    "track and media anchors": "test_html_discovery_extracts_track_and_media_anchors",
-    "iframe, preload link, and JSON-LD type": "test_html_discovery_extracts_iframe_link_and_jsonld_type",
-    "amp-img and twitter player": "test_html_discovery_amp_img_and_twitter_player",
-    "Graph records DRM conflicts": "test_candidate_graph_records_duplicates_drm_and_grouping",
-    "completed job has events": "test_submit_history_job_roundtrip",
-    "event payload is not a provider console": "test_event_payload_rejects_every_forbidden_key",
-    "Queue is paused": "test_queue_pause_leaves_job_accepted",
-    "Per-job pause is distinct from queue pause": "test_paused_job_is_not_auto_started",
+    "track and media anchors": (
+        "tests/unit/webmedia_dl/test_discovery.py",
+        "test_html_discovery_extracts_track_and_media_anchors",
+    ),
+    "iframe, preload link, and JSON-LD type": (
+        "tests/unit/webmedia_dl/test_discovery.py",
+        "test_html_discovery_extracts_iframe_link_and_jsonld_type",
+    ),
+    "amp-img and twitter player": (
+        "tests/unit/webmedia_dl/test_discovery.py",
+        "test_html_discovery_amp_img_and_twitter_player",
+    ),
+    "Graph records DRM conflicts": (
+        "tests/unit/webmedia_dl/test_openspec_shall_gaps.py",
+        "test_candidate_graph_records_duplicates_drm_and_grouping",
+    ),
+    "completed job has events": ("tests/e2e/test_cli_e2e.py", "test_submit_history_job_roundtrip"),
+    "event payload is not a provider console": (
+        "tests/unit/webmedia_dl/test_p2_contracts.py",
+        "test_event_payload_rejects_every_forbidden_key",
+    ),
+    "Queue is paused": (
+        "tests/unit/webmedia_dl/test_queue_manifest.py",
+        "test_queue_pause_leaves_job_accepted",
+    ),
+    "Per-job pause is distinct from queue pause": (
+        "tests/unit/webmedia_dl/test_queue_manifest.py",
+        "test_paused_job_is_not_auto_started",
+    ),
     "Pause mid-acquire keeps registered sources": (
-        "test_pause_during_acquire_checkpoints_and_resume_skips_done_kind"
+        "tests/unit/webmedia_dl/test_companion_checkpoint.py",
+        "test_pause_during_acquire_checkpoints_and_resume_skips_done_kind",
     ),
-    "doctor JSON": "test_doctor_json",
-    "support bundle is local-only": "test_support_bundle_is_local_and_strips_console",
-    "HTTPS paste": "test_paste_kind_stays_a_url",
-    "file scheme rejected": "test_file_scheme_rejected",
-    "URL plus path is invalid": "test_source_url_cannot_become_path",
-    "drop of an existing file": "test_drop_command",
-    "restricted cannot delegate yt-dlp": "test_restricted_cannot_delegate_ytdlp",
-    "simulated PASS forbidden": "test_simulated_check_cannot_pass",
-    "outside approved root": "test_jobs_export_outside_approved_roots_fails_closed",
-    "extra_args rejected": "test_extra_args_rejected",
-    "yt-dlp format token": "test_ytdlp_argv_is_allowlisted",
-    "doctor does not install yt-dlp": "test_doctor_fail_and_warn_and_missing_skip_install",
-    "YouTube watch page is not fetched as HTTP bytes": "test_lossy_plan_and_gallery_acquisition",
-    "remux argv": "test_remux_argv_uses_stream_copy",
-    "ImageMagick policy directory": "test_magick_configure_path_is_set",
-    "collector returns no native command": "test_extension_collector_returns_no_native_command",
-    "each engine has a capture tree": "test_browser_extension_trees",
-    "default plan keeps original": "test_original_sacred_keeps_original_with_no_loss",
-    "repo cookie rejected": "test_cookie_requires_absolute_existing_file_outside_repo",
-    "mutate source fails": "test_source_artifact_cannot_be_mutated",
-    "original archive preserved": "test_legacy_scan_is_non_destructive",
-    "capture popup markup": "test_capture_popup_has_accessible_markup",
-    "CLI help uses canonical name": "test_help",
-    "bundle zip uses a fixed timestamp": "test_package_bundle_uses_fixed_timestamp",
-    "encrypted HLS refuses before fetch": "test_aes128_playlist_refused_before_any_segment_fetch",
-    "default telemetry is rejected": "test_policy_profile_forbids_drm_and_default_telemetry",
+    "doctor JSON": ("tests/unit/webmedia_dl/test_cli.py", "test_doctor_json"),
+    "support bundle is local-only": (
+        "tests/unit/webmedia_dl/test_cli.py",
+        "test_support_bundle_is_local_and_strips_console",
+    ),
+    "HTTPS paste": ("tests/unit/webmedia_dl/test_intake.py", "test_paste_kind_stays_a_url"),
+    "file scheme rejected": ("tests/unit/webmedia_dl/test_intake.py", "test_file_scheme_rejected"),
+    "URL plus path is invalid": (
+        "tests/unit/webmedia_dl/test_invariants.py",
+        "test_source_url_cannot_become_path",
+    ),
+    "drop of an existing file": ("tests/unit/webmedia_dl/test_cli.py", "test_drop_command"),
+    "restricted cannot delegate yt-dlp": (
+        "tests/unit/webmedia_dl/test_policy.py",
+        "test_restricted_cannot_delegate_ytdlp",
+    ),
+    "consumed envelope nonces expire from the ledger": (
+        "tests/unit/webmedia_dl/test_plan_evidence_replay.py",
+        "test_nonce_ledger_prunes_expired_rows",
+    ),
+    "simulated PASS forbidden": (
+        "tests/unit/webmedia_dl/test_invariants.py",
+        "test_simulated_check_cannot_pass",
+    ),
+    "outside approved root": (
+        "tests/unit/webmedia_dl/test_fail_closed_followups.py",
+        "test_jobs_export_outside_approved_roots_fails_closed",
+    ),
+    "extra_args rejected": ("tests/unit/webmedia_dl/test_providers.py", "test_extra_args_rejected"),
+    "yt-dlp format token": (
+        "tests/unit/webmedia_dl/test_providers.py",
+        "test_ytdlp_argv_is_allowlisted",
+    ),
+    "doctor does not install yt-dlp": (
+        "tests/unit/webmedia_dl/test_openspec_shall_gaps.py",
+        "test_doctor_fail_and_warn_and_missing_skip_install",
+    ),
+    "YouTube watch page is not fetched as HTTP bytes": (
+        "tests/unit/webmedia_dl/test_coverage_gaps.py",
+        "test_lossy_plan_and_gallery_acquisition",
+    ),
+    "remux argv": ("tests/unit/webmedia_dl/test_processing.py", "test_remux_argv_uses_stream_copy"),
+    "ImageMagick policy directory": (
+        "tests/unit/webmedia_dl/test_processing.py",
+        "test_magick_configure_path_is_set",
+    ),
+    "collector returns no native command": (
+        "tests/unit/webmedia_dl/test_openspec_shall_gaps.py",
+        "test_extension_collector_returns_no_native_command",
+    ),
+    "each engine has a capture tree": (
+        "tests/unit/webmedia_dl/test_surfaces_inventory.py",
+        "test_browser_extension_trees",
+    ),
+    "default plan keeps original": (
+        "tests/unit/webmedia_dl/test_fail_closed_followups.py",
+        "test_original_sacred_keeps_original_with_no_loss",
+    ),
+    "repo cookie rejected": (
+        "tests/unit/webmedia_dl/test_security.py",
+        "test_cookie_requires_absolute_existing_file_outside_repo",
+    ),
+    "mutate source fails": (
+        "tests/unit/webmedia_dl/test_invariants.py",
+        "test_source_artifact_cannot_be_mutated",
+    ),
+    "original archive preserved": (
+        "tests/unit/webmedia_dl/test_compat_transport.py",
+        "test_legacy_scan_is_non_destructive",
+    ),
+    "capture popup markup": (
+        "tests/unit/webmedia_dl/test_accessibility_markup.py",
+        "test_capture_popup_has_accessible_markup",
+    ),
+    "CLI help uses canonical name": ("tests/unit/webmedia_dl/test_cli.py", "test_help"),
+    "bundle zip uses a fixed timestamp": (
+        "tests/unit/webmedia_dl/test_openspec_shall_gaps.py",
+        "test_package_bundle_uses_fixed_timestamp",
+    ),
+    "encrypted HLS refuses before fetch": (
+        "tests/unit/webmedia_dl/test_live.py",
+        "test_aes128_playlist_refused_before_any_segment_fetch",
+    ),
+    "default telemetry is rejected": (
+        "tests/unit/webmedia_dl/test_invariants.py",
+        "test_policy_profile_forbids_drm_and_default_telemetry",
+    ),
 }
 
 
@@ -439,24 +600,27 @@ def _openspec_scenario_titles() -> list[str]:
     return titles
 
 
-def _named_tests() -> set[str]:
-    names: set[str] = set()
-    tests_root = repo_root() / "tests"
-    for path in tests_root.rglob("test_*.py"):
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-        for node in ast.walk(tree):
-            if isinstance(node, ast.FunctionDef) and node.name.startswith("test_"):
-                names.add(node.name)
-    apps = repo_root() / "apps"
-    for path in apps.rglob("*Tests.swift"):
-        for match in re.finditer(
-            r"\bfunc (test[A-Za-z0-9_]+)\s*\(", path.read_text(encoding="utf-8")
-        ):
-            names.add(match.group(1))
-    for path in tests_root.rglob("*.mjs"):
-        for match in re.finditer(r'\bit\(\s*"([^"]+)"', path.read_text(encoding="utf-8")):
-            names.add(match.group(1))
-    return names
+def _test_defined_in(relative: str, name: str) -> bool:
+    if Path(relative).is_absolute() or ".." in Path(relative).parts:
+        return False
+    path = (repo_root() / relative).resolve()
+    try:
+        path.relative_to(repo_root().resolve())
+    except ValueError:
+        return False
+    if not path.is_file():
+        return False
+    text = path.read_text(encoding="utf-8")
+    if path.suffix == ".py":
+        tree = ast.parse(text)
+        return any(
+            isinstance(node, ast.FunctionDef) and node.name == name for node in ast.walk(tree)
+        )
+    if path.suffix == ".swift":
+        return re.search(rf"\bfunc {re.escape(name)}\s*\(", text) is not None
+    if path.suffix == ".mjs":
+        return re.search(rf'\bit\(\s*"{re.escape(name)}"', text) is not None
+    return False
 
 
 def test_every_openspec_scenario_has_when_then() -> None:
@@ -468,15 +632,14 @@ def test_every_openspec_scenario_has_when_then() -> None:
 
 def test_every_openspec_scenario_has_named_test() -> None:
     titles = _openspec_scenario_titles()
-    named = _named_tests()
     missing_map = sorted(set(titles) - set(SCENARIO_EVIDENCE))
     extra_map = sorted(set(SCENARIO_EVIDENCE) - set(titles))
     assert missing_map == [], missing_map
     assert extra_map == [], extra_map
     missing_tests = [
-        f"{title} -> {evidence}"
-        for title, evidence in SCENARIO_EVIDENCE.items()
-        if evidence not in named
+        f"{title} -> {relative}::{name}"
+        for title, (relative, name) in SCENARIO_EVIDENCE.items()
+        if not _test_defined_in(relative, name)
     ]
     assert missing_tests == [], missing_tests
 
