@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from webmedia_dl.domain.enums import JobState, MediaKind
+from webmedia_dl.domain.enums import EventType, JobState, MediaKind
 from webmedia_dl.pipeline import Pipeline
 from webmedia_dl.providers import ProviderRuntime
 
@@ -34,16 +34,22 @@ def test_pipeline_records_clear_hls(tmp_data: Path) -> None:
         'src="https://cdn.example.com/plain-live">'
         "</body></html>"
     )
-    bodies["https://cdn.example.com/plain-live"] = playlist.encode()
+    bodies["https://cdn.example.com/plain-live"] = b"#EXTM3U\n#EXTINF:1,\nplain.ts\n"
+    bodies["https://cdn.example.com/plain.ts"] = b"PLAINLIVE"
     job = pipeline.submit("https://example.com/watch", html=html)
     assert job.state is JobState.COMPLETED
-    live_sources = [
-        item
+    ranked = [
+        event.payload["strategies"]
+        for event in pipeline.queue.events_for(job.job_id)
+        if event.type is EventType.PLAN_RANKED
+    ]
+    assert ranked == [["live-clear-record"]]
+    live_bytes = {
+        pipeline.store.resolve(item).read_bytes()
         for item in pipeline.store._records.values()
         if item.media_kind is MediaKind.LIVE_STREAM
-    ]
-    assert len(live_sources) >= 2
-    assert all(pipeline.store.resolve(item).read_bytes() == b"SEGMENT" for item in live_sources)
+    }
+    assert live_bytes == {b"SEGMENT", b"PLAINLIVE"}
 
 
 def test_pipeline_fetches_html_when_no_fixture(tmp_data: Path, png_bytes: bytes) -> None:
