@@ -343,7 +343,7 @@
 		37DD657C6B50904980460CDA /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				APPLICATION_EXTENSION_API_ONLY = NO;
+				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGNING_ALLOWED = NO;
 				CODE_SIGNING_REQUIRED = NO;
 				CODE_SIGN_ENTITLEMENTS = "../WebMediaDLiOS/ShareExtension/WebMediaDL.entitlements";
@@ -370,7 +370,7 @@
 		4F5F990798CB5CFBFD423FDF /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				APPLICATION_EXTENSION_API_ONLY = NO;
+				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGNING_ALLOWED = NO;
 				CODE_SIGNING_REQUIRED = NO;
 				CODE_SIGN_ENTITLEMENTS = "../WebMediaDLiOS/ShareExtension/WebMediaDL.entitlements";
@@ -397,7 +397,7 @@
 		CA10F1604D892585D9E98EB9 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				APPLICATION_EXTENSION_API_ONLY = NO;
+				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGNING_ALLOWED = NO;
 				CODE_SIGNING_REQUIRED = NO;
 				CODE_SIGN_ENTITLEMENTS = "../WebMediaDLiPadOS/ShareExtension/WebMediaDL.entitlements";
@@ -424,7 +424,7 @@
 		E6A936CFAB3160CF1C23DFA8 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				APPLICATION_EXTENSION_API_ONLY = NO;
+				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGNING_ALLOWED = NO;
 				CODE_SIGNING_REQUIRED = NO;
 				CODE_SIGN_ENTITLEMENTS = "../WebMediaDLiPadOS/ShareExtension/WebMediaDL.entitlements";
@@ -451,7 +451,7 @@
 		21BA310FC2A97881FDC4615D /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				APPLICATION_EXTENSION_API_ONLY = NO;
+				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGNING_ALLOWED = NO;
 				CODE_SIGNING_REQUIRED = NO;
 				CODE_SIGN_ENTITLEMENTS = "../WebMediaDLVision/ShareExtension/WebMediaDL.entitlements";
@@ -478,7 +478,7 @@
 		31F3D58A4BC5C1F82405CD12 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				APPLICATION_EXTENSION_API_ONLY = NO;
+				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGNING_ALLOWED = NO;
 				CODE_SIGNING_REQUIRED = NO;
 				CODE_SIGN_ENTITLEMENTS = "../WebMediaDLVision/ShareExtension/WebMediaDL.entitlements";
@@ -505,7 +505,7 @@
 		4BB13406423172749CDA1D08 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				APPLICATION_EXTENSION_API_ONLY = NO;
+				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGNING_ALLOWED = NO;
 				CODE_SIGNING_REQUIRED = NO;
 				CODE_SIGN_ENTITLEMENTS = "../WebMediaDLMac/ShareExtension/WebMediaDL.entitlements";
@@ -531,7 +531,7 @@
 		B3310F4A2BE660E43EDF918B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				APPLICATION_EXTENSION_API_ONLY = NO;
+				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGNING_ALLOWED = NO;
 				CODE_SIGNING_REQUIRED = NO;
 				CODE_SIGN_ENTITLEMENTS = "../WebMediaDLMac/ShareExtension/WebMediaDL.entitlements";

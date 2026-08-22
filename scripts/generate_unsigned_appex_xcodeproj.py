@@ -335,7 +335,7 @@ def render_pbxproj(root: Path) -> str:
             f"\t\t}};"
         )
         target_settings = {
-            "APPLICATION_EXTENSION_API_ONLY": "NO",
+            "APPLICATION_EXTENSION_API_ONLY": "YES",
             "CODE_SIGNING_ALLOWED": "NO",
             "CODE_SIGNING_REQUIRED": "NO",
             "CODE_SIGN_ENTITLEMENTS": row["entitlements"],

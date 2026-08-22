@@ -921,6 +921,8 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert "8765" in worker_launch
     assert '"--data-dir"' in worker_launch
     assert "func start(dataDir:" in worker_launch
+    assert 'NSClassFromString("NSTask")' in worker_launch
+    assert "Process(" not in worker_launch
     assert worker_launch.index("#if os(macOS)") < worker_launch.index("homeDirectoryForCurrentUser")
     assert "This Mac's address" in mac
     assert "localOnly: false" in mac
@@ -1043,6 +1045,9 @@ def test_macos_app_supervises_the_loopback_worker() -> None:
     assert "loopbackPort" in worker
     assert "8765" in worker
     assert "func start(dataDir:" in worker
+    assert 'NSClassFromString("NSTask")' in worker
+    assert "Process(" not in worker
+    assert "WebMediaDLMacWorkerProcess.terminate" in mac
     for rel in (
         ROOT_VIEWS["ios"],
         ROOT_VIEWS["ipados"],
@@ -1154,7 +1159,8 @@ def test_unsigned_xcode_app_extension_products(
     pbxproj = (committed / "project.pbxproj").read_text(encoding="utf-8")
     assert pbxproj.count('productType = "com.apple.product-type.app-extension"') == 4
     assert pbxproj.count("WRAPPER_EXTENSION = appex") == 8
-    assert "APPLICATION_EXTENSION_API_ONLY = NO" in pbxproj
+    assert pbxproj.count("APPLICATION_EXTENSION_API_ONLY = YES") == 8
+    assert "APPLICATION_EXTENSION_API_ONLY = NO" not in pbxproj
     assert "CODE_SIGNING_ALLOWED = NO" in pbxproj
     assert 'relativePath = "../WebMediaDLCore"' in pbxproj
     assert "XCLocalSwiftPackageReference" in pbxproj

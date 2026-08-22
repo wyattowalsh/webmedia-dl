@@ -29,7 +29,7 @@ struct MacRootView: View {
     @State private var watchDelegate: WebMediaDLMacWatchConnectivityDelegate?
     @State private var advertisedAddresses = "Mac relay is starting…"
     @State private var relayServer: WebMediaDLMacRelayServer?
-    @State private var workerProcess: Process?
+    @State private var workerProcess: AnyObject?
     private let role = WebMediaDLClientRole.fullWorker
     private let bridge = WebMediaDLContinuityBridge()
 
@@ -267,7 +267,7 @@ struct MacRootView: View {
                 Task { await startMacRelay() }
             }
             .onDisappear {
-                workerProcess?.terminate()
+                WebMediaDLMacWorkerProcess.terminate(workerProcess)
                 relayServer?.stop()
             }
             .onChange(of: token) { _, value in

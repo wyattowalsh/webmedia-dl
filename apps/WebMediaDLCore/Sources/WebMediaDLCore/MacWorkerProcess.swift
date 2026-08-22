@@ -38,20 +38,35 @@ public enum WebMediaDLMacWorkerProcess {
     }
 
     @discardableResult
-    public static func start(dataDir: URL, executable: URL? = nil) throws -> Process {
+    public static func start(dataDir: URL, executable: URL? = nil) throws -> AnyObject {
         guard let binary = executable ?? executableURL() else {
             throw WebMediaDLDomainError(
                 "webmedia-dl is not on PATH; start the loopback worker before pairing clients."
             )
         }
         try FileManager.default.createDirectory(at: dataDir, withIntermediateDirectories: true)
-        let process = Process()
-        process.executableURL = binary
-        process.arguments = serveArguments(dataDir: dataDir.path)
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
-        try process.run()
-        return process
+        guard let taskClass = NSClassFromString("NSTask") as? NSObject.Type else {
+            throw WebMediaDLDomainError("host process launcher is unavailable")
+        }
+        let task = taskClass.init()
+        task.setValue(binary.path, forKey: "launchPath")
+        task.setValue(serveArguments(dataDir: dataDir.path), forKey: "arguments")
+        task.setValue(FileHandle.nullDevice, forKey: "standardOutput")
+        task.setValue(FileHandle.nullDevice, forKey: "standardError")
+        let launch = NSSelectorFromString("launch")
+        guard task.responds(to: launch) else {
+            throw WebMediaDLDomainError("host process launcher cannot start")
+        }
+        task.perform(launch)
+        return task
     }
-    #endif
+
+    public static func terminate(_ process: AnyObject?) {
+        guard let process else { return }
+        let selector = NSSelectorFromString("terminate")
+        if process.responds(to: selector) {
+            process.perform(selector)
+        }
+    }
+#endif
 }
