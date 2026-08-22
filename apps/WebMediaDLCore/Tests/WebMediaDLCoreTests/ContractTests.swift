@@ -143,7 +143,7 @@ final class ContractTests: XCTestCase {
         XCTAssertFalse(picked.resolve().stale)
     }
 
-    func testClipboardAndShareExtractorIgnoreNonHTTP() async {
+    func testClipboardAndShareExtractorIgnoreNonHTTP() async throws {
         XCTAssertNil(WebMediaDLClipboardIntake(text: "not a locator").locator)
         XCTAssertEqual(
             WebMediaDLShareItemExtractor.locators(fromShared: [
@@ -180,6 +180,17 @@ final class ContractTests: XCTestCase {
             {"event_id":"11111111-1111-1111-1111-111111111111","job_id":"11111111-1111-1111-1111-111111111111","type":"job.failed","sequence":1,"payload":{"nativeCommand":"yt-dlp"}}
             """.utf8)
         XCTAssertThrowsError(try JSONDecoder().decode(WebMediaDLEvent.self, from: eventJSON))
+        let nestedJSON = Data("""
+            {"event_id":"11111111-1111-1111-1111-111111111111","job_id":"11111111-1111-1111-1111-111111111111","type":"job.failed","sequence":1,"payload":{"meta":{"stdout":"secret"}}}
+            """.utf8)
+        XCTAssertThrowsError(try JSONDecoder().decode(WebMediaDLEvent.self, from: nestedJSON))
+        let numericJSON = Data("""
+            {"event_id":"11111111-1111-1111-1111-111111111111","job_id":"11111111-1111-1111-1111-111111111111","type":"job.progress","sequence":1,"payload":{"bytes":1024,"ok":true}}
+            """.utf8)
+        let numeric = try JSONDecoder().decode(WebMediaDLEvent.self, from: numericJSON)
+        XCTAssertEqual(numeric.payload["bytes"], .int(1024))
+        XCTAssertEqual(numeric.payload["ok"], .bool(true))
+        XCTAssertFalse(numeric.exposesProviderConsole)
         let shared = "https://cdn.example.com/a.mp4"
         let provider = NSItemProvider(
             item: shared as NSString,
@@ -311,6 +322,32 @@ final class ContractTests: XCTestCase {
         let forwarded = try WebMediaDLMacWorkerRelay.forwardToLoopback(request)
         XCTAssertEqual(forwarded.url?.host, "127.0.0.1")
         XCTAssertEqual(forwarded.url?.port, 8765)
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer tok")
+        XCTAssertNil(forwarded.value(forHTTPHeaderField: "Authorization"))
+        XCTAssertEqual(forwarded.value(forHTTPHeaderField: "X-WebMedia-Pairing"), pairing.uuidString)
+        var companion = URLRequest(url: URL(string: "http://192.168.1.9:8766/v1/companion")!)
+        companion.httpMethod = "POST"
+        companion.setValue("Bearer stolen", forHTTPHeaderField: "Authorization")
+        companion.setValue("stolen", forHTTPHeaderField: "X-WebMedia-Token")
+        companion.setValue(pairing.uuidString, forHTTPHeaderField: "X-WebMedia-Pairing")
+        companion.setValue("sess", forHTTPHeaderField: "X-WebMedia-Session")
+        let injected = try WebMediaDLMacWorkerRelay.forwardToLoopback(
+            companion,
+            loopbackToken: "mac-loopback"
+        )
+        XCTAssertEqual(injected.value(forHTTPHeaderField: "Authorization"), "Bearer mac-loopback")
+        XCTAssertNil(injected.value(forHTTPHeaderField: "X-WebMedia-Token"))
+        XCTAssertEqual(injected.url?.host, "127.0.0.1")
+        var confirm = URLRequest(url: URL(string: "http://192.168.1.9:8766/v1/pair/confirm")!)
+        confirm.httpMethod = "POST"
+        confirm.setValue("Bearer stolen", forHTTPHeaderField: "Authorization")
+        confirm.setValue(pairing.uuidString, forHTTPHeaderField: "X-WebMedia-Pairing")
+        confirm.setValue("sess", forHTTPHeaderField: "X-WebMedia-Session")
+        XCTAssertThrowsError(
+            try WebMediaDLMacWorkerRelay.forwardToLoopback(confirm, loopbackToken: "mac-loopback")
+        ) { error in
+            XCTAssertEqual(error as? WebMediaDLMacWorkerRelayError, .macOnlyEndpoint)
+        }
         var poisoned = request
         poisoned.httpBody = try JSONSerialization.data(withJSONObject: ["nativeCommand": "yt-dlp"])
         XCTAssertThrowsError(try WebMediaDLMacWorkerRelay.forwardToLoopback(poisoned))
@@ -434,7 +471,7 @@ final class ContractTests: XCTestCase {
         suite.removePersistentDomain(forName: suiteName)
     }
 
-    func testWorkerCredentialsLoadFromAppGroupDefaults() {
+    func testWorkerCredentialsLoadFromAppGroupDefaults() throws {
         let suite = "webmedia-dl.tests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         let pairing = UUID()
@@ -448,6 +485,24 @@ final class ContractTests: XCTestCase {
         XCTAssertEqual(client.sessionKey, "sess")
         XCTAssertEqual(WebMediaDLWorkerCredentials.loadBookmark(defaults: defaults), Data("bm".utf8))
         XCTAssertEqual(WebMediaDLWorkerCredentials.appGroupIdentifier, "group.local.webmedia-dl")
+        XCTAssertTrue(
+            WebMediaDLPairedMacEndpoint.saveRelay(
+                URL(string: "http://192.168.1.9:8766")!,
+                defaults: defaults
+            )
+        )
+        let endpoint = try WebMediaDLPairedMacSubmit.loadEndpoint(
+            credentials: client,
+            defaults: defaults
+        )
+        XCTAssertEqual(endpoint.token, "")
+        XCTAssertNil(endpoint.submitRequest(locator: "https://example.com/a.mp4", surface: .ios)
+            .value(forHTTPHeaderField: "Authorization"))
+        XCTAssertEqual(
+            endpoint.submitRequest(locator: "https://example.com/a.mp4", surface: .ios)
+                .value(forHTTPHeaderField: "X-WebMedia-Session"),
+            "sess"
+        )
         defaults.removePersistentDomain(forName: suite)
     }
 

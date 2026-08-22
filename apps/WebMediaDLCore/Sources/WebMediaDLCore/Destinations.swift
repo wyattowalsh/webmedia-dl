@@ -273,6 +273,103 @@ public struct WebMediaDLClipboardIntake: Codable, Sendable {
     public var intakeKind: String { "paste" }
 }
 
+/// JSON values in event payloads. Matches Python `dict[str, Any]`.
+public enum WebMediaDLJSONValue: Codable, Sendable, Equatable {
+    case string(String)
+    case int(Int)
+    case double(Double)
+    case bool(Bool)
+    case object([String: WebMediaDLJSONValue])
+    case array([WebMediaDLJSONValue])
+    case null
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if container.decodeNil() {
+            self = .null
+            return
+        }
+        if let value = try? container.decode(Bool.self) {
+            self = .bool(value)
+            return
+        }
+        if let value = try? container.decode(Int.self) {
+            self = .int(value)
+            return
+        }
+        if let value = try? container.decode(Double.self) {
+            self = .double(value)
+            return
+        }
+        if let value = try? container.decode(String.self) {
+            self = .string(value)
+            return
+        }
+        if let value = try? container.decode([WebMediaDLJSONValue].self) {
+            self = .array(value)
+            return
+        }
+        if let value = try? container.decode([String: WebMediaDLJSONValue].self) {
+            self = .object(value)
+            return
+        }
+        throw DecodingError.dataCorruptedError(
+            in: container,
+            debugDescription: "Unsupported event payload JSON value."
+        )
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .string(let value):
+            try container.encode(value)
+        case .int(let value):
+            try container.encode(value)
+        case .double(let value):
+            try container.encode(value)
+        case .bool(let value):
+            try container.encode(value)
+        case .object(let value):
+            try container.encode(value)
+        case .array(let value):
+            try container.encode(value)
+        case .null:
+            try container.encodeNil()
+        }
+    }
+}
+
+extension WebMediaDLJSONValue: ExpressibleByStringLiteral {
+    public init(stringLiteral value: String) { self = .string(value) }
+}
+
+extension WebMediaDLJSONValue: ExpressibleByIntegerLiteral {
+    public init(integerLiteral value: Int) { self = .int(value) }
+}
+
+extension WebMediaDLJSONValue: ExpressibleByFloatLiteral {
+    public init(floatLiteral value: Double) { self = .double(value) }
+}
+
+extension WebMediaDLJSONValue: ExpressibleByBooleanLiteral {
+    public init(booleanLiteral value: Bool) { self = .bool(value) }
+}
+
+extension WebMediaDLJSONValue: ExpressibleByNilLiteral {
+    public init(nilLiteral: ()) { self = .null }
+}
+
+extension WebMediaDLJSONValue: ExpressibleByArrayLiteral {
+    public init(arrayLiteral elements: WebMediaDLJSONValue...) { self = .array(elements) }
+}
+
+extension WebMediaDLJSONValue: ExpressibleByDictionaryLiteral {
+    public init(dictionaryLiteral elements: (String, WebMediaDLJSONValue)...) {
+        self = .object(Dictionary(uniqueKeysWithValues: elements))
+    }
+}
+
 /// Typed local lifecycle event. Never a provider console dump.
 public struct WebMediaDLEvent: Codable, Sendable, Identifiable {
     public static let forbiddenPayloadKeys: Set<String> = [
@@ -284,7 +381,7 @@ public struct WebMediaDLEvent: Codable, Sendable, Identifiable {
     public var type: String
     public var sequence: Int
     public var ts: String?
-    public var payload: [String: String]
+    public var payload: [String: WebMediaDLJSONValue]
 
     public init(
         id: UUID = UUID(),
@@ -292,18 +389,18 @@ public struct WebMediaDLEvent: Codable, Sendable, Identifiable {
         type: String,
         sequence: Int,
         ts: String? = nil,
-        payload: [String: String] = [:]
+        payload: [String: WebMediaDLJSONValue] = [:]
     ) throws {
-        self.id = id
-        self.jobId = jobId
-        self.type = type
+        self.id       = id
+        self.jobId    = jobId
+        self.type     = type
         self.sequence = sequence
-        self.ts = ts
-        self.payload = try Self.sanitizedPayload(payload)
+        self.ts       = ts
+        self.payload  = try Self.sanitizedPayload(payload)
     }
 
     public var exposesProviderConsole: Bool {
-        payload.keys.contains(where: { Self.forbiddenPayloadKeys.contains($0) })
+        !Self.forbiddenEventKeys(in: .object(payload)).isDisjoint(with: Self.forbiddenPayloadKeys)
     }
 
     enum CodingKeys: String, CodingKey {
@@ -315,16 +412,39 @@ public struct WebMediaDLEvent: Codable, Sendable, Identifiable {
         case payload
     }
 
-    public static func sanitizedPayload(_ payload: [String: String]) throws -> [String: String] {
-        var forbidden: [String] = []
-        for (key, value) in payload {
-            if forbiddenPayloadKeys.contains(key) {
-                forbidden.append(key)
-            } else if key.lowercased().contains("cookie"),
-                      value.contains("/") || value.contains("\\") || value.hasPrefix("~") {
-                forbidden.append(key)
-            }
+    public static func looksLikePath(_ value: WebMediaDLJSONValue) -> Bool {
+        if case .string(let text) = value {
+            return text.contains("/") || text.contains("\\") || text.hasPrefix("~")
         }
+        return false
+    }
+
+    public static func forbiddenEventKeys(in value: WebMediaDLJSONValue) -> Set<String> {
+        var found: Set<String> = []
+        switch value {
+        case .object(let object):
+            for (key, item) in object {
+                if forbiddenPayloadKeys.contains(key) {
+                    found.insert(key)
+                } else if key.lowercased().contains("cookie"), looksLikePath(item) {
+                    found.insert(key)
+                }
+                found.formUnion(forbiddenEventKeys(in: item))
+            }
+        case .array(let items):
+            for item in items {
+                found.formUnion(forbiddenEventKeys(in: item))
+            }
+        default:
+            break
+        }
+        return found
+    }
+
+    public static func sanitizedPayload(
+        _ payload: [String: WebMediaDLJSONValue]
+    ) throws -> [String: WebMediaDLJSONValue] {
+        let forbidden = forbiddenEventKeys(in: .object(payload))
         if !forbidden.isEmpty {
             throw WebMediaDLDomainError(
                 "Event payloads must not include \(forbidden.sorted())."
@@ -341,7 +461,10 @@ public struct WebMediaDLEvent: Codable, Sendable, Identifiable {
             type: try container.decode(String.self, forKey: .type),
             sequence: try container.decode(Int.self, forKey: .sequence),
             ts: try container.decodeIfPresent(String.self, forKey: .ts),
-            payload: try container.decodeIfPresent([String: String].self, forKey: .payload) ?? [:]
+            payload: try container.decodeIfPresent(
+                [String: WebMediaDLJSONValue].self,
+                forKey: .payload
+            ) ?? [:]
         )
     }
 }

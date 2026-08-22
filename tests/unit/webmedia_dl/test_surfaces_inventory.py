@@ -242,6 +242,9 @@ def test_apple_app_shells_exist() -> None:
     assert "if trimmed.isEmpty { return false }" in destinations
     assert "libraryWriteAvailable" in destinations
     assert "exposesProviderConsole" in destinations
+    assert "enum WebMediaDLJSONValue" in destinations
+    assert "[String: WebMediaDLJSONValue]" in destinations
+    assert "forbiddenEventKeys" in destinations
     assert "WebMediaDLShareItemExtractor" in destinations
     assert "fromShared" in destinations
     mac_share_ext = (
@@ -790,9 +793,18 @@ def test_github_ci_compiles_apple_packages() -> None:
     assert "func pullToFiles(" in paired_mac
     assert "artifactContentRequest" in paired_mac
     assert "X-WebMedia-Digest" in paired_mac
+    assert 'token: ""' in paired_mac
+    assert "token: credentials.token" not in paired_mac
+    assert "macOnlyEndpoint" in paired_mac
+    assert "loopbackToken" in paired_mac
+    assert 'forHTTPHeaderField: "X-WebMedia-Token"' in paired_mac
     assert "maxStagingBytes" in relay_http
     assert "func maxBytes(for target: String)" in relay_http
     assert "func requestByteLimit(buffer: Data)" in relay_http
+    assert "loopbackToken" in relay_http
+    assert '"authorization"' in relay_http
+    assert '"x-webmedia-token"' in relay_http
+    assert "mac-only endpoint" in relay_http
 
 
 def test_complete_clients_http_direct_and_shared_domain() -> None:
@@ -880,6 +892,8 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert "WebMediaDLMacRelayServer.start" in mac
     assert "WebMediaDLMacWorkerProcess.start" in mac
     assert "startMacWorker" in mac
+    assert "loopbackToken: token" in mac
+    assert "relayServer?.loopbackToken = value" in mac
     worker_launch = (
         root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/MacWorkerProcess.swift"
     ).read_text(encoding="utf-8")
@@ -891,6 +905,7 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert "8765" in worker_launch
     assert '"--data-dir"' in worker_launch
     assert "func start(dataDir:" in worker_launch
+    assert worker_launch.index("#if os(macOS)") < worker_launch.index("homeDirectoryForCurrentUser")
     assert "This Mac's address" in mac
     assert "localOnly: false" in mac
     assert "WebMediaDLPairedMacSubmit.history" not in mac
@@ -994,3 +1009,32 @@ def test_privacy_manifests_declare_user_defaults() -> None:
             "NSPrivacyAccessedAPICategoryUserDefaults"
         )
         assert accessed[0]["NSPrivacyAccessedAPITypeReasons"] == ["1C8F.1"]
+
+
+def test_macos_app_supervises_the_loopback_worker() -> None:
+    root = repo_root()
+    mac = (root / ROOT_VIEWS["macos"]).read_text(encoding="utf-8")
+    worker = (root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/MacWorkerProcess.swift").read_text(
+        encoding="utf-8"
+    )
+    assert "WebMediaDLMacWorkerProcess.start" in mac
+    assert "startMacWorker" in mac
+    assert "loopbackToken: token" in mac
+    assert worker.index("#if os(macOS)") < worker.index("homeDirectoryForCurrentUser")
+    assert '"serve"' in worker
+    assert '"--host"' in worker
+    assert '"127.0.0.1"' in worker
+    assert "loopbackPort" in worker
+    assert "8765" in worker
+    assert "func start(dataDir:" in worker
+    for rel in (
+        ROOT_VIEWS["ios"],
+        ROOT_VIEWS["ipados"],
+        ROOT_VIEWS["visionos"],
+        ROOT_VIEWS["watchos"],
+        ROOT_VIEWS["tvos"],
+    ):
+        text = (root / rel).read_text(encoding="utf-8")
+        assert "WebMediaDLMacWorkerProcess.start" not in text
+        assert "homeDirectoryForCurrentUser" not in text
+        assert "Process(" not in text

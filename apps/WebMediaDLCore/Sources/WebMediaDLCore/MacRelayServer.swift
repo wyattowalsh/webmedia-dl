@@ -129,10 +129,25 @@ public final class WebMediaDLMacRelayServer: @unchecked Sendable {
 
     private let worker: URL
     private let transport: @Sendable (URLRequest) async throws -> (Data, URLResponse)
+    private let tokenLock = NSLock()
+    private var storedLoopbackToken: String
     #if canImport(Network)
     private var listener: NWListener?
     private let queue = DispatchQueue(label: "webmedia-dl.mac-relay")
     #endif
+
+    public var loopbackToken: String {
+        get {
+            tokenLock.lock()
+            defer { tokenLock.unlock() }
+            return storedLoopbackToken
+        }
+        set {
+            tokenLock.lock()
+            storedLoopbackToken = newValue
+            tokenLock.unlock()
+        }
+    }
 
     public init(
         bindHost: String,
@@ -140,15 +155,17 @@ public final class WebMediaDLMacRelayServer: @unchecked Sendable {
         localOnly: Bool,
         worker: URL,
         lanAddresses: [String],
+        loopbackToken: String = "",
         transport: @escaping @Sendable (URLRequest) async throws -> (Data, URLResponse)
     ) {
-        self.bindHost = bindHost
-        self.port = port
-        self.localOnly = localOnly
-        self.worker = worker
-        self.transport = transport
-        self.advertisedURL = URL(string: "http://127.0.0.1:\(port)")!
-        self.clientPasteURLs = Self.clientPasteURLs(port: Int(port), lanAddresses: lanAddresses)
+        self.bindHost             = bindHost
+        self.port                 = port
+        self.localOnly            = localOnly
+        self.worker               = worker
+        self.storedLoopbackToken  = loopbackToken
+        self.transport            = transport
+        self.advertisedURL        = URL(string: "http://127.0.0.1:\(port)")!
+        self.clientPasteURLs      = Self.clientPasteURLs(port: Int(port), lanAddresses: lanAddresses)
     }
 
     public static func isAllowedBindHost(_ host: String) -> Bool {
@@ -225,6 +242,7 @@ public final class WebMediaDLMacRelayServer: @unchecked Sendable {
         localOnly: Bool = true,
         worker: URL = WebMediaDLLoopbackClient.defaultBaseURL,
         lanAddresses: [String]? = nil,
+        loopbackToken: String = "",
         transport: (@Sendable (URLRequest) async throws -> (Data, URLResponse))? = nil
     ) async throws -> WebMediaDLMacRelayServer {
         try requireAllowedBind(host: bindHost)
@@ -270,6 +288,7 @@ public final class WebMediaDLMacRelayServer: @unchecked Sendable {
             localOnly: localOnly,
             worker: worker,
             lanAddresses: lanAddresses ?? privateLANIPv4Addresses(),
+            loopbackToken: loopbackToken,
             transport: send
         )
         server.listener = listener
@@ -339,7 +358,11 @@ public final class WebMediaDLMacRelayServer: @unchecked Sendable {
         }
         do {
             let incoming = try Self.urlRequest(from: parsed, fallback: advertisedURL)
-            let forwarded = try WebMediaDLMacWorkerRelay.forwardToLoopback(incoming, worker: worker)
+            let forwarded = try WebMediaDLMacWorkerRelay.forwardToLoopback(
+                incoming,
+                worker: worker,
+                loopbackToken: loopbackToken
+            )
             let (body, response) = try await transport(forwarded)
             let http = response as? HTTPURLResponse
             var headers: [String: String] = [:]
@@ -364,6 +387,13 @@ public final class WebMediaDLMacRelayServer: @unchecked Sendable {
                 status: 400,
                 reason: "Bad Request",
                 body: Data(#"{"detail":"nativeCommand"}"#.utf8)
+            )
+        } catch WebMediaDLMacWorkerRelayError.macOnlyEndpoint {
+            reply(
+                connection,
+                status: 403,
+                reason: "Forbidden",
+                body: Data(#"{"detail":"mac-only endpoint"}"#.utf8)
             )
         } catch {
             reply(
@@ -432,6 +462,8 @@ public final class WebMediaDLMacRelayServer: @unchecked Sendable {
             "upgrade",
             "host",
             "content-length",
+            "authorization",
+            "x-webmedia-token",
         ]
         for (name, value) in parsed.headers {
             guard !hopByHop.contains(name.lowercased()) else { continue }

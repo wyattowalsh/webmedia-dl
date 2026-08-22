@@ -420,7 +420,7 @@ SCENARIO_EVIDENCE: dict[str, tuple[str, str]] = {
     ),
     "macos app supervises the loopback worker": (
         "tests/unit/webmedia_dl/test_surfaces_inventory.py",
-        "test_complete_clients_http_direct_and_shared_domain",
+        "test_macos_app_supervises_the_loopback_worker",
     ),
     "share destination publishes under approved root": (
         "tests/unit/webmedia_dl/test_pack_gaps.py",

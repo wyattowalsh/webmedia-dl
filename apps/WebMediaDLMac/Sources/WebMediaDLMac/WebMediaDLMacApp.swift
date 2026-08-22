@@ -272,6 +272,7 @@ struct MacRootView: View {
             }
             .onChange(of: token) { _, value in
                 WebMediaDLWorkerCredentials.defaults().set(value, forKey: WebMediaDLWorkerCredentials.tokenDefaultsKey)
+                relayServer?.loopbackToken = value
                 bindWatchDelegate()
             }
             .onChange(of: pairingId) { _, value in
@@ -304,7 +305,8 @@ struct MacRootView: View {
             let server = try await WebMediaDLMacRelayServer.start(
                 bindHost: "0.0.0.0",
                 port: WebMediaDLMacRelayServer.defaultPort,
-                localOnly: false
+                localOnly: false,
+                loopbackToken: token
             )
             relayServer = server
             let pasted = server.clientPasteURLs.map(\.absoluteString).joined(separator: "\n")

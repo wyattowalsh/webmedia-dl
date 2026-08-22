@@ -397,7 +397,8 @@ public struct WebMediaDLPairedMacEndpoint: Sendable {
 public enum WebMediaDLMacWorkerRelay {
     public static func forwardToLoopback(
         _ incoming: URLRequest,
-        worker: URL = WebMediaDLLoopbackClient.defaultBaseURL
+        worker: URL = WebMediaDLLoopbackClient.defaultBaseURL,
+        loopbackToken: String = ""
     ) throws -> URLRequest {
         let workerClient = WebMediaDLLoopbackClient(baseURL: worker)
         guard workerClient.isLoopback else {
@@ -419,10 +420,25 @@ public enum WebMediaDLMacWorkerRelay {
             }
         }
         components.scheme = worker.scheme
-        components.host = worker.host
-        components.port = worker.port
+        components.host   = worker.host
+        components.port   = worker.port
         var forwarded = incoming
         forwarded.url = components.url
+        forwarded.setValue(nil, forHTTPHeaderField: "Authorization")
+        forwarded.setValue(nil, forHTTPHeaderField: "X-WebMedia-Token")
+        let path = forwarded.url?.path ?? ""
+        if path == "/v1/pair/confirm" || path.hasPrefix("/v1/pair/confirm/") {
+            throw WebMediaDLMacWorkerRelayError.macOnlyEndpoint
+        }
+        let pairing = forwarded.value(forHTTPHeaderField: "X-WebMedia-Pairing") ?? ""
+        let session = forwarded.value(forHTTPHeaderField: "X-WebMedia-Session") ?? ""
+        if (path == "/v1/companion" || path.hasPrefix("/v1/companion/")),
+           !pairing.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           !session.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           !loopbackToken.isEmpty
+        {
+            forwarded.setValue("Bearer \(loopbackToken)", forHTTPHeaderField: "Authorization")
+        }
         return forwarded
     }
 }
@@ -431,6 +447,7 @@ public enum WebMediaDLMacWorkerRelayError: Error, Equatable {
     case notLoopbackWorker
     case missingURL
     case nativeCommand
+    case macOnlyEndpoint
 }
 
 /// Complete-client helper: fail closed without a saved Mac relay and pairing.
@@ -448,15 +465,12 @@ public enum WebMediaDLPairedMacSubmit {
         bookmarkData: Data? = nil,
         defaults: UserDefaults = WebMediaDLWorkerCredentials.defaults()
     ) async throws -> String {
-        guard let endpoint = WebMediaDLPairedMacEndpoint.load(
-            pairingId: pairingId ?? credentials.pairingId,
-            sessionKey: sessionKey ?? credentials.sessionKey,
-            token: credentials.token,
+        return try await loadEndpoint(
+            credentials: credentials,
+            pairingId: pairingId,
+            sessionKey: sessionKey,
             defaults: defaults
-        ) else {
-            throw WebMediaDLHttpDirect.TransferError.pairingRequired
-        }
-        return try await endpoint.submit(
+        ).submit(
             locator: locator,
             surface: surface,
             intakeKind: intakeKind,
@@ -638,7 +652,7 @@ public enum WebMediaDLPairedMacSubmit {
         guard let endpoint = WebMediaDLPairedMacEndpoint.load(
             pairingId: pairingId ?? credentials.pairingId,
             sessionKey: sessionKey ?? credentials.sessionKey,
-            token: credentials.token,
+            token: "",
             defaults: defaults
         ) else {
             throw WebMediaDLHttpDirect.TransferError.pairingRequired

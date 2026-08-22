@@ -262,6 +262,9 @@ def test_bookmark_and_event_coding_keys_live_in_destinations() -> None:
     assert 'case bookmarkId = "bookmark_id"' in destinations
     assert 'case id = "event_id"' in destinations
     assert "case ts" in destinations
+    assert "enum WebMediaDLJSONValue" in destinations
+    assert "[String: WebMediaDLJSONValue]" in destinations
+    assert "[String: String]" not in destinations
     history = (repo_root() / "apps/WebMediaDLCore/Sources/WebMediaDLCore/Models.swift").read_text(
         encoding="utf-8"
     )

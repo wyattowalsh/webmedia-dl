@@ -29,6 +29,7 @@ public enum WebMediaDLMacWorkerProcess {
         return nil
     }
 
+    #if os(macOS)
     public static func defaultDataDirectory() -> URL {
         FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library", isDirectory: true)
@@ -36,7 +37,6 @@ public enum WebMediaDLMacWorkerProcess {
             .appendingPathComponent("WebMedia DL", isDirectory: true)
     }
 
-    #if os(macOS)
     @discardableResult
     public static func start(dataDir: URL, executable: URL? = nil) throws -> Process {
         guard let binary = executable ?? executableURL() else {
