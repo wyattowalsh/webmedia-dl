@@ -2,6 +2,13 @@
 
 ## 0.1.0
 
+- Follow nested HLS master playlists through eight hops so a four-level
+  wrapper still records media segments instead of concatenating the next
+  `.m3u8` as source bytes. A four-level AES-128 child still refuses before
+  any segment fetch. GitHub Actions `32591312369` on `a6a7477` passed
+  Python (626 pytest, 100%), doctor provider probes, and Swift (18 tests,
+  0 failures; 12× BUILD SUCCEEDED) after treating extensionless DASH
+  SegmentBase BaseURLs as ranged files.
 - Treat the last DASH BaseURL without a trailing slash as the SegmentBase
   media object even when it has no file suffix, so `indexRange` /
   `mediaRange` / Initialization ranges slice `https://cdn.example.com/video123`

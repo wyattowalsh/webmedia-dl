@@ -67,6 +67,7 @@ _ISO_DURATION = re.compile(
 )
 MAX_TIMELINE_SEGMENTS = 64
 MAX_LIVE_POLLS = 8
+MAX_PLAYLIST_NESTING = 8
 
 FetchFn = Callable[[str], tuple[int, str, bytes]]
 StopFn = Callable[[], None]
@@ -1097,7 +1098,7 @@ def record_clear_stream(
     preferred = _preferred_hls_variant(playlist, playlist_url)
     if (
         parts is None
-        and depth < 2
+        and depth < MAX_PLAYLIST_NESTING
         and (preferred or _live_playlist_locator(first) or "#EXT-X-STREAM-INF" in playlist)
     ):
         nested = [item.url for item in round_parts if _live_playlist_locator(item.url)]

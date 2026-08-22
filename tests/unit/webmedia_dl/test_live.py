@@ -5,6 +5,7 @@ import pytest
 from webmedia_dl.domain.enums import MediaKind
 from webmedia_dl.errors import DiscoveryError, DrmRefused, PauseRequested
 from webmedia_dl.live import (
+    MAX_PLAYLIST_NESTING,
     ManifestPart,
     _select_dash_group,
     inspect_manifest,
@@ -79,6 +80,47 @@ def test_record_follows_master_playlist(tmp_path: Path) -> None:
         fetch,
     )
     assert slashed.read_bytes() == b"SEG"
+    chain = {
+        "https://cdn.example.com/l0.m3u8": ("#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nl1.m3u8\n"),
+        "https://cdn.example.com/l1.m3u8": ("#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nl2.m3u8\n"),
+        "https://cdn.example.com/l2.m3u8": ("#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nl3.m3u8\n"),
+        "https://cdn.example.com/l3.m3u8": "#EXTM3U\n#EXTINF:1,\nseg.ts\n",
+    }
+
+    def fetch_chain(url: str) -> tuple[int, str, bytes]:
+        if url.endswith("seg.ts"):
+            return 200, "video/MP2T", b"DEEP"
+        return 200, "application/vnd.apple.mpegurl", chain[url].encode()
+
+    four = tmp_path / "four.ts"
+    record_clear_stream(
+        chain["https://cdn.example.com/l0.m3u8"],
+        "https://cdn.example.com/l0.m3u8",
+        four,
+        fetch_chain,
+    )
+    assert four.read_bytes() == b"DEEP"
+    deep = {
+        f"https://cdn.example.com/d{index}.m3u8": (
+            f"#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nd{index + 1}.m3u8\n"
+        )
+        for index in range(MAX_PLAYLIST_NESTING)
+    }
+    deep[f"https://cdn.example.com/d{MAX_PLAYLIST_NESTING}.m3u8"] = "#EXTM3U\n#EXTINF:1,\nseg.ts\n"
+
+    def fetch_deep(url: str) -> tuple[int, str, bytes]:
+        if url.endswith("seg.ts"):
+            return 200, "video/MP2T", b"CAP"
+        return 200, "application/vnd.apple.mpegurl", deep[url].encode()
+
+    capped = tmp_path / "cap.ts"
+    record_clear_stream(
+        deep["https://cdn.example.com/d0.m3u8"],
+        "https://cdn.example.com/d0.m3u8",
+        capped,
+        fetch_deep,
+    )
+    assert capped.read_bytes() == b"CAP"
 
 
 def test_relative_segment_urls_join_base() -> None:
@@ -157,6 +199,39 @@ def test_aes128_playlist_refused_before_any_segment_fetch(tmp_path: Path) -> Non
             fetch_nested,
         )
     assert nested_fetched == ["https://cdn.example.com/secret.m3u8?token=1"]
+    deep_fetched: list[str] = []
+
+    def fetch_four_level(url: str) -> tuple[int, str, bytes]:
+        deep_fetched.append(url)
+        if url.endswith("l1.m3u8"):
+            return (
+                200,
+                "application/vnd.apple.mpegurl",
+                b"#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nl2.m3u8\n",
+            )
+        if url.endswith("l2.m3u8"):
+            return (
+                200,
+                "application/vnd.apple.mpegurl",
+                b"#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nsecret.m3u8\n",
+            )
+        if "secret.m3u8" in url:
+            return 200, "application/vnd.apple.mpegurl", secret.encode()
+        raise AssertionError(url)
+
+    with pytest.raises(DrmRefused, match="AES-128"):
+        record_clear_stream(
+            "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nl1.m3u8\n",
+            "https://cdn.example.com/l0.m3u8",
+            tmp_path / "four-aes.ts",
+            fetch_four_level,
+        )
+    assert deep_fetched == [
+        "https://cdn.example.com/l1.m3u8",
+        "https://cdn.example.com/l2.m3u8",
+        "https://cdn.example.com/secret.m3u8",
+    ]
+    assert not any(item.endswith("seg.ts") for item in deep_fetched)
 
 
 def test_live_segment_http_error_fails_closed(tmp_path: Path) -> None:
