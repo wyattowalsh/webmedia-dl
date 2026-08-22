@@ -208,3 +208,78 @@ def test_sealed_companion_requires_pairing(tmp_path: Path) -> None:
     )
     assert missing_key.status_code == 400
     assert "confirmed pairing" in missing_key.json()["detail"]
+
+
+def test_share_and_intent_loopback_payloads_reject_native_command(
+    tmp_path: Path, png_bytes: bytes
+) -> None:
+    app = create_app(tmp_path)
+    token = load_or_create_token(tmp_path)
+    client = TestClient(app)
+    headers = {"Authorization": f"Bearer {token}"}
+    media = tmp_path / "shared.png"
+    media.write_bytes(png_bytes)
+    share = client.post(
+        "/v1/jobs",
+        headers=headers,
+        json={
+            "locator": "https://cdn.example.com/a.mp4",
+            "surface": "ios",
+            "local_user_confirmed": True,
+            "evidence": [],
+            "wait": False,
+            "intake_kind": "share_sheet",
+        },
+    )
+    assert share.status_code == 200, share.text
+    assert share.json()["job"]["source"]["kind"] == "share_sheet"
+    assert share.json()["job"]["source"]["local_path"] is None
+    intent = client.post(
+        "/v1/jobs",
+        headers=headers,
+        json={
+            "locator": "https://cdn.example.com/b.mp4",
+            "surface": "ios",
+            "local_user_confirmed": True,
+            "wait": False,
+            "intake_kind": "intent",
+        },
+    )
+    assert intent.status_code == 200, intent.text
+    assert intent.json()["job"]["source"]["kind"] == "intent"
+    dropped = client.post(
+        "/v1/jobs",
+        headers=headers,
+        json={
+            "locator": str(media),
+            "surface": "ios",
+            "local_user_confirmed": True,
+            "wait": True,
+            "intake_kind": "drop",
+        },
+    )
+    assert dropped.status_code == 200, dropped.text
+    assert dropped.json()["job"]["source"]["kind"] == "drop"
+    argv = client.post(
+        "/v1/jobs",
+        headers=headers,
+        json={"locator": str(media), "surface": "ios", "nativeCommand": "yt-dlp"},
+    )
+    assert argv.status_code == 422
+    extra = client.post(
+        "/v1/jobs",
+        headers=headers,
+        json={"locator": str(media), "providerArgv": ["--format"]},
+    )
+    assert extra.status_code == 422
+    companion = client.post(
+        "/v1/companion",
+        headers=headers,
+        json={
+            "kind": "capture",
+            "locator": "https://example.com/a.mp4",
+            "nativeCommand": "yt-dlp",
+            "subprocessWorker": False,
+        },
+    )
+    assert companion.status_code == 400

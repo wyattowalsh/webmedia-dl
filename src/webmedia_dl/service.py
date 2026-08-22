@@ -10,7 +10,7 @@ from uuid import UUID
 
 from fastapi import Body, Depends, FastAPI, Header, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from webmedia_dl import __version__
 from webmedia_dl.continuity import validate_companion_message
@@ -54,6 +54,8 @@ def run_next_payload(pipeline: Pipeline) -> dict[str, Any]:
 
 
 class SubmitBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     locator: str
     surface: Surface = Surface.CLI
     html: str | None = None
@@ -68,6 +70,8 @@ class SubmitBody(BaseModel):
 
 
 class PlanBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     locator: str
     surface: Surface = Surface.CLI
     html: str | None = None

@@ -1,3 +1,5 @@
+from html.parser import HTMLParser
+
 from webmedia_dl.paths import repo_root
 
 ROOT_VIEWS = [
@@ -17,21 +19,53 @@ SHARE_VIEWS = [
 ]
 
 
+class _PopupParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.html_lang: str | None = None
+        self.label_for: list[str] = []
+        self.input_ids: list[str] = []
+        self.status_live = False
+        self.focusable_buttons = 0
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        values = {key: value for key, value in attrs if value is not None}
+        if tag == "html":
+            self.html_lang = values.get("lang")
+        elif tag == "label":
+            target = values.get("for")
+            if target:
+                self.label_for.append(target)
+        elif tag == "input":
+            identity = values.get("id")
+            if identity:
+                self.input_ids.append(identity)
+        elif tag == "button":
+            self.focusable_buttons += 1
+        if values.get("role") == "status" and values.get("aria-live"):
+            self.status_live = True
+
+
 def test_capture_popup_has_accessible_markup() -> None:
     root = repo_root()
     for browser in ("chromium", "chrome", "brave", "edge", "firefox", "safari"):
         html = (root / "extensions" / browser / "popup.html").read_text(encoding="utf-8")
-        assert 'lang="en"' in html
-        assert 'for="token"' in html
-        assert 'role="status"' in html
-        assert "aria-live" in html
-        assert "Paste the token once" in html
-        assert "<button" in html
+        parser = _PopupParser()
+        parser.feed(html)
+        parser.close()
+        assert parser.html_lang == "en", browser
+        assert "token" in parser.label_for, browser
+        assert "token" in parser.input_ids, browser
+        assert parser.status_live, browser
+        assert parser.focusable_buttons >= 1, browser
 
 
 def test_guide_has_accessible_markup() -> None:
     html = (repo_root() / "guide/index.html").read_text(encoding="utf-8")
-    assert 'lang="en"' in html
+    parser = _PopupParser()
+    parser.feed(html)
+    parser.close()
+    assert parser.html_lang == "en"
     assert "<h1>" in html
     assert "aria-label" in html
 

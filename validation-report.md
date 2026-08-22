@@ -2,7 +2,7 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 503 tests |
+| `uv run pytest` | PASS | 504 tests |
 | `uv run pytest --cov` | PASS | 99.67% (`fail_under` 99) |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
@@ -68,7 +68,7 @@
 | Swift Core CI job | PASS | GitHub Actions `ci` run `32538904545` on `94e423b`: `IdentityTests` executed 6 tests, 0 failures on `macos-15` |
 | Swift Core contract tests | PASS | `ContractTests.swift` executed 12 tests, 0 failures with IdentityTests (6) on GitHub `macos-15` run `32543981785` (`691114e`) |
 | Apple package compile CI | PASS | GitHub Actions `ci` run `32543981785` on `691114e`: Core `swift test` 18 tests, 0 failures (`ContractTests` 12 + `IdentityTests` 6); 8× `BUILD SUCCEEDED` (iOS, iOS share parent scheme, iPad, iPad share, vision, vision share, watchOS, tvOS). Device runtime stays BLOCKED |
-| OpenSpec scenarios | PASS | every capability spec scenario has WHEN/THEN; each scenario title maps to a named Python or Swift test |
+| OpenSpec scenarios | PASS | every capability spec scenario has WHEN/THEN; each scenario title maps to a named Python or Swift test; popup markup is parsed; drop records `local_path`; local submit does not upload; job submit forbids native argv |
 | Builtin manifests / profiles | PASS | every shipped provider sets `install_automatic` false and `accepts_user_argv` false; every shipped profile forbids telemetry, DRM circumvention, and delegation |
 | Graph relation schema | PASS | Swift `WebMediaDLGraphRelation` raw values match `GraphEdge.relation` |
 | Live DRM inspect skip | PASS | `recordable_parts` always refuses session keys and DASH UUID/cenc signals; there is no inspect=False DRM bypass |

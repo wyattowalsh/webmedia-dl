@@ -19,6 +19,17 @@ def test_submit_history_job_roundtrip(tmp_path: Path, png_bytes: bytes) -> None:
     job = json.loads(submitted.stdout)
     assert job["events"]
     assert job["job"]["state"] == "completed"
+    keys = set()
+    stack: list[object] = [job]
+    while stack:
+        item = stack.pop()
+        if isinstance(item, dict):
+            keys.update(item)
+            stack.extend(item.values())
+        elif isinstance(item, list):
+            stack.extend(item)
+    assert "telemetry" not in keys
+    assert "upload" not in keys
     listed = runner.invoke(app, ["history", "--data-dir", str(data_dir)])
     assert listed.exit_code == 0
     history = json.loads(listed.stdout)

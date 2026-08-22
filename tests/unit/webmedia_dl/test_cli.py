@@ -70,17 +70,44 @@ def test_doctor_json() -> None:
         assert magick["status"] == "BLOCKED"
 
 
-def test_submit_with_html_and_data_dir(tmp_path: Path, png_bytes: bytes) -> None:
+def _json_keys(value: object) -> set[str]:
+    keys: set[str] = set()
+    if isinstance(value, dict):
+        for name, item in value.items():
+            keys.add(str(name))
+            keys |= _json_keys(item)
+    elif isinstance(value, list):
+        for item in value:
+            keys |= _json_keys(item)
+    return keys
+
+
+def test_submit_with_html_and_data_dir(
+    tmp_path: Path, png_bytes: bytes, monkeypatch: pytest.MonkeyPatch
+) -> None:
     html = tmp_path / "page.html"
     html.write_text('<img src="https://cdn.example.com/hero.png">', encoding="utf-8")
-    # CLI constructs its own ProviderRuntime without http_get, so use a local file instead.
     media = tmp_path / "hero.png"
     media.write_bytes(png_bytes)
+    calls: list[object] = []
+
+    def boom(*_args: object, **_kwargs: object) -> None:
+        calls.append(1)
+        raise AssertionError("local submit must not upload or fetch")
+
+    monkeypatch.setattr("httpx.Client.request", boom)
+    monkeypatch.setattr("httpx.Client.send", boom)
+    monkeypatch.setattr("urllib.request.urlopen", boom)
     result = runner.invoke(app, ["submit", str(media), "--data-dir", str(tmp_path / "data")])
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.stdout
     payload = json.loads(result.stdout)
     assert payload["job"]["state"] == "completed"
     assert payload["events"]
+    assert "job" in payload
+    keys = _json_keys(payload)
+    assert "telemetry" not in keys
+    assert "upload" not in keys
+    assert calls == []
 
 
 def test_policy_profiles() -> None:
@@ -237,6 +264,7 @@ def test_drop_command(tmp_path: Path, png_bytes: bytes) -> None:
     payload = json.loads(result.stdout)
     assert payload["job"]["state"] == "completed"
     assert payload["job"]["source"]["kind"] == "drop"
+    assert payload["job"]["source"]["local_path"] == str(media.resolve())
 
 
 def test_companion_cli_status(tmp_path: Path) -> None:

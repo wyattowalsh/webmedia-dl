@@ -107,6 +107,9 @@
   OpenSpec scenarios map to named Python or Swift tests; shipped provider
   manifests never auto-install or accept user argv. `recordable_parts` always
   refuses DASH UUID/cenc and HLS session keys (no inspect-skip DRM bypass).
+  Capture popup markup is parsed (lang, labeled token, status+aria-live);
+  `drop` records the resolved `local_path`; local submit JSON has no telemetry
+  upload and makes no HTTP calls; `/v1/jobs` forbids `nativeCommand`/`providerArgv`.
   GitHub `macos-15` CI run `32543981785` on `691114e` compiled Core tests (18/0,
   including schema-aligned domain assertions) and every Apple package including
   tvOS.

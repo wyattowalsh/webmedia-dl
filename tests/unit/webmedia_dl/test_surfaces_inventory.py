@@ -562,6 +562,10 @@ def test_intents_and_share_adapters_load_credentials() -> None:
         text = (root / rel).read_text(encoding="utf-8")
         assert "WebMediaDLWorkerCredentials.loadClient()" in text
         assert "WebMediaDLLoopbackClient()" not in text
+        assert "client.submit" in text or ".submit(" in text or "submitShared" in text
+        assert "Process(" not in text
+        assert "nativeCommand" not in text
+        assert "providerArgv" not in text
     for rel in COMPANION_INTENTS:
         text = (root / rel).read_text(encoding="utf-8")
         assert "WebMediaDLWatchConnectivityTransport" in text
@@ -570,6 +574,16 @@ def test_intents_and_share_adapters_load_credentials() -> None:
         assert "transport.send" in text
         assert "loadClient()" not in text
         assert 'intakeKind: "speak"' in text
+        assert "Process(" not in text
+    loopback = (root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/LoopbackClient.swift").read_text(
+        encoding="utf-8"
+    )
+    submit = loopback.split("public func submitRequest(", 1)[1].split(
+        "public func historyRequest(", 1
+    )[0]
+    assert "nativeCommand" not in submit
+    assert "providerArgv" not in submit
+    assert 'appendingPathComponent("v1/jobs")' in submit
 
 
 def test_browser_extension_trees() -> None:
