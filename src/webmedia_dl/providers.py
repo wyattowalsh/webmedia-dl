@@ -653,7 +653,7 @@ def _http_suffix(url: str, headers: dict[str, str], body: bytes) -> str:
             break
     if content_type in HTTP_CONTENT_TYPES:
         return HTTP_CONTENT_TYPES[content_type]
-    path = urlparse(url).path.lower()
+    path = urlparse(url).path.lower().rstrip("/")
     for ext in (
         ".mp4",
         ".webm",

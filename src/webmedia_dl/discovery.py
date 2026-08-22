@@ -70,13 +70,17 @@ _NON_MEDIA_PATH_SUFFIXES = (
 )
 
 
+def _locator_path(url: str) -> str:
+    return urlparse(url).path.lower().rstrip("/")
+
+
 def _locator_has_script_asset_suffix(url: str) -> bool:
-    path = urlparse(url).path.lower()
+    path = _locator_path(url)
     return any(path.endswith(ext) for ext in _SCRIPT_ASSET_PATH_SUFFIXES)
 
 
 def _locator_has_non_media_suffix(url: str) -> bool:
-    path = urlparse(url).path.lower()
+    path = _locator_path(url)
     return any(path.endswith(ext) for ext in _NON_MEDIA_PATH_SUFFIXES)
 
 
@@ -288,7 +292,7 @@ def is_direct_media_url(url: str) -> bool:
 
 
 def _kind_from_url(url: str) -> MediaKind:
-    path = urlparse(url).path.lower()
+    path = _locator_path(url)
     for ext, kind in DIRECT_EXTENSIONS.items():
         if path.endswith(ext):
             return kind

@@ -117,6 +117,29 @@ def test_pipeline_records_clear_hls(tmp_data: Path) -> None:
     }
     assert b"MP4BYTES" in source_bytes
     assert b"MIXEDLIVE" in source_bytes
+    slash = (
+        "<html><head>"
+        '<link type="application/vnd.apple.mpegurl" href="https://example.com/watch">'
+        "</head><body>"
+        '<video src="https://cdn.example.com/slash.m3u8/"></video>'
+        "</body></html>"
+    )
+    bodies["https://cdn.example.com/slash.m3u8/"] = b"#EXTM3U\n#EXTINF:1,\nslash.ts\n"
+    bodies["https://cdn.example.com/slash.ts"] = b"SLASHLIVE"
+    job = pipeline.submit("https://example.com/slash-live", html=slash)
+    assert job.state is JobState.COMPLETED
+    ranked = [
+        event.payload["strategies"]
+        for event in pipeline.queue.events_for(job.job_id)
+        if event.type is EventType.PLAN_RANKED
+    ]
+    assert ranked == [["live-clear-record"]]
+    live_bytes = {
+        pipeline.store.resolve(item).read_bytes()
+        for item in pipeline.store._records.values()
+        if item.media_kind is MediaKind.LIVE_STREAM
+    }
+    assert b"SLASHLIVE" in live_bytes
 
 
 def test_live_playlist_fetch_uses_download_bound(

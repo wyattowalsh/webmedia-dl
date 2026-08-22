@@ -235,6 +235,7 @@ describe("collectMediaEvidence", () => {
           return [
             { getAttribute: (name) => (name === "src" ? "https://cdn.example.com/live.m3u8" : null) },
             { getAttribute: (name) => (name === "src" ? "https://cdn.example.com/embed.js" : null) },
+            { getAttribute: (name) => (name === "src" ? "https://cdn.example.com/embed.js/" : null) },
             { getAttribute: (name) => (name === "data" ? "https://cdn.example.com/object.js" : null) },
           ];
         }
@@ -243,6 +244,10 @@ describe("collectMediaEvidence", () => {
             {
               getAttribute: (name) =>
                 name === "href" ? "https://cdn.example.com/classic.m3u" : null,
+            },
+            {
+              getAttribute: (name) =>
+                name === "href" ? "https://cdn.example.com/slash.m3u8/" : null,
             },
           ];
         }
@@ -289,6 +294,15 @@ describe("collectMediaEvidence", () => {
             },
             {
               getAttribute: (name) => {
+                if (name === "href") return "https://cdn.example.com/player.js/";
+                if (name === "as") return "video";
+                if (name === "rel") return "preload";
+                if (name === "type") return "video/mp4";
+                return null;
+              },
+            },
+            {
+              getAttribute: (name) => {
                 if (name === "href") return "https://cdn.example.com/playlist.json";
                 if (name === "type") return "application/vnd.apple.mpegurl";
                 return null;
@@ -326,13 +340,16 @@ describe("collectMediaEvidence", () => {
     const byUrl = Object.fromEntries(result.evidence.map((item) => [item.url, item.kind]));
     assert.ok(urls.includes("https://cdn.example.com/live.m3u8"));
     assert.ok(urls.includes("https://cdn.example.com/classic.m3u"));
+    assert.ok(urls.includes("https://cdn.example.com/slash.m3u8/"));
     assert.ok(!urls.includes("https://cdn.example.com/embed.js"));
+    assert.ok(!urls.includes("https://cdn.example.com/embed.js/"));
     assert.ok(!urls.includes("https://cdn.example.com/object.js"));
     assert.ok(urls.includes("https://cdn.example.com/pre.mp4"));
     assert.ok(urls.includes("https://cdn.example.com/bare.mp4"));
     assert.ok(!urls.includes("https://cdn.example.com/app.js"));
     assert.ok(!urls.includes("https://cdn.example.com/boot.js"));
     assert.ok(!urls.includes("https://cdn.example.com/player.js"));
+    assert.ok(!urls.includes("https://cdn.example.com/player.js/"));
     assert.ok(urls.includes("https://cdn.example.com/playlist.json"));
     assert.equal(byUrl["https://cdn.example.com/playlist.json"], "live_stream");
     assert.ok(urls.includes("https://cdn.example.com/still.png"));

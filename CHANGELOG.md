@@ -2,6 +2,12 @@
 
 ## 0.1.0
 
+- Classify media and script-asset locators after stripping trailing slashes so
+  `live.m3u8/` stays `live_stream` and `embed.js/` cannot steal preferred VIDEO
+  from `clip.mp4`. Capture `a[href]` / iframe / preload regexes match the same
+  optional slashes. GitHub Actions `32589816174` on `c3dfcf8` passed Python
+  (626 pytest, 100%), doctor provider probes, and Swift (18 tests, 0 failures;
+  12× BUILD SUCCEEDED) after acquiring mixed VIDEO and LIVE kinds independently.
 - Acquire mixed VIDEO and LIVE preferred candidates independently. A completed
   `http-direct` of `clip.mp4` no longer skips clear HLS on the same page via
   live→video/audio kind aliases. Resume still treats live-recorded VIDEO/AUDIO
