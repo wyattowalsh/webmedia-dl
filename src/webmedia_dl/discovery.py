@@ -50,17 +50,28 @@ DIRECT_EXTENSIONS = {
     ".mpd": MediaKind.LIVE_STREAM,
 }
 
-_NON_MEDIA_PATH_SUFFIXES = (
+_SCRIPT_ASSET_PATH_SUFFIXES = (
     ".js",
     ".mjs",
     ".cjs",
     ".css",
-    ".html",
-    ".htm",
-    ".json",
     ".wasm",
     ".map",
 )
+_DOCUMENT_ASSET_PATH_SUFFIXES = (
+    ".html",
+    ".htm",
+    ".json",
+)
+_NON_MEDIA_PATH_SUFFIXES = (
+    *_SCRIPT_ASSET_PATH_SUFFIXES,
+    *_DOCUMENT_ASSET_PATH_SUFFIXES,
+)
+
+
+def _locator_has_script_asset_suffix(url: str) -> bool:
+    path = urlparse(url).path.lower()
+    return any(path.endswith(ext) for ext in _SCRIPT_ASSET_PATH_SUFFIXES)
 
 
 def _locator_has_non_media_suffix(url: str) -> bool:
@@ -333,6 +344,8 @@ def _candidates_from_evidence(
         absolute = urljoin(base, item.url)
         if not _usable_url(absolute, profile):
             continue
+        if _locator_has_script_asset_suffix(absolute):
+            continue
         item_kind = _kind_from_evidence(absolute, item.kind)
         seeded.append(
             _candidate(
@@ -564,6 +577,8 @@ def discover(
             continue
         if absolute in seen:
             continue
+        if _locator_has_script_asset_suffix(absolute):
+            continue
         item_kind = _kind_from_url(absolute)
         if item_kind == MediaKind.PAGE:
             if guessed in {MediaKind.UNKNOWN, MediaKind.PAGE}:
@@ -604,6 +619,8 @@ def discover(
                     if not _usable_url(absolute, profile):
                         continue
                     if absolute in seen:
+                        continue
+                    if _locator_has_script_asset_suffix(absolute):
                         continue
                     seen.add(absolute)
                     found.append(

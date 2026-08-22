@@ -187,6 +187,15 @@ describe("collectMediaEvidence", () => {
           {
             tagName: "SOURCE",
             parentElement: { tagName: "VIDEO" },
+            getAttribute: (name) => {
+              if (name === "src") return "https://cdn.example.com/fallback.js";
+              if (name === "type") return "video/mp4";
+              return null;
+            },
+          },
+          {
+            tagName: "SOURCE",
+            parentElement: { tagName: "VIDEO" },
             getAttribute: (name) =>
               name === "src" ? "https://cdn.example.com/via-source.mp4" : null,
           },
@@ -210,6 +219,7 @@ describe("collectMediaEvidence", () => {
     const result = collectMediaEvidence(doc);
     const byUrl = Object.fromEntries(result.evidence.map((item) => [item.url, item.kind]));
     assert.equal(byUrl["https://cdn.example.com/via-source.mp4"], "video");
+    assert.equal(byUrl["https://cdn.example.com/fallback.js"], undefined);
     assert.equal(byUrl["https://cdn.example.com/plain-live"], "live_stream");
     assert.equal(byUrl["https://cdn.example.com/amp.png"], "image");
     assert.equal(byUrl["https://cdn.example.com/lazy.png"], "image");
@@ -222,7 +232,11 @@ describe("collectMediaEvidence", () => {
       location: { href: "https://example.com/page" },
       querySelectorAll: (selector) => {
         if (selector.includes("iframe")) {
-          return [{ getAttribute: (name) => (name === "src" ? "https://cdn.example.com/live.m3u8" : null) }];
+          return [
+            { getAttribute: (name) => (name === "src" ? "https://cdn.example.com/live.m3u8" : null) },
+            { getAttribute: (name) => (name === "src" ? "https://cdn.example.com/embed.js" : null) },
+            { getAttribute: (name) => (name === "data" ? "https://cdn.example.com/object.js" : null) },
+          ];
         }
         if (selector.includes("link[href]")) {
           return [
@@ -303,6 +317,8 @@ describe("collectMediaEvidence", () => {
     const urls = result.evidence.map((item) => item.url);
     const byUrl = Object.fromEntries(result.evidence.map((item) => [item.url, item.kind]));
     assert.ok(urls.includes("https://cdn.example.com/live.m3u8"));
+    assert.ok(!urls.includes("https://cdn.example.com/embed.js"));
+    assert.ok(!urls.includes("https://cdn.example.com/object.js"));
     assert.ok(urls.includes("https://cdn.example.com/pre.mp4"));
     assert.ok(urls.includes("https://cdn.example.com/bare.mp4"));
     assert.ok(!urls.includes("https://cdn.example.com/app.js"));

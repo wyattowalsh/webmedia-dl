@@ -2,6 +2,14 @@
 
 ## 0.1.0
 
+- Ignore script-asset locators (`.js`, `.mjs`, `.cjs`, `.css`, `.wasm`, `.map`)
+  from iframe/embed/object, video `source`, JSON-LD, and browser evidence so a
+  head embed of `player.js` or a first `<source type="video/mp4" src="fallback.js">`
+  cannot steal preferred VIDEO from `clip.mp4`. Watch-page `.html` locators such
+  as `twitter:player` stay collected. GitHub Actions `32586399275` on `bc6c4f3`
+  passed Python (626 pytest, 100%), doctor provider probes, and Swift (18 tests,
+  0 failures; 12× BUILD SUCCEEDED) after skipping `as=video` preloads of
+  non-media suffixes.
 - Ignore `link` locators whose `as` is video/audio/image/track or whose MIME
   is `video/` / `audio/` / `image/` when the href ends in a non-media suffix
   such as `.js`. A head `preload as=video type=video/mp4` of `player.js`

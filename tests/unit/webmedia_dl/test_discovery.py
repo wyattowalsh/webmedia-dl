@@ -80,10 +80,14 @@ def test_html_discovery_resolves_relative_locators_against_base_href() -> None:
         _source(),
         profile,
         html='<html><head><base href="https://cdn.example.com/media/"></head></html>',
-        evidence=[BrowserEvidence(url="captured.mp4", kind=MediaKind.VIDEO)],
+        evidence=[
+            BrowserEvidence(url="captured.mp4", kind=MediaKind.VIDEO),
+            BrowserEvidence(url="captured.js", kind=MediaKind.VIDEO),
+        ],
     )
     evidenced_urls = [item.retrieval_urls[0] for item in evidenced if item.retrieval_urls]
     assert "https://cdn.example.com/media/captured.mp4" in evidenced_urls
+    assert "https://cdn.example.com/media/captured.js" not in evidenced_urls
     blocked = """
     <html>
       <head><base href="javascript:alert(1)"></head>
@@ -203,9 +207,18 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
         <link rel="modulepreload" href="https://cdn.example.com/app.js">
         <link rel="preload" as="script" href="https://cdn.example.com/boot.js">
         <link rel="preload" as="video" type="video/mp4" href="https://cdn.example.com/player.js">
+        <iframe src="https://cdn.example.com/embed.js"></iframe>
+        <embed src="https://cdn.example.com/plugin.js">
+        <object data="https://cdn.example.com/object.js"></object>
       </head>
       <body>
-        <video src="https://cdn.example.com/clip.mp4"></video>
+        <video>
+          <source type="video/mp4" src="https://cdn.example.com/fallback.js">
+          <source src="https://cdn.example.com/clip.mp4">
+        </video>
+        <script type="application/ld+json">
+          {"@type": "VideoObject", "contentUrl": "https://cdn.example.com/ld.js"}
+        </script>
       </body>
     </html>
     """
@@ -216,6 +229,11 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
     assert videos
     assert videos[0].retrieval_urls[0] == "https://cdn.example.com/clip.mp4"
     assert "https://cdn.example.com/player.js" not in mixed_urls
+    assert "https://cdn.example.com/embed.js" not in mixed_urls
+    assert "https://cdn.example.com/plugin.js" not in mixed_urls
+    assert "https://cdn.example.com/object.js" not in mixed_urls
+    assert "https://cdn.example.com/fallback.js" not in mixed_urls
+    assert "https://cdn.example.com/ld.js" not in mixed_urls
     assert "https://cdn.example.com/player.m3u8" in urls
     assert kinds["https://example.com/watch?v=1"] is MediaKind.VIDEO
     assert kinds["https://cdn.example.com/player.m3u8"] is MediaKind.LIVE_STREAM

@@ -17,6 +17,7 @@ export function pageCollector(doc) {
   const directMediaHref =
     /\.(mp4|webm|mkv|mov|m4v|mp3|m4a|aac|flac|wav|ogg|opus|jpg|jpeg|png|gif|webp|avif|pdf|vtt|srt|m3u8|mpd)(\?|#|$)/i;
   const nonMediaHref = /\.(js|mjs|cjs|css|html|htm|json|wasm|map)(\?|#|$)/i;
+  const scriptAssetHref = /\.(js|mjs|cjs|css|wasm|map)(\?|#|$)/i;
   const locatorBase = () => {
     const owner = root.ownerDocument || root;
     if (typeof owner.baseURI === "string" && owner.baseURI) {
@@ -52,7 +53,12 @@ export function pageCollector(doc) {
       return;
     }
     const resolved = resolveLocator(value);
-    if (resolved && !blockedScheme.test(resolved) && !seen.has(resolved)) {
+    if (
+      resolved &&
+      !blockedScheme.test(resolved) &&
+      !scriptAssetHref.test(resolved) &&
+      !seen.has(resolved)
+    ) {
       seen.add(resolved);
       urls.push({ url: resolved, kind });
     }
