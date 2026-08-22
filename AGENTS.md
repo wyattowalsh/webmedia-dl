@@ -7,9 +7,10 @@
 - Python **3.13** worker and CLI (`webmedia_dl` / `webmedia-dl`) managed with **uv**.
 - Browser capture extensions under `extensions/` (vanilla JS modules).
 - Swift packages under `apps/` for Apple clients. GitHub `macos-15` CI runs
-  Core `swift test`, builds the Mac package, and typechecks the remaining
-  Apple packages. Linux workers do not compile Swift. Device UI, signing,
-  and store submission stay BLOCKED.
+  Core `swift test`, builds the Mac package and share-extension library, and
+  typechecks the remaining Apple packages. Share extensions are library
+  products depended on by each complete-client executable. Linux workers do
+  not compile Swift. Device UI, signing, and store submission stay BLOCKED.
   Shells: `WebMediaDLMac`, `WebMediaDLiOS`, `WebMediaDLiPadOS`, `WebMediaDLVision`,
   `WebMediaDLWatch`, `WebMediaDLTV`, plus `WebMediaDLCore`.
 

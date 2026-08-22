@@ -267,14 +267,16 @@ def test_share_extension_principals_match_plists() -> None:
         assert 'intakeKind: "share_sheet"' in source
         assert 'intakeKind: "drop"' in source
         assert "NSItemProvider" in source or "attachments" in source or "loadSharedValues" in source
-    for package in (
-        "apps/WebMediaDLMac/Package.swift",
-        "apps/WebMediaDLiOS/Package.swift",
-        "apps/WebMediaDLiPadOS/Package.swift",
-        "apps/WebMediaDLVision/Package.swift",
+    for package, share in (
+        ("apps/WebMediaDLMac/Package.swift", "WebMediaDLMacShareExtension"),
+        ("apps/WebMediaDLiOS/Package.swift", "WebMediaDLiOSShareExtension"),
+        ("apps/WebMediaDLiPadOS/Package.swift", "WebMediaDLiPadOSShareExtension"),
+        ("apps/WebMediaDLVision/Package.swift", "WebMediaDLVisionShareExtension"),
     ):
         text = (root / package).read_text(encoding="utf-8")
         assert 'path: "ShareExtension"' in text
+        assert f'.library(name: "{share}"' in text
+        assert f'"{share}"' in text
 
 
 def test_files_destinations_use_bookmarks_not_typed_paths() -> None:
@@ -607,6 +609,9 @@ def test_github_ci_compiles_apple_packages() -> None:
     assert "apps/WebMediaDLCore" in script
     assert "swift build --package-path" in script
     assert "apps/WebMediaDLMac" in script
+    assert "--target WebMediaDLMacShareExtension" in script
+    assert "xcodebuild -list" in script
+    assert "library product + target dependency" in script
     assert 'generic/platform=iOS"' in script or "generic/platform=iOS" in script
     assert "generic/platform=watchOS" in script
     assert "generic/platform=tvOS" in script
@@ -654,4 +659,9 @@ def test_github_ci_compiles_apple_packages() -> None:
         text = (repo_root() / rel).read_text(encoding="utf-8")
         assert f'.executable(name: "{name}"' in text
         assert ".executableTarget(" in text
-        assert f'.library(name: "{name}"' not in text
+        assert f'.library(name: "{name}",' not in text
+        assert f'.library(name: "{name}")' not in text
+        share = f"{name}ShareExtension"
+        if "ShareExtension" in text:
+            assert f'.library(name: "{share}"' in text
+            assert f'"{share}"' in text

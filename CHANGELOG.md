@@ -94,3 +94,7 @@
   are `static let`; companion `forward`/`forwardSealed` take the relay by
   value for Swift 6. `AppShortcutsProvider` lists `AppShortcut` statements
   via the result builder (no array literal, no commas between shortcuts).
+  Share-extension targets are library products depended on by each complete-client
+  executable so `macos-15` `xcodebuild` compiles them when SwiftPM omits a scheme.
+  Live byte-range refetch HTTP errors fail closed; overlapping already-written
+  ranges are not rewound; `run_next` restores the job-bound cookie grant.

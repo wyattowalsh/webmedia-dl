@@ -6,6 +6,21 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 
 swift test --package-path "$root/apps/WebMediaDLCore"
 swift build --package-path "$root/apps/WebMediaDLMac"
+swift build --package-path "$root/apps/WebMediaDLMac" --target WebMediaDLMacShareExtension
+
+scheme_listed() {
+  local listing="$1"
+  local scheme="$2"
+  printf '%s\n' "$listing" | awk -v wanted="$scheme" '
+    BEGIN { in_schemes = 0; found = 0 }
+    /Schemes:/ { in_schemes = 1; next }
+    in_schemes && $0 ~ /^[[:space:]]+[A-Za-z0-9_.-]+[[:space:]]*$/ {
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "")
+      if ($0 == wanted) found = 1
+    }
+    END { exit found ? 0 : 1 }
+  '
+}
 
 compile_scheme() {
   local pkg="$1"
@@ -13,9 +28,19 @@ compile_scheme() {
   local dest="$3"
   (
     cd "$root/apps/${pkg}"
-    xcodebuild -list >/dev/null
+    local listing
+    listing="$(xcodebuild -list)"
+    printf '%s\n' "$listing"
+    local use_scheme="${scheme}"
+    if [[ "${scheme}" == *ShareExtension ]]; then
+      echo "Compiling share extension ${scheme} via executable product ${pkg} (library product + target dependency)."
+      use_scheme="${pkg}"
+    elif ! scheme_listed "$listing" "${scheme}"; then
+      echo "error: workspace ${pkg} has no scheme ${scheme}" >&2
+      exit 1
+    fi
     xcodebuild \
-      -scheme "${scheme}" \
+      -scheme "${use_scheme}" \
       -destination "${dest}" \
       -derivedDataPath "${root}/apps/${pkg}/.ci-derived" \
       -skipPackagePluginValidation \

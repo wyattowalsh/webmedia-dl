@@ -4,12 +4,18 @@ import PackageDescription
 let package = Package(
     name: "WebMediaDLVision",
     platforms: [.visionOS(.v1)],
-    products: [.executable(name: "WebMediaDLVision", targets: ["WebMediaDLVision"])],
+    products: [
+        .executable(name: "WebMediaDLVision", targets: ["WebMediaDLVision"]),
+        .library(name: "WebMediaDLVisionShareExtension", targets: ["WebMediaDLVisionShareExtension"]),
+    ],
     dependencies: [.package(path: "../WebMediaDLCore")],
     targets: [
         .executableTarget(
             name: "WebMediaDLVision",
-            dependencies: [.product(name: "WebMediaDLCore", package: "WebMediaDLCore")]
+            dependencies: [
+                .product(name: "WebMediaDLCore", package: "WebMediaDLCore"),
+                "WebMediaDLVisionShareExtension",
+            ]
         ),
         .target(
             name: "WebMediaDLVisionShareExtension",

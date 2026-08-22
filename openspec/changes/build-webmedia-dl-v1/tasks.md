@@ -28,4 +28,6 @@ Implementation tasks for `build-webmedia-dl-v1`.
 > Apple device runtime, App Store, browser-store submission, signing, notarization,
 > and human legal review remain `BLOCKED` on Linux CI. Native SwiftUI shells and the
 > Core package are in `apps/`. GitHub `macos-15` CI runs Core `swift test`, builds
-> the Mac package, and typechecks the remaining Apple packages.
+> the Mac package and share-extension library, and typechecks the remaining Apple
+> packages. Share-extension targets are library products depended on by each
+> complete-client executable so missing SwiftPM schemes still compile.

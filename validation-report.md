@@ -2,8 +2,8 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 479 tests |
-| `uv run pytest --cov` | PASS | 99.56% (`fail_under` 99) |
+| `uv run pytest` | PASS | 482 tests |
+| `uv run pytest --cov` | PASS | 99.65% (`fail_under` 99) |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
 | `uv run ty check` | PASS | |
@@ -17,9 +17,9 @@
 | Signing / notarization / App Review / legal | BLOCKED | `webmedia-dl doctor` |
 | Browser store submission | BLOCKED | `webmedia-dl doctor` |
 | Simulated `PASS` | PASS | tests reject planned/simulated PASS |
-| DRM circumvention | PASS | encrypted HLS/DASH refused before any segment fetch; `#EXT-X-SESSION-KEY` SAMPLE-AES/FairPlay refused before fetch; `cenc` / Widevine / PlayReady UUIDs / `skd://` detected; mixed clear-then-key records the prefix only; later live-poll DRM stops without fetching protected parts; dynamic A/V DASH stops remaining renditions after late ContentProtection; growing HLS byte-ranges refetch and append only the new suffix; HTTP probe encryption quarantines and does not fall back to yt-dlp |
+| DRM circumvention | PASS | encrypted HLS/DASH refused before any segment fetch; `#EXT-X-SESSION-KEY` SAMPLE-AES/FairPlay refused before fetch; `cenc` / Widevine / PlayReady UUIDs / `skd://` detected; mixed clear-then-key records the prefix only; later live-poll DRM stops without fetching protected parts; dynamic A/V DASH stops remaining renditions after late ContentProtection; growing HLS byte-ranges refetch and append only the new suffix; a later growing-range HTTP error fails closed; already-written live ranges are not rewound; HTTP probe encryption quarantines and does not fall back to yt-dlp |
 | Pairing profile bound | PASS | restricted/browser/watch/tv pairing stays on the client profile; unknown/full/expired pairing and missing/mismatched session keys fail closed; CLI `pair create/confirm` reports `DelegationDenied` |
-| Cookie grants | PASS | job-bound grants persist in `cookie-grants.json` with merge/`0600` lock; dump-json uses the grant; relative and in-repo paths rejected |
+| Cookie grants | PASS | job-bound grants persist in `cookie-grants.json` with merge/`0600` lock; dump-json uses the grant; relative and in-repo paths rejected; `run_next` restores the grant from job context and passes `--cookies` |
 | Default telemetry | PASS | false in doctor and profiles; `policy-profiles.json` cannot enable DRM circumvention, telemetry, cookie widening, subprocess, or delegation |
 | Publish sibling isolation | PASS | a failed validation or unreadable sibling does not abort other validated destination copies; a failed remux or export policy error still publishes the original source |
 | Packaged runtime fallback | PASS | `runtime_root` / `runtime_file` fall back to checkout `resources/` without a packaged `runtime/` tree; `repo_root` fails closed when `pyproject.toml` is absent |
@@ -67,7 +67,7 @@
 | Job-detail / run-next helpers | PASS | unrelated history rows are skipped; empty queue returns `job: null`; a queued job returns events |
 | Swift Core CI job | PASS | GitHub Actions `ci` run `32538904545` on `94e423b`: `IdentityTests` executed 6 tests, 0 failures on `macos-15` |
 | Swift Core contract tests | PASS | `ContractTests.swift` executed 10 tests, 0 failures with IdentityTests (6) on GitHub `macos-15` run `32539374548` (`5f85fe3`) |
-| Apple package compile CI | PENDING | `26f2937` Mac `swift build` passed Core tests (16/0) and share extension; AppShortcutsProvider rejected an `[AppShortcut]` array because the getter is an `AppShortcutsBuilder`. This revision lists `AppShortcut` statements without commas or array wrappers. Device runtime stays BLOCKED |
+| Apple package compile CI | PENDING | `5bbd182` Mac `swift build` and iOS `xcodebuild -scheme WebMediaDLiOS` succeeded (`** BUILD SUCCEEDED **`); share-extension schemes were missing because those targets were not products. This revision exposes share-extension library products, makes complete-client executables depend on them, compiles `WebMediaDLMacShareExtension` with `swift build --target`, and routes iOS/iPad/vision share-extension `xcodebuild` through the executable scheme. Device runtime stays BLOCKED |
 | WatchConnectivity class headers | PASS | WCSessionDelegate is an extension; class signatures are not split across `#else` |
 | URL never a path | PASS | URL intake with `local_path` or `file:` normalized_url raises; extra provider argv is refused |
 | Live aggregate bound + kinds | PASS | cumulative byte budget; separate VIDEO/AUDIO artifacts; audio-only DASH uses the highest-bandwidth audio Representation; SegmentBase ranges including mediaRange; multi-period occurrences; empty recordings and HTTP 400 playlists fail closed; nested/audio `should_stop` aborts before further fetches |

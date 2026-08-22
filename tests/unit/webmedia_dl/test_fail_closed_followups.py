@@ -15,7 +15,7 @@ from webmedia_dl.cli import app
 from webmedia_dl.domain.enums import ArtifactRole, DestinationKind, EventType, JobState, MediaKind
 from webmedia_dl.domain.models import BrowserEvidence
 from webmedia_dl.envelope import _NONCE_SIZE, _TAG_SIZE, _key_bytes, open_payload
-from webmedia_dl.errors import DelegationDenied
+from webmedia_dl.errors import DelegationDenied, DiscoveryError
 from webmedia_dl.live import record_clear_stream, record_kind_streams
 from webmedia_dl.pipeline import Pipeline
 from webmedia_dl.providers import ProviderRuntime
@@ -439,3 +439,79 @@ def test_cli_plan_drm_exits_nonzero(tmp_path: Path) -> None:
     assert result.stdout.strip()
     lowered = result.stdout.lower()
     assert "drm" in lowered or "widevine" in lowered or "encrypted" in lowered
+
+
+def test_live_growing_range_refetch_http_error_fails_closed(tmp_path: Path) -> None:
+    first = "#EXTM3U\n#EXT-X-BYTERANGE:3@0\nseg.ts\n"
+    later = "#EXTM3U\n#EXT-X-BYTERANGE:6@0\nseg.ts\n"
+    object_fetches = {"n": 0}
+
+    def fetch(url: str) -> tuple[int, str, bytes]:
+        if url.endswith("index.m3u8"):
+            return 200, "application/vnd.apple.mpegurl", later.encode()
+        object_fetches["n"] += 1
+        if object_fetches["n"] == 1:
+            return 200, "video/MP2T", b"AAA"
+        return 404, "", b""
+
+    with pytest.raises(DiscoveryError, match="HTTP 404"):
+        record_clear_stream(
+            first,
+            "https://cdn.example.com/live/index.m3u8",
+            tmp_path / "live.ts",
+            fetch,
+            live_polls=2,
+        )
+
+
+def test_live_already_written_range_is_not_rewound(tmp_path: Path) -> None:
+    first = "#EXTM3U\n#EXT-X-BYTERANGE:6@0\nseg.ts\n"
+    later = "#EXTM3U\n#EXT-X-BYTERANGE:3@0\nseg.ts\n"
+
+    def fetch(url: str) -> tuple[int, str, bytes]:
+        if url.endswith("index.m3u8"):
+            return 200, "application/vnd.apple.mpegurl", later.encode()
+        return 200, "video/MP2T", b"AAABBB"
+
+    output = tmp_path / "live.ts"
+    record_clear_stream(
+        first,
+        "https://cdn.example.com/live/index.m3u8",
+        output,
+        fetch,
+        live_polls=2,
+    )
+    assert output.read_bytes() == b"AAABBB"
+
+
+def test_run_next_restores_cookie_grant(tmp_data: Path, tmp_path: Path, ytdlp_run_ok) -> None:
+    cookies = tmp_path / "user-cookies.txt"
+    cookies.write_text("# Netscape HTTP Cookie File\n", encoding="utf-8")
+    captured: list[list[str]] = []
+
+    def run(argv: list[str], cwd: Path) -> tuple[int, bytes, bytes]:
+        captured.append(list(argv))
+        return ytdlp_run_ok(argv, cwd)
+
+    runtime = ProviderRuntime(
+        which=lambda name: "/usr/bin/yt-dlp" if name == "yt-dlp" else None,
+        run=run,
+        http_get=lambda _url: (404, {}, b""),
+    )
+    pipeline = Pipeline(data_dir=tmp_data, runtime=runtime)
+    job = pipeline.submit(
+        "https://example.com/watch",
+        html="<html><title>Video</title></html>",
+        cookies=str(cookies),
+        wait=False,
+    )
+    assert pipeline.queue.get_context(job.job_id).cookies
+    completed = pipeline.run_next()
+    assert completed is not None
+    assert completed.state is JobState.COMPLETED
+    cookie_argv = [argv for argv in captured if "--cookies" in argv]
+    assert cookie_argv
+    resolved = str(cookies.resolve())
+    assert any(resolved in argv for argv in cookie_argv)
+    types = [event.type.value for event in pipeline.queue.events_for(job.job_id)]
+    assert "cookie.attached" in types
