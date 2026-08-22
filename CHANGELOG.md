@@ -2,6 +2,14 @@
 
 ## 0.1.0
 
+- Record DASH AdaptationSets that omit `contentType` / `codecs` but carry Role
+  `subtitle` / `caption` / `forced-subtitle` or ContentComponent
+  `contentType="text"` as a SUBTITLE sidecar. Role `main` on
+  `application/mp4` stays dropped. GitHub Actions `32604459565` on `0f09caf`
+  passed Python (626 pytest, 100%), doctor provider probes, and Swift (18
+  tests, 0 failures; 12× BUILD SUCCEEDED) after collecting `track[data-src]`
+  locators as SUBTITLE.
+
 - Collect `track[data-src]` locators in HTML discovery as SUBTITLE, matching
   browser capture and `track[src]`, including lazy WebVTT and subtitle
   playlists (`.m3u8`). GitHub Actions `32601837698` on `6ffb105` passed

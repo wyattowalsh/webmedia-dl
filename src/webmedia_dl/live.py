@@ -57,6 +57,8 @@ _PERIOD = re.compile(
     rf"<{_XML_NS}Period\b([^>]*)(?:/>|>(.*?)</{_XML_NS}Period>)",
     re.I | re.S,
 )
+_DASH_ROLE = re.compile(rf"<{_XML_NS}Role\b([^>]*)/?>", re.I)
+_DASH_CONTENT_COMPONENT = re.compile(rf"<{_XML_NS}ContentComponent\b([^>]*)/?>", re.I)
 _MPD_ROOT = re.compile(rf"<{_XML_NS}MPD\b", re.I)
 _MPD_OPEN = re.compile(rf"<{_XML_NS}MPD\b([^>]*)>", re.I)
 _INIT_TAG = re.compile(rf"<{_XML_NS}Initialization\b([^>]*)/?>", re.I)
@@ -902,6 +904,18 @@ def _dash_kind(attrs: dict[str, str]) -> str:
     return "unknown"
 
 
+def _dash_text_signal(text: str) -> str | None:
+    """Role / ContentComponent subtitle signaling when AdaptationSet attrs omit type."""
+    for match in _DASH_ROLE.finditer(text):
+        value = _attrs(match.group(1)).get("value", "").lower()
+        if value in {"subtitle", "caption", "forced-subtitle"}:
+            return "text"
+    for match in _DASH_CONTENT_COMPONENT.finditer(text):
+        if _attrs(match.group(1)).get("contenttype", "").lower() == "text":
+            return "text"
+    return None
+
+
 def _new_part_bucket() -> tuple[list[ManifestPart], set[str], AddPart]:
     parts: list[ManifestPart] = []
     seen: set[tuple[str, int | None, int | None, int]] = set()
@@ -1053,6 +1067,8 @@ def _dash_adaptation_groups(
     as_inherited = without_rep if _has_segment_addressing(without_rep) else ""
     inherited = as_inherited or inherited_templates
     as_kind = _dash_kind(as_attrs)
+    if as_kind == "unknown":
+        as_kind = _dash_text_signal(without_rep) or as_kind
     timescale = as_attrs.get("timescale") or inherited_timescale
     representations = list(_REPRESENTATION.finditer(text))
     if not representations:

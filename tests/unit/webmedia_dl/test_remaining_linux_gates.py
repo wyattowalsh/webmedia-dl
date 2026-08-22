@@ -635,6 +635,80 @@ def test_record_kind_streams_writes_separate_dash_kinds(tmp_path: Path) -> None:
     assert by_kind[MediaKind.SUBTITLE] == captions
     sub_path = next(path for kind, path in recorded if kind is MediaKind.SUBTITLE)
     assert sub_path.name == "live-subtitles.bin"
+    role = """
+    <MPD>
+      <Period>
+        <AdaptationSet mimeType="video/mp4">
+          <Representation id="v" bandwidth="800000">
+            <BaseURL>video.m4s</BaseURL>
+          </Representation>
+        </AdaptationSet>
+        <AdaptationSet mimeType="application/mp4">
+          <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+          <Representation id="m" bandwidth="900000">
+            <BaseURL>main.m4s</BaseURL>
+          </Representation>
+        </AdaptationSet>
+        <AdaptationSet mimeType="application/mp4">
+          <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main"/>
+          <Role schemeIdUri="urn:mpeg:dash:role:2011" value="subtitle"/>
+          <Representation id="r1" bandwidth="1000">
+            <BaseURL>role.vtt</BaseURL>
+          </Representation>
+        </AdaptationSet>
+      </Period>
+    </MPD>
+    """
+    role_captions = b"ROLE\n"
+    role_bodies = {
+        "https://cdn.example.com/video.m4s": b"VID",
+        "https://cdn.example.com/role.vtt": role_captions,
+    }
+
+    def role_fetch(url: str) -> tuple[int, str, bytes]:
+        if url.endswith("main.m4s"):
+            raise AssertionError(url)
+        return 200, "video/mp4", role_bodies[url]
+
+    role_recorded = record_kind_streams(
+        role, "https://cdn.example.com/manifest.mpd", tmp_path / "role.bin", role_fetch
+    )
+    role_by_kind = {kind: path.read_bytes() for kind, path in role_recorded}
+    assert MediaKind.VIDEO in role_by_kind
+    assert MediaKind.SUBTITLE in role_by_kind
+    assert role_by_kind[MediaKind.SUBTITLE] == role_captions
+    component = """
+    <MPD>
+      <Period>
+        <AdaptationSet mimeType="video/mp4">
+          <Representation id="v" bandwidth="800000">
+            <BaseURL>video.m4s</BaseURL>
+          </Representation>
+        </AdaptationSet>
+        <AdaptationSet mimeType="application/mp4">
+          <ContentComponent contentType="video" id="vcc"/>
+          <ContentComponent contentType="text" id="cc1"/>
+          <Representation id="c1" bandwidth="500">
+            <BaseURL>cc.vtt</BaseURL>
+          </Representation>
+        </AdaptationSet>
+      </Period>
+    </MPD>
+    """
+    cc_captions = b"CC\n"
+    cc_bodies = {
+        "https://cdn.example.com/video.m4s": b"VID",
+        "https://cdn.example.com/cc.vtt": cc_captions,
+    }
+
+    def cc_fetch(url: str) -> tuple[int, str, bytes]:
+        return 200, "video/mp4", cc_bodies[url]
+
+    cc_recorded = record_kind_streams(
+        component, "https://cdn.example.com/manifest.mpd", tmp_path / "cc.bin", cc_fetch
+    )
+    cc_by_kind = {kind: path.read_bytes() for kind, path in cc_recorded}
+    assert cc_by_kind[MediaKind.SUBTITLE] == cc_captions
 
 
 def test_live_poll_should_stop_and_hls_audio_http_error(tmp_path: Path) -> None:
