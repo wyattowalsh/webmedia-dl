@@ -1235,6 +1235,7 @@ def test_discovery_link_iframe_jsonld_and_duplicates() -> None:
     <html>
       <link rel="preload" as="track" href="https://cdn.example.com/subs.vtt">
       <iframe src="https://cdn.example.com/player.mp4"></iframe>
+      <iframe data-src="https://cdn.example.com/lazy.mp4"></iframe>
       <a href="javascript:alert(1)">skip</a>
       <a href="file:///tmp/secret.mp4">skip file</a>
       <a href="file:/tmp/also-secret.mp4">skip file-slash</a>
@@ -1257,6 +1258,7 @@ def test_discovery_link_iframe_jsonld_and_duplicates() -> None:
     assert urls.count("https://cdn.example.com/clip.mp4") == 1
     assert "https://cdn.example.com/subs.vtt" in urls
     assert "https://cdn.example.com/player.mp4" in urls
+    assert "https://cdn.example.com/lazy.mp4" in urls
     assert "https://cdn.example.com/photo.jpg" in urls
     assert not any(item.startswith("javascript:") for item in urls)
     assert not any(item.startswith("file:") for item in urls)

@@ -176,7 +176,7 @@ class _MediaHTMLParser(HTMLParser):
             if href:
                 self.urls.append((href, MediaKind.UNKNOWN))
         if tag in {"iframe", "embed", "object"}:
-            src = mapping.get("src") or mapping.get("data")
+            src = mapping.get("src") or mapping.get("data") or mapping.get("data-src")
             if src:
                 self.urls.append((src, MediaKind.VIDEO))
         if tag == "link":

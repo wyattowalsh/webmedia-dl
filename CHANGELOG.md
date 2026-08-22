@@ -2,6 +2,14 @@
 
 ## 0.1.0
 
+- Collect iframe/embed/object `data-src` locators in HTML discovery and
+  browser capture, so a lazy-loaded `.m3u8` / `.mp4` embed is typed like
+  `src` / `data`. Script-asset `data-src` values stay skipped. GitHub
+  Actions `32601474769` on `2d9fbf9` passed Python (626 pytest, 100%),
+  doctor provider probes, and Swift (18 tests, 0 failures; 12× BUILD
+  SUCCEEDED) after recording nested HLS `TYPE=VIDEO` playlists as a VIDEO
+  sidecar.
+
 - Record nested HLS `#EXT-X-MEDIA:TYPE=VIDEO` playlists as a VIDEO sidecar.
   Selection follows the preferred STREAM-INF `VIDEO` group with `DEFAULT=YES`
   first and `AUTOSELECT=YES` when no default is advertised, so an alternate

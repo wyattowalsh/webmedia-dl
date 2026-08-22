@@ -251,6 +251,8 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
       </head>
       <body>
         <iframe src="https://cdn.example.com/player.m3u8"></iframe>
+        <iframe data-src="https://cdn.example.com/lazy.m3u8"></iframe>
+        <embed data-src="https://cdn.example.com/lazy-embed.mp4">
         <video src="https://cdn.example.com/classic.m3u"></video>
         <a href="https://cdn.example.com/listed.m3u">playlist</a>
       </body>
@@ -350,8 +352,11 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
     assert "https://cdn.example.com/fallback.js/" not in slash_urls
     assert "https://cdn.example.com/ld.js/" not in slash_urls
     assert "https://cdn.example.com/player.m3u8" in urls
+    assert "https://cdn.example.com/lazy.m3u8" in urls
     assert kinds["https://example.com/watch?v=1"] is MediaKind.VIDEO
     assert kinds["https://cdn.example.com/player.m3u8"] is MediaKind.LIVE_STREAM
+    assert kinds["https://cdn.example.com/lazy.m3u8"] is MediaKind.LIVE_STREAM
+    assert kinds["https://cdn.example.com/lazy-embed.mp4"] is MediaKind.VIDEO
     assert kinds["https://cdn.example.com/alt.mpd"] is MediaKind.LIVE_STREAM
     assert kinds["https://cdn.example.com/alt.m3u8"] is MediaKind.LIVE_STREAM
     assert kinds["https://cdn.example.com/playlist.json"] is MediaKind.LIVE_STREAM

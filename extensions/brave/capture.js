@@ -214,7 +214,12 @@ export function pageCollector(doc) {
     parseJsonLd(raw);
   });
   root.querySelectorAll?.("iframe, embed, object").forEach((el) => {
-    push(el.getAttribute?.("src") || el.getAttribute?.("data"), "video");
+    push(
+      el.getAttribute?.("src") ||
+        el.getAttribute?.("data") ||
+        el.getAttribute?.("data-src"),
+      "video",
+    );
   });
   root.querySelectorAll?.("link[href]").forEach((el) => {
     const href = el.getAttribute?.("href");
