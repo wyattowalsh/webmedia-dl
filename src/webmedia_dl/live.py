@@ -265,10 +265,16 @@ def _parse_byterange(
 
 
 def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
-    """Collect MAP + PART + URI parts until the first non-NONE EXT-X-KEY."""
+    """Collect MAP + PART + URI parts until the first non-NONE EXT-X-KEY.
+
+    `#EXT-X-SKIP` advances the media-sequence index so delta playlists keep
+    occurrence identity. `#EXT-X-GAP` applies to the next URI and is not
+    fetched, matching PART `GAP=YES`.
+    """
     parts: list[ManifestPart] = []
     held: list[ManifestPart] = []
     pending: tuple[int | None, int] | None = None
+    pending_gap = False
     next_offset: dict[str, int] = {}
     media_sequence = 0
     index = 0
@@ -293,6 +299,12 @@ def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
                 media_sequence = int(raw)
             except ValueError:
                 media_sequence = 0
+            continue
+        if stripped.upper().startswith("#EXT-X-SKIP:"):
+            attrs, duplicates = _hls_attr_map(stripped.split(":", 1)[-1])
+            raw = attrs.get("SKIPPED-SEGMENTS")
+            if raw is not None and raw.isdigit() and "SKIPPED-SEGMENTS" not in duplicates:
+                index += int(raw)
             continue
         method = _hls_tag_method(stripped, "#EXT-X-KEY:")
         if method is not None:
@@ -329,6 +341,10 @@ def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
             if offset is not None and length is not None:
                 next_offset[uri] = offset + length
             continue
+        if stripped.split(":", 1)[0].upper() == "#EXT-X-GAP":
+            held.clear()
+            pending_gap = True
+            continue
         ranged = _HLS_BYTERANGE.match(stripped)
         if ranged:
             length = int(ranged.group(1))
@@ -340,6 +356,10 @@ def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
         held.clear()
         url = _join(base, stripped)
         occurrence = take_occurrence()
+        if pending_gap:
+            pending_gap = False
+            pending = None
+            continue
         if pending is not None:
             offset, length = pending
             pending = None

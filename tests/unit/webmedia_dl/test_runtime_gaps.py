@@ -233,6 +233,30 @@ def test_hls_map_and_byterange(tmp_path: Path) -> None:
         completed, "https://cdn.example.com/live/index.m3u8", completed_out, fetch_completed
     )
     assert completed_out.read_bytes() == b"INITABCDEF"
+    gapped_parts = (
+        "#EXTM3U\n"
+        '#EXT-X-MAP:URI="init.mp4",BYTERANGE="4@0"\n'
+        '#EXT-X-PART:DURATION=0.5,URI="p0.m4s"\n'
+        "#EXT-X-GAP\n"
+        "#EXT-X-BYTERANGE:3@0\n"
+        "gap.ts\n"
+        "#EXTINF:1.0,\n"
+        "seg.ts\n"
+    )
+
+    def fetch_gapped_parts(url: str) -> tuple[int, str, bytes]:
+        if url.endswith("p0.m4s") or url.endswith("gap.ts"):
+            raise AssertionError(url)
+        return 200, "video/mp4", bodies[url]
+
+    gapped_out = tmp_path / "live-gap.bin"
+    record_clear_stream(
+        gapped_parts,
+        "https://cdn.example.com/live/index.m3u8",
+        gapped_out,
+        fetch_gapped_parts,
+    )
+    assert gapped_out.read_bytes() == b"INITABCDEF"
 
 
 def test_dash_segment_timeline(tmp_path: Path) -> None:

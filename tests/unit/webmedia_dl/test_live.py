@@ -51,6 +51,16 @@ def test_record_clear_stream_concatenates_segments(tmp_path: Path) -> None:
         part_playlist, "https://cdn.example.com/live/index.m3u8", part_out, fetch_parts
     )
     assert part_out.read_bytes() == b"AAABBB"
+    gapped = "#EXTM3U\n#EXTINF:1,\nseg1.ts\n#EXT-X-GAP\n#EXTINF:1,\ngap.ts\n#EXTINF:1,\nseg2.ts\n"
+
+    def fetch_gapped(url: str) -> tuple[int, str, bytes]:
+        if url.endswith("gap.ts"):
+            raise AssertionError(url)
+        return 200, "video/MP2T", bodies[url]
+
+    gap_out = tmp_path / "gap.ts"
+    record_clear_stream(gapped, "https://cdn.example.com/live/index.m3u8", gap_out, fetch_gapped)
+    assert gap_out.read_bytes() == b"AAABBB"
 
 
 def test_record_follows_master_playlist(tmp_path: Path) -> None:

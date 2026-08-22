@@ -2,6 +2,14 @@
 
 ## 0.1.0
 
+- Advance HLS `#EXT-X-SKIP` `SKIPPED-SEGMENTS` onto media-sequence occurrence
+  so delta playlists poll newly advertised segments instead of colliding with
+  already-recorded URIs, and skip `#EXT-X-GAP` media segments the same way as
+  PART `GAP=YES` so a missing gap cannot abort later clear segments. Duplicate
+  `SKIPPED-SEGMENTS` stays ignored. GitHub Actions `32596786204` on `529590f`
+  passed Python (626 pytest, 100%), doctor provider probes, and Swift (18
+  tests, 0 failures; 12× BUILD SUCCEEDED) after recording HLS `#EXT-X-PART`
+  URIs until the full segment appears.
 - Record HLS `#EXT-X-PART` URIs as clear media until the full segment URI
   appears, so low-latency playlists concatenate advertised parts instead of
   only the MAP. `GAP=YES`, duplicate `URI`, and `#EXT-X-PRELOAD-HINT` stay

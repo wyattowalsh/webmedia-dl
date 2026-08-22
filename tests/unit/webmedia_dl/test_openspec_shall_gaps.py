@@ -475,6 +475,52 @@ def test_hls_live_poll_records_reused_uri_on_new_media_sequence(tmp_path: Path) 
     assert fetched.count("https://cdn.example.com/live/seg.ts") == 2
     bogus = "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:nope\n#EXTINF:1,\nseg.ts\n"
     assert recordable_parts(bogus, "https://cdn.example.com/live/index.m3u8")
+    skipped = (
+        "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:10\n#EXT-X-SKIP:SKIPPED-SEGMENTS=3\n#EXTINF:1,\nseg.ts\n"
+    )
+    assert recordable_parts(skipped, "https://cdn.example.com/live/index.m3u8")[0].occurrence == 13
+    bogus_skip = (
+        "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:10\n#EXT-X-SKIP:SKIPPED-SEGMENTS=nope\n#EXTINF:1,\nseg.ts\n"
+    )
+    assert (
+        recordable_parts(bogus_skip, "https://cdn.example.com/live/index.m3u8")[0].occurrence == 10
+    )
+    dup_skip = (
+        "#EXTM3U\n"
+        "#EXT-X-MEDIA-SEQUENCE:10\n"
+        "#EXT-X-SKIP:SKIPPED-SEGMENTS=3,SKIPPED-SEGMENTS=9\n"
+        "#EXTINF:1,\n"
+        "seg.ts\n"
+    )
+    assert recordable_parts(dup_skip, "https://cdn.example.com/live/index.m3u8")[0].occurrence == 10
+    skip_first = "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:1\n#EXTINF:1,\nseg.ts\n"
+    skip_second = (
+        "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:1\n#EXT-X-SKIP:SKIPPED-SEGMENTS=1\n#EXTINF:1,\nseg.ts\n"
+    )
+    skip_playlist = {"text": skip_first}
+    skip_bodies = {"seg": b"A"}
+    skip_fetched: list[str] = []
+
+    def fetch_skip(url: str) -> tuple[int, str, bytes]:
+        skip_fetched.append(url)
+        if url.endswith("index.m3u8"):
+            return 200, "application/vnd.apple.mpegurl", skip_playlist["text"].encode()
+        assert url.endswith("seg.ts")
+        body = skip_bodies["seg"]
+        skip_playlist["text"] = skip_second
+        skip_bodies["seg"] = b"B"
+        return 200, "video/MP2T", body
+
+    skip_out = tmp_path / "skip.ts"
+    record_clear_stream(
+        skip_first,
+        "https://cdn.example.com/live/index.m3u8",
+        skip_out,
+        fetch_skip,
+        live_polls=2,
+    )
+    assert skip_out.read_bytes() == b"AB"
+    assert skip_fetched.count("https://cdn.example.com/live/seg.ts") == 2
 
 
 def test_jsonld_candidates_keep_page_drm_signals() -> None:

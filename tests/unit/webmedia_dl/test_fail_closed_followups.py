@@ -320,6 +320,40 @@ def test_live_hls_refetches_growing_byte_range(tmp_path: Path) -> None:
     )
     assert output.read_bytes() == b"AAABBB"
     assert object_fetches["n"] == 2
+    skip_first = (
+        "#EXTM3U\n"
+        "#EXT-X-MEDIA-SEQUENCE:1\n"
+        "#EXT-X-BYTERANGE:3@0\n"
+        "seg.ts\n"
+        "#EXT-X-BYTERANGE:3@3\n"
+        "seg.ts\n"
+    )
+    skip_later = (
+        "#EXTM3U\n"
+        "#EXT-X-MEDIA-SEQUENCE:1\n"
+        "#EXT-X-SKIP:SKIPPED-SEGMENTS=1\n"
+        "#EXT-X-BYTERANGE:3@3\n"
+        "seg.ts\n"
+        "#EXT-X-BYTERANGE:3@6\n"
+        "seg.ts\n"
+    )
+    skip_playlists = [skip_later]
+
+    def fetch_skip_range(url: str) -> tuple[int, str, bytes]:
+        if url.endswith("index.m3u8"):
+            payload = skip_playlists.pop(0) if skip_playlists else skip_later
+            return 200, "application/vnd.apple.mpegurl", payload.encode()
+        return 200, "video/MP2T", b"AAABBBCCC"
+
+    skip_range_out = tmp_path / "skip-range.ts"
+    record_clear_stream(
+        skip_first,
+        "https://cdn.example.com/live/index.m3u8",
+        skip_range_out,
+        fetch_skip_range,
+        live_polls=2,
+    )
+    assert skip_range_out.read_bytes() == b"AAABBBCCC"
 
 
 def test_http_probe_encryption_is_terminal_without_fallback(
