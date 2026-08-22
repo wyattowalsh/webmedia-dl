@@ -13,6 +13,7 @@ describe("collectMediaEvidence", () => {
   it("collects media URLs and never returns a native command", () => {
     const doc = {
       location: { href: "https://example.com/page" },
+      baseURI: "https://cdn.example.com/media/",
       querySelectorAll: (selector) => {
         if (selector.includes("iframe") || selector.includes("link[href]")) {
           return [];
@@ -69,6 +70,7 @@ describe("collectMediaEvidence", () => {
     assert.equal(result.pageUrl, "https://example.com/page");
     const urls = result.evidence.map((item) => item.url);
     assert.ok(urls.includes("https://cdn.example.com/a.mp4"));
+    assert.ok(!urls.includes("https://cdn.example.com/media/a.mp4"));
     assert.ok(urls.includes("https://cdn.example.com/og.png"));
     assert.ok(urls.includes("https://cdn.example.com/ld.mp4"));
     assert.ok(urls.includes("https://cdn.example.com/oid.mp4"));
@@ -79,6 +81,87 @@ describe("collectMediaEvidence", () => {
     assert.ok(!urls.some((item) => item.startsWith("javascript:")));
     assert.ok(!urls.some((item) => item.startsWith("data:")));
     assert.ok(!urls.some((item) => item.startsWith("file:")));
+  });
+
+  it("resolves relative locators against document.baseURI", () => {
+    const doc = {
+      location: { href: "https://watch.example.com/page" },
+      ownerDocument: {
+        baseURI: "https://cdn.example.com/media/",
+        location: { href: "https://watch.example.com/page" },
+      },
+      querySelectorAll: (selector) => {
+        if (
+          selector.includes("iframe") ||
+          selector.includes("link[href]") ||
+          selector.includes("ld+json") ||
+          selector === "meta"
+        ) {
+          return [];
+        }
+        return [
+          { tagName: "VIDEO", getAttribute: () => "clip.mp4" },
+          { tagName: "IMG", getAttribute: () => "javascript:alert(1)" },
+        ];
+      },
+    };
+    const result = collectMediaEvidence(doc);
+    const urls = result.evidence.map((item) => item.url);
+    assert.ok(urls.includes("https://cdn.example.com/media/clip.mp4"));
+    assert.ok(!urls.includes("https://watch.example.com/clip.mp4"));
+    assert.ok(!urls.includes("clip.mp4"));
+    assert.ok(!urls.some((item) => item.startsWith("javascript:")));
+    assert.equal(result.nativeCommand, null);
+    const pageOnly = {
+      location: { href: "https://watch.example.com/dir/page" },
+      querySelectorAll: (selector) => {
+        if (
+          selector.includes("iframe") ||
+          selector.includes("link[href]") ||
+          selector.includes("ld+json") ||
+          selector === "meta"
+        ) {
+          return [];
+        }
+        return [{ tagName: "VIDEO", getAttribute: () => "clip.mp4" }];
+      },
+    };
+    const joined = collectMediaEvidence(pageOnly).evidence.map((item) => item.url);
+    assert.ok(joined.includes("https://watch.example.com/dir/clip.mp4"));
+    const blankSrc = {
+      location: { href: "https://watch.example.com/page" },
+      querySelectorAll: (selector) => {
+        if (
+          selector.includes("iframe") ||
+          selector.includes("link[href]") ||
+          selector.includes("ld+json") ||
+          selector === "meta"
+        ) {
+          return [];
+        }
+        return [{ tagName: "VIDEO", getAttribute: () => "   " }];
+      },
+    };
+    assert.equal(collectMediaEvidence(blankSrc).evidence.length, 0);
+    const noBase = {
+      querySelectorAll: (selector) => {
+        if (
+          selector.includes("iframe") ||
+          selector.includes("link[href]") ||
+          selector.includes("ld+json") ||
+          selector === "meta"
+        ) {
+          return [];
+        }
+        return [
+          { tagName: "VIDEO", getAttribute: () => "clip.mp4" },
+          { tagName: "IMG", getAttribute: () => "http://[" },
+        ];
+      },
+    };
+    const raw = collectMediaEvidence(noBase).evidence.map((item) => item.url);
+    assert.ok(raw.includes("clip.mp4"));
+    assert.ok(raw.includes("http://["));
   });
 
   it("classifies video source, amp-img, data-src, and twitter:player", () => {

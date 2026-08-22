@@ -1489,6 +1489,7 @@ def test_extension_collector_returns_no_native_command() -> None:
     assert "nativeCommand: null" in text
     assert "/^(javascript|data|blob|file|about|chrome|chrome-extension):/i" in text
     assert "blockedScheme.test(value.trim())" in text
+    assert "owner.baseURI" in text
     assert 'return "live_stream"' in text
     node = shutil.which("node")
     if node is None:

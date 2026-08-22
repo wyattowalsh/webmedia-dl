@@ -14,15 +14,44 @@ export function pageCollector(doc) {
   const seen = new Set();
   const blockedScheme =
     /^(javascript|data|blob|file|about|chrome|chrome-extension):/i;
+  const locatorBase = () => {
+    const owner = root.ownerDocument || root;
+    if (typeof owner.baseURI === "string" && owner.baseURI) {
+      return owner.baseURI;
+    }
+    const href = owner.location?.href || root.location?.href;
+    return typeof href === "string" ? href : "";
+  };
+  const resolveLocator = (value) => {
+    if (typeof value !== "string") {
+      return "";
+    }
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return "";
+    }
+    const base = locatorBase();
+    if (!base) {
+      return trimmed;
+    }
+    try {
+      return new URL(trimmed, base).href;
+    } catch {
+      return trimmed;
+    }
+  };
   const push = (value, kind) => {
     if (
-      typeof value === "string" &&
-      value &&
-      !blockedScheme.test(value.trim()) &&
-      !seen.has(value)
+      typeof value !== "string" ||
+      !value ||
+      blockedScheme.test(value.trim())
     ) {
-      seen.add(value);
-      urls.push({ url: value, kind });
+      return;
+    }
+    const resolved = resolveLocator(value);
+    if (resolved && !blockedScheme.test(resolved) && !seen.has(resolved)) {
+      seen.add(resolved);
+      urls.push({ url: resolved, kind });
     }
   };
   const walkJsonLd = (node) => {

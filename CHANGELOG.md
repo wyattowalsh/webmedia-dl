@@ -2,6 +2,13 @@
 
 ## 0.1.0
 
+- Resolve HTML, JSON-LD, and browser-evidence relative locators against
+  the first `<base href>` (and capture against `document.baseURI`) so
+  `video[src]="clip.mp4"` is fetched from the CDN, not the watch origin.
+  Blocked-scheme and hostless bases keep the page URL. GitHub Actions
+  `32585033853` on `95209ed` passed Python (625 pytest, 100%), doctor
+  provider probes, and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED)
+  after fetching clear live playlists under the download bound.
 - Fetch clear live playlists under the profile download bound (`error` on
   overflow), not the HTML truncate cap. A 2 MiB HTML cap could hide a trailing
   `#EXT-X-KEY` or drop later segments while still completing the job. GitHub

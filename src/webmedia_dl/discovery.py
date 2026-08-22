@@ -67,6 +67,7 @@ class _MediaHTMLParser(HTMLParser):
         self.title: str | None = None
         self._in_title = False
         self.json_ld: list[str] = []
+        self.base_href: str | None = None
         self._in_picture = False
         self._in_video = False
         self._in_audio = False
@@ -75,6 +76,10 @@ class _MediaHTMLParser(HTMLParser):
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         mapping = dict(attrs)
+        if tag == "base" and self.base_href is None:
+            href = mapping.get("href")
+            if href and href.strip():
+                self.base_href = href.strip()
         if tag == "title":
             self._in_title = True
         if tag == "picture":
@@ -284,6 +289,43 @@ def _usable_url(value: str, profile: PolicyProfile | None = None) -> bool:
     return True
 
 
+def _document_base(page_url: str, base_href: str | None) -> str:
+    """Resolve relative locators against the first HTML ``<base href>``."""
+    href = (base_href or "").strip()
+    if not href:
+        return page_url
+    resolved = urljoin(page_url, href)
+    parsed   = urlparse(resolved)
+    scheme = (parsed.scheme or "").lower()
+    if scheme in BLOCKED_SCHEMES or scheme not in {"http", "https"} or not parsed.netloc:
+        return page_url
+    return resolved
+
+
+def _candidates_from_evidence(
+    source: MediaSource,
+    evidence: list[BrowserEvidence] | None,
+    base: str,
+    profile: PolicyProfile,
+) -> list[MediaCandidate]:
+    seeded: list[MediaCandidate] = []
+    for item in evidence or []:
+        absolute = urljoin(base, item.url)
+        if not _usable_url(absolute, profile):
+            continue
+        item_kind = _kind_from_evidence(absolute, item.kind)
+        seeded.append(
+            _candidate(
+                source,
+                absolute,
+                item_kind,
+                evidence=["discover:browser-evidence"],
+                drm=detect_drm_signals(absolute),
+            )
+        )
+    return seeded
+
+
 def _kind_from_evidence(url: str, hinted: MediaKind) -> MediaKind:
     url_kind = _kind_from_url(url)
     if url_kind not in {MediaKind.PAGE, MediaKind.UNKNOWN}:
@@ -438,27 +480,12 @@ def discover(
         ]
     url = source.normalized_url or source.locator
     authorize_url(url, profile)
-    seeded: list[MediaCandidate] = []
-    for item in evidence or []:
-        absolute = urljoin(url, item.url)
-        if not _usable_url(absolute, profile):
-            continue
-        item_kind = _kind_from_evidence(absolute, item.kind)
-        seeded.append(
-            _candidate(
-                source,
-                absolute,
-                item_kind,
-                evidence=["discover:browser-evidence"],
-                drm=detect_drm_signals(absolute),
-            )
-        )
     kind = _kind_from_url(url)
     if kind != MediaKind.PAGE:
         drm = detect_drm_signals(url)
         return [
             _candidate(source, url, kind, evidence=["intake:direct"], drm=drm),
-            *seeded,
+            *_candidates_from_evidence(source, evidence, url, profile),
         ]
 
     body = html
@@ -484,10 +511,12 @@ def discover(
 
     parser = _MediaHTMLParser()
     parser.feed(body)
+    document_base = _document_base(url, parser.base_href)
     drm = detect_drm_signals(body)
     title = parser.title or parser.meta.get("og:title")
     seen: set[str] = set()
     found: list[MediaCandidate] = []
+    seeded = _candidates_from_evidence(source, evidence, document_base, profile)
     for key, kind_hint in (
         ("og:image", MediaKind.IMAGE),
         ("og:image:url", MediaKind.IMAGE),
@@ -510,7 +539,7 @@ def discover(
             item.model_copy(update={"drm_signals": sorted(set(item.drm_signals) | set(drm))})
         )
     for raw, guessed in parser.urls:
-        absolute = urljoin(url, raw)
+        absolute = urljoin(document_base, raw)
         if not _usable_url(absolute, profile):
             continue
         if absolute in seen:
@@ -551,7 +580,7 @@ def discover(
         for item in _walk_jsonld(items):
             for key in ("contentUrl", "embedUrl"):
                 for content_url in _jsonld_locator_urls(item.get(key)):
-                    absolute = urljoin(url, content_url)
+                    absolute = urljoin(document_base, content_url)
                     if not _usable_url(absolute, profile):
                         continue
                     if absolute in seen:

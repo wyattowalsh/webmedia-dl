@@ -74,6 +74,7 @@ def test_srcset_poster_and_browser_evidence() -> None:
     assert kinds["https://example.com/watch?v=hinted"] is MediaKind.VIDEO
     assert kinds["https://example.com/bare-page"] is MediaKind.PAGE
     assert any(item.endswith("poster.jpg") for item in urls)
+    assert "https://example.com/poster.jpg" in urls
     assert "https://cdn.example.com/tw.png" in urls
     assert not any(item.startswith("javascript:") for item in urls)
     assert not any(item.startswith("data:") for item in urls)

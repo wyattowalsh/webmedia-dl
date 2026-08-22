@@ -5,7 +5,7 @@ import pytest
 from webmedia_dl.candidates import build_graph
 from webmedia_dl.discovery import candidates_from_manifest_json, discover
 from webmedia_dl.domain.enums import IntakeKind, MediaKind, Surface
-from webmedia_dl.domain.models import MediaSource
+from webmedia_dl.domain.models import BrowserEvidence, MediaSource
 from webmedia_dl.errors import DiscoveryError
 from webmedia_dl.policy.profiles import get_profile
 
@@ -47,6 +47,102 @@ def test_html_discovery_extracts_media_without_using_title_as_id() -> None:
     assert MediaKind.VIDEO in kinds
     graph = build_graph(uuid4(), candidates)
     assert graph.nodes
+    urls = [item.retrieval_urls[0] for item in candidates if item.retrieval_urls]
+    assert "https://example.com/photos/a.jpg" in urls
+    assert "https://cdn.example.com/clip.mp4" in urls
+    assert "https://cdn.example.com/hero.png" in urls
+
+
+def test_html_discovery_resolves_relative_locators_against_base_href() -> None:
+    html = """
+    <html>
+      <head>
+        <base target="_blank">
+        <base href="https://cdn.example.com/media/">
+        <base href="https://evil.example/ignore/">
+        <script type="application/ld+json">
+          {"@type": "VideoObject", "contentUrl": "ld.mp4"}
+        </script>
+      </head>
+      <body>
+        <video src="clip.mp4"></video>
+      </body>
+    </html>
+    """
+    profile = get_profile("personal-full")
+    candidates = discover(_source(), profile, html=html)
+    urls = [item.retrieval_urls[0] for item in candidates if item.retrieval_urls]
+    assert "https://cdn.example.com/media/clip.mp4" in urls
+    assert "https://cdn.example.com/media/ld.mp4" in urls
+    assert "https://example.com/clip.mp4" not in urls
+    assert "https://evil.example/ignore/clip.mp4" not in urls
+    evidenced = discover(
+        _source(),
+        profile,
+        html='<html><head><base href="https://cdn.example.com/media/"></head></html>',
+        evidence=[BrowserEvidence(url="captured.mp4", kind=MediaKind.VIDEO)],
+    )
+    evidenced_urls = [item.retrieval_urls[0] for item in evidenced if item.retrieval_urls]
+    assert "https://cdn.example.com/media/captured.mp4" in evidenced_urls
+    blocked = """
+    <html>
+      <head><base href="javascript:alert(1)"></head>
+      <body><video src="clip.mp4"></video></body>
+    </html>
+    """
+    fallback = discover(_source(), profile, html=blocked)
+    fallback_urls = [item.retrieval_urls[0] for item in fallback if item.retrieval_urls]
+    assert "https://example.com/clip.mp4" in fallback_urls
+    data_base = discover(
+        _source(),
+        profile,
+        html='<html><head><base href="data:text/html,x"></head><body><img src="a.jpg"></body></html>',
+    )
+    data_urls = [item.retrieval_urls[0] for item in data_base if item.retrieval_urls]
+    assert "https://example.com/a.jpg" in data_urls
+    ftp_base = discover(
+        _source(),
+        profile,
+        html='<html><head><base href="ftp://cdn.example.com/media/"></head><body><img src="a.jpg"></body></html>',
+    )
+    ftp_urls = [item.retrieval_urls[0] for item in ftp_base if item.retrieval_urls]
+    assert "https://example.com/a.jpg" in ftp_urls
+    empty_host = discover(
+        _source(),
+        profile,
+        html='<html><head><base href="https://"></head><body><img src="a.jpg"></body></html>',
+    )
+    empty_urls = [item.retrieval_urls[0] for item in empty_host if item.retrieval_urls]
+    assert "https://example.com/a.jpg" in empty_urls
+    blank = discover(
+        _source(),
+        profile,
+        html='<html><head><base href="  "></head><body><img src="a.jpg"></body></html>',
+    )
+    blank_urls = [item.retrieval_urls[0] for item in blank if item.retrieval_urls]
+    assert "https://example.com/a.jpg" in blank_urls
+    rooted = discover(
+        _source(),
+        profile,
+        html='<html><head><base href="/media/"></head><body><video src="clip.mp4"></video></body></html>',
+    )
+    rooted_urls = [item.retrieval_urls[0] for item in rooted if item.retrieval_urls]
+    assert "https://example.com/media/clip.mp4" in rooted_urls
+    direct = MediaSource(
+        kind=IntakeKind.URL,
+        locator="https://cdn.example.com/direct.mp4",
+        normalized_url="https://cdn.example.com/direct.mp4",
+        surface=Surface.CLI,
+        policy_profile_id="personal-full",
+    )
+    mixed = discover(
+        direct,
+        profile,
+        evidence=[BrowserEvidence(url="sidecar.jpg", kind=MediaKind.IMAGE)],
+    )
+    mixed_urls = [item.retrieval_urls[0] for item in mixed if item.retrieval_urls]
+    assert "https://cdn.example.com/direct.mp4" in mixed_urls
+    assert "https://cdn.example.com/sidecar.jpg" in mixed_urls
 
 
 def test_html_discovery_extracts_track_and_media_anchors() -> None:
