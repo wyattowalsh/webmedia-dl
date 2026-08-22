@@ -2,6 +2,13 @@
 
 ## 0.1.0
 
+- Collect Open Graph `og:image:secure_url` in HTML discovery and browser
+  capture the same way as `og:video:secure_url` / `og:audio:secure_url`, so
+  HTTPS-only profiles keep an IMAGE candidate when the page omits `og:image`
+  or only lists an `http` image URL. GitHub Actions `32596083320` on `344348c`
+  passed Python (626 pytest, 100%), doctor provider probes, and Swift (18
+  tests, 0 failures; 12× BUILD SUCCEEDED) after expanding SegmentBase
+  Initialization identifier tokens.
 - Expand DASH `$RepresentationID$` / `$Bandwidth%0Nd$` in SegmentBase
   `Initialization` `sourceURL` the same way as SegmentList, and skip leftover
   `$Number$` init locators instead of recording a literal path. GitHub Actions

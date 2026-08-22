@@ -591,6 +591,7 @@ def discover(
     for key, kind_hint in (
         ("og:image", MediaKind.IMAGE),
         ("og:image:url", MediaKind.IMAGE),
+        ("og:image:secure_url", MediaKind.IMAGE),
         ("twitter:image", MediaKind.IMAGE),
         ("og:video", MediaKind.VIDEO),
         ("og:video:url", MediaKind.VIDEO),

@@ -145,6 +145,7 @@ export function pageCollector(doc) {
   const metaKind = {
     "og:image": "image",
     "og:image:url": "image",
+    "og:image:secure_url": "image",
     "twitter:image": "image",
     "og:video": "video",
     "og:video:url": "video",

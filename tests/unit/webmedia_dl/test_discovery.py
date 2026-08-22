@@ -51,6 +51,25 @@ def test_html_discovery_extracts_media_without_using_title_as_id() -> None:
     assert "https://example.com/photos/a.jpg" in urls
     assert "https://cdn.example.com/clip.mp4" in urls
     assert "https://cdn.example.com/hero.png" in urls
+    secure_only = """
+    <html>
+      <head>
+        <meta property="og:image" content="http://cdn.example.com/hero.png">
+        <meta property="og:image:secure_url" content="https://cdn.example.com/secure.png">
+        <meta property="og:video:secure_url" content="https://cdn.example.com/secure.mp4">
+      </head>
+    </html>
+    """
+    secure = discover(_source(), profile, html=secure_only)
+    secure_urls = [item.retrieval_urls[0] for item in secure if item.retrieval_urls]
+    secure_kinds = {
+        item.retrieval_urls[0]: item.media_kind for item in secure if item.retrieval_urls
+    }
+    assert "https://cdn.example.com/secure.png" in secure_urls
+    assert "http://cdn.example.com/hero.png" not in secure_urls
+    assert secure_kinds["https://cdn.example.com/secure.png"] is MediaKind.IMAGE
+    assert MediaKind.IMAGE in {item.media_kind for item in secure}
+    assert MediaKind.VIDEO in {item.media_kind for item in secure}
 
 
 def test_html_discovery_resolves_relative_locators_against_base_href() -> None:
@@ -420,6 +439,7 @@ def test_html_link_audio_image_track_and_jsonld_kinds() -> None:
     <html>
       <head>
         <meta property="og:audio:secure_url" content="https://cdn.example.com/og.m4a">
+        <meta property="og:image:secure_url" content="https://cdn.example.com/og-secure.png">
         <link rel="preload" as="audio" href="https://cdn.example.com/a.mp3">
         <link rel="preload" as="image" href="https://cdn.example.com/i.png">
         <link rel="preload" as="track" href="https://cdn.example.com/t.vtt">
@@ -436,6 +456,7 @@ def test_html_link_audio_image_track_and_jsonld_kinds() -> None:
     candidates = discover(_source(), profile, html=html)
     kinds = {item.retrieval_urls[0]: item.media_kind for item in candidates if item.retrieval_urls}
     assert kinds["https://cdn.example.com/og.m4a"] is MediaKind.AUDIO
+    assert kinds["https://cdn.example.com/og-secure.png"] is MediaKind.IMAGE
     assert kinds["https://cdn.example.com/a.mp3"] is MediaKind.AUDIO
     assert kinds["https://cdn.example.com/i.png"] is MediaKind.IMAGE
     assert kinds["https://cdn.example.com/t.vtt"] is MediaKind.SUBTITLE

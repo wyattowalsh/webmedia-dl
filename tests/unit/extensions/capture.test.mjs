@@ -55,6 +55,14 @@ describe("collectMediaEvidence", () => {
               getAttribute: (name) =>
                 name === "property" ? "og:image" : name === "content" ? "https://cdn.example.com/og.png" : null,
             },
+            {
+              getAttribute: (name) =>
+                name === "property"
+                  ? "og:image:secure_url"
+                  : name === "content"
+                    ? "https://cdn.example.com/secure.png"
+                    : null,
+            },
           ];
         }
         return [
@@ -72,6 +80,11 @@ describe("collectMediaEvidence", () => {
     assert.ok(urls.includes("https://cdn.example.com/a.mp4"));
     assert.ok(!urls.includes("https://cdn.example.com/media/a.mp4"));
     assert.ok(urls.includes("https://cdn.example.com/og.png"));
+    assert.ok(urls.includes("https://cdn.example.com/secure.png"));
+    assert.equal(
+      result.evidence.find((item) => item.url === "https://cdn.example.com/secure.png")?.kind,
+      "image",
+    );
     assert.ok(urls.includes("https://cdn.example.com/ld.mp4"));
     assert.ok(urls.includes("https://cdn.example.com/oid.mp4"));
     assert.ok(urls.includes("https://cdn.example.com/charset.mp4"));
