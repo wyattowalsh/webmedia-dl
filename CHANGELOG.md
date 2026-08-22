@@ -2,6 +2,13 @@
 
 ## 0.1.0
 
+- GitHub Actions `32568400311` on `b2839e6` passed Python (583 pytest, 100%)
+  and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after hopping
+  complete-client queue buttons onto `WebMediaDLCompleteClientControl`.
+- Complete-client history now returns a spoken job list instead of `"ok"`.
+  Siri/Shortcuts on every Apple shell speak the worker or Mac-relay response.
+  Last-job JSON inspect (`GET /v1/jobs/{id}`) fails closed without pairing or a
+  job UUID, matching cancel/pause/resume.
 - GitHub Actions `32568126057` on `f474719` passed Python (583 pytest, 100%)
   and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after boxing Mac
   worker spawn as `@Sendable` `WebMediaDLUncheckedBox`. Complete-client queue

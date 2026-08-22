@@ -2,7 +2,7 @@ import SwiftUI
 import WebMediaDLCore
 
 /// watchOS capture, status, history, and controls. Not a subprocess worker.
-/// Control messages go to the paired Mac over Continuity. This device has no provider runtime.
+/// Control messages go to the paired Mac relay over Continuity. This device has no provider runtime.
 public struct WebMediaDLWatchRootView: View {
     private let role = WebMediaDLClientRole.captureAndStatus
     private let bridge = WebMediaDLContinuityBridge()
@@ -92,7 +92,7 @@ public struct WebMediaDLWatchRootView: View {
                 surface: .watchos
             )
             try await transport.send(message)
-            status = "Queued \(message.kind) for Mac relay"
+            status = message.queuedStatus
             if let body = transport.lastResponse,
                let parsed = WebMediaDLLoopbackClient.jobId(from: body) {
                 lastJobId = parsed.uuidString

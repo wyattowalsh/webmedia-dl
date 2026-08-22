@@ -17,12 +17,11 @@ public struct WebMediaDLTVSubmitURLIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let transport = WebMediaDLLocalNetworkCompanionTransport()
-        try await transport.send(
-            try WebMediaDLCompanionControlMessage.make(
-                kind: .capture, locator: locator, surface: .tvos
-            )
+        let message = try WebMediaDLCompanionControlMessage.make(
+            kind: .capture, locator: locator, surface: .tvos
         )
-        return .result()
+        try await transport.send(message)
+        return .result(dialog: IntentDialog(stringLiteral: message.queuedStatus))
     }
 }
 
@@ -33,10 +32,9 @@ public struct WebMediaDLTVPauseIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let transport = WebMediaDLLocalNetworkCompanionTransport()
-        try await transport.send(
-            try WebMediaDLCompanionControlMessage.make(kind: .pause, surface: .tvos)
-        )
-        return .result()
+        let message = try WebMediaDLCompanionControlMessage.make(kind: .pause, surface: .tvos)
+        try await transport.send(message)
+        return .result(dialog: IntentDialog(stringLiteral: message.queuedStatus))
     }
 }
 
@@ -47,10 +45,9 @@ public struct WebMediaDLTVResumeIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let transport = WebMediaDLLocalNetworkCompanionTransport()
-        try await transport.send(
-            try WebMediaDLCompanionControlMessage.make(kind: .resume, surface: .tvos)
-        )
-        return .result()
+        let message = try WebMediaDLCompanionControlMessage.make(kind: .resume, surface: .tvos)
+        try await transport.send(message)
+        return .result(dialog: IntentDialog(stringLiteral: message.queuedStatus))
     }
 }
 
@@ -61,10 +58,9 @@ public struct WebMediaDLTVHistoryIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let transport = WebMediaDLLocalNetworkCompanionTransport()
-        try await transport.send(
-            try WebMediaDLCompanionControlMessage.make(kind: .history, surface: .tvos)
-        )
-        return .result()
+        let message = try WebMediaDLCompanionControlMessage.make(kind: .history, surface: .tvos)
+        try await transport.send(message)
+        return .result(dialog: IntentDialog(stringLiteral: message.queuedStatus))
     }
 }
 
@@ -75,10 +71,9 @@ public struct WebMediaDLTVStatusIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let transport = WebMediaDLLocalNetworkCompanionTransport()
-        try await transport.send(
-            try WebMediaDLCompanionControlMessage.make(kind: .status, surface: .tvos)
-        )
-        return .result()
+        let message = try WebMediaDLCompanionControlMessage.make(kind: .status, surface: .tvos)
+        try await transport.send(message)
+        return .result(dialog: IntentDialog(stringLiteral: message.queuedStatus))
     }
 }
 
@@ -96,10 +91,9 @@ public struct WebMediaDLTVCancelIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let transport = WebMediaDLLocalNetworkCompanionTransport()
-        try await transport.send(
-            try WebMediaDLCompanionControlMessage.make(kind: .cancel, jobId: jobId, surface: .tvos)
-        )
-        return .result()
+        let message = try WebMediaDLCompanionControlMessage.make(kind: .cancel, jobId: jobId, surface: .tvos)
+        try await transport.send(message)
+        return .result(dialog: IntentDialog(stringLiteral: message.queuedStatus))
     }
 }
 
@@ -117,10 +111,9 @@ public struct WebMediaDLTVPauseJobIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let transport = WebMediaDLLocalNetworkCompanionTransport()
-        try await transport.send(
-            try WebMediaDLCompanionControlMessage.make(kind: .pauseJob, jobId: jobId, surface: .tvos)
-        )
-        return .result()
+        let message = try WebMediaDLCompanionControlMessage.make(kind: .pauseJob, jobId: jobId, surface: .tvos)
+        try await transport.send(message)
+        return .result(dialog: IntentDialog(stringLiteral: message.queuedStatus))
     }
 }
 
@@ -138,10 +131,9 @@ public struct WebMediaDLTVResumeJobIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let transport = WebMediaDLLocalNetworkCompanionTransport()
-        try await transport.send(
-            try WebMediaDLCompanionControlMessage.make(kind: .resumeJob, jobId: jobId, surface: .tvos)
-        )
-        return .result()
+        let message = try WebMediaDLCompanionControlMessage.make(kind: .resumeJob, jobId: jobId, surface: .tvos)
+        try await transport.send(message)
+        return .result(dialog: IntentDialog(stringLiteral: message.queuedStatus))
     }
 }
 

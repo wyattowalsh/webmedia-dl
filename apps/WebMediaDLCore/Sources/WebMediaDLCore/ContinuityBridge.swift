@@ -35,6 +35,10 @@ public struct WebMediaDLCompanionMessage: Codable, Sendable, Equatable {
         self.surface = surface
     }
 
+    public var queuedStatus: String {
+        "Queued \(kind.rawValue) for Mac relay"
+    }
+
     public init?(kind: String, locator: String? = nil, jobId: String? = nil, surface: WebMediaDLSurface = .watchos) {
         guard let value = WebMediaDLCompanionKind(rawValue: kind) else { return nil }
         self.init(kind: value, locator: locator, jobId: jobId, surface: surface)

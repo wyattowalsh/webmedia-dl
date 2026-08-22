@@ -23,7 +23,10 @@ Share sheets restore that Files bookmark via `WebMediaDLShareIntake.fromSavedBoo
 so on-device HTTP still writes there. Heavy complete-client jobs submit `staging_only`
 to the Mac worker; a phone sandbox `files_app` path is not a Mac destination. After
 the Mac job publishes, complete clients pull artifact bytes from
-`GET /v1/artifacts/{id}/content` into that same Files bookmark. Page locators,
+`GET /v1/artifacts/{id}/content` into that same Files bookmark and inspect
+`GET /v1/jobs/{id}` JSON through `WebMediaDLCompleteClientControl` without copying
+the Mac worker bearer. Siri/Shortcuts speak the worker or relay response instead of
+an empty result. Page locators,
 encrypted HLS/DASH, and live manifests fail closed locally and require a paired Mac.
 Watch companion messages travel watch → iPhone `WCSession` → Mac LAN HTTP; the Mac
 app does not activate `WCSession`. The iPhone companion hops those `userInfo`

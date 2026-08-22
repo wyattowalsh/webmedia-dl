@@ -463,6 +463,15 @@ final class ContractTests: XCTestCase {
             ()
         }
         do {
+            _ = try await WebMediaDLCompleteClientControl.perform(
+                .history,
+                defaults: UserDefaults(suiteName: UUID().uuidString)!
+            )
+            XCTFail("complete-client history without pairing must fail closed")
+        } catch WebMediaDLHttpDirect.TransferError.pairingRequired {
+            ()
+        }
+        do {
             _ = try await WebMediaDLCompleteClientControl.perform(.cancel, jobId: "nope")
             XCTFail("complete-client cancel without a job UUID must fail closed")
         } catch WebMediaDLCompanionError.jobIdRequired {
@@ -473,6 +482,29 @@ final class ContractTests: XCTestCase {
             XCTFail("unknown complete-client control must fail closed")
         } catch let error as WebMediaDLDomainError {
             XCTAssertTrue(error.message.contains("unknown complete-client control"))
+        }
+        XCTAssertEqual(WebMediaDLHistoryEntry.summary([]), "No jobs yet.")
+        XCTAssertEqual(
+            WebMediaDLHistoryEntry.summary([
+                WebMediaDLHistoryEntry(jobId: pairing, state: "completed"),
+            ]),
+            "\(pairing.uuidString.prefix(8)) completed"
+        )
+        do {
+            _ = try await WebMediaDLCompleteClientControl.perform(.jobDetail, jobId: "nope")
+            XCTFail("complete-client job detail without a job UUID must fail closed")
+        } catch WebMediaDLCompanionError.jobIdRequired {
+            ()
+        }
+        do {
+            _ = try await WebMediaDLCompleteClientControl.perform(
+                .jobDetail,
+                jobId: pairing.uuidString,
+                defaults: UserDefaults(suiteName: UUID().uuidString)!
+            )
+            XCTFail("complete-client job detail without pairing must fail closed")
+        } catch WebMediaDLHttpDirect.TransferError.pairingRequired {
+            ()
         }
         let controlProbe = WebMediaDLCompleteClientControlProbe()
         let paused = try await WebMediaDLCompleteClientControl.perform(.pauseQueue) { kind, id in
@@ -518,6 +550,38 @@ final class ContractTests: XCTestCase {
             XCTAssertTrue(error.message.contains("unknown complete-client control"))
             XCTAssertEqual(controlProbe.sent, 2)
         }
+        do {
+            _ = try await WebMediaDLCompleteClientControl.perform(.jobDetail, jobId: "nope") { _, _ in
+                controlProbe.sent += 1
+                return "nope"
+            }
+            XCTFail("injectable send must not run job detail without a job UUID")
+        } catch WebMediaDLCompanionError.jobIdRequired {
+            XCTAssertEqual(controlProbe.sent, 2)
+        }
+        let inspected = try await WebMediaDLCompleteClientControl.perform(
+            .jobDetail,
+            jobId: controlJob.uuidString
+        ) { kind, id in
+            controlProbe.kind  = kind
+            controlProbe.jobId = id
+            controlProbe.sent += 1
+            return "job"
+        }
+        XCTAssertEqual(inspected, "job")
+        XCTAssertEqual(controlProbe.kind, .jobDetail)
+        XCTAssertEqual(controlProbe.jobId, controlJob)
+        XCTAssertEqual(controlProbe.sent, 3)
+        let listed = try await WebMediaDLCompleteClientControl.perform(.history) { kind, id in
+            controlProbe.kind  = kind
+            controlProbe.jobId = id
+            controlProbe.sent += 1
+            return WebMediaDLHistoryEntry.summary([])
+        }
+        XCTAssertEqual(listed, "No jobs yet.")
+        XCTAssertEqual(controlProbe.kind, .history)
+        XCTAssertNil(controlProbe.jobId)
+        XCTAssertEqual(controlProbe.sent, 4)
         do {
             _ = try await WebMediaDLPairedMacSubmit.pullToFiles(
                 jobId: pairing,
@@ -871,6 +935,7 @@ final class ContractTests: XCTestCase {
             XCTAssertEqual(message.kind, kind)
             XCTAssertNil(message.nativeCommand)
             XCTAssertFalse(message.subprocessWorker)
+            XCTAssertEqual(message.queuedStatus, "Queued \(kind.rawValue) for Mac relay")
         }
         let controlJob = UUID().uuidString
         for kind in [WebMediaDLCompanionKind.cancel, .pauseJob, .resumeJob] {

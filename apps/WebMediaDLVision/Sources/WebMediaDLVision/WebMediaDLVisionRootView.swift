@@ -155,9 +155,7 @@ public struct WebMediaDLVisionRootView: View {
                             sessionKey: sessionKey.isEmpty ? nil : sessionKey
                         )
                         history = entries
-                        historyText = entries.isEmpty
-                            ? "No jobs yet."
-                            : entries.map { "\($0.jobId.uuidString.prefix(8)) \($0.state)" }.joined(separator: "\n")
+                        historyText = WebMediaDLHistoryEntry.summary(entries)
                     } catch {
                         historyText = "Pairing required"
                     }
@@ -290,6 +288,26 @@ public struct WebMediaDLVisionRootView: View {
                 }
             }
             .accessibilityLabel("Resume last job")
+            Button("Show last job") {
+                Task {
+                    guard let lastJobId else {
+                        status = "No job to inspect"
+                        return
+                    }
+                    do {
+                        status = try await WebMediaDLCompleteClientControl.perform(
+                            .jobDetail,
+                            jobId: lastJobId.uuidString,
+                            credentials: pairedClient,
+                            pairingId: UUID(uuidString: pairingId),
+                            sessionKey: sessionKey.isEmpty ? nil : sessionKey
+                        )
+                    } catch {
+                        status = error.localizedDescription
+                    }
+                }
+            }
+            .accessibilityLabel("Show last job")
             Text("Role \(role.rawValue). Mac \(WebMediaDLPairedMacEndpoint.advertisedRelay()?.absoluteString ?? "not saved")")
         }
         .padding(32)

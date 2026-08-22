@@ -17,12 +17,11 @@ public struct WebMediaDLWatchSubmitURLIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let transport = WebMediaDLWatchConnectivityTransport()
-        try await transport.send(
-            try WebMediaDLCompanionControlMessage.make(
-                kind: .capture, locator: locator, surface: .watchos
-            )
+        let message = try WebMediaDLCompanionControlMessage.make(
+            kind: .capture, locator: locator, surface: .watchos
         )
-        return .result()
+        try await transport.send(message)
+        return .result(dialog: IntentDialog(stringLiteral: message.queuedStatus))
     }
 }
 
@@ -33,10 +32,9 @@ public struct WebMediaDLWatchPauseIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let transport = WebMediaDLWatchConnectivityTransport()
-        try await transport.send(
-            try WebMediaDLCompanionControlMessage.make(kind: .pause, surface: .watchos)
-        )
-        return .result()
+        let message = try WebMediaDLCompanionControlMessage.make(kind: .pause, surface: .watchos)
+        try await transport.send(message)
+        return .result(dialog: IntentDialog(stringLiteral: message.queuedStatus))
     }
 }
 
@@ -47,10 +45,9 @@ public struct WebMediaDLWatchResumeIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let transport = WebMediaDLWatchConnectivityTransport()
-        try await transport.send(
-            try WebMediaDLCompanionControlMessage.make(kind: .resume, surface: .watchos)
-        )
-        return .result()
+        let message = try WebMediaDLCompanionControlMessage.make(kind: .resume, surface: .watchos)
+        try await transport.send(message)
+        return .result(dialog: IntentDialog(stringLiteral: message.queuedStatus))
     }
 }
 
@@ -61,10 +58,9 @@ public struct WebMediaDLWatchHistoryIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let transport = WebMediaDLWatchConnectivityTransport()
-        try await transport.send(
-            try WebMediaDLCompanionControlMessage.make(kind: .history, surface: .watchos)
-        )
-        return .result()
+        let message = try WebMediaDLCompanionControlMessage.make(kind: .history, surface: .watchos)
+        try await transport.send(message)
+        return .result(dialog: IntentDialog(stringLiteral: message.queuedStatus))
     }
 }
 
@@ -75,10 +71,9 @@ public struct WebMediaDLWatchStatusIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let transport = WebMediaDLWatchConnectivityTransport()
-        try await transport.send(
-            try WebMediaDLCompanionControlMessage.make(kind: .status, surface: .watchos)
-        )
-        return .result()
+        let message = try WebMediaDLCompanionControlMessage.make(kind: .status, surface: .watchos)
+        try await transport.send(message)
+        return .result(dialog: IntentDialog(stringLiteral: message.queuedStatus))
     }
 }
 
@@ -96,10 +91,9 @@ public struct WebMediaDLWatchCancelIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let transport = WebMediaDLWatchConnectivityTransport()
-        try await transport.send(
-            try WebMediaDLCompanionControlMessage.make(kind: .cancel, jobId: jobId, surface: .watchos)
-        )
-        return .result()
+        let message = try WebMediaDLCompanionControlMessage.make(kind: .cancel, jobId: jobId, surface: .watchos)
+        try await transport.send(message)
+        return .result(dialog: IntentDialog(stringLiteral: message.queuedStatus))
     }
 }
 
@@ -117,10 +111,9 @@ public struct WebMediaDLWatchPauseJobIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let transport = WebMediaDLWatchConnectivityTransport()
-        try await transport.send(
-            try WebMediaDLCompanionControlMessage.make(kind: .pauseJob, jobId: jobId, surface: .watchos)
-        )
-        return .result()
+        let message = try WebMediaDLCompanionControlMessage.make(kind: .pauseJob, jobId: jobId, surface: .watchos)
+        try await transport.send(message)
+        return .result(dialog: IntentDialog(stringLiteral: message.queuedStatus))
     }
 }
 
@@ -138,10 +131,9 @@ public struct WebMediaDLWatchResumeJobIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let transport = WebMediaDLWatchConnectivityTransport()
-        try await transport.send(
-            try WebMediaDLCompanionControlMessage.make(kind: .resumeJob, jobId: jobId, surface: .watchos)
-        )
-        return .result()
+        let message = try WebMediaDLCompanionControlMessage.make(kind: .resumeJob, jobId: jobId, surface: .watchos)
+        try await transport.send(message)
+        return .result(dialog: IntentDialog(stringLiteral: message.queuedStatus))
     }
 }
 

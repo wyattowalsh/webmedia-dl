@@ -137,6 +137,13 @@ public struct WebMediaDLHistoryEntry: Codable, Sendable, Identifiable {
         }
         return try decodeList(from: data)
     }
+
+    public static func summary(_ entries: [WebMediaDLHistoryEntry]) -> String {
+        if entries.isEmpty {
+            return "No jobs yet."
+        }
+        return entries.map { "\($0.jobId.uuidString.prefix(8)) \($0.state)" }.joined(separator: "\n")
+    }
 }
 
 public struct WebMediaDLCompanionHistoryEnvelope: Codable, Sendable {

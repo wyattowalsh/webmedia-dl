@@ -355,11 +355,7 @@ public struct WebMediaDLLoopbackClient: Sendable {
     }
 
     public func historySummary() async throws -> String {
-        let entries = try await historyEntries()
-        if entries.isEmpty {
-            return "No jobs yet."
-        }
-        return entries.map { "\($0.jobId.uuidString.prefix(8)) \($0.state)" }.joined(separator: "\n")
+        WebMediaDLHistoryEntry.summary(try await historyEntries())
     }
 
     public func pauseQueue() async throws -> String {
@@ -401,6 +397,10 @@ public struct WebMediaDLLoopbackClient: Sendable {
 
     public func artifacts() async throws -> String {
         try await send(artifactsRequest())
+    }
+
+    public func jobDetail(jobId: UUID) async throws -> String {
+        try await send(jobDetailRequest(jobId: jobId))
     }
 
     public func cancel(jobId: UUID) async throws -> String {

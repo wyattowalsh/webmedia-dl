@@ -92,6 +92,20 @@ struct MacRootView: View {
                         }
                     }
                     .accessibilityLabel("Show artifacts")
+                    Button("Show last job") {
+                        Task {
+                            guard let lastJobId else {
+                                status = "No job to inspect"
+                                return
+                            }
+                            do {
+                                status = try await WebMediaDLLoopbackClient(token: token).jobDetail(jobId: lastJobId)
+                            } catch {
+                                status = error.localizedDescription
+                            }
+                        }
+                    }
+                    .accessibilityLabel("Show last job")
                 }
                 Section("Queue") {
                     Button("Pause queue") {
@@ -402,9 +416,7 @@ struct MacRootView: View {
         let client = WebMediaDLLoopbackClient(token: token)
         do {
             history = try await client.historyEntries()
-            historyText = history.isEmpty
-                ? "No jobs yet."
-                : history.map { "\($0.jobId.uuidString.prefix(8)) \($0.state)" }.joined(separator: "\n")
+            historyText = WebMediaDLHistoryEntry.summary(history)
         } catch {
             historyText = error.localizedDescription
         }

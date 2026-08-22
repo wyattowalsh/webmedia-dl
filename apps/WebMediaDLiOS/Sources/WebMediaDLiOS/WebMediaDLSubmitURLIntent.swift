@@ -16,19 +16,19 @@ public struct WebMediaDLSubmitURLIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let client = WebMediaDLWorkerCredentials.loadClient()
-        if try await WebMediaDLHttpDirect.saveIfDirect(locator: locator, surface: .ios) != nil {
-            return .result()
+        if let saved = try await WebMediaDLHttpDirect.saveIfDirect(locator: locator, surface: .ios) {
+            return .result(dialog: IntentDialog(stringLiteral: "Saved on this device \(saved.outputPath)"))
         }
         let intake = WebMediaDLShareIntake.fromSavedBookmark(locator: locator)
         let files = intake.filesDestination
-        _ = try await WebMediaDLPairedMacSubmit.submit(
+        let response = try await WebMediaDLPairedMacSubmit.submit(
             locator: locator,
             surface: .ios,
             credentials: client,
             intakeKind: "intent",
             destinationKind: files == nil ? nil : "staging_only"
         )
-        return .result()
+        return .result(dialog: IntentDialog(stringLiteral: response))
     }
 }
 
@@ -46,19 +46,19 @@ public struct WebMediaDLiOSSpeakURLIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let client = WebMediaDLWorkerCredentials.loadClient()
-        if try await WebMediaDLHttpDirect.saveIfDirect(locator: locator, surface: .ios) != nil {
-            return .result()
+        if let saved = try await WebMediaDLHttpDirect.saveIfDirect(locator: locator, surface: .ios) {
+            return .result(dialog: IntentDialog(stringLiteral: "Saved on this device \(saved.outputPath)"))
         }
         let intake = WebMediaDLShareIntake.fromSavedBookmark(locator: locator)
         let files = intake.filesDestination
-        _ = try await WebMediaDLPairedMacSubmit.submit(
+        let response = try await WebMediaDLPairedMacSubmit.submit(
             locator: locator,
             surface: .ios,
             credentials: client,
             intakeKind: "speak",
             destinationKind: files == nil ? nil : "staging_only"
         )
-        return .result()
+        return .result(dialog: IntentDialog(stringLiteral: response))
     }
 }
 
@@ -68,8 +68,8 @@ public struct WebMediaDLiOSPauseQueueIntent: AppIntent {
     public init() {}
 
     public func perform() async throws -> some IntentResult {
-        _ = try await WebMediaDLCompleteClientControl.perform(.pauseQueue)
-        return .result()
+        let status = try await WebMediaDLCompleteClientControl.perform(.pauseQueue)
+        return .result(dialog: IntentDialog(stringLiteral: status))
     }
 }
 
@@ -79,8 +79,8 @@ public struct WebMediaDLiOSResumeQueueIntent: AppIntent {
     public init() {}
 
     public func perform() async throws -> some IntentResult {
-        _ = try await WebMediaDLCompleteClientControl.perform(.resumeQueue)
-        return .result()
+        let status = try await WebMediaDLCompleteClientControl.perform(.resumeQueue)
+        return .result(dialog: IntentDialog(stringLiteral: status))
     }
 }
 
@@ -90,8 +90,8 @@ public struct WebMediaDLiOSHistoryIntent: AppIntent {
     public init() {}
 
     public func perform() async throws -> some IntentResult {
-        _ = try await WebMediaDLCompleteClientControl.perform(.history)
-        return .result()
+        let status = try await WebMediaDLCompleteClientControl.perform(.history)
+        return .result(dialog: IntentDialog(stringLiteral: status))
     }
 }
 
@@ -108,8 +108,8 @@ public struct WebMediaDLiOSCancelIntent: AppIntent {
     }
 
     public func perform() async throws -> some IntentResult {
-        _ = try await WebMediaDLCompleteClientControl.perform(.cancel, jobId: jobId)
-        return .result()
+        let status = try await WebMediaDLCompleteClientControl.perform(.cancel, jobId: jobId)
+        return .result(dialog: IntentDialog(stringLiteral: status))
     }
 }
 
@@ -119,8 +119,8 @@ public struct WebMediaDLiOSStatusIntent: AppIntent {
     public init() {}
 
     public func perform() async throws -> some IntentResult {
-        _ = try await WebMediaDLCompleteClientControl.perform(.queueStatus)
-        return .result()
+        let status = try await WebMediaDLCompleteClientControl.perform(.queueStatus)
+        return .result(dialog: IntentDialog(stringLiteral: status))
     }
 }
 
@@ -137,8 +137,8 @@ public struct WebMediaDLiOSPauseJobIntent: AppIntent {
     }
 
     public func perform() async throws -> some IntentResult {
-        _ = try await WebMediaDLCompleteClientControl.perform(.pauseJob, jobId: jobId)
-        return .result()
+        let status = try await WebMediaDLCompleteClientControl.perform(.pauseJob, jobId: jobId)
+        return .result(dialog: IntentDialog(stringLiteral: status))
     }
 }
 
@@ -155,8 +155,8 @@ public struct WebMediaDLiOSResumeJobIntent: AppIntent {
     }
 
     public func perform() async throws -> some IntentResult {
-        _ = try await WebMediaDLCompleteClientControl.perform(.resumeJob, jobId: jobId)
-        return .result()
+        let status = try await WebMediaDLCompleteClientControl.perform(.resumeJob, jobId: jobId)
+        return .result(dialog: IntentDialog(stringLiteral: status))
     }
 }
 

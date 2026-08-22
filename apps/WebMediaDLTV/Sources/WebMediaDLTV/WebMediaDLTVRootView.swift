@@ -3,7 +3,7 @@ import WebMediaDLCore
 
 /// tvOS capture, status, history, and controls. Not a subprocess worker.
 /// tvOS has no pasteboard string API; capture is typed URL only.
-/// The paired Mac receives companion messages over LAN HTTP, not WatchConnectivity.
+/// The paired Mac relay receives companion messages over LAN HTTP, not WatchConnectivity.
 public struct WebMediaDLTVRootView: View {
     private let role = WebMediaDLClientRole.captureAndStatus
     private let bridge = WebMediaDLContinuityBridge()
@@ -91,7 +91,7 @@ public struct WebMediaDLTVRootView: View {
                 surface: .tvos
             )
             try await transport.send(message)
-            status = "Queued \(message.kind) for Mac relay"
+            status = message.queuedStatus
             if let body = transport.lastResponse,
                let parsed = WebMediaDLLoopbackClient.jobId(from: body) {
                 lastJobId = parsed.uuidString

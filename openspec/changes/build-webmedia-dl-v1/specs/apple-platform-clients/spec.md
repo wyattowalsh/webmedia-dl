@@ -104,4 +104,5 @@ the phone's own `127.0.0.1`.
 
 - **WHEN** iPhone, iPad, or visionOS Siri/Shortcuts pause, resume, history, status,
   cancel, or pause/resume a job
-- **THEN** those App Intents call `WebMediaDLPairedMacSubmit` against the saved Mac URL
+- **THEN** those App Intents call `WebMediaDLCompleteClientControl` against the saved Mac URL
+  and speak the relay response

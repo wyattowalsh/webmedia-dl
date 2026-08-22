@@ -18,7 +18,7 @@ public struct WebMediaDLMacSubmitURLIntent: AppIntent {
         let client = WebMediaDLWorkerCredentials.loadClient()
         let intake = WebMediaDLShareIntake.fromSavedBookmark(locator: locator)
         let files = intake.filesDestination
-        _ = try await client.submit(
+        let response = try await client.submit(
             locator: locator,
             surface: .macos,
             intakeKind: "intent",
@@ -27,7 +27,7 @@ public struct WebMediaDLMacSubmitURLIntent: AppIntent {
             approvedRoots: files.map { [$0.approvedRoot] } ?? [],
             bookmarkData: files?.bookmark.bookmarkData ?? intake.bookmarkData
         )
-        return .result()
+        return .result(dialog: IntentDialog(stringLiteral: response))
     }
 }
 
@@ -47,7 +47,7 @@ public struct WebMediaDLMacSpeakURLIntent: AppIntent {
         let client = WebMediaDLWorkerCredentials.loadClient()
         let intake = WebMediaDLShareIntake.fromSavedBookmark(locator: locator)
         let files = intake.filesDestination
-        _ = try await client.submit(
+        let response = try await client.submit(
             locator: locator,
             surface: .macos,
             intakeKind: "speak",
@@ -56,7 +56,7 @@ public struct WebMediaDLMacSpeakURLIntent: AppIntent {
             approvedRoots: files.map { [$0.approvedRoot] } ?? [],
             bookmarkData: files?.bookmark.bookmarkData ?? intake.bookmarkData
         )
-        return .result()
+        return .result(dialog: IntentDialog(stringLiteral: response))
     }
 }
 
@@ -66,8 +66,8 @@ public struct WebMediaDLMacPauseQueueIntent: AppIntent {
     public init() {}
 
     public func perform() async throws -> some IntentResult {
-        _ = try await WebMediaDLWorkerCredentials.loadClient().pauseQueue()
-        return .result()
+        let status = try await WebMediaDLWorkerCredentials.loadClient().pauseQueue()
+        return .result(dialog: IntentDialog(stringLiteral: status))
     }
 }
 
@@ -77,8 +77,8 @@ public struct WebMediaDLMacResumeQueueIntent: AppIntent {
     public init() {}
 
     public func perform() async throws -> some IntentResult {
-        _ = try await WebMediaDLWorkerCredentials.loadClient().resumeQueue()
-        return .result()
+        let status = try await WebMediaDLWorkerCredentials.loadClient().resumeQueue()
+        return .result(dialog: IntentDialog(stringLiteral: status))
     }
 }
 
@@ -88,8 +88,8 @@ public struct WebMediaDLMacHistoryIntent: AppIntent {
     public init() {}
 
     public func perform() async throws -> some IntentResult {
-        _ = try await WebMediaDLWorkerCredentials.loadClient().history()
-        return .result()
+        let status = try await WebMediaDLWorkerCredentials.loadClient().historySummary()
+        return .result(dialog: IntentDialog(stringLiteral: status))
     }
 }
 
@@ -107,8 +107,8 @@ public struct WebMediaDLMacCancelIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let id = try WebMediaDLCompanionJobControl.requireJobId(jobId)
-        _ = try await WebMediaDLWorkerCredentials.loadClient().cancel(jobId: id)
-        return .result()
+        let status = try await WebMediaDLWorkerCredentials.loadClient().cancel(jobId: id)
+        return .result(dialog: IntentDialog(stringLiteral: status))
     }
 }
 
@@ -118,8 +118,8 @@ public struct WebMediaDLMacStatusIntent: AppIntent {
     public init() {}
 
     public func perform() async throws -> some IntentResult {
-        _ = try await WebMediaDLWorkerCredentials.loadClient().queueStatus()
-        return .result()
+        let status = try await WebMediaDLWorkerCredentials.loadClient().queueStatus()
+        return .result(dialog: IntentDialog(stringLiteral: status))
     }
 }
 
@@ -137,8 +137,8 @@ public struct WebMediaDLMacPauseJobIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let id = try WebMediaDLCompanionJobControl.requireJobId(jobId)
-        _ = try await WebMediaDLWorkerCredentials.loadClient().pauseJob(jobId: id)
-        return .result()
+        let status = try await WebMediaDLWorkerCredentials.loadClient().pauseJob(jobId: id)
+        return .result(dialog: IntentDialog(stringLiteral: status))
     }
 }
 
@@ -156,8 +156,8 @@ public struct WebMediaDLMacResumeJobIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let id = try WebMediaDLCompanionJobControl.requireJobId(jobId)
-        _ = try await WebMediaDLWorkerCredentials.loadClient().resumeJob(jobId: id)
-        return .result()
+        let status = try await WebMediaDLWorkerCredentials.loadClient().resumeJob(jobId: id)
+        return .result(dialog: IntentDialog(stringLiteral: status))
     }
 }
 

@@ -221,6 +221,7 @@ public struct WebMediaDLPairedMacEndpoint: Sendable {
     public func cancel(jobId: UUID) async throws -> String { try await send(cancelRequest(jobId: jobId)) }
     public func pauseJob(jobId: UUID) async throws -> String { try await send(pauseJobRequest(jobId: jobId)) }
     public func resumeJob(jobId: UUID) async throws -> String { try await send(resumeJobRequest(jobId: jobId)) }
+    public func jobDetail(jobId: UUID) async throws -> String { try await send(jobDetailRequest(jobId: jobId)) }
 
     public func companionRequest(_ message: WebMediaDLCompanionMessage) throws -> URLRequest {
         var request = authorized(relayURL.appendingPathComponent("v1/companion"), method: "POST")
@@ -528,6 +529,21 @@ public enum WebMediaDLPairedMacSubmit {
         )
     }
 
+    public static func jobDetail(
+        jobId: UUID,
+        credentials: WebMediaDLLoopbackClient = WebMediaDLWorkerCredentials.loadClient(),
+        pairingId: UUID? = nil,
+        sessionKey: String? = nil,
+        defaults: UserDefaults = WebMediaDLWorkerCredentials.defaults()
+    ) async throws -> String {
+        try await loadEndpoint(
+            credentials: credentials,
+            pairingId: pairingId,
+            sessionKey: sessionKey,
+            defaults: defaults
+        ).jobDetail(jobId: jobId)
+    }
+
     public static func pullToFiles(
         jobId: UUID,
         bookmark: WebMediaDLSecurityScopedBookmark,
@@ -689,6 +705,7 @@ public enum WebMediaDLCompleteClientControl {
         case cancel
         case pauseJob
         case resumeJob
+        case jobDetail
     }
 
     public typealias Send = @Sendable (Kind, UUID?) async throws -> String
@@ -702,7 +719,7 @@ public enum WebMediaDLCompleteClientControl {
 
     public static func resolvedJobId(_ kind: Kind, jobId: String?) throws -> UUID? {
         switch kind {
-        case .cancel, .pauseJob, .resumeJob:
+        case .cancel, .pauseJob, .resumeJob, .jobDetail:
             return try WebMediaDLCompanionJobControl.requireJobId(jobId ?? "")
         case .pauseQueue, .resumeQueue, .history, .queueStatus:
             return nil
@@ -751,13 +768,14 @@ public enum WebMediaDLCompleteClientControl {
                 defaults: defaults
             )
         case .history:
-            _ = try await WebMediaDLPairedMacSubmit.history(
-                credentials: credentials,
-                pairingId: pairingId,
-                sessionKey: sessionKey,
-                defaults: defaults
+            return WebMediaDLHistoryEntry.summary(
+                try await WebMediaDLPairedMacSubmit.history(
+                    credentials: credentials,
+                    pairingId: pairingId,
+                    sessionKey: sessionKey,
+                    defaults: defaults
+                )
             )
-            return "ok"
         case .queueStatus:
             return try await WebMediaDLPairedMacSubmit.queueStatus(
                 credentials: credentials,
@@ -792,6 +810,17 @@ public enum WebMediaDLCompleteClientControl {
                 throw WebMediaDLCompanionError.jobIdRequired
             }
             return try await WebMediaDLPairedMacSubmit.resumeJob(
+                jobId: resolved,
+                credentials: credentials,
+                pairingId: pairingId,
+                sessionKey: sessionKey,
+                defaults: defaults
+            )
+        case .jobDetail:
+            guard let resolved else {
+                throw WebMediaDLCompanionError.jobIdRequired
+            }
+            return try await WebMediaDLPairedMacSubmit.jobDetail(
                 jobId: resolved,
                 credentials: credentials,
                 pairingId: pairingId,
