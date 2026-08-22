@@ -19,6 +19,7 @@ SKIP_PARTS = {
     ".pytest_cache",
     ".ty",
     "htmlcov",
+    "dist-bundle",
 }
 SKIP_NAMES = {".coverage", "CACHEDIR.TAG"}
 SKIP_SUFFIX = {".pyc", ".pyo", ".zip", ".whl", ".so"}

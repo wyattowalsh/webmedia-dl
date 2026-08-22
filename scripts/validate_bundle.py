@@ -333,9 +333,10 @@ def main() -> int:
         ".pytest_cache",
         ".ty",
         "htmlcov",
+        "dist-bundle",
     }
     skip_names = {".coverage", "CACHEDIR.TAG"}
-    skip_suffix = {".pyc", ".pyo", ".whl", ".so"}
+    skip_suffix = {".pyc", ".pyo", ".whl", ".so", ".zip"}
     manifest = {
         "files": sorted(
             str(path.relative_to(ROOT))

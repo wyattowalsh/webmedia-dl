@@ -30,6 +30,11 @@ def _load(name: str, relative: str):
 def test_validate_bundle_executes_start_here_gates() -> None:
     mod = _load("validate_bundle", "scripts/validate_bundle.py")
     assert mod.main() == 0
+    listed = json.loads((repo_root() / "manifest.generated.json").read_text(encoding="utf-8"))[
+        "files"
+    ]
+    assert all("dist-bundle" not in path for path in listed)
+    assert all(not path.endswith(".zip") for path in listed)
 
 
 def test_package_bundle_skips_symlinks(tmp_path: Path) -> None:
