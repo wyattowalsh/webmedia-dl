@@ -13,16 +13,16 @@ final class IdentityTests: XCTestCase {
         XCTAssertFalse(share.canPublishToPhotos)
     }
 
-    func testLoopbackDefaultIsLocalhost() {
+    func testLoopbackDefaultIsLocalhost() throws {
         let client = WebMediaDLLoopbackClient()
         XCTAssertTrue(client.isLoopback)
         XCTAssertEqual(client.baseURL.host, "127.0.0.1")
         XCTAssertTrue(client.pauseQueueRequest().url?.absoluteString.contains("queue/pause") ?? false)
         XCTAssertTrue(client.healthRequest().url?.path.hasSuffix("/health") ?? false)
         XCTAssertTrue(client.queueStatusRequest().url?.absoluteString.contains("/v1/queue") ?? false)
-        XCTAssertTrue(client.companionRequest(kind: "status").url?.absoluteString.contains("companion") ?? false)
+        XCTAssertTrue(try client.companionRequest(kind: "status").url?.absoluteString.contains("companion") ?? false)
         XCTAssertTrue(
-            client.sealedCompanionRequest(
+            try client.sealedCompanionRequest(
                 pairingId: UUID(),
                 sessionKey: "session",
                 nonce: "aa",
@@ -58,7 +58,7 @@ final class IdentityTests: XCTestCase {
         let message = bridge.message(kind: "capture", locator: "https://example.com/a.mp4")
         XCTAssertNil(message.nativeCommand)
         XCTAssertFalse(message.subprocessWorker)
-        XCTAssertTrue(bridge.companionRequest().url?.absoluteString.contains("companion") ?? false)
+        XCTAssertTrue(try bridge.companionRequest().url?.absoluteString.contains("companion") ?? false)
         XCTAssertTrue(WebMediaDLContinuityBridge.allowedKinds.contains("history"))
         XCTAssertEqual(
             Set(WebMediaDLCompanionKind.allCases.map(\.rawValue)),
@@ -132,7 +132,7 @@ final class IdentityTests: XCTestCase {
         let files = WebMediaDLFilesDestination(bookmark: bookmark)
         XCTAssertTrue(files.allows("/Users/me/Movies/out.mp4"))
         for surface in [WebMediaDLSurface.macos] {
-            let request = WebMediaDLLoopbackClient().submitRequest(
+            let request = try WebMediaDLLoopbackClient().submitRequest(
                 locator: "https://example.com/a.mp4",
                 surface: surface,
                 destinationKind: "files_app",
@@ -148,7 +148,7 @@ final class IdentityTests: XCTestCase {
         }
         for surface in WebMediaDLSurface.completeClients {
             XCTAssertTrue(surface.isCompleteClient)
-            let request = WebMediaDLLoopbackClient().submitRequest(
+            let request = try WebMediaDLLoopbackClient().submitRequest(
                 locator: "https://example.com/a.mp4",
                 surface: surface,
                 destinationKind: "files_app",
@@ -161,7 +161,7 @@ final class IdentityTests: XCTestCase {
             XCTAssertFalse(body.contains("files_app"), surface.rawValue)
             XCTAssertFalse(body.contains("/var/mobile"), surface.rawValue)
         }
-        let request = WebMediaDLLoopbackClient().submitRequest(
+        let request = try WebMediaDLLoopbackClient().submitRequest(
             locator: "https://example.com/a.mp4",
             surface: .macos,
             destinationKind: "files_app",
@@ -171,7 +171,7 @@ final class IdentityTests: XCTestCase {
         let body = String(data: request.httpBody ?? Data(), encoding: .utf8) ?? ""
         XCTAssertTrue(body.contains("files_app"))
         XCTAssertTrue(body.contains("security_scoped_path"))
-        let bookmarked = WebMediaDLLoopbackClient().submitRequest(
+        let bookmarked = try WebMediaDLLoopbackClient().submitRequest(
             locator: "https://example.com/a.mp4",
             surface: .macos,
             destinationKind: "files_app",

@@ -390,6 +390,8 @@ def test_companion_transport_and_typed_history() -> None:
     assert "envelope JSON is not a sealed companion" in continuity
     assert "requireHTTPSuccess" in continuity
     assert "requireJSONBody" in continuity
+    assert "WebMediaDLLoopbackClient.jsonBody" in continuity
+    assert "try? JSONSerialization.data(" not in continuity
     assert "companion relay JSON is not a message list" in continuity
     assert "try relay.persist" in continuity
     assert "try WebMediaDLCompanionRelay.load" in continuity
@@ -446,6 +448,9 @@ def test_companion_transport_and_typed_history() -> None:
     assert "func historyEntries() async throws -> [WebMediaDLHistoryEntry]" in loopback
     assert "func requireHTTPSuccess(status:" in loopback
     assert "func requireJSONBody(" in loopback
+    assert "func jsonBody(" in loopback
+    assert "JSONSerialization.isValidJSONObject" in loopback
+    assert "try? JSONSerialization.data(" not in loopback
     assert "request JSON is not serializable" in loopback
     assert "func requireHistoryEntries(status:" in loopback
     assert "func displayedResponse(" in loopback
@@ -820,6 +825,9 @@ def test_github_ci_compiles_apple_packages() -> None:
     assert "requireHTTPSuccess" in contracts
     assert "requireJSONBody" in contracts
     assert "JSON content-type without a body must fail closed" in contracts
+    assert "non-JSON request payloads must fail closed" in contracts
+    assert "non-JSON envelope payload must fail closed" in contracts
+    assert "WebMediaDLLoopbackClient.jsonBody" in contracts
     assert "requireSealedEnvelope" in contracts
     assert "empty envelope fields must fail closed" in contracts
     assert "invalidJSON" in contracts
@@ -850,6 +858,8 @@ def test_github_ci_compiles_apple_packages() -> None:
     assert "func submitDrop(" in paired_mac
     assert "requireHTTPSuccess" in paired_mac
     assert "requireJSONBody" in paired_mac
+    assert "WebMediaDLLoopbackClient.jsonBody" in paired_mac
+    assert "try? JSONSerialization.data(" not in paired_mac
     assert "requireHistoryEntries" in paired_mac
     assert 'appendingPathComponent("v1/staging")' in paired_mac
     assert 'destinationKind: "staging_only"' in paired_mac

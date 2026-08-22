@@ -424,7 +424,7 @@ public struct WebMediaDLMacCompanionForwarder: Sendable {
         var copy = relay
         var bodies: [String] = []
         for message in copy.drain() {
-            let wrap = client.envelopeWrapRequest(
+            let wrap = try client.envelopeWrapRequest(
                 pairingId: pairingId,
                 sessionKey: sessionKey,
                 payload: message.dictionary()
@@ -437,7 +437,7 @@ public struct WebMediaDLMacCompanionForwarder: Sendable {
             )
             let envelope = try Self.requireSealedEnvelope(data)
             let body = try await client.send(
-                client.sealedCompanionRequest(
+                try client.sealedCompanionRequest(
                     pairingId: pairingId,
                     sessionKey: sessionKey,
                     nonce: envelope.nonce,
@@ -529,7 +529,7 @@ public struct WebMediaDLContinuityBridge: Sendable {
         kind: String = "status",
         locator: String? = nil,
         jobId: String? = nil
-    ) -> URLRequest {
+    ) throws -> URLRequest {
         var request = URLRequest(
             url: workerURL.appendingPathComponent("v1/companion")
         )
@@ -550,7 +550,7 @@ public struct WebMediaDLContinuityBridge: Sendable {
         if let jobId {
             body["job_id"] = jobId
         }
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        request.httpBody = try WebMediaDLLoopbackClient.jsonBody(body)
         return request
     }
 
@@ -560,7 +560,7 @@ public struct WebMediaDLContinuityBridge: Sendable {
         nonce: String,
         ciphertext: String,
         mac: String
-    ) -> URLRequest {
+    ) throws -> URLRequest {
         var request = URLRequest(
             url: workerURL.appendingPathComponent("v1/companion")
         )
@@ -575,14 +575,14 @@ public struct WebMediaDLContinuityBridge: Sendable {
             "nativeCommand": NSNull(),
             "subprocessWorker": false,
         ]
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        request.httpBody = try WebMediaDLLoopbackClient.jsonBody(body)
         return request
     }
 
     /// Mac forwards a drained companion message to loopback. watchOS/tvOS enqueue
     /// on `WebMediaDLCompanionTransport` instead of opening a subprocess worker.
     public func send(_ message: WebMediaDLCompanionMessage, token: String = "") async throws -> String {
-        let request = companionRequest(
+        let request = try companionRequest(
             token: token,
             kind: message.kind.rawValue,
             locator: message.locator,

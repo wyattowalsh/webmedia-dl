@@ -83,7 +83,7 @@ public struct WebMediaDLLoopbackClient: Sendable {
         destinationPath: String? = nil,
         approvedRoots: [String] = [],
         bookmarkData: Data? = nil
-    ) -> URLRequest {
+    ) throws -> URLRequest {
         var request = authorized(baseURL.appendingPathComponent("v1/jobs"), method: "POST")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         var body: [String: Any] = [
@@ -124,7 +124,7 @@ public struct WebMediaDLLoopbackClient: Sendable {
             }
             body["intent"] = intent
         }
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        request.httpBody = try Self.jsonBody(body)
         return request
     }
 
@@ -160,22 +160,18 @@ public struct WebMediaDLLoopbackClient: Sendable {
         return authorized(url, method: "POST")
     }
 
-    public func pairRequest(clientProfileId: String = "personal-restricted") -> URLRequest {
+    public func pairRequest(clientProfileId: String = "personal-restricted") throws -> URLRequest {
         // Fresh clients bootstrap pairing without a worker token. Confirm stays Mac-owned.
         var request = authorized(baseURL.appendingPathComponent("v1/pair"), method: "POST")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try? JSONSerialization.data(
-            withJSONObject: ["client_profile_id": clientProfileId]
-        )
+        request.httpBody = try Self.jsonBody(["client_profile_id": clientProfileId])
         return request
     }
 
-    public func pairConfirmRequest(pairingId: UUID) -> URLRequest {
+    public func pairConfirmRequest(pairingId: UUID) throws -> URLRequest {
         var request = authorized(baseURL.appendingPathComponent("v1/pair/confirm"), method: "POST")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try? JSONSerialization.data(
-            withJSONObject: ["pairing_id": pairingId.uuidString]
-        )
+        request.httpBody = try Self.jsonBody(["pairing_id": pairingId.uuidString])
         return request
     }
 
@@ -213,7 +209,7 @@ public struct WebMediaDLLoopbackClient: Sendable {
         locator: String? = nil,
         jobId: UUID? = nil,
         surface: WebMediaDLSurface = .watchos
-    ) -> URLRequest {
+    ) throws -> URLRequest {
         var request = authorized(baseURL.appendingPathComponent("v1/companion"), method: "POST")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         var body: [String: Any] = [
@@ -228,7 +224,7 @@ public struct WebMediaDLLoopbackClient: Sendable {
         if let jobId {
             body["job_id"] = jobId.uuidString
         }
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        request.httpBody = try Self.jsonBody(body)
         return request
     }
 
@@ -236,16 +232,14 @@ public struct WebMediaDLLoopbackClient: Sendable {
         pairingId: UUID,
         sessionKey: String,
         payload: [String: Any]
-    ) -> URLRequest {
+    ) throws -> URLRequest {
         var request = authorized(baseURL.appendingPathComponent("v1/pair/envelope"), method: "POST")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try? JSONSerialization.data(
-            withJSONObject: [
-                "pairing_id": pairingId.uuidString,
-                "session_key": sessionKey,
-                "payload": payload,
-            ]
-        )
+        request.httpBody = try Self.jsonBody([
+            "pairing_id": pairingId.uuidString,
+            "session_key": sessionKey,
+            "payload": payload,
+        ])
         return request
     }
 
@@ -255,7 +249,7 @@ public struct WebMediaDLLoopbackClient: Sendable {
         nonce: String,
         ciphertext: String,
         mac: String
-    ) -> URLRequest {
+    ) throws -> URLRequest {
         var request = authorized(baseURL.appendingPathComponent("v1/companion"), method: "POST")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         let body: [String: Any] = [
@@ -267,8 +261,19 @@ public struct WebMediaDLLoopbackClient: Sendable {
             "nativeCommand": NSNull(),
             "subprocessWorker": false,
         ]
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        request.httpBody = try Self.jsonBody(body)
         return request
+    }
+
+    public static func jsonBody(_ object: Any) throws -> Data {
+        guard JSONSerialization.isValidJSONObject(object) else {
+            throw WebMediaDLDomainError("request JSON is not serializable")
+        }
+        do {
+            return try JSONSerialization.data(withJSONObject: object)
+        } catch {
+            throw WebMediaDLDomainError("request JSON is not serializable")
+        }
     }
 
     public static func requireJSONBody(_ request: URLRequest) throws {
@@ -371,7 +376,7 @@ public struct WebMediaDLLoopbackClient: Sendable {
 
     public func startPairing(clientProfileId: String = "personal-restricted") async throws -> WebMediaDLPairingChallenge {
         // Loopback pairing start does not require a stored worker token.
-        let request = pairRequest(clientProfileId: clientProfileId)
+        let request = try pairRequest(clientProfileId: clientProfileId)
         try Self.requireJSONBody(request)
         let (data, response) = try await URLSession.shared.data(for: request)
         _ = try Self.requireHTTPSuccess(

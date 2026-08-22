@@ -98,7 +98,7 @@ public struct WebMediaDLPairedMacEndpoint: Sendable {
         destinationPath: String? = nil,
         approvedRoots: [String] = [],
         bookmarkData: Data? = nil
-    ) -> URLRequest {
+    ) throws -> URLRequest {
         var request = URLRequest(url: relayURL.appendingPathComponent("v1/jobs"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -140,7 +140,7 @@ public struct WebMediaDLPairedMacEndpoint: Sendable {
             }
             body["intent"] = intent
         }
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        request.httpBody = try WebMediaDLLoopbackClient.jsonBody(body)
         return request
     }
 
@@ -222,7 +222,7 @@ public struct WebMediaDLPairedMacEndpoint: Sendable {
     public func pauseJob(jobId: UUID) async throws -> String { try await send(pauseJobRequest(jobId: jobId)) }
     public func resumeJob(jobId: UUID) async throws -> String { try await send(resumeJobRequest(jobId: jobId)) }
 
-    public func companionRequest(_ message: WebMediaDLCompanionMessage) -> URLRequest {
+    public func companionRequest(_ message: WebMediaDLCompanionMessage) throws -> URLRequest {
         var request = authorized(relayURL.appendingPathComponent("v1/companion"), method: "POST")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         var body: [String: Any] = [
@@ -237,7 +237,7 @@ public struct WebMediaDLPairedMacEndpoint: Sendable {
         if let jobId = message.jobId.flatMap(UUID.init(uuidString:)) {
             body["job_id"] = jobId.uuidString
         }
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        request.httpBody = try WebMediaDLLoopbackClient.jsonBody(body)
         return request
     }
 
@@ -386,8 +386,8 @@ public struct WebMediaDLPairedMacEndpoint: Sendable {
         var request = URLRequest(url: relay.appendingPathComponent("v1/pair"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONSerialization.data(
-            withJSONObject: ["client_profile_id": clientProfileId]
+        request.httpBody = try WebMediaDLLoopbackClient.jsonBody(
+            ["client_profile_id": clientProfileId]
         )
         let (data, response) = try await URLSession.shared.data(for: request)
         _ = try WebMediaDLLoopbackClient.requireHTTPSuccess(

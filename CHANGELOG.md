@@ -2,6 +2,12 @@
 
 ## 0.1.0
 
+- GitHub Actions `32566609235` on `159b3ce` passed Python (583 pytest, 100%)
+  and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) for LAN malformed
+  JSON, companion persist/load, Files `replaceItemAt`, and the 159-path
+  inventory digest pin. JSON POST builders now throw through `jsonBody`
+  instead of `try?` encoding, so a non-serializable payload never leaves as
+  an empty body.
 - GitHub Actions `32565897471` on `786e78c` passed Python (582 pytest, 100%)
   and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after hopping iPhone
   watch-forward onto the main actor. Malformed LAN JSON no longer skips

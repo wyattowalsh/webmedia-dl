@@ -254,9 +254,9 @@ final class ContractTests: XCTestCase {
         XCTAssertTrue(
             client.artifactContentRequest(artifactId: "sha256:abc").url?.path.hasSuffix("/content") ?? false
         )
-        let pairBody = String(data: client.pairRequest().httpBody ?? Data(), encoding: .utf8) ?? ""
+        let pairBody = String(data: try client.pairRequest().httpBody ?? Data(), encoding: .utf8) ?? ""
         XCTAssertTrue(pairBody.contains("personal-restricted"))
-        let wrap = client.envelopeWrapRequest(
+        let wrap = try client.envelopeWrapRequest(
             pairingId: jobId,
             sessionKey: "session",
             payload: ["kind": "status"]
@@ -306,13 +306,30 @@ final class ContractTests: XCTestCase {
             try WebMediaDLLoopbackClient.requireHTTPSuccess(status: 200, body: Data("ok".utf8))
         }
         XCTAssertEqual(okBody, "HTTP 200 ok")
-        try WebMediaDLLoopbackClient.requireJSONBody(client.pairRequest())
+        try WebMediaDLLoopbackClient.requireJSONBody(try client.pairRequest())
         try WebMediaDLLoopbackClient.requireJSONBody(client.historyRequest())
-        var missingJSON = client.pairRequest()
+        var missingJSON = try client.pairRequest()
         missingJSON.httpBody = nil
         do {
             try WebMediaDLLoopbackClient.requireJSONBody(missingJSON)
             XCTFail("JSON content-type without a body must fail closed")
+        } catch let error as WebMediaDLDomainError {
+            XCTAssertTrue(error.message.contains("request JSON"))
+        }
+        _ = try WebMediaDLLoopbackClient.jsonBody(["ok": true])
+        do {
+            _ = try WebMediaDLLoopbackClient.jsonBody(["when": Date()])
+            XCTFail("non-JSON request payloads must fail closed")
+        } catch let error as WebMediaDLDomainError {
+            XCTAssertTrue(error.message.contains("request JSON"))
+        }
+        do {
+            _ = try client.envelopeWrapRequest(
+                pairingId: jobId,
+                sessionKey: "session",
+                payload: ["when": Date()]
+            )
+            XCTFail("non-JSON envelope payload must fail closed")
         } catch let error as WebMediaDLDomainError {
             XCTAssertTrue(error.message.contains("request JSON"))
         }
@@ -345,7 +362,7 @@ final class ContractTests: XCTestCase {
                 defaults: UserDefaults(suiteName: UUID().uuidString)!
             )
         )
-        let request = endpoint!.submitRequest(locator: "https://example.com/a.mp4", surface: .ios)
+        let request = try endpoint!.submitRequest(locator: "https://example.com/a.mp4", surface: .ios)
         XCTAssertEqual(request.url?.host, "10.0.0.2")
         XCTAssertEqual(request.value(forHTTPHeaderField: "X-WebMedia-Pairing"), pairing.uuidString)
         XCTAssertEqual(endpoint!.historyRequest().url?.host, "10.0.0.2")
@@ -361,7 +378,7 @@ final class ContractTests: XCTestCase {
         XCTAssertTrue(
             endpoint!.artifactContentRequest(artifactId: "sha256:abc").url?.path.hasSuffix("/content") ?? false
         )
-        let remapped = endpoint!.submitRequest(
+        let remapped = try endpoint!.submitRequest(
             locator: "https://example.com/a.mp4",
             surface: .ios,
             destinationKind: "files_app",
@@ -373,7 +390,7 @@ final class ContractTests: XCTestCase {
         XCTAssertTrue(remappedBody.contains("staging_only"))
         XCTAssertFalse(remappedBody.contains("files_app"))
         XCTAssertFalse(remappedBody.contains("/var/mobile"))
-        let macFiles = endpoint!.submitRequest(
+        let macFiles = try endpoint!.submitRequest(
             locator: "https://example.com/a.mp4",
             surface: .macos,
             destinationKind: "files_app",
@@ -588,17 +605,17 @@ final class ContractTests: XCTestCase {
             defaults: defaults
         )
         XCTAssertEqual(endpoint.token, "")
-        XCTAssertNil(endpoint.submitRequest(locator: "https://example.com/a.mp4", surface: .ios)
+        XCTAssertNil(try endpoint.submitRequest(locator: "https://example.com/a.mp4", surface: .ios)
             .value(forHTTPHeaderField: "Authorization"))
         XCTAssertEqual(
-            endpoint.submitRequest(locator: "https://example.com/a.mp4", surface: .ios)
+            try endpoint.submitRequest(locator: "https://example.com/a.mp4", surface: .ios)
                 .value(forHTTPHeaderField: "X-WebMedia-Session"),
             "sess"
         )
         defaults.removePersistentDomain(forName: suite)
     }
 
-    func testContinuityFallsBackAndKeepsNativeCommandNull() {
+    func testContinuityFallsBackAndKeepsNativeCommandNull() throws {
         let bridge = WebMediaDLContinuityBridge()
         XCTAssertEqual(bridge.message(kind: "not-a-kind").kind, .status)
         XCTAssertEqual(
@@ -606,7 +623,7 @@ final class ContractTests: XCTestCase {
             "capture"
         )
         XCTAssertTrue(WebMediaDLContinuityBridge.allowedKinds.contains("pause_job"))
-        let sealed = bridge.sealedCompanionRequest(
+        let sealed = try bridge.sealedCompanionRequest(
             pairingId: "pairing",
             sessionKey: "session",
             nonce: "aa",
