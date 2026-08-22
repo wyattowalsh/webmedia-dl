@@ -1,5 +1,13 @@
 import Foundation
 
+public struct WebMediaDLUncheckedBox<Value>: @unchecked Sendable {
+    public let value: Value
+
+    public init(_ value: Value) {
+        self.value = value
+    }
+}
+
 public enum WebMediaDLSurface: String, Codable, Sendable {
     case macos, ios, ipados, visionos, watchos, tvos
     case safari, chrome, brave, edge, chromium, firefox, cli

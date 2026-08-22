@@ -190,8 +190,25 @@ class ExportIntent(StrictModel):
         if self.destination_kind == DestinationKind.PHOTOS and not cleaned:
             msg = "Photos publication requires a user-approved root."
             raise ValueError(msg)
-        if self.destination_kind is DestinationKind.FILES_APP and not self.security_scoped_path:
-            object.__setattr__(self, "security_scoped_path", self.destination_path)
+        if self.destination_kind is DestinationKind.FILES_APP:
+            if not self.security_scoped_path:
+                object.__setattr__(self, "security_scoped_path", self.destination_path)
+            bookmark = (self.security_scoped_bookmark or "").strip()
+            if not bookmark:
+                msg = "Files destinations require a security-scoped bookmark."
+                raise ValueError(msg)
+            scoped = (self.security_scoped_path or self.destination_path or "").strip()
+            allowed = False
+            for root in cleaned:
+                if (
+                    path_is_under(Path(scoped), Path(root))
+                    or Path(scoped).resolve() == Path(root).resolve()
+                ):
+                    allowed = True
+                    break
+            if not allowed:
+                msg = "Files security-scoped path must stay inside approved roots."
+                raise ValueError(msg)
         return self
 
 

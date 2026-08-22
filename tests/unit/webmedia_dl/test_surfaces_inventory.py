@@ -328,6 +328,8 @@ def test_companion_transport_and_typed_history() -> None:
     ):
         assert case in continuity
     assert "encodeNil(forKey: .nativeCommand)" in continuity
+    assert 'nativeCommand": NSNull()' in continuity
+    assert "func dictionary() -> [String: Any]" in continuity
     assert "protocol WebMediaDLCompanionTransport" in continuity
     assert "struct WebMediaDLQueuedCompanionTransport" in continuity
     assert "WCSessionDelegate" in continuity
@@ -570,6 +572,9 @@ def test_imagemagick_runtime_policy_exists() -> None:
     assert path.is_file()
     text = path.read_text(encoding="utf-8")
     assert 'domain="path"' in text
+    assert 'domain="delegate"' in text
+    assert "MSL" in text
+    assert "MVG" in text
     assert "@*" in text
 
 
@@ -611,6 +616,20 @@ def test_github_ci_compiles_apple_packages() -> None:
     assert 'nativeCommand": "yt-dlp"' in contracts
     assert "libraryWriteAvailable" in contracts
     assert "titleUsedAsIdentity" in contracts
+    assert "WebMediaDLUncheckedBox" in (
+        repo_root() / "apps/WebMediaDLCore/Sources/WebMediaDLCore/Models.swift"
+    ).read_text(encoding="utf-8")
+    for rel in (
+        "apps/WebMediaDLMac/ShareExtension/WebMediaDLMacShareExtension.swift",
+        "apps/WebMediaDLiOS/ShareExtension/WebMediaDLiOSShareExtension.swift",
+        "apps/WebMediaDLiPadOS/ShareExtension/WebMediaDLiPadOSShareExtension.swift",
+        "apps/WebMediaDLVision/ShareExtension/WebMediaDLVisionShareExtension.swift",
+    ):
+        assert "WebMediaDLUncheckedBox(context)" in (repo_root() / rel).read_text(encoding="utf-8")
+    continuity = (
+        repo_root() / "apps/WebMediaDLCore/Sources/WebMediaDLCore/ContinuityBridge.swift"
+    ).read_text(encoding="utf-8")
+    assert "compactMapValues { $0 is NSNull ? nil : $0 }" in continuity
     for rel, name in (
         ("apps/WebMediaDLiOS/Package.swift", "WebMediaDLiOS"),
         ("apps/WebMediaDLiPadOS/Package.swift", "WebMediaDLiPadOS"),

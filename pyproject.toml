@@ -92,6 +92,6 @@ source = ["webmedia_dl"]
 branch = true
 
 [tool.coverage.report]
-fail_under = 85
+fail_under = 99
 show_missing = true
 skip_empty = true

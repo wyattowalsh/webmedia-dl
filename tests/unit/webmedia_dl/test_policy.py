@@ -131,6 +131,8 @@ def test_subprocess_flag_and_worker_capability_list() -> None:
     )
     with pytest.raises(CapabilityDenied, match="not a subprocess worker"):
         assert_worker_capability(watch, profile, "acquire.ytdlp")
+    with pytest.raises(CapabilityDenied, match="not a subprocess worker"):
+        assert_worker_capability(watch, profile, "acquire.gallery_dl")
     thin = Worker(
         worker_id="thin",
         platform=Surface.MACOS,

@@ -14,7 +14,8 @@ let package = Package(
         .target(
             name: "WebMediaDLiPadOSShareExtension",
             dependencies: [.product(name: "WebMediaDLCore", package: "WebMediaDLCore")],
-            path: "ShareExtension"
+            path: "ShareExtension",
+            exclude: ["Info.plist", "WebMediaDL.entitlements"]
         ),
     ]
 )

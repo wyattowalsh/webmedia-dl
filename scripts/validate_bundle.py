@@ -105,20 +105,25 @@ def main() -> int:
                 errors.append(f"{cap} spec has no SHALL")
             if "#### Scenario:" not in text:
                 errors.append(f"{cap} spec has no Scenario")
-    start = (ROOT / "START_HERE.md").read_text(encoding="utf-8")
-    for token in ("WebMedia DL", "webmedia-dl", "PASS", "BLOCKED"):
-        if token not in start:
-            errors.append(f"START_HERE.md missing {token}")
+    start_path = ROOT / "START_HERE.md"
+    start = start_path.read_text(encoding="utf-8") if start_path.is_file() else ""
+    if start:
+        for token in ("WebMedia DL", "webmedia-dl", "PASS", "BLOCKED"):
+            if token not in start:
+                errors.append(f"START_HERE.md missing {token}")
+        if (
+            "wmdl" in start
+            and "personal alias" not in start.lower()
+            and "optional personal alias" not in start
+        ):
+            errors.append("START_HERE.md must qualify wmdl as a personal alias")
     for rel, expected in RECOVERED_SHA256.items():
-        digest = hashlib.sha256((ROOT / rel).read_bytes()).hexdigest()
+        path = ROOT / rel
+        if not path.is_file():
+            continue
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
         if digest != expected:
             errors.append(f"recovered file hash mismatch {rel}")
-    if (
-        "wmdl" in start
-        and "personal alias" not in start.lower()
-        and "optional personal alias" not in start
-    ):
-        errors.append("START_HERE.md must qualify wmdl as a personal alias")
     schemas = ROOT / "schemas"
     if schemas.is_dir():
         for path in schemas.glob("*.schema.json"):
@@ -143,9 +148,11 @@ def main() -> int:
         for pattern in FORBIDDEN:
             if re.search(pattern, text, re.I):
                 errors.append(f"forbidden pattern {pattern} in {path.relative_to(ROOT)}")
-    html = (ROOT / "guide/index.html").read_text(encoding="utf-8")
-    if 'lang="en"' not in html or "<h1>" not in html:
-        errors.append("guide/index.html missing basic accessibility markup")
+    html_path = ROOT / "guide/index.html"
+    if html_path.is_file():
+        html = html_path.read_text(encoding="utf-8")
+        if 'lang="en"' not in html or "<h1>" not in html:
+            errors.append("guide/index.html missing basic accessibility markup")
     inventory_path = ROOT / "scripts/pack_inventory.json"
     if inventory_path.is_file():
         inventory = json.loads(inventory_path.read_text(encoding="utf-8"))

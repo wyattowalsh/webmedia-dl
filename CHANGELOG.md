@@ -75,4 +75,13 @@
   history envelopes, and bookmark denial. CI builds the Mac package and
   typechecks the remaining Apple packages including share extensions.
   WatchConnectivity types keep a single class header and conform to
-  `WCSessionDelegate` via extensions.
+  `WCSessionDelegate` via extensions. Encrypted HLS `#EXT-X-SESSION-KEY`
+  (FairPlay SAMPLE-AES) is refused before segment fetch; `detect_drm_signals`
+  matches `cenc`, Widevine/PlayReady UUIDs, and `skd://`. `acquire.gallery_dl`
+  requires `subprocess_capable`. Files destinations require a security-scoped
+  bookmark whose path stays inside approved roots. Doctor runs a real
+  `-version`/`--version` probe (`FAIL` on probe error, `WARN` for IM6
+  `convert`). Provider argv is allowlisted for every binary; format ids cannot
+  start with `-`. ImageMagick policy denies MSL/MVG/URL/FTP and all delegates.
+  Share-extension principals box `NSExtensionContext` for Swift 6 sending.
+  Coverage `fail_under` is 99.

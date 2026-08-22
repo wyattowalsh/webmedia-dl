@@ -410,7 +410,7 @@ class ProviderRuntime:
             raise ProviderPolicyError(msg)
         inputs = request.typed_inputs
         if manifest.provider_id == "ytdlp":
-            return _ytdlp_argv(
+            argv = _ytdlp_argv(
                 resolved,
                 inputs,
                 manifest,
@@ -419,14 +419,24 @@ class ProviderRuntime:
                 ledger=self.cookie_ledger,
                 profile_id=getattr(self._tls, "profile_id", None),
             )
-        if manifest.provider_id == "ffmpeg":
-            return _ffmpeg_argv(resolved, inputs, request.capability_id)
-        if manifest.provider_id == "gallery-dl":
-            return _gallery_argv(resolved, inputs, staging)
-        if manifest.provider_id == "imagemagick":
-            return _magick_argv(resolved, inputs)
-        msg = f"No argv builder for {manifest.provider_id!r}."
-        raise ProviderPolicyError(msg)
+        elif manifest.provider_id == "ffmpeg":
+            argv = _ffmpeg_argv(resolved, inputs, request.capability_id)
+        elif manifest.provider_id == "gallery-dl":
+            argv = _gallery_argv(resolved, inputs, staging)
+        elif manifest.provider_id == "imagemagick":
+            argv = _magick_argv(resolved, inputs)
+        else:
+            msg = f"No argv builder for {manifest.provider_id!r}."
+            raise ProviderPolicyError(msg)
+        _assert_allowed_flags(argv, manifest)
+        return argv
+
+
+def _assert_allowed_flags(argv: list[str], manifest: ProviderManifest) -> None:
+    for token in argv[1:]:
+        if token.startswith("-") and token not in manifest.allowed_flags:
+            msg = f"Flag {token!r} is not allowlisted for {manifest.provider_id}."
+            raise ProviderPolicyError(msg)
 
 
 def _ytdlp_argv(

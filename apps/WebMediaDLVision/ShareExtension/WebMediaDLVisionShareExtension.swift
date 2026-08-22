@@ -4,7 +4,9 @@ import WebMediaDLCore
 @objc(WebMediaDLVisionShareExtensionPrincipal)
 public final class WebMediaDLVisionShareExtensionPrincipal: NSObject, NSExtensionRequestHandling {
     public func beginRequest(with context: NSExtensionContext) {
+        let boxed = WebMediaDLUncheckedBox(context)
         Task {
+            let context = boxed.value
             let values = await WebMediaDLShareExtensionLoader.loadSharedValues(from: context)
             _ = try? await WebMediaDLVisionShareExtension.submitShared(values)
             context.completeRequest(returningItems: [], completionHandler: nil)

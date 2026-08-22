@@ -2,22 +2,22 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 433 tests |
-| `uv run pytest --cov` | PASS | 99.69% (`fail_under` 85) |
+| `uv run pytest` | PASS | 448 tests |
+| `uv run pytest --cov` | PASS | 99.68% (`fail_under` 99) |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
 | `uv run ty check` | PASS | |
 | `node --test tests/unit/extensions/*.mjs` | PASS | 6 tests including mocked fetch submit |
 | `uv run python -m webmedia_dl.schema_export` | PASS | 20 schemas + index |
 | `uv run python scripts/validate_bundle.py` | PASS | 159 pack paths + extension/app shells |
-| `uv run webmedia-dl doctor` ffmpeg | PASS | `/usr/bin/ffmpeg` executed PASS |
-| `uv run webmedia-dl doctor` ImageMagick | PASS | IM6 `convert` alias when `magick` is absent |
-| `uv run webmedia-dl doctor` yt-dlp / gallery-dl | BLOCKED | binaries not installed on Linux CI (PASS when present on PATH) |
+| `uv run webmedia-dl doctor` ffmpeg | PASS | `/usr/bin/ffmpeg -version` executed PASS |
+| `uv run webmedia-dl doctor` ImageMagick | WARN | IM6 `convert -version` executed; `magick` is absent |
+| `uv run webmedia-dl doctor` yt-dlp / gallery-dl | PASS when present | version probe executed; Linux CI without those binaries stays BLOCKED |
 | Apple device runtime / Xcode | BLOCKED | Device UI, PhotoKit writes, signing, and store submission stay BLOCKED; GitHub `macos-15` compiles Apple packages |
 | Signing / notarization / App Review / legal | BLOCKED | `webmedia-dl doctor` |
 | Browser store submission | BLOCKED | `webmedia-dl doctor` |
 | Simulated `PASS` | PASS | tests reject planned/simulated PASS |
-| DRM circumvention | PASS | encrypted HLS/DASH refused before any segment fetch; mixed clear-then-key records the prefix only; later live-poll DRM stops without fetching protected parts |
+| DRM circumvention | PASS | encrypted HLS/DASH refused before any segment fetch; `#EXT-X-SESSION-KEY` SAMPLE-AES/FairPlay refused before fetch; `cenc` / Widevine / PlayReady UUIDs / `skd://` detected; mixed clear-then-key records the prefix only; later live-poll DRM stops without fetching protected parts |
 | Pairing profile bound | PASS | restricted/browser/watch/tv pairing stays on the client profile; unknown/full/expired pairing and missing/mismatched session keys fail closed; CLI `pair create/confirm` reports `DelegationDenied` |
 | Cookie grants | PASS | job-bound grants persist in `cookie-grants.json` with merge/`0600` lock; dump-json uses the grant; relative and in-repo paths rejected |
 | Default telemetry | PASS | false in doctor and profiles; `policy-profiles.json` cannot enable DRM circumvention, telemetry, cookie widening, subprocess, or delegation |
@@ -66,8 +66,8 @@
 | ImageMagick convert alias | PASS | health and argv resolve IM6 `convert` when `magick` is missing |
 | Job-detail / run-next helpers | PASS | unrelated history rows are skipped; empty queue returns `job: null`; a queued job returns events |
 | Swift Core CI job | PASS | GitHub Actions `ci` run `32538904545` on `94e423b`: `IdentityTests` executed 6 tests, 0 failures on `macos-15` |
-| Swift Core contract tests | PASS | `ContractTests.swift` added; GitHub `macos-15` executes them with Core `swift test` |
-| Apple package compile CI | PASS | `scripts/build_apple_packages.sh` is the `macos-15` swift job; device runtime stays BLOCKED |
+| Swift Core contract tests | PASS | `ContractTests.swift` executed 10 tests, 0 failures with IdentityTests (6) on GitHub `macos-15` run `32539374548` (`5f85fe3`) |
+| Apple package compile CI | PENDING | Mac `swift build` failed on `5f85fe3` capturing `NSExtensionContext` in `Task`; this revision boxes the context and excludes share-extension plists. Device runtime stays BLOCKED |
 | WatchConnectivity class headers | PASS | WCSessionDelegate is an extension; class signatures are not split across `#else` |
 | URL never a path | PASS | URL intake with `local_path` or `file:` normalized_url raises; extra provider argv is refused |
 | Live aggregate bound + kinds | PASS | cumulative byte budget; separate VIDEO/AUDIO artifacts; audio-only DASH uses the highest-bandwidth audio Representation; SegmentBase ranges including mediaRange; multi-period occurrences; empty recordings and HTTP 400 playlists fail closed; nested/audio `should_stop` aborts before further fetches |

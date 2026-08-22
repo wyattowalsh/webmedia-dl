@@ -259,6 +259,7 @@ def test_files_app_publishes_under_approved_root(tmp_path: Path) -> None:
         destination_kind=DestinationKind.FILES_APP,
         destination_path=str(dest),
         approved_roots=[str(dest)],
+        security_scoped_bookmark="ZmFrZQ==",
     )
     published = publish_artifacts(
         [(artifact, src, validate_artifact(uuid4(), artifact, src))],

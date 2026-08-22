@@ -78,11 +78,12 @@ public struct WebMediaDLCompanionMessage: Codable, Sendable, Equatable {
         }
     }
 
-    public func dictionary() -> [String: String] {
-        var payload = [
+    public func dictionary() -> [String: Any] {
+        var payload: [String: Any] = [
             "kind": kind.rawValue,
             "subprocessWorker": "false",
             "surface": surface.rawValue,
+            "nativeCommand": NSNull(),
         ]
         if let locator {
             payload["locator"] = locator
@@ -152,7 +153,9 @@ public final class WebMediaDLWatchConnectivityTransport: NSObject, WebMediaDLCom
     public func send(_ message: WebMediaDLCompanionMessage) async throws {
         #if canImport(WatchConnectivity)
         if WCSession.isSupported() {
-            WCSession.default.transferUserInfo(message.dictionary())
+            WCSession.default.transferUserInfo(
+                message.dictionary().compactMapValues { $0 is NSNull ? nil : $0 }
+            )
             return
         }
         #endif
@@ -372,7 +375,13 @@ public struct WebMediaDLContinuityBridge: Sendable {
     }
 
     public func controlMessage(kind: String, locator: String?) -> [String: String] {
-        message(kind: kind, locator: locator).dictionary()
+        Dictionary(
+            uniqueKeysWithValues: message(kind: kind, locator: locator).dictionary()
+                .compactMap { key, value in
+                    guard let text = value as? String else { return nil }
+                    return (key, text)
+                }
+        )
     }
 
     public func companionRequest(

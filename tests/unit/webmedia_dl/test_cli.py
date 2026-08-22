@@ -56,8 +56,12 @@ def test_doctor_json() -> None:
     else:
         assert gallery["status"] == "BLOCKED"
     magick = payload["providers"]["imagemagick"]
-    if shutil.which("magick") or shutil.which("convert"):
+    if shutil.which("magick"):
         assert magick["status"] == "PASS"
+        assert magick["binary"]
+    elif shutil.which("convert"):
+        assert magick["status"] == "WARN"
+        assert magick["executed"] is True
         assert magick["binary"]
     else:
         assert magick["status"] == "BLOCKED"

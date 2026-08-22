@@ -70,8 +70,9 @@ final class ContractTests: XCTestCase {
         XCTAssertNil(decoded.nativeCommand)
         XCTAssertFalse(decoded.subprocessWorker)
         XCTAssertEqual(decoded.surface, .tvos)
-        XCTAssertNil(decoded.dictionary()["nativeCommand"])
-        XCTAssertEqual(decoded.dictionary()["subprocessWorker"], "false")
+        XCTAssertTrue(decoded.dictionary()["nativeCommand"] is NSNull)
+        XCTAssertEqual(decoded.dictionary()["subprocessWorker"] as? String, "false")
+        XCTAssertNil((decoded.dictionary()["nativeCommand"] as? String))
     }
 
     func testShareIntakeFilesOpenPhotosStayClosed() {

@@ -46,6 +46,7 @@ class FilesAppDestination(StrictModel):
             destination_path=root,
             approved_roots=[root],
             security_scoped_path=root,
+            security_scoped_bookmark=self.bookmark.bookmark_id.hex,
         )
 
 

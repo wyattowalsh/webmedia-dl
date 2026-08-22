@@ -35,7 +35,6 @@ from webmedia_dl.live import (
     recordable_segment_urls,
 )
 from webmedia_dl.providers import ProviderRequest, ProviderRuntime
-from webmedia_dl.publish import publish_artifacts
 from webmedia_dl.queue import QueueStore
 
 
@@ -441,21 +440,26 @@ def test_files_bookmark_and_photokit(tmp_path: Path) -> None:
     intent = FilesAppDestination(bookmark=bookmark).as_intent()
     assert intent.destination_kind is DestinationKind.FILES_APP
     assert intent.security_scoped_path == str(dest.resolve())
+    assert intent.security_scoped_bookmark
     photos = PhotoKitDestination(approved_root=str(dest))
     assert photos.can_publish is False
     with pytest.raises(PublicationError, match="Photos"):
         photos.assert_publishable()
     outside = tmp_path / "escape"
     outside.mkdir()
-    with pytest.raises(Exception, match="outside user-approved"):
-        publish_artifacts(
-            [],
-            ExportIntent(
-                destination_kind=DestinationKind.FILES_APP,
-                destination_path=str(outside),
-                approved_roots=[str(outside)],
-                security_scoped_path=str(dest),
-            ),
+    with pytest.raises(ValueError, match="inside approved roots"):
+        ExportIntent(
+            destination_kind=DestinationKind.FILES_APP,
+            destination_path=str(outside),
+            approved_roots=[str(outside)],
+            security_scoped_path=str(dest),
+            security_scoped_bookmark="ZmFrZQ==",
+        )
+    with pytest.raises(ValueError, match="security-scoped bookmark"):
+        ExportIntent(
+            destination_kind=DestinationKind.FILES_APP,
+            destination_path=str(dest),
+            approved_roots=[str(dest)],
         )
 
 

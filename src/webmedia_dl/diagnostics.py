@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -16,15 +17,42 @@ from webmedia_dl.providers import builtin_manifests, resolve_provider_binary
 APPLE_SURFACES = ("macos", "ios", "ipados", "visionos", "watchos", "tvos")
 
 
-def _status(executed: bool, ok: bool, *, blocked_reason: str | None = None) -> dict[str, Any]:
+def _status(
+    executed: bool,
+    ok: bool,
+    *,
+    blocked_reason: str | None = None,
+    warn: bool = False,
+) -> dict[str, Any]:
     if not executed and blocked_reason:
         return {"status": EvidenceStatus.BLOCKED.value, "reason": blocked_reason, "executed": False}
     if not executed:
         return {"status": EvidenceStatus.BLOCKED.value, "reason": "not executed", "executed": False}
+    if warn and ok:
+        return {"status": EvidenceStatus.WARN.value, "executed": True}
     return {
         "status": EvidenceStatus.PASS.value if ok else EvidenceStatus.FAIL.value,
         "executed": True,
     }
+
+
+def _provider_version_ok(path: str, binary_name: str) -> bool:
+    name = Path(path).name
+    flag = (
+        "-version"
+        if binary_name in {"ffmpeg", "magick"} or name in {"ffmpeg", "ffprobe", "magick", "convert"}
+        else "--version"
+    )
+    try:
+        completed = subprocess.run(
+            [path, flag],
+            capture_output=True,
+            timeout=8,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return completed.returncode == 0
 
 
 def doctor(*, data_dir: Path | None = None) -> dict[str, Any]:
@@ -41,8 +69,16 @@ def doctor(*, data_dir: Path | None = None) -> dict[str, Any]:
                 False,
                 blocked_reason=f"{manifest.binary_name} is not installed",
             ) | {"binary": None}
-        else:
-            providers[provider_id] = _status(True, True) | {"binary": path}
+            continue
+        probed = _provider_version_ok(path, manifest.binary_name)
+        convert_alias = Path(path).name == "convert" and manifest.binary_name == "magick"
+        providers[provider_id] = _status(
+            True,
+            probed,
+            warn=probed and convert_alias,
+        ) | {"binary": path}
+        if not probed:
+            providers[provider_id]["reason"] = f"{path} did not report a version"
     apple = {
         surface: _status(
             False, False, blocked_reason="Apple device and Xcode not available in this environment"

@@ -15,6 +15,10 @@ from webmedia_dl.errors import DiscoveryError, DrmRefused, NetworkPolicyError
 from webmedia_dl.security import detect_drm_signals, refuse_drm
 
 _ENCRYPTED_HLS = re.compile(r"#EXT-X-KEY:.*METHOD=(?!NONE)([A-Z0-9-]+)", re.I)
+_ENCRYPTED_SESSION_KEY = re.compile(
+    r"#EXT-X-SESSION-KEY:.*METHOD=(?!NONE)([A-Z0-9-]+)",
+    re.I,
+)
 _HLS_KEY_METHOD = re.compile(r"#EXT-X-KEY:.*METHOD=([A-Z0-9-]+)", re.I)
 _HLS_MAP = re.compile(
     r"#EXT-X-MAP:.*URI=(?P<q>['\"])(?P<uri>.*?)(?P=q)"
@@ -86,6 +90,18 @@ class ByteBudget:
 AddPart = Callable[[ManifestPart], None]
 
 
+def _refuse_encrypted_session_key(text: str) -> None:
+    match = _ENCRYPTED_SESSION_KEY.search(text)
+    if match is None:
+        return
+    method = match.group(1)
+    msg = (
+        f"Live manifest uses session encryption method {method}. "
+        "WebMedia DL records clear manifests only and does not circumvent DRM."
+    )
+    raise DrmRefused(msg)
+
+
 def inspect_manifest(text: str) -> None:
     dash = "<MPD" in text or "<mpd" in text
     if dash:
@@ -94,6 +110,7 @@ def inspect_manifest(text: str) -> None:
             msg = "DASH ContentProtection is refused."
             raise DrmRefused(msg)
         return
+    _refuse_encrypted_session_key(text)
     if _clear_hls_parts(text, "https://live.invalid/"):
         return
     match = _ENCRYPTED_HLS.search(text)
@@ -114,6 +131,8 @@ def recordable_parts(text: str, base: str, *, inspect: bool = True) -> list[Mani
     dash = "<MPD" in text or "<mpd" in text
     if inspect and dash:
         refuse_drm(detect_drm_signals(text))
+    if inspect:
+        _refuse_encrypted_session_key(text)
     if dash:
         if _DASH_CONTENT_PROTECTION.search(text):
             msg = "DASH ContentProtection is refused."
@@ -754,6 +773,7 @@ def record_clear_stream(
     if _DASH_CONTENT_PROTECTION.search(playlist):
         msg = "DASH ContentProtection is refused."
         raise DrmRefused(msg)
+    _refuse_encrypted_session_key(playlist)
     round_parts = parts if parts is not None else recordable_parts(playlist, playlist_url)
     if not round_parts:
         match = _ENCRYPTED_HLS.search(playlist)

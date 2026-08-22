@@ -161,7 +161,9 @@ def assert_worker_capability(worker: Worker, profile: PolicyProfile, capability_
         msg = f"Worker {worker.worker_id!r} cannot execute capability {capability_id!r}."
         raise CapabilityDenied(msg)
     if (
-        capability_id.startswith("process.") or capability_id.startswith("acquire.ytdlp")
+        capability_id.startswith("process.")
+        or capability_id.startswith("acquire.ytdlp")
+        or capability_id.startswith("acquire.gallery")
     ) and not worker.subprocess_capable:
         msg = (
             f"Worker {worker.worker_id!r} is not a subprocess worker and cannot "
