@@ -63,15 +63,17 @@ def preferred_candidates(graph: CandidateGraph) -> list[MediaCandidate]:
 
 def preferred_by_kind(graph: CandidateGraph) -> list[MediaCandidate]:
     """One preferred candidate per media kind so mixed pages are not collapsed."""
+    by_kind: dict[MediaKind, list[MediaCandidate]] = {}
+    for node in graph.nodes:
+        by_kind.setdefault(node.media_kind, []).append(node)
     picked: list[MediaCandidate] = []
-    seen: set[MediaKind] = set()
-    for node in preferred_candidates(graph):
-        if node.media_kind is MediaKind.PAGE:
+    for kind, nodes in by_kind.items():
+        if kind is MediaKind.PAGE:
             continue
-        if node.media_kind in seen:
-            continue
-        seen.add(node.media_kind)
-        picked.append(node)
+        clean = [node for node in nodes if not node.drm_signals]
+        pool = clean or nodes
+        picked.append(pool[0])
+    picked.sort(key=lambda node: KIND_RANK.get(node.media_kind, 7))
     if picked:
         if any(item.media_kind is MediaKind.GALLERY for item in picked):
             picked = [item for item in picked if item.media_kind is not MediaKind.IMAGE]

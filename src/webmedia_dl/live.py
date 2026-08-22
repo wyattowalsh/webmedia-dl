@@ -42,6 +42,10 @@ _DASH_SEGMENT_BASE = re.compile(
     r"<SegmentBase\b([^>]*)(?:/>|>(.*?)</SegmentBase>)",
     re.I | re.S,
 )
+_DASH_SEGMENT_LIST = re.compile(
+    r"<SegmentList\b([^>]*)(?:/>|>(.*?)</SegmentList>)",
+    re.I | re.S,
+)
 _DASH_ATTR = re.compile(r"([A-Za-z_:][\w:.-]*)=(?:\"([^\"]*)\"|'([^']*)')")
 _NUMBER_TOKEN = re.compile(r"\$Number(%[^$]+)?\$")
 _TIME_TOKEN = re.compile(r"\$Time(%[^$]+)?\$")
@@ -191,9 +195,18 @@ def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
     parts: list[ManifestPart] = []
     pending: tuple[int | None, int] | None = None
     next_offset: dict[str, int] = {}
+    media_sequence = 0
+    index = 0
     for line in text.splitlines():
         stripped = line.strip()
         if not stripped:
+            continue
+        if stripped.upper().startswith("#EXT-X-MEDIA-SEQUENCE:"):
+            raw = stripped.split(":", 1)[1].strip()
+            try:
+                media_sequence = int(raw)
+            except ValueError:
+                media_sequence = 0
             continue
         key = _HLS_KEY_METHOD.search(stripped)
         if key:
@@ -205,7 +218,8 @@ def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
         if mapped:
             uri = _join(base, mapped.group("uri"))
             offset, length = _parse_byterange(mapped.group("byterange"), default_offset=0)
-            parts.append(ManifestPart(uri, offset, length))
+            parts.append(ManifestPart(uri, offset, length, media_sequence + index))
+            index += 1
             if offset is not None and length is not None:
                 next_offset[uri] = offset + length
             continue
@@ -218,15 +232,17 @@ def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
         if stripped.startswith("#"):
             continue
         url = _join(base, stripped)
+        occurrence = media_sequence + index
+        index += 1
         if pending is not None:
             offset, length = pending
             pending = None
             if offset is None:
                 offset = next_offset.get(url, 0)
-            parts.append(ManifestPart(url, offset, length))
+            parts.append(ManifestPart(url, offset, length, occurrence))
             next_offset[url] = offset + length
             continue
-        parts.append(ManifestPart(url))
+        parts.append(ManifestPart(url, occurrence=occurrence))
     return parts
 
 
@@ -387,6 +403,10 @@ def _is_directory_base(resolved: str) -> bool:
     return resolved.endswith("/") or not suffix
 
 
+def _has_indexed_segments(text: str) -> bool:
+    return bool(_DASH_SEGMENT_BASE.search(text) or _DASH_SEGMENT_LIST.search(text))
+
+
 def _collect_baseurls(text: str, current: str, add: AddPart, *, emit_files: bool = True) -> str:
     for href in _DASH_BASE_URL.findall(text):
         resolved = _join(current, href.strip())
@@ -449,19 +469,24 @@ def _collect_segments(
                 period_seconds=period_seconds,
             ):
                 add(ManifestPart(url))
+    file_url = _file_baseurl(text, current)
     for match in re.finditer(r"<Initialization\b([^>]*)/?>", text, flags=re.I):
         attrs = _attrs(match.group(1))
         href = attrs.get("sourceurl")
+        start, length = _parse_dash_range(attrs.get("range"))
         if href:
-            start, length = _parse_dash_range(attrs.get("range"))
             add(ManifestPart(_join(current, href.strip()), start, length))
+        elif file_url is not None and (start is not None or length is not None):
+            add(ManifestPart(file_url, start, length))
     for match in re.finditer(r"<SegmentURL\b([^>]*)/?>", text, flags=re.I):
         attrs = _attrs(match.group(1))
         href = attrs.get("media")
+        start, length = _parse_dash_range(attrs.get("mediarange"))
         if href:
-            start, length = _parse_dash_range(attrs.get("mediarange"))
             add(ManifestPart(_join(current, href.strip()), start, length))
-    if not include_templates or _DASH_TEMPLATE.search(text):
+        elif file_url is not None and (start is not None or length is not None):
+            add(ManifestPart(file_url, start, length))
+    if not include_templates or _DASH_TEMPLATE.search(text) or _has_indexed_segments(text):
         return
     for double, single in _DASH_MEDIA.findall(text):
         media = double or single
@@ -552,7 +577,8 @@ def _collect_representation(
     rattrs = _attrs(match.group(1))
     body = match.group(2) or ""
     has_segment_base = bool(_DASH_SEGMENT_BASE.search(body))
-    local_base = _collect_baseurls(body, current, add, emit_files=not has_segment_base)
+    has_indexed = has_segment_base or bool(_DASH_SEGMENT_LIST.search(body))
+    local_base = _collect_baseurls(body, current, add, emit_files=not has_indexed)
     if has_segment_base:
         file_url = _file_baseurl(body, current) or local_base
         _collect_segment_base(body, file_url, add)
@@ -584,7 +610,9 @@ def _dash_scope_groups(
     parts, seen_urls, add = _new_part_bucket()
     representations = list(_REPRESENTATION.finditer(text))
     prefix = text[: representations[0].start()] if representations else text
-    resolve_base = _collect_baseurls(prefix, base, add)
+    resolve_base = _collect_baseurls(
+        prefix, base, add, emit_files=not _has_indexed_segments(prefix)
+    )
     inherited = prefix if representations and _DASH_TEMPLATE.search(prefix) else ""
     groups: list[tuple[int, str, list[ManifestPart]]] = []
     for rep in representations:
@@ -600,7 +628,10 @@ def _dash_scope_groups(
         groups.append((bandwidth, kind, [*parts, *bucket] if parts else bucket))
     remainder = _strip_blocks(text, _REPRESENTATION) if representations else text
     if representations:
-        resolve_base = _collect_baseurls(text[representations[-1].end() :], resolve_base, add)
+        suffix = text[representations[-1].end() :]
+        resolve_base = _collect_baseurls(
+            suffix, resolve_base, add, emit_files=not _has_indexed_segments(suffix)
+        )
     _collect_segments(
         remainder,
         resolve_base,
@@ -623,7 +654,9 @@ def _dash_adaptation_groups(
 ) -> list[tuple[int, str, list[ManifestPart]]]:
     without_rep = _strip_blocks(text, _REPRESENTATION)
     parts, seen_urls, add = _new_part_bucket()
-    as_base = _collect_baseurls(without_rep, base, add)
+    as_base = _collect_baseurls(
+        without_rep, base, add, emit_files=not _has_indexed_segments(without_rep)
+    )
     inherited = without_rep if _DASH_TEMPLATE.search(without_rep) else ""
     as_kind = _dash_kind(as_attrs)
     representations = list(_REPRESENTATION.finditer(text))
@@ -691,7 +724,7 @@ def _period_kind_parts(
         period_without_as,
         base,
         shared_add,
-        emit_files=not representations_present,
+        emit_files=not representations_present and not _has_indexed_segments(period_without_as),
     )
     groups: list[tuple[int, str, list[ManifestPart]]] = []
     adaptations = list(_ADAPTATION_SET.finditer(body))
@@ -751,7 +784,9 @@ def _dash_kind_parts(text: str, base: str) -> dict[str, list[ManifestPart]]:
     mpd_seconds = _iso8601_duration_seconds(mpd_attrs.get("mediapresentationduration"))
     mpd_prefix = text[: periods[0].start()] if periods else ""
     mpd_shared, _mpd_urls, mpd_add = _new_part_bucket()
-    mpd_base = _collect_baseurls(mpd_prefix, base, mpd_add)
+    mpd_base = _collect_baseurls(
+        mpd_prefix, base, mpd_add, emit_files=not _has_indexed_segments(mpd_prefix)
+    )
     period_count = len(periods) if periods else 1
     scopes = (
         [(match.group(2) or "", _attrs(match.group(1))) for match in periods]
@@ -814,9 +849,7 @@ def hls_audio_playlist_urls(text: str, base: str) -> list[str]:
     return urls
 
 
-def _part_record_key(part: ManifestPart, *, live: bool) -> tuple:
-    if live:
-        return (part.url, part.start, part.length)
+def _part_record_key(part: ManifestPart) -> tuple[str, int | None, int | None, int]:
     return (part.url, part.start, part.length, part.occurrence)
 
 
@@ -829,45 +862,46 @@ def _write_recorded_parts(
     should_stop: StopFn | None,
     live: bool,
     max_segments: int,
-    cache: dict[str, bytes],
+    cache: dict[tuple[str, int], bytes],
     recorded: set[tuple],
-    written_through: dict[str, int] | None = None,
+    written_through: dict[tuple[str, int], int] | None = None,
 ) -> int:
     written = 0
     through = written_through if written_through is not None else {}
     dest.parent.mkdir(parents=True, exist_ok=True)
     with dest.open("ab" if dest.exists() else "wb") as handle:
         for part in tqdm(parts[:max_segments], desc="live-record", disable=True, unit="seg"):
-            key = _part_record_key(part, live=live)
+            key = _part_record_key(part)
             if key in recorded:
                 continue
             if should_stop is not None:
                 should_stop()
-            if part.url not in cache:
+            cache_key = (part.url, part.occurrence)
+            if cache_key not in cache:
                 status, _, data = fetch(part.url)
                 if status >= 400:
                     msg = f"Live segment fetch failed with HTTP {status}."
                     raise DiscoveryError(msg)
-                cache[part.url] = data
+                cache[cache_key] = data
             elif live and part.start is not None:
                 needed = part.start + (part.length if part.length is not None else 0)
-                if part.length is None or needed > len(cache[part.url]):
+                if part.length is None or needed > len(cache[cache_key]):
                     status, _, data = fetch(part.url)
                     if status >= 400:
                         msg = f"Live segment fetch failed with HTTP {status}."
                         raise DiscoveryError(msg)
-                    cache[part.url] = data
-            chunk = cache[part.url]
+                    cache[cache_key] = data
+            chunk = cache[cache_key]
             if part.start is not None:
                 end = part.start + (part.length if part.length is not None else len(chunk))
                 origin = part.start
                 if live:
-                    origin = max(origin, through.get(part.url, 0))
+                    origin = max(origin, through.get(cache_key, 0))
                 if origin >= end or origin >= len(chunk):
                     recorded.add(key)
                     continue
                 chunk = chunk[origin:end]
-                through[part.url] = max(through.get(part.url, 0), min(end, len(cache[part.url])))
+                through[cache_key] = max(through.get(cache_key, 0), min(end, len(cache[cache_key])))
             budget.consume(len(chunk))
             handle.write(chunk)
             written += len(chunk)
@@ -950,9 +984,9 @@ def record_clear_stream(
     dest.parent.mkdir(parents=True, exist_ok=True)
     if dest.exists():
         dest.unlink()
-    cache: dict[str, bytes] = {}
+    cache: dict[tuple[str, int], bytes] = {}
     recorded: set[tuple] = set()
-    through: dict[str, int] = {}
+    through: dict[tuple[str, int], int] = {}
     polls = max(1, min(live_polls, MAX_LIVE_POLLS))
     written = 0
     live_mode = polls > 1 or manifest_is_live(playlist)

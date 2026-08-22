@@ -411,7 +411,7 @@ def _forbidden_event_keys(value: object) -> set[str]:
             elif "cookie" in str(key).lower() and _looks_like_path(item):
                 found.add(str(key))
             found |= _forbidden_event_keys(item)
-    elif isinstance(value, list):
+    elif isinstance(value, (list, tuple, set)):
         for item in value:
             found |= _forbidden_event_keys(item)
     return found

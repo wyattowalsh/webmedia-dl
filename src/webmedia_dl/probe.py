@@ -11,6 +11,7 @@ from uuid import UUID, uuid4
 
 from webmedia_dl.domain.enums import MediaKind
 from webmedia_dl.domain.models import MediaProbe, StreamInfo
+from webmedia_dl.security import detect_drm_signals
 
 
 def probe_media(
@@ -55,6 +56,9 @@ def probe_media(
     except (TypeError, UnicodeDecodeError, json.JSONDecodeError):
         return None
     streams: list[StreamInfo] = []
+    drm_texts: list[str] = []
+    fmt = payload.get("format") or {}
+    drm_texts.extend(_tag_texts(fmt.get("tags")))
     for item in payload.get("streams") or []:
         codec_type = str(item.get("codec_type") or "unknown")
         kind = {
@@ -62,6 +66,9 @@ def probe_media(
             "audio": MediaKind.AUDIO,
             "subtitle": MediaKind.SUBTITLE,
         }.get(codec_type, MediaKind.UNKNOWN)
+        stream_tags = _tag_texts(item.get("tags"))
+        drm_texts.extend(stream_tags)
+        encrypted = _stream_is_encrypted(item) or bool(detect_drm_signals(*stream_tags))
         streams.append(
             StreamInfo(
                 index=_as_int(item.get("index")) or 0,
@@ -71,10 +78,9 @@ def probe_media(
                 height=_as_int(item.get("height")),
                 sample_rate=_as_int(item.get("sample_rate")),
                 channels=_as_int(item.get("channels")),
-                encrypted=_stream_is_encrypted(item),
+                encrypted=encrypted,
             )
         )
-    fmt = payload.get("format") or {}
     duration = fmt.get("duration")
     try:
         duration_ms = int(float(duration) * 1000) if duration not in (None, "") else None
@@ -82,6 +88,7 @@ def probe_media(
         duration_ms = None
     names = str(fmt.get("format_name") or "").strip()
     container = names.split(",")[0].strip() or None
+    drm_signals = detect_drm_signals(*drm_texts)
     return MediaProbe(
         probe_id=uuid4(),
         candidate_id=candidate_id or uuid4(),
@@ -89,7 +96,18 @@ def probe_media(
         streams=streams,
         container=container,
         format_names=names.strip() or None,
+        drm_signals=drm_signals,
     )
+
+
+def _tag_texts(tags: object) -> list[str]:
+    if not isinstance(tags, dict):
+        return []
+    texts: list[str] = []
+    for key, value in tags.items():
+        texts.append(str(key))
+        texts.append(str(value))
+    return texts
 
 
 def _truthy_flag(value: object) -> bool:

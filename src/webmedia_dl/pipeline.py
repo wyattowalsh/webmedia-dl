@@ -68,6 +68,28 @@ from webmedia_dl.validation import require_pass, validate_artifact, validate_pro
 
 FetchFn = Callable[[str], tuple[int, str, bytes]]
 
+_ACQUIRED_KIND_ALIASES: dict[str, frozenset[str]] = {
+    MediaKind.GALLERY.value: frozenset({MediaKind.GALLERY.value, MediaKind.IMAGE.value}),
+    MediaKind.LIVE_STREAM.value: frozenset(
+        {MediaKind.LIVE_STREAM.value, MediaKind.VIDEO.value, MediaKind.AUDIO.value}
+    ),
+}
+
+
+def _restored_kinds_cover(acquired_kinds: set[str], restored_kinds: set[str]) -> bool:
+    for kind in acquired_kinds:
+        aliases = _ACQUIRED_KIND_ALIASES.get(kind, frozenset({kind}))
+        if aliases.isdisjoint(restored_kinds):
+            return False
+    return True
+
+
+def _kind_already_acquired(kind: str, acquired_kinds: set[str]) -> bool:
+    if kind in acquired_kinds:
+        return True
+    aliases = _ACQUIRED_KIND_ALIASES.get(kind, frozenset({kind}))
+    return not aliases.isdisjoint(acquired_kinds)
+
 
 class Pipeline:
     def __init__(
@@ -271,7 +293,7 @@ class Pipeline:
                 msg = "Resume checkpoint refers to a missing source artifact."
                 raise ProviderPolicyError(msg) from exc
         restored_kinds = {item.media_kind.value for item in sources}
-        if sources and acquired_kinds - restored_kinds:
+        if sources and not _restored_kinds_cover(acquired_kinds, restored_kinds):
             msg = "Resume checkpoint acquired_kinds do not match restored source artifacts."
             raise ProviderPolicyError(msg)
 
@@ -309,8 +331,6 @@ class Pipeline:
         if not chosen:
             msg = "Discovery produced no candidates."
             raise ProviderPolicyError(msg)
-        for candidate in chosen:
-            refuse_drm(candidate.drm_signals)
 
         staging = staging_dir(self.data_dir) / str(job.job_id)
         staging.mkdir(parents=True, exist_ok=True)
@@ -334,6 +354,7 @@ class Pipeline:
         stage = checkpoint.get("stage")
         if job.source.local_path:
             if not sources:
+                refuse_drm(chosen[0].drm_signals)
                 self._check_control(job.job_id)
                 self.queue.set_state(job.job_id, JobState.ACQUIRING)
                 artifact = self._register_acquired(
@@ -351,9 +372,10 @@ class Pipeline:
             last_error: Exception | None = None
             for index, candidate in enumerate(chosen):
                 self._check_control(job.job_id)
-                if candidate.media_kind.value in acquired_kinds:
+                if _kind_already_acquired(candidate.media_kind.value, acquired_kinds):
                     continue
                 try:
+                    refuse_drm(candidate.drm_signals)
                     kind_dir = staging / f"{index}-{candidate.media_kind.value}"
                     kind_dir.mkdir(parents=True, exist_ok=True)
                     artifact_list = self._acquire_remote(

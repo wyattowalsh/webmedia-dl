@@ -202,7 +202,9 @@ def test_pipeline_executes_imagemagick_convert(tmp_path: Path, png_bytes: bytes)
     src = tmp_path / "photo.png"
     src.write_bytes(png_bytes)
     pipeline = Pipeline(data_dir=tmp_path / "data")
-    job = pipeline.submit(str(src), intent=ExportIntent(container_preference="jpg"))
+    job = pipeline.submit(
+        str(src), intent=ExportIntent(container_preference="jpg", allow_lossy=True)
+    )
     assert job.state is JobState.COMPLETED
     assert any(
         event.payload.get("operation_id") == "image-convert"

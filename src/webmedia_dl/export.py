@@ -12,6 +12,7 @@ from webmedia_dl.errors import ProviderPolicyError
 from webmedia_dl.paths import runtime_file
 
 IMAGE_CONTAINERS = {"jpg", "jpeg", "png", "webp", "avif", "gif", "tif", "tiff"}
+LOSSY_IMAGE_CONTAINERS = {"jpg", "jpeg", "webp", "avif", "gif"}
 PASSTHROUGH_KINDS = {MediaKind.DOCUMENT, MediaKind.SUBTITLE}
 
 
@@ -71,21 +72,22 @@ def plan_export(job_id: UUID, source: Artifact, intent: ExportIntent) -> ExportP
             publish_source=resolved.include_original,
         )
     if preference and preference != source.container:
-        if image_like and preference.lower() in IMAGE_CONTAINERS:
-            operations.append(
-                Operation(
-                    operation_id="image-convert",
-                    op_type="imagemagick.convert",
-                    capability_id="process.imagemagick.convert",
-                    input_artifact_ids=[source.artifact_id],
-                    output_role=ArtifactRole.DERIVATIVE,
-                    loss_class=LossClass.NONE
-                    if not resolved.allow_lossy
-                    else LossClass.LOSSY_TRANSCODE,
-                    validator_ids=["hash-changed", "container-match"],
-                    typed_inputs={"container": preference},
+        wanted = preference.lower()
+        if image_like and wanted in IMAGE_CONTAINERS:
+            lossy_target = wanted in LOSSY_IMAGE_CONTAINERS
+            if not lossy_target or resolved.allow_lossy:
+                operations.append(
+                    Operation(
+                        operation_id="image-convert",
+                        op_type="imagemagick.convert",
+                        capability_id="process.imagemagick.convert",
+                        input_artifact_ids=[source.artifact_id],
+                        output_role=ArtifactRole.DERIVATIVE,
+                        loss_class=LossClass.LOSSY_TRANSCODE if lossy_target else LossClass.NONE,
+                        validator_ids=["hash-changed", "container-match"],
+                        typed_inputs={"container": preference},
+                    )
                 )
-            )
         elif not resolved.allow_lossy:
             operations.append(
                 Operation(

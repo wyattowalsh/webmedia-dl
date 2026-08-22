@@ -40,6 +40,26 @@ def test_preferred_candidates_rank_video_over_page() -> None:
     assert MediaKind.PAGE in {item.media_kind for item in ranked}
     mixed = preferred_by_kind(graph)
     assert [item.media_kind for item in mixed] == [MediaKind.VIDEO, MediaKind.IMAGE]
+    protected = CandidateGraph(
+        job_id=uuid4(),
+        nodes=[
+            MediaCandidate(
+                source_id=source_id,
+                media_kind=MediaKind.VIDEO,
+                identity_key="host:cdn.example.com:path:/protected.mpd",
+                retrieval_urls=["https://cdn.example.com/protected.mpd"],
+                drm_signals=["widevine"],
+            ),
+            MediaCandidate(
+                source_id=source_id,
+                media_kind=MediaKind.IMAGE,
+                identity_key="host:cdn.example.com:path:/a.png",
+                retrieval_urls=["https://cdn.example.com/a.png"],
+            ),
+        ],
+    )
+    mixed_drm = preferred_by_kind(protected)
+    assert {item.media_kind for item in mixed_drm} == {MediaKind.VIDEO, MediaKind.IMAGE}
 
 
 def test_discovery_page_without_fetch_still_requires_html_or_fetch() -> None:

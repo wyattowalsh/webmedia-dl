@@ -286,7 +286,7 @@ def candidates_from_manifest_json(
         elif kind is MediaKind.PAGE:
             kind = MediaKind.VIDEO
         alternatives: list[FormatAlternative] = []
-        drm: list[str] = detect_drm_signals(json.dumps(item)[:4000])
+        drm: list[str] = detect_drm_signals(json.dumps(item, default=str))
         for fmt in item.get("formats") or []:
             if not isinstance(fmt, dict):
                 continue
@@ -478,7 +478,7 @@ def discover(
                             _kind_from_jsonld(item, absolute),
                             title=title,
                             evidence=["discover:jsonld"],
-                            drm=detect_drm_signals(absolute),
+                            drm=detect_drm_signals(absolute, *drm),
                         )
                     )
     if not found:

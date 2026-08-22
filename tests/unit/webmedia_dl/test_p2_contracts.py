@@ -411,6 +411,7 @@ def test_hls_live_poll_appends_new_segments(tmp_path: Path) -> None:
         {"providerArgv": ["--format"]},
         {"cookies_path": "/tmp/cookies.txt"},
         {"nested": {"stdout": "secret"}},
+        {"nested": ({"stdout": "secret"},)},
     ],
 )
 def test_event_payload_rejects_every_forbidden_key(payload: dict) -> None:

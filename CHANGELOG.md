@@ -2,6 +2,22 @@
 
 ## 0.1.0
 
+- Close remaining Linux-provable OpenSpec gaps: DASH `SegmentList` ranges
+  against a Representation `BaseURL` are sliced instead of emitting the
+  whole object; live HLS polls record a reused segment URI when
+  `#EXT-X-MEDIA-SEQUENCE` advances; JSON-LD and yt-dlp dumps keep page/item
+  DRM signals; mixed-media graphs keep one preferred candidate per kind so
+  DRM video is refused closed instead of dropped; ffprobe DRM tags populate
+  `MediaProbe.drm_signals`; PNG→JPEG conversion requires `allow_lossy`;
+  event payloads reject forbidden keys inside tuples; support bundles
+  include zero-UUID queue events; gallery pause/resume treats gallery-dl
+  image sources as covering the gallery checkpoint. Mixed clear-then-key
+  HLS still records the clear prefix and does not fetch encrypted parts.
+- GitHub Actions `32575303382` on `e5cd48d` passed Python (605 pytest,
+  100%), doctor provider probes, and Swift (18 tests, 0 failures; 12×
+  BUILD SUCCEEDED) after requiring confirmed companion pairing headers
+  even with the Mac loopback bearer, and after refusing HTTPS / extra-label
+  relay URLs.
 - Companion `/v1/companion` still requires the Mac actor, and pairing
   headers on that path must be a confirmed pairing even when the Mac
   loopback bearer is present. Relay URLs must be `http` private LAN,

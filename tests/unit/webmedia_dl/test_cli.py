@@ -9,6 +9,7 @@ from typer.testing import CliRunner
 
 from webmedia_dl.cli import app
 from webmedia_dl.names import CLI_NAME, PERSONAL_ALIAS
+from webmedia_dl.queue import QUEUE_EVENT_JOB_ID
 
 runner = CliRunner()
 
@@ -178,6 +179,8 @@ def test_support_bundle_is_local_and_strips_console(tmp_path: Path, png_bytes: b
     data = tmp_path / "data"
     submitted = runner.invoke(app, ["submit", str(media), "--data-dir", str(data)])
     assert submitted.exit_code == 0
+    paused = runner.invoke(app, ["pause", "--queue", "--data-dir", str(data)])
+    assert paused.exit_code == 0
     dest = tmp_path / "bundle.zip"
     result = runner.invoke(app, ["support-bundle", "--data-dir", str(data), "--out", str(dest)])
     assert result.exit_code == 0
@@ -190,6 +193,8 @@ def test_support_bundle_is_local_and_strips_console(tmp_path: Path, png_bytes: b
         assert "jobs.json" in names
         assert "events.json" in names
         events = json.loads(archive.read("events.json"))
+        queued = events[str(QUEUE_EVENT_JOB_ID)]
+        assert any(event.get("type") == "queue.paused" for event in queued)
         for records in events.values():
             for event in records:
                 keys = event.get("payload", {})

@@ -4,27 +4,49 @@ from __future__ import annotations
 
 import ast
 import importlib.util
+import json
 import re
 import shutil
 import subprocess
 import zipfile
 from collections import Counter
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
 from pydantic import ValidationError
 
-from webmedia_dl.candidates import build_graph
+from webmedia_dl.candidates import build_graph, preferred_by_kind
 from webmedia_dl.diagnostics import doctor
-from webmedia_dl.domain.enums import DestinationKind, EventType, MediaKind, Surface
-from webmedia_dl.domain.models import ExportIntent, MediaCandidate
+from webmedia_dl.discovery import candidates_from_manifest_json, discover
+from webmedia_dl.domain.enums import (
+    ArtifactRole,
+    DestinationKind,
+    EventType,
+    IntakeKind,
+    JobState,
+    LossClass,
+    MediaKind,
+    Surface,
+)
+from webmedia_dl.domain.models import (
+    Artifact,
+    EventRecord,
+    ExportIntent,
+    Job,
+    MediaCandidate,
+    MediaSource,
+)
 from webmedia_dl.errors import CapabilityDenied, DrmRefused, IntakeError, ProviderPolicyError
+from webmedia_dl.export import plan_export
 from webmedia_dl.identity import SAFE_CONTAINER_PATTERN, is_safe_container, is_safe_format_id
-from webmedia_dl.live import inspect_manifest, record_clear_stream, recordable_parts
+from webmedia_dl.live import ManifestPart, inspect_manifest, record_clear_stream, recordable_parts
 from webmedia_dl.paths import repo_root
 from webmedia_dl.pipeline import Pipeline
 from webmedia_dl.policy.profiles import assert_worker_capability, get_profile
+from webmedia_dl.probe import probe_media
 from webmedia_dl.providers import (
     ProviderRequest,
     ProviderRuntime,
@@ -33,6 +55,7 @@ from webmedia_dl.providers import (
 )
 from webmedia_dl.queue import QUEUE_EVENT_JOB_ID
 from webmedia_dl.security import detect_drm_signals, refuse_drm
+from webmedia_dl.support import write_support_bundle
 
 
 def test_session_key_fairplay_is_refused_before_fetch(tmp_path: Path) -> None:
@@ -110,6 +133,284 @@ def test_queue_events_use_zero_uuid(tmp_data: Path) -> None:
     assert EventType.QUEUE_PAUSED in types
     assert EventType.QUEUE_RESUMED in types
     assert all(event.job_id == QUEUE_EVENT_JOB_ID for event in events)
+
+
+def _page_source() -> MediaSource:
+    return MediaSource(
+        kind=IntakeKind.URL,
+        locator="https://example.com/page",
+        normalized_url="https://example.com/page",
+        surface=Surface.CLI,
+        policy_profile_id="personal-full",
+    )
+
+
+def test_dash_segmentlist_baseurl_ranges_are_sliced(tmp_path: Path) -> None:
+    text = """
+    <MPD>
+      <Period>
+        <AdaptationSet>
+          <Representation id="1" bandwidth="1000" mimeType="video/mp4">
+            <BaseURL>bundle.mp4</BaseURL>
+            <SegmentList>
+              <Initialization range="0-3"/>
+              <SegmentURL mediaRange="4-7"/>
+            </SegmentList>
+          </Representation>
+        </AdaptationSet>
+      </Period>
+    </MPD>
+    """
+    parts = recordable_parts(text, "https://cdn.example.com/r/")
+    assert parts == [
+        ManifestPart("https://cdn.example.com/r/bundle.mp4", 0, 4),
+        ManifestPart("https://cdn.example.com/r/bundle.mp4", 4, 4),
+    ]
+    blob = b"INITSEGA"
+
+    def fetch(url: str) -> tuple[int, str, bytes]:
+        assert url.endswith("bundle.mp4")
+        return 200, "video/mp4", blob
+
+    output = tmp_path / "dash.bin"
+    record_clear_stream(text, "https://cdn.example.com/r/manifest.mpd", output, fetch)
+    assert output.read_bytes() == b"INITSEGA"
+
+
+def test_hls_live_poll_records_reused_uri_on_new_media_sequence(tmp_path: Path) -> None:
+    first = "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:1\n#EXTINF:1,\nseg.ts\n"
+    second = "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:2\n#EXTINF:1,\nseg.ts\n"
+    playlist = {"text": first}
+    bodies = {"seg": b"A"}
+    fetched: list[str] = []
+
+    def fetch(url: str) -> tuple[int, str, bytes]:
+        fetched.append(url)
+        if url.endswith("index.m3u8"):
+            return 200, "application/vnd.apple.mpegurl", playlist["text"].encode()
+        assert url.endswith("seg.ts")
+        body = bodies["seg"]
+        playlist["text"] = second
+        bodies["seg"] = b"B"
+        return 200, "video/MP2T", body
+
+    output = tmp_path / "live.ts"
+    record_clear_stream(
+        first,
+        "https://cdn.example.com/live/index.m3u8",
+        output,
+        fetch,
+        live_polls=2,
+    )
+    assert output.read_bytes() == b"AB"
+    assert fetched.count("https://cdn.example.com/live/seg.ts") == 2
+    bogus = "#EXTM3U\n#EXT-X-MEDIA-SEQUENCE:nope\n#EXTINF:1,\nseg.ts\n"
+    assert recordable_parts(bogus, "https://cdn.example.com/live/index.m3u8")
+
+
+def test_jsonld_candidates_keep_page_drm_signals() -> None:
+    html = """
+    <html><body>
+      <p>Widevine protected stream</p>
+      <script type="application/ld+json">
+        {"@type": "VideoObject", "contentUrl": "https://cdn.example.com/clip.mp4"}
+      </script>
+    </body></html>
+    """
+    found = discover(_page_source(), get_profile("personal-full"), html=html)
+    videos = [item for item in found if item.media_kind is MediaKind.VIDEO]
+    assert videos
+    assert any(item.drm_signals for item in videos)
+
+
+def test_ytdlp_manifest_drm_after_long_title_is_kept() -> None:
+    item = {
+        "title": "x" * 5000,
+        "url": "https://cdn.example.com/clip.mp4",
+        "drm_system": "widevine",
+    }
+    found = candidates_from_manifest_json(_page_source(), json.dumps(item).encode())
+    assert found
+    assert found[0].drm_signals
+
+
+def test_preferred_by_kind_keeps_drm_video_beside_clear_image() -> None:
+    source_id = uuid4()
+    graph = build_graph(
+        uuid4(),
+        [
+            MediaCandidate(
+                source_id=source_id,
+                media_kind=MediaKind.VIDEO,
+                identity_key="host:cdn.example.com:path:/protected.mpd",
+                retrieval_urls=["https://cdn.example.com/protected.mpd"],
+                drm_signals=["widevine"],
+            ),
+            MediaCandidate(
+                source_id=source_id,
+                media_kind=MediaKind.IMAGE,
+                identity_key="host:cdn.example.com:path:/hero.png",
+                retrieval_urls=["https://cdn.example.com/hero.png"],
+            ),
+        ],
+    )
+    kinds = [item.media_kind for item in preferred_by_kind(graph)]
+    assert MediaKind.VIDEO in kinds
+    assert MediaKind.IMAGE in kinds
+
+
+def test_mixed_drm_video_still_publishes_clear_image(
+    tmp_data: Path, png_bytes: bytes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fake_discover(
+        source: MediaSource, *_args: object, **_kwargs: object
+    ) -> list[MediaCandidate]:
+        return [
+            MediaCandidate(
+                source_id=source.source_id,
+                media_kind=MediaKind.VIDEO,
+                identity_key="host:cdn.example.com:path:/protected.mpd",
+                retrieval_urls=["https://cdn.example.com/protected.mpd"],
+                drm_signals=["widevine"],
+            ),
+            MediaCandidate(
+                source_id=source.source_id,
+                media_kind=MediaKind.IMAGE,
+                identity_key="host:cdn.example.com:path:/hero.png",
+                retrieval_urls=["https://cdn.example.com/hero.png"],
+            ),
+        ]
+
+    def http_get(url: str) -> tuple[int, dict[str, str], bytes]:
+        if url.endswith(".png"):
+            return 200, {"content-type": "image/png"}, png_bytes
+        raise AssertionError(url)
+
+    monkeypatch.setattr("webmedia_dl.pipeline.discover", fake_discover)
+    pipeline = Pipeline(
+        data_dir=tmp_data,
+        runtime=ProviderRuntime(which=lambda _name: None, http_get=http_get),
+    )
+    job = pipeline.submit("https://example.com/mixed-drm")
+    assert job.state is JobState.COMPLETED
+    sources = [item for item in pipeline.store.list_artifacts() if item.role is ArtifactRole.SOURCE]
+    assert any(item.media_kind is MediaKind.IMAGE for item in sources)
+    completed = [
+        event
+        for event in pipeline.queue.events_for(job.job_id)
+        if event.type is EventType.JOB_COMPLETED
+    ][-1]
+    assert "video" in completed.payload.get("failed_kinds", [])
+
+
+def test_probe_records_explicit_drm_metadata_tags(tmp_path: Path) -> None:
+    media = tmp_path / "clip.bin"
+    media.write_bytes(b"bytes")
+
+    def runner(*_args: object, **_kwargs: object) -> SimpleNamespace:
+        payload = {
+            "streams": [{"index": 0, "codec_type": "video", "codec_name": "h264"}],
+            "format": {"format_name": "mp4", "tags": {"DRM_SYSTEM": "widevine"}},
+        }
+        return SimpleNamespace(returncode=0, stdout=json.dumps(payload).encode())
+
+    probed = probe_media(media, which=lambda _name: "/usr/bin/ffprobe", runner=runner)
+    assert probed is not None
+    assert probed.drm_signals
+
+
+def test_png_to_jpeg_requires_allow_lossy() -> None:
+    source = Artifact(
+        artifact_id="sha256:ab",
+        role=ArtifactRole.SOURCE,
+        sha256="ab",
+        byte_size=1,
+        media_kind=MediaKind.IMAGE,
+        storage_relpath="a.png",
+        container="png",
+    )
+    blocked = plan_export(uuid4(), source, ExportIntent(container_preference="jpg"))
+    assert all(op.operation_id != "image-convert" for op in blocked.operations)
+    allowed = plan_export(
+        uuid4(),
+        source,
+        ExportIntent(container_preference="jpg", allow_lossy=True),
+    )
+    convert = next(op for op in allowed.operations if op.operation_id == "image-convert")
+    assert convert.loss_class is LossClass.LOSSY_TRANSCODE
+
+
+def test_event_payload_rejects_forbidden_keys_inside_tuples() -> None:
+    with pytest.raises(ValidationError):
+        EventRecord(
+            job_id=uuid4(),
+            type=EventType.OPERATION_COMPLETED,
+            sequence=1,
+            payload={"nested": ({"stdout": "secret"},)},
+        )
+
+
+def test_support_bundle_includes_queue_level_events(tmp_path: Path) -> None:
+    data = tmp_path / "data"
+    pipeline = Pipeline(data_dir=data)
+    pipeline.pause_queue()
+    dest = tmp_path / "bundle.zip"
+    write_support_bundle(data_dir=data, dest=dest)
+    with zipfile.ZipFile(dest) as archive:
+        events = json.loads(archive.read("events.json"))
+    queued = events[str(QUEUE_EVENT_JOB_ID)]
+    assert any(item["type"] == EventType.QUEUE_PAUSED.value for item in queued)
+
+
+def test_gallery_pause_resume_keeps_acquired_image_sources(
+    tmp_data: Path, tmp_path: Path, png_bytes: bytes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    html = """
+    <html><body>
+      <img src="https://cdn.example.com/one.jpg">
+      <img src="https://cdn.example.com/two.jpg">
+      <img src="https://cdn.example.com/three.jpg">
+    </body></html>
+    """
+
+    def run(argv: list[str], cwd: Path) -> tuple[int, bytes, bytes]:
+        created = cwd / "01.jpg"
+        created.write_bytes(png_bytes)
+        return 0, b"", b""
+
+    original = Pipeline._save_acquire_checkpoint
+
+    def save(
+        self: Pipeline,
+        job: Job,
+        sources: list[Any],
+        acquired_kinds: set[str],
+        **kwargs: Any,
+    ) -> None:
+        original(self, job, sources, acquired_kinds, **kwargs)
+        if kwargs.get("stage") == "acquired":
+            self.queue.set_job_flags(job.job_id, pause_requested=True)
+
+    monkeypatch.setattr(Pipeline, "_save_acquire_checkpoint", save)
+    pipeline = Pipeline(
+        data_dir=tmp_data,
+        runtime=ProviderRuntime(
+            which=lambda name: "/usr/bin/gallery-dl" if name == "gallery-dl" else None,
+            run=run,
+        ),
+    )
+    job = pipeline.submit("https://example.com/album", html=html, wait=False)
+    paused = pipeline.run_next()
+    assert paused is not None
+    assert paused.state is JobState.PAUSED
+    checkpoint = pipeline.queue.get_context(job.job_id).checkpoint
+    assert "gallery" in checkpoint.get("acquired_kinds", [])
+    sources = [pipeline.store.get(str(item)) for item in checkpoint.get("source_ids") or []]
+    assert sources
+    assert {item.media_kind for item in sources} == {MediaKind.IMAGE}
+    monkeypatch.setattr(Pipeline, "_save_acquire_checkpoint", original)
+    resumed = pipeline.resume_job(job.job_id)
+    assert resumed.state is JobState.COMPLETED
 
 
 @pytest.mark.parametrize(

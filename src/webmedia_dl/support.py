@@ -7,15 +7,26 @@ import re
 import zipfile
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 from webmedia_dl.diagnostics import doctor
 from webmedia_dl.pipeline import Pipeline
+from webmedia_dl.queue import QUEUE_EVENT_JOB_ID
 
 FIXED_ZIP_TIME = (2026, 8, 18, 0, 0, 0)
 STRIP_KEYS = frozenset(
     {"stdout", "stderr", "argv", "nativeCommand", "providerArgv", "cookies_path"}
 )
 COOKIE_KEY = re.compile(r"cookie", re.I)
+
+
+def _event_records(pipeline: Pipeline, job_id: UUID) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for event in pipeline.queue.events_for(job_id):
+        dumped = event.model_dump(mode="json")
+        dumped["payload"] = _sanitize(dict(dumped.get("payload") or {}))
+        records.append(dumped)
+    return records
 
 
 def _looks_like_path(value: object) -> bool:
@@ -32,7 +43,7 @@ def _sanitize(value: Any) -> Any:
                 continue
             cleaned[key] = _sanitize(item)
         return cleaned
-    if isinstance(value, list):
+    if isinstance(value, (list, tuple)):
         return [_sanitize(item) for item in value]
     return value
 
@@ -43,12 +54,10 @@ def write_support_bundle(*, data_dir: Path, dest: Path) -> dict[str, Any]:
     jobs = _sanitize(pipeline.history_entries())
     events: dict[str, list[dict[str, Any]]] = {}
     for job in pipeline.history():
-        records = []
-        for event in pipeline.queue.events_for(job.job_id):
-            dumped = event.model_dump(mode="json")
-            dumped["payload"] = _sanitize(dict(dumped.get("payload") or {}))
-            records.append(dumped)
-        events[str(job.job_id)] = records
+        events[str(job.job_id)] = _event_records(pipeline, job.job_id)
+    queue_events = _event_records(pipeline, QUEUE_EVENT_JOB_ID)
+    if queue_events:
+        events[str(QUEUE_EVENT_JOB_ID)] = queue_events
     files = {
         "doctor.json": doctor(data_dir=data_dir),
         "jobs.json": jobs,
