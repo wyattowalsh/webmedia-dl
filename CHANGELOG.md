@@ -2,6 +2,9 @@
 
 ## 0.1.0
 
+- GitHub Actions `32572904900` on `7981aaa` passed Python (583 pytest, 100%)
+  and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after recording
+  `32572653043` compile evidence for the `0f40550` evidence-cite revision.
 - GitHub Actions `32572653043` on `0f40550` passed Python (583 pytest, 100%)
   and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after recording
   `32572254327` compile evidence for publishable history and job inspect.
