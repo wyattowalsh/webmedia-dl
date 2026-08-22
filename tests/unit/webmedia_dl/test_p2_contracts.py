@@ -665,6 +665,10 @@ def test_hls_map_without_byterange_and_implicit_offset(tmp_path: Path) -> None:
         ranged_part, "https://cdn.example.com/live/index.m3u8", ranged_out, fetch_ranged
     )
     assert ranged_out.read_bytes() == b"INITXXXXABCDEF"
+    ranged_listed = recordable_parts(ranged_part, "https://cdn.example.com/live/index.m3u8")
+    assert ranged_listed[-1].partial
+    assert ranged_listed[-2].partial
+    assert ranged_listed[-1].occurrence == ranged_listed[-2].occurrence
 
 
 def test_dash_number_width_and_dollar_escape() -> None:

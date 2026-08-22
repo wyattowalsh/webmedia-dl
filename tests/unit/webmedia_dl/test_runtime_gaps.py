@@ -233,6 +233,24 @@ def test_hls_map_and_byterange(tmp_path: Path) -> None:
         completed, "https://cdn.example.com/live/index.m3u8", completed_out, fetch_completed
     )
     assert completed_out.read_bytes() == b"INITABCDEF"
+    inf_after_parts = (
+        "#EXTM3U\n"
+        '#EXT-X-MAP:URI="init.mp4",BYTERANGE="4@0"\n'
+        '#EXT-X-PART:DURATION=0.5,URI="p0.m4s"\n'
+        '#EXT-X-PART:DURATION=0.5,URI="p1.m4s"\n'
+        "#EXTINF:1.0,\n"
+        "seg.ts\n"
+    )
+    inf_out = tmp_path / "live-inf.bin"
+    record_clear_stream(
+        inf_after_parts, "https://cdn.example.com/live/index.m3u8", inf_out, fetch_completed
+    )
+    assert inf_out.read_bytes() == b"INITABCDEF"
+    inf_names = [
+        part.url.rsplit("/", 1)[-1]
+        for part in recordable_parts(inf_after_parts, "https://cdn.example.com/live/index.m3u8")
+    ]
+    assert inf_names == ["init.mp4", "seg.ts"]
     gapped_parts = (
         "#EXTM3U\n"
         '#EXT-X-MAP:URI="init.mp4",BYTERANGE="4@0"\n'

@@ -521,6 +521,51 @@ def test_hls_live_poll_records_reused_uri_on_new_media_sequence(tmp_path: Path) 
     )
     assert skip_out.read_bytes() == b"AB"
     assert skip_fetched.count("https://cdn.example.com/live/seg.ts") == 2
+    part_first = (
+        "#EXTM3U\n"
+        "#EXT-X-MEDIA-SEQUENCE:10\n"
+        '#EXT-X-MAP:URI="init.mp4"\n'
+        "#EXTINF:4.0,\n"
+        "prev.m4s\n"
+        '#EXT-X-PART:DURATION=1.0,URI="p0.m4s"\n'
+        '#EXT-X-PART:DURATION=1.0,URI="p1.m4s"\n'
+    )
+    part_second = (
+        "#EXTM3U\n"
+        "#EXT-X-MEDIA-SEQUENCE:10\n"
+        '#EXT-X-MAP:URI="init.mp4"\n'
+        "#EXTINF:4.0,\n"
+        "prev.m4s\n"
+        "#EXTINF:4.0,\n"
+        "seg.m4s\n"
+        '#EXT-X-PART:DURATION=1.0,URI="p2.m4s"\n'
+    )
+    part_playlist = {"text": part_second}
+    part_bodies = {
+        "https://cdn.example.com/live/init.mp4": b"INIT",
+        "https://cdn.example.com/live/prev.m4s": b"PREV",
+        "https://cdn.example.com/live/p0.m4s": b"AA",
+        "https://cdn.example.com/live/p1.m4s": b"BB",
+        "https://cdn.example.com/live/seg.m4s": b"AABB",
+        "https://cdn.example.com/live/p2.m4s": b"CC",
+    }
+
+    def fetch_parts(url: str) -> tuple[int, str, bytes]:
+        if url.endswith("index.m3u8"):
+            return 200, "application/vnd.apple.mpegurl", part_playlist["text"].encode()
+        if url.endswith("seg.m4s"):
+            raise AssertionError("parent URI must not duplicate recorded PART prefixes")
+        return 200, "video/mp4", part_bodies[url]
+
+    part_out = tmp_path / "parts.ts"
+    record_clear_stream(
+        part_first,
+        "https://cdn.example.com/live/index.m3u8",
+        part_out,
+        fetch_parts,
+        live_polls=2,
+    )
+    assert part_out.read_bytes() == b"INITPREVAABBCC"
 
 
 def test_jsonld_candidates_keep_page_drm_signals() -> None:

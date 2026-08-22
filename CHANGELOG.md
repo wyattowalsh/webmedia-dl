@@ -2,6 +2,14 @@
 
 ## 0.1.0
 
+- Skip a completed HLS media-segment URI after `#EXT-X-PART` prefixes for that
+  media-sequence slot are already recorded, including RFC order (`PART` then
+  `#EXTINF` then URI) and live polls that publish the parent object later.
+  Held PARTs share the next occurrence so the parent is not concatenated twice.
+  GitHub Actions `32597677579` on `089551e` passed Python (626 pytest, 100%),
+  doctor provider probes, and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED)
+  after collecting `a[href]` `.m2ts` as VIDEO.
+
 - Collect `a[href]` locators that name `.m2ts` objects as VIDEO in HTML
   discovery, browser capture, and HTTP-direct so MPEG-2 transport files are
   treated as direct media instead of ignored page anchors. Trailing slashes

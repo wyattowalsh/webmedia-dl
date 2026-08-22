@@ -61,6 +61,10 @@ def test_record_clear_stream_concatenates_segments(tmp_path: Path) -> None:
     gap_out = tmp_path / "gap.ts"
     record_clear_stream(gapped, "https://cdn.example.com/live/index.m3u8", gap_out, fetch_gapped)
     assert gap_out.read_bytes() == b"AAABBB"
+    discontinuous = "#EXTM3U\n#EXTINF:1,\nseg1.ts\n#EXT-X-DISCONTINUITY\n#EXTINF:1,\nseg2.ts\n"
+    disc_out = tmp_path / "disc.ts"
+    record_clear_stream(discontinuous, "https://cdn.example.com/live/index.m3u8", disc_out, fetch)
+    assert disc_out.read_bytes() == b"AAABBB"
 
 
 def test_record_follows_master_playlist(tmp_path: Path) -> None:

@@ -83,6 +83,7 @@ class ManifestPart(NamedTuple):
     start: int | None = None
     length: int | None = None
     occurrence: int = 0
+    partial: bool = False
 
 
 class ByteBudget:
@@ -269,7 +270,10 @@ def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
 
     `#EXT-X-SKIP` advances the media-sequence index so delta playlists keep
     occurrence identity. `#EXT-X-GAP` applies to the next URI and is not
-    fetched, matching PART `GAP=YES`.
+    fetched, matching PART `GAP=YES`. Held PARTs share the next media-sequence
+    slot so a later parent URI can replace those prefixes instead of appending
+    them twice. `#EXTINF` does not flush: RFC order is PARTs, then EXTINF, then
+    the completed segment URI.
     """
     parts: list[ManifestPart] = []
     held: list[ManifestPart] = []
@@ -279,15 +283,22 @@ def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
     media_sequence = 0
     index = 0
 
+    def peek_occurrence() -> int:
+        return media_sequence + index
+
     def take_occurrence() -> int:
         nonlocal index
-        occurrence = media_sequence + index
+        occurrence = peek_occurrence()
         index += 1
         return occurrence
 
     def flush_held() -> None:
+        nonlocal index
+        if not held:
+            return
         parts.extend(held)
         held.clear()
+        index += 1
 
     for line in text.splitlines():
         stripped = _hls_line(line)
@@ -312,9 +323,7 @@ def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
                 flush_held()
                 break
             continue
-        if stripped.upper().startswith("#EXTINF:") or stripped.upper().startswith(
-            "#EXT-X-DISCONTINUITY"
-        ):
+        if stripped.upper().startswith("#EXT-X-DISCONTINUITY"):
             flush_held()
             continue
         if stripped.upper().startswith("#EXT-X-MAP:"):
@@ -337,7 +346,7 @@ def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
             offset, length = _parse_byterange(attrs.get("BYTERANGE"), default_offset=None)
             if offset is None and length is not None:
                 offset = next_offset.get(uri, 0)
-            held.append(ManifestPart(uri, offset, length, take_occurrence()))
+            held.append(ManifestPart(uri, offset, length, peek_occurrence(), True))
             if offset is not None and length is not None:
                 next_offset[uri] = offset + length
             continue
@@ -1322,14 +1331,24 @@ def _write_recorded_parts(
     cache: dict[tuple[str, int], bytes],
     recorded: set[tuple],
     written_through: dict[tuple[str, int], int] | None = None,
+    partial_occurrences: set[int] | None = None,
 ) -> int:
     written = 0
     through = written_through if written_through is not None else {}
+    filled_partials = partial_occurrences if partial_occurrences is not None else set()
     dest.parent.mkdir(parents=True, exist_ok=True)
     with dest.open("ab" if dest.exists() else "wb") as handle:
         for part in tqdm(parts[:max_segments], desc="live-record", disable=True, unit="seg"):
             key = _part_record_key(part)
             if key in recorded:
+                continue
+            if (
+                not part.partial
+                and part.start is None
+                and part.length is None
+                and part.occurrence in filled_partials
+            ):
+                recorded.add(key)
                 continue
             if should_stop is not None:
                 should_stop()
@@ -1365,6 +1384,8 @@ def _write_recorded_parts(
             handle.write(chunk)
             written += len(chunk)
             recorded.add(key)
+            if part.partial:
+                filled_partials.add(part.occurrence)
     return written
 
 
@@ -1430,6 +1451,7 @@ def record_clear_stream(
     cache: dict[tuple[str, int], bytes] = {}
     recorded: set[tuple] = set()
     through: dict[tuple[str, int], int] = {}
+    filled_partials: set[int] = set()
     polls = max(1, min(live_polls, MAX_LIVE_POLLS))
     written = 0
     live_mode = polls > 1 or manifest_is_live(playlist)
@@ -1460,6 +1482,7 @@ def record_clear_stream(
             cache=cache,
             recorded=recorded,
             written_through=through,
+            partial_occurrences=filled_partials,
         )
         more = round_index + 1 < polls and manifest_is_live(playlist)
         if not more:
