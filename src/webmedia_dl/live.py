@@ -556,9 +556,7 @@ def _file_baseurl(
             file_url = resolved
             current = resolved
             continue
-        current, resolved_file = _advance_base(current, href)
-        if resolved_file is not None:
-            file_url = resolved_file
+        current = _advance_base(current, href)[0]
     return file_url
 
 
