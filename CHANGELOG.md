@@ -2,6 +2,9 @@
 
 ## 0.1.0
 
+- Attach page-level DRM signals to browser-evidence seeds. Those URLs
+  were marked `seen` before HTML/JSON-LD union, so a Widevine/`cenc`
+  page could keep a clear capture candidate.
 - Keep page-level `cenc`/`cbcs` DRM signals on HTML/JSON-LD candidates
   instead of re-scanning regex pattern strings (which dropped those
   hits). Parse namespace-prefixed DASH (`dash:MPD`) the same as bare

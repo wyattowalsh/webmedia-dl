@@ -408,6 +408,7 @@ def discover(
     drm = detect_drm_signals(body)
     title = parser.title or parser.meta.get("og:title")
     seen: set[str] = set()
+    found: list[MediaCandidate] = []
     for key, kind_hint in (
         ("og:image", MediaKind.IMAGE),
         ("og:image:url", MediaKind.IMAGE),
@@ -426,7 +427,9 @@ def discover(
             parser.urls.append((meta_url, kind_hint))
     for item in seeded:
         seen.update(item.retrieval_urls)
-    found: list[MediaCandidate] = list(seeded)
+        found.append(
+            item.model_copy(update={"drm_signals": sorted(set(item.drm_signals) | set(drm))})
+        )
     for raw, guessed in parser.urls:
         absolute = urljoin(url, raw)
         if not _usable_url(absolute, profile):

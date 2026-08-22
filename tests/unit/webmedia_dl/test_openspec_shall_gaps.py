@@ -33,6 +33,7 @@ from webmedia_dl.domain.enums import (
 )
 from webmedia_dl.domain.models import (
     Artifact,
+    BrowserEvidence,
     EventRecord,
     ExportIntent,
     Job,
@@ -297,6 +298,34 @@ def test_html_cenc_page_drm_signals_stay_on_candidates() -> None:
     videos = [item for item in found if item.media_kind is MediaKind.VIDEO]
     assert videos
     assert any(item.drm_signals for item in videos)
+    html_video = """
+    <html><body>
+      <p>schemeIdUri="cenc"</p>
+      <video src="https://cdn.example.com/clip.mp4"></video>
+    </body></html>
+    """
+    evidence = [
+        BrowserEvidence(url="https://cdn.example.com/clip.mp4", kind=MediaKind.VIDEO),
+        BrowserEvidence(url="https://cdn.example.com/captured.mp4", kind=MediaKind.VIDEO),
+    ]
+    found = discover(
+        _page_source(),
+        get_profile("personal-full"),
+        html=html_video,
+        evidence=evidence,
+    )
+    evidenced = [
+        item
+        for item in found
+        if item.retrieval_urls
+        and item.retrieval_urls[0]
+        in {
+            "https://cdn.example.com/clip.mp4",
+            "https://cdn.example.com/captured.mp4",
+        }
+    ]
+    assert len(evidenced) == 2
+    assert all(item.drm_signals for item in evidenced)
 
 
 def test_namespaced_dash_content_protection_and_segmentlist() -> None:
