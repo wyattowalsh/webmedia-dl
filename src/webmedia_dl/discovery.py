@@ -267,7 +267,7 @@ def _kind_from_mime(mime: str | None) -> MediaKind | None:
     return None
 
 
-_MPD_HINT = re.compile(r"<[A-Za-z_][\w.-]*:?MPD\b", re.I)
+_MPD_HINT = re.compile(r"<(?:[A-Za-z_][\w.-]*:)?MPD\b", re.I)
 
 
 def _sniff_live_manifest(content_type: str, body: str) -> bool:
