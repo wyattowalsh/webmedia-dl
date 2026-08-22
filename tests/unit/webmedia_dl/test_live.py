@@ -247,7 +247,7 @@ def test_time_token_without_timeline_is_skipped() -> None:
     assert recordable_segment_urls(text, "https://cdn.example.com/") == []
 
 
-def test_dash_segmentbase_media_range() -> None:
+def test_dash_segmentbase_media_range(tmp_path: Path) -> None:
     text = """
     <MPD><Period>
       <Representation id="v1" bandwidth="800000" mimeType="video/mp4">
@@ -264,6 +264,33 @@ def test_dash_segmentbase_media_range() -> None:
         ("https://cdn.example.com/video.mp4", 10, 6),
         ("https://cdn.example.com/video.mp4", 16, 5),
     ]
+    bare = """
+    <MPD><Period>
+      <Representation id="v1" bandwidth="800000" mimeType="video/mp4">
+        <BaseURL>https://cdn.example.com/video123</BaseURL>
+        <SegmentBase indexRange="10-15" mediaRange="16-20">
+          <Initialization range="0-9"/>
+        </SegmentBase>
+      </Representation>
+    </Period></MPD>
+    """
+    bare_parts = recordable_parts(bare, "https://cdn.example.com/manifest.mpd")
+    assert [(part.url, part.start, part.length) for part in bare_parts] == [
+        ("https://cdn.example.com/video123", 0, 10),
+        ("https://cdn.example.com/video123", 10, 6),
+        ("https://cdn.example.com/video123", 16, 5),
+    ]
+    fetched: list[str] = []
+    blob = bytes(range(21))
+
+    def fetch(url: str) -> tuple[int, str, bytes]:
+        fetched.append(url)
+        return 200, "video/mp4", blob
+
+    dest = tmp_path / "dash.bin"
+    record_clear_stream(bare, "https://cdn.example.com/manifest.mpd", dest, fetch)
+    assert fetched == ["https://cdn.example.com/video123"]
+    assert dest.read_bytes() == blob[0:10] + blob[10:16] + blob[16:21]
 
 
 def test_select_dash_group_prefers_video_then_audio() -> None:

@@ -438,6 +438,19 @@ def test_dash_segmentbase_sourceurl_and_directory_file_baseurl() -> None:
         "<BaseURL><![CDATA[video.mp4]]></BaseURL>"
     )
     assert _file_baseurl(cdata_body, current) == "https://cdn.example.com/dash/video.mp4"
+    assert (
+        _file_baseurl("<BaseURL>https://cdn.example.com/video123</BaseURL>", current)
+        == "https://cdn.example.com/video123"
+    )
+    assert (
+        _file_baseurl(
+            "<BaseURL>https://cdn.example.com/dash</BaseURL><BaseURL>video123</BaseURL>",
+            current,
+        )
+        == "https://cdn.example.com/dash/video123"
+    )
+    assert _file_baseurl("<BaseURL>https://cdn.example.com/dash/</BaseURL>", current) is None
+    assert _file_baseurl("<BaseURL>$RepresentationID$</BaseURL>", current) is None
 
 
 def test_unexpanded_escaped_number_token_is_skipped() -> None:

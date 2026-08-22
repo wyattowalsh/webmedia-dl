@@ -2,6 +2,14 @@
 
 ## 0.1.0
 
+- Treat the last DASH BaseURL without a trailing slash as the SegmentBase
+  media object even when it has no file suffix, so `indexRange` /
+  `mediaRange` / Initialization ranges slice `https://cdn.example.com/video123`
+  instead of `video123/`. Earlier extensionless BaseURLs stay directory
+  prefixes for `video.mp4` children. GitHub Actions `32590778478` on
+  `0af53d2` passed Python (626 pytest, 100%), doctor provider probes, and
+  Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after sniffing
+  whitespace-padded UTF-8 BOM HLS/DASH as live.
 - Sniff HLS/DASH bodies after repeatedly stripping a leading UTF-8 BOM and
   surrounding whitespace, so a padded BOM before `#EXTM3U` or `<MPD` still
   plans `live.record_clear_manifest`. GitHub Actions `32590413729` on `0f02f71`

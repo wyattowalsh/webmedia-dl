@@ -533,13 +533,32 @@ def _file_baseurl(
     representation: str | None = None,
     bandwidth: str | None = None,
 ) -> str | None:
+    """Resolve SegmentBase/SegmentList media objects.
+
+    Earlier extensionless BaseURLs stay directory prefixes. The last BaseURL
+    without a trailing slash is the ranged object even when it has no suffix.
+    """
     current = _expand_locator_tokens(current, representation=representation, bandwidth=bandwidth)
+    hrefs = [
+        _expand_locator_tokens(href, representation=representation, bandwidth=bandwidth)
+        for href in _dash_baseurls(text)
+    ]
     file_url = None
-    for href in _dash_baseurls(text):
-        href = _expand_locator_tokens(href, representation=representation, bandwidth=bandwidth)
-        current, resolved = _advance_base(current, href)
-        if resolved is not None:
+    last_index = len(hrefs) - 1
+    for index, href in enumerate(hrefs):
+        resolved = _join(current, href)
+        last_object = (
+            index == last_index
+            and not resolved.endswith("/")
+            and _UNEXPANDED_DASH.search(resolved) is None
+        )
+        if last_object:
             file_url = resolved
+            current = resolved
+            continue
+        current, resolved_file = _advance_base(current, href)
+        if resolved_file is not None:
+            file_url = resolved_file
     return file_url
 
 
