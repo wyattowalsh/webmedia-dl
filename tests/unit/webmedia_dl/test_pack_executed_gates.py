@@ -37,6 +37,24 @@ def test_validate_bundle_executes_start_here_gates() -> None:
     assert all(not path.endswith(".zip") for path in listed)
 
 
+def test_validate_bundle_pins_inventory_path_set() -> None:
+    root = repo_root()
+    mod = _load("validate_bundle_inventory_pin", "scripts/validate_bundle.py")
+    payload = json.loads((root / "scripts/pack_inventory.json").read_text(encoding="utf-8"))
+    assert mod.inventory_errors(payload, root) == []
+    mismatched = dict(payload)
+    mismatched["count"] = 158
+    assert any("count field" in item for item in mod.inventory_errors(mismatched, root))
+    swapped = dict(payload)
+    swapped["paths_relative"] = [*payload["paths_relative"][:-1], "src/webmedia_dl/pipeline.py"]
+    assert any("digest mismatch" in item for item in mod.inventory_errors(swapped, root))
+    directory = dict(payload)
+    directory["paths_relative"] = [*payload["paths_relative"][:-1], "apps"]
+    directory_errors = mod.inventory_errors(directory, root)
+    assert any("digest mismatch" in item for item in directory_errors)
+    assert any("directory" in item for item in directory_errors)
+
+
 def test_planning_note_writes_column_zero_yaml_front_matter(tmp_path: Path) -> None:
     mod = _load("generate_planning_overlay", "scripts/generate_planning_overlay.py")
     mod.ROOT = tmp_path

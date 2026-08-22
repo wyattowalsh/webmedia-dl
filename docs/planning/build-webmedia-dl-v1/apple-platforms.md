@@ -28,7 +28,10 @@ encrypted HLS/DASH, and live manifests fail closed locally and require a paired 
 Watch companion messages travel watch → iPhone `WCSession` → Mac LAN HTTP; the Mac
 app does not activate `WCSession`. The iPhone companion hops those `userInfo`
 deliveries onto the main actor before forwarding, and JSON companion/loopback
-POSTs without a serializable body fail closed. tvOS capture is typed URL only (`UIPasteboard` is
+POSTs without a serializable body fail closed. The Mac LAN relay refuses
+malformed JSON instead of skipping `nativeCommand` checks. On-device Files
+writes replace the destination atomically so a failed commit keeps the previous
+file. tvOS capture is typed URL only (`UIPasteboard` is
 unavailable). Photos/Files/Share destinations require a user-approved root. Swift
 packages are under `apps/`. GitHub `macos-15` CI runs Core `swift test`, builds the
 Mac package including the share-extension library product, typechecks

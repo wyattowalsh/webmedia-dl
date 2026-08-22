@@ -85,6 +85,42 @@ RECOVERED_SHA256 = {
 }
 
 
+INVENTORY_COUNT = 159
+INVENTORY_PATHS_SHA256 = "58210026695534887595087274e420b97fa14451713411bcbc4852c989cc888d"
+
+
+def inventory_errors(payload: object, root: Path) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(payload, dict):
+        return ["pack inventory is not an object"]
+    paths = payload.get("paths_relative")
+    if not isinstance(paths, list) or not all(isinstance(item, str) for item in paths):
+        return ["pack inventory paths_relative is not a string list"]
+    declared = payload.get("count")
+    if declared != INVENTORY_COUNT:
+        errors.append(f"pack inventory count field is {declared}, expected {INVENTORY_COUNT}")
+    if len(paths) != INVENTORY_COUNT:
+        errors.append(f"pack inventory path list is {len(paths)}, expected {INVENTORY_COUNT}")
+    if declared != len(paths):
+        errors.append("pack inventory count field does not match path list")
+    if len(paths) != len(set(paths)):
+        errors.append("pack inventory has duplicate paths")
+    digest = hashlib.sha256("\n".join(paths).encode()).hexdigest()
+    if digest != INVENTORY_PATHS_SHA256:
+        errors.append("pack inventory path set digest mismatch")
+    for rel in paths:
+        overlay = Path(rel.replace("\\", "/"))
+        if overlay.is_absolute() or ".." in overlay.parts:
+            errors.append(f"pack inventory path is not a relative overlay {rel}")
+            continue
+        path = root / rel
+        if path.is_dir():
+            errors.append(f"pack inventory path is a directory {rel}")
+        elif not path.is_file():
+            errors.append(f"pack inventory missing {rel}")
+    return errors
+
+
 def fail(errors: list[str]) -> int:
     for item in errors:
         print(f"FAIL: {item}", file=sys.stderr)
@@ -289,21 +325,11 @@ def main() -> int:
     inventory_complete = False
     if inventory_path.is_file():
         inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
-        inventory_paths = inventory.get(
-            "paths_relative", inventory if isinstance(inventory, list) else []
-        )
-        if len(inventory_paths) != 159:
-            errors.append(f"pack inventory count is {len(inventory_paths)}, expected 159")
-        if len(inventory_paths) != len(set(inventory_paths)):
-            errors.append("pack inventory has duplicate paths")
-        for rel in inventory_paths:
-            overlay = Path(str(rel).replace("\\", "/"))
-            if overlay.is_absolute() or ".." in overlay.parts:
-                errors.append(f"pack inventory path is not a relative overlay {rel}")
-        missing = [rel for rel in inventory_paths if not (ROOT / rel).exists()]
-        for rel in missing:
-            errors.append(f"pack inventory missing {rel}")
-        inventory_complete = len(inventory_paths) == 159 and not missing
+        inv_errs = inventory_errors(inventory, ROOT)
+        errors.extend(inv_errs)
+        raw_paths = inventory.get("paths_relative") if isinstance(inventory, dict) else inventory
+        inventory_paths = [str(rel) for rel in raw_paths] if isinstance(raw_paths, list) else []
+        inventory_complete = not inv_errs
         if inventory_paths:
             check_markdown_links(errors, inventory_paths)
             check_overlay_front_matter(errors, inventory_paths)

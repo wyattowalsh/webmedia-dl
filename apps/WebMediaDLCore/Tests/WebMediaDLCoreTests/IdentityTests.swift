@@ -51,7 +51,7 @@ final class IdentityTests: XCTestCase {
         )
     }
 
-    func testContinuityIsNotASubprocessWorker() {
+    func testContinuityIsNotASubprocessWorker() throws {
         let bridge = WebMediaDLContinuityBridge()
         XCTAssertFalse(bridge.isSubprocessWorker)
         XCTAssertEqual(WebMediaDLContinuityBridge.loopbackURL.host, "127.0.0.1")
@@ -72,8 +72,16 @@ final class IdentityTests: XCTestCase {
         relay.enqueue(message)
         let suiteName = "webmedia-dl.relay.\(UUID().uuidString)"
         let suite = UserDefaults(suiteName: suiteName)!
-        relay.persist(defaults: suite)
-        XCTAssertEqual(WebMediaDLCompanionRelay.load(defaults: suite).pending, [message])
+        try relay.persist(defaults: suite)
+        XCTAssertEqual(try WebMediaDLCompanionRelay.load(defaults: suite).pending, [message])
+        suite.set(Data("nope".utf8), forKey: WebMediaDLCompanionRelay.defaultsKey)
+        do {
+            _ = try WebMediaDLCompanionRelay.load(defaults: suite)
+            XCTFail("corrupt companion relay JSON must fail closed")
+        } catch let error as WebMediaDLDomainError {
+            XCTAssertTrue(error.message.contains("companion relay JSON"))
+        }
+        XCTAssertEqual(suite.data(forKey: WebMediaDLCompanionRelay.defaultsKey), Data("nope".utf8))
         suite.removePersistentDomain(forName: suiteName)
         XCTAssertEqual(
             WebMediaDLShareItemExtractor.locators(fromShared: [

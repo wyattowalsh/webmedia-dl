@@ -414,14 +414,26 @@ public enum WebMediaDLMacWorkerRelay {
         else {
             throw WebMediaDLMacWorkerRelayError.missingURL
         }
-        if let body = incoming.httpBody,
-           let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any]
-        {
-            if let native = json["nativeCommand"] as? String, !native.isEmpty {
-                throw WebMediaDLMacWorkerRelayError.nativeCommand
-            }
-            if json["subprocessWorker"] as? Bool == true {
-                throw WebMediaDLMacWorkerRelayError.nativeCommand
+        if let body = incoming.httpBody, !body.isEmpty {
+            let contentType = incoming.value(forHTTPHeaderField: "Content-Type") ?? ""
+            let parsed = try? JSONSerialization.jsonObject(with: body)
+            if parsed == nil {
+                if contentType.contains("application/json")
+                    || body.first == UInt8(ascii: "{")
+                    || body.first == UInt8(ascii: "[")
+                {
+                    throw WebMediaDLMacWorkerRelayError.invalidJSON
+                }
+            } else {
+                guard let json = parsed as? [String: Any] else {
+                    throw WebMediaDLMacWorkerRelayError.invalidJSON
+                }
+                if let native = json["nativeCommand"] as? String, !native.isEmpty {
+                    throw WebMediaDLMacWorkerRelayError.nativeCommand
+                }
+                if json["subprocessWorker"] as? Bool == true {
+                    throw WebMediaDLMacWorkerRelayError.nativeCommand
+                }
             }
         }
         components.scheme = worker.scheme
@@ -452,6 +464,7 @@ public enum WebMediaDLMacWorkerRelayError: Error, Equatable {
     case notLoopbackWorker
     case missingURL
     case nativeCommand
+    case invalidJSON
     case macOnlyEndpoint
 }
 

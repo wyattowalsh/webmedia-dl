@@ -388,6 +388,13 @@ public final class WebMediaDLMacRelayServer: @unchecked Sendable {
                 reason: "Bad Request",
                 body: Data(#"{"detail":"nativeCommand"}"#.utf8)
             )
+        } catch WebMediaDLMacWorkerRelayError.invalidJSON {
+            reply(
+                connection,
+                status: 400,
+                reason: "Bad Request",
+                body: Data(#"{"detail":"invalidJSON"}"#.utf8)
+            )
         } catch WebMediaDLMacWorkerRelayError.macOnlyEndpoint {
             reply(
                 connection,

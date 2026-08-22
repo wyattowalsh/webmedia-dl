@@ -309,10 +309,7 @@ public enum WebMediaDLHttpDirect {
             do {
                 try FileManager.default.createDirectory(at: destRoot, withIntermediateDirectories: true)
                 try data.write(to: tmp, options: .atomic)
-                if FileManager.default.fileExists(atPath: final.path) {
-                    try FileManager.default.removeItem(at: final)
-                }
-                try FileManager.default.moveItem(at: tmp, to: final)
+                try commitReplacement(from: tmp, to: final)
             } catch let error as TransferError {
                 try? FileManager.default.removeItem(at: tmp)
                 throw error
@@ -399,10 +396,7 @@ public enum WebMediaDLHttpDirect {
             do {
                 try FileManager.default.createDirectory(at: destRoot, withIntermediateDirectories: true)
                 try body.write(to: tmp, options: .atomic)
-                if FileManager.default.fileExists(atPath: final.path) {
-                    try FileManager.default.removeItem(at: final)
-                }
-                try FileManager.default.moveItem(at: tmp, to: final)
+                try commitReplacement(from: tmp, to: final)
             } catch let error as TransferError {
                 try? FileManager.default.removeItem(at: tmp)
                 throw error
@@ -439,6 +433,15 @@ public enum WebMediaDLHttpDirect {
         let bookmark = WebMediaDLSecurityScopedBookmark(path: "", bookmarkData: bookmarkData).resolve()
         guard !bookmark.path.isEmpty, !bookmark.stale else { return nil }
         return try await transfer(locator: locator, bookmark: bookmark, surface: surface, fetch: fetch)
+    }
+
+    /// Replace `final` with `tmp` without unlinking the approved file first.
+    public static func commitReplacement(from tmp: URL, to final: URL) throws {
+        if FileManager.default.fileExists(atPath: final.path) {
+            _ = try FileManager.default.replaceItemAt(final, withItemAt: tmp)
+        } else {
+            try FileManager.default.moveItem(at: tmp, to: final)
+        }
     }
 
     private static func withSecurityScope<T>(

@@ -2,6 +2,14 @@
 
 ## 0.1.0
 
+- GitHub Actions `32565897471` on `786e78c` passed Python (582 pytest, 100%)
+  and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after hopping iPhone
+  watch-forward onto the main actor. Malformed LAN JSON no longer skips
+  `nativeCommand` checks; companion relay persist/load fail closed; Files
+  commits use `replaceItemAt` so a failed overwrite keeps the previous file;
+  pack inventory pins the 159-path digest and rejects directories. Coverage
+  `fail_under` is 100 after that GitHub HEAD report. Local `uv run pytest --cov`
+  is 583 tests at 100%.
 - iPhone watch-forward hops `WCSession` `userInfo` onto the main actor before
   mutating SwiftUI state (GitHub `32565480088` on `7088fda` compiled Python
   and failed iOS device Swift 6 with `status` mutated from a nonisolated

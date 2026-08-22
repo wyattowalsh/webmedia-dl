@@ -434,6 +434,18 @@ final class ContractTests: XCTestCase {
         var subprocess = request
         subprocess.httpBody = try JSONSerialization.data(withJSONObject: ["subprocessWorker": true])
         XCTAssertThrowsError(try WebMediaDLMacWorkerRelay.forwardToLoopback(subprocess))
+        var malformed = request
+        malformed.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        malformed.httpBody = Data("{".utf8)
+        XCTAssertThrowsError(try WebMediaDLMacWorkerRelay.forwardToLoopback(malformed)) { error in
+            XCTAssertEqual(error as? WebMediaDLMacWorkerRelayError, .invalidJSON)
+        }
+        var jsonArray = request
+        jsonArray.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        jsonArray.httpBody = Data("[]".utf8)
+        XCTAssertThrowsError(try WebMediaDLMacWorkerRelay.forwardToLoopback(jsonArray)) { error in
+            XCTAssertEqual(error as? WebMediaDLMacWorkerRelayError, .invalidJSON)
+        }
         XCTAssertFalse(WebMediaDLMacRelayServer.isAllowedBindHost("example.com"))
         XCTAssertThrowsError(try WebMediaDLMacRelayServer.requireAllowedBind(host: "example.com"))
         XCTAssertTrue(WebMediaDLMacRelayServer.isAllowedBindHost("127.0.0.1"))
@@ -608,6 +620,7 @@ final class ContractTests: XCTestCase {
     }
 
     func testWatchConnectivityFallbackAndMacRelayTyping() async throws {
+        defer { UserDefaults.standard.removeObject(forKey: WebMediaDLCompanionRelay.defaultsKey) }
         var queued = WebMediaDLQueuedCompanionTransport()
         try await queued.send(
             WebMediaDLCompanionMessage(kind: .cancel, jobId: UUID().uuidString, surface: .tvos)
@@ -1214,6 +1227,20 @@ final class ContractTests: XCTestCase {
             XCTFail("unresolvable bookmark data must fail closed")
         } catch WebMediaDLHttpDirect.TransferError.destinationDenied {
             ()
+        }
+        let kept = root.appendingPathComponent("kept.bin")
+        let incoming = root.appendingPathComponent("incoming.bin")
+        try Data("old".utf8).write(to: kept)
+        try Data("new".utf8).write(to: incoming)
+        try WebMediaDLHttpDirect.commitReplacement(from: incoming, to: kept)
+        XCTAssertEqual(try String(contentsOf: kept, encoding: .utf8), "new")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: incoming.path))
+        let missing = root.appendingPathComponent("missing.bin")
+        do {
+            try WebMediaDLHttpDirect.commitReplacement(from: missing, to: kept)
+            XCTFail("missing replacement source must fail closed")
+        } catch {
+            XCTAssertEqual(try String(contentsOf: kept, encoding: .utf8), "new")
         }
 
         XCTAssertEqual(

@@ -139,20 +139,22 @@ public struct WebMediaDLCompanionRelay: Sendable {
         pending.append(message)
     }
 
-    public mutating func persist(defaults: UserDefaults = .standard) {
-        let data = try? JSONEncoder().encode(pending)
-        defaults.set(data, forKey: WebMediaDLCompanionRelay.defaultsKey)
+    public mutating func persist(defaults: UserDefaults = .standard) throws {
+        defaults.set(try JSONEncoder().encode(pending), forKey: WebMediaDLCompanionRelay.defaultsKey)
     }
 
     public static let defaultsKey = "webmedia-dl.companion-relay"
 
-    public static func load(defaults: UserDefaults = .standard) -> WebMediaDLCompanionRelay {
-        guard let data = defaults.data(forKey: defaultsKey),
-              let pending = try? JSONDecoder().decode([WebMediaDLCompanionMessage].self, from: data)
-        else {
+    public static func load(defaults: UserDefaults = .standard) throws -> WebMediaDLCompanionRelay {
+        guard let data = defaults.data(forKey: defaultsKey) else {
             return WebMediaDLCompanionRelay()
         }
-        return WebMediaDLCompanionRelay(pending: pending)
+        do {
+            let pending = try JSONDecoder().decode([WebMediaDLCompanionMessage].self, from: data)
+            return WebMediaDLCompanionRelay(pending: pending)
+        } catch {
+            throw WebMediaDLDomainError("companion relay JSON is not a message list")
+        }
     }
 
     @discardableResult
@@ -178,7 +180,7 @@ public struct WebMediaDLQueuedCompanionTransport: WebMediaDLCompanionTransport {
     public mutating func send(_ message: WebMediaDLCompanionMessage) async throws {
         try WebMediaDLCompanionMessage.validate(message)
         relay.enqueue(message)
-        relay.persist()
+        try relay.persist()
     }
 }
 
@@ -195,8 +197,11 @@ public final class WebMediaDLLocalNetworkCompanionTransport: WebMediaDLCompanion
         do {
             lastResponse = try await WebMediaDLPairedMacSubmit.companion(message)
         } catch {
+            if fallback.relay.pending.isEmpty {
+                fallback.relay = try WebMediaDLCompanionRelay.load()
+            }
             fallback.relay.enqueue(message)
-            fallback.relay.persist()
+            try fallback.relay.persist()
             throw error
         }
     }
@@ -233,8 +238,10 @@ public final class WebMediaDLWatchConnectivityTransport: NSObject, WebMediaDLCom
         }
         #endif
         var queued = fallback
+        if queued.relay.pending.isEmpty {
+            queued.relay = try WebMediaDLCompanionRelay.load()
+        }
         try await queued.send(message)
-        queued.relay.persist()
         fallback = queued
     }
 

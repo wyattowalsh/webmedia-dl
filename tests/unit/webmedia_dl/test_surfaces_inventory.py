@@ -390,6 +390,11 @@ def test_companion_transport_and_typed_history() -> None:
     assert "envelope JSON is not a sealed companion" in continuity
     assert "requireHTTPSuccess" in continuity
     assert "requireJSONBody" in continuity
+    assert "companion relay JSON is not a message list" in continuity
+    assert "try relay.persist" in continuity
+    assert "try WebMediaDLCompanionRelay.load" in continuity
+    assert "try? JSONEncoder().encode(pending)" not in continuity
+    assert "try? JSONDecoder().decode([WebMediaDLCompanionMessage]" not in continuity
     assert "var surface:" in continuity
     watch = (root / ROOT_VIEWS["watchos"]).read_text(encoding="utf-8")
     tv = (root / ROOT_VIEWS["tvos"]).read_text(encoding="utf-8")
@@ -817,6 +822,11 @@ def test_github_ci_compiles_apple_packages() -> None:
     assert "JSON content-type without a body must fail closed" in contracts
     assert "requireSealedEnvelope" in contracts
     assert "empty envelope fields must fail closed" in contracts
+    assert "invalidJSON" in contracts
+    assert "commitReplacement" in contracts
+    assert "corrupt companion relay JSON must fail closed" in (
+        repo_root() / "apps/WebMediaDLCore/Tests/WebMediaDLCoreTests/IdentityTests.swift"
+    ).read_text(encoding="utf-8")
     assert "requireHistoryEntries" in contracts
     assert "http://cdn.example.com/a.mp4" in contracts
     assert "redirect statuses must not publish HTML" in contracts
@@ -849,6 +859,7 @@ def test_github_ci_compiles_apple_packages() -> None:
     assert 'token: ""' in paired_mac
     assert "token: credentials.token" not in paired_mac
     assert "macOnlyEndpoint" in paired_mac
+    assert "invalidJSON" in paired_mac
     assert "loopbackToken" in paired_mac
     assert 'forHTTPHeaderField: "X-WebMedia-Token"' in paired_mac
     assert "maxStagingBytes" in relay_http
@@ -857,6 +868,7 @@ def test_github_ci_compiles_apple_packages() -> None:
     assert "loopbackToken" in relay_http
     assert '"authorization"' in relay_http
     assert '"x-webmedia-token"' in relay_http
+    assert "invalidJSON" in relay_http
     assert "mac-only endpoint" in relay_http
 
 
@@ -916,6 +928,8 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert "WebMediaDLHttpDirectRedirectGate" in http_direct
     assert "data.count >= maxBytes" in http_direct
     assert "TransferError.overflow" in http_direct
+    assert "func commitReplacement(" in http_direct
+    assert "replaceItemAt" in http_direct
     assert "unsupportedSurface" in http_direct
     assert "WebMediaDLCapabilityRegistry.allows(.acquireHTTP, on: surface)" in http_direct
     ios = (root / ROOT_VIEWS["ios"]).read_text(encoding="utf-8")
@@ -1428,6 +1442,9 @@ def test_unsigned_xcode_app_extension_products(
         module.extension_rows(tmp_path / "empty-root")
     validator = (root / "scripts/validate_bundle.py").read_text(encoding="utf-8")
     assert '".ci-derived-appex-xcode"' in validator
+    assert "INVENTORY_PATHS_SHA256" in validator
+    assert "def inventory_errors(" in validator
+    assert "pack inventory path is a directory" in validator
     monkeypatch.setattr(module.plistlib, "loads", lambda *_args, **_kwargs: {})
     with pytest.raises(ValueError, match="CFBundleIdentifier"):
         module.extension_rows(root)
