@@ -1110,6 +1110,48 @@ def test_dash_segmentbase_keeps_representation_file() -> None:
         ("https://cdn.example.com/video.mp4", 0, 10),
         ("https://cdn.example.com/video.mp4", 10, None),
     ]
+    token_init = """
+    <MPD><Period>
+      <Representation id="v1" bandwidth="800" mimeType="video/mp4">
+        <BaseURL>https://cdn.example.com/</BaseURL>
+        <SegmentBase>
+          <Initialization sourceURL="$RepresentationID$/init.mp4" range="0-3"/>
+        </SegmentBase>
+      </Representation>
+    </Period></MPD>
+    """
+    assert recordable_parts(token_init, "https://cdn.example.com/manifest.mpd") == [
+        ManifestPart("https://cdn.example.com/v1/init.mp4", 0, 4, 0),
+    ]
+    bandwidth_init = """
+    <MPD><Period>
+      <Representation id="v1" bandwidth="800" mimeType="video/mp4">
+        <BaseURL>https://cdn.example.com/</BaseURL>
+        <SegmentBase>
+          <Initialization sourceURL="$Bandwidth%06d$/init.mp4" range="0-3"/>
+        </SegmentBase>
+      </Representation>
+    </Period></MPD>
+    """
+    assert recordable_parts(bandwidth_init, "https://cdn.example.com/manifest.mpd") == [
+        ManifestPart("https://cdn.example.com/000800/init.mp4", 0, 4, 0),
+    ]
+    skip_number = """
+    <MPD><Period>
+      <Representation id="v1" bandwidth="800000" mimeType="video/mp4">
+        <BaseURL>video.mp4</BaseURL>
+        <SegmentBase indexRange="10-15">
+          <Initialization sourceURL="$Number$/init.mp4" range="0-9"/>
+        </SegmentBase>
+      </Representation>
+    </Period></MPD>
+    """
+    assert [
+        (part.url, part.start, part.length)
+        for part in recordable_parts(skip_number, "https://cdn.example.com/")
+    ] == [
+        ("https://cdn.example.com/video.mp4", 10, 6),
+    ]
 
 
 def test_companion_relay_queues_until_mac_forwards() -> None:

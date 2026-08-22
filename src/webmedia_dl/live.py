@@ -641,15 +641,30 @@ def _file_baseurl(
     return file_url
 
 
-def _collect_segment_base(text: str, file_url: str, add: AddPart) -> None:
+def _collect_segment_base(
+    text: str,
+    file_url: str,
+    add: AddPart,
+    *,
+    representation: str | None = None,
+    bandwidth: str | None = None,
+) -> None:
     for match in _DASH_SEGMENT_BASE.finditer(text):
         attrs = _attrs(match.group(1))
         body = match.group(2) or ""
         for init in _INIT_TAG.finditer(body):
             iattrs = _attrs(init.group(1))
             href = iattrs.get("sourceurl")
-            url = _join(file_url, href.strip()) if href else file_url
             start, length = _parse_dash_range(iattrs.get("range"))
+            if href:
+                resolved = _resolved_dash_href(
+                    href, representation=representation, bandwidth=bandwidth
+                )
+                if resolved is None:
+                    continue
+                url = _join(file_url, resolved)
+            else:
+                url = file_url
             add(ManifestPart(url, start, length))
         index_start, index_length = _parse_dash_range(attrs.get("indexrange"))
         if index_start is not None:
@@ -866,7 +881,13 @@ def _collect_representation(
             )
             or local_base
         )
-        _collect_segment_base(working, file_url, add)
+        _collect_segment_base(
+            working,
+            file_url,
+            add,
+            representation=representation,
+            bandwidth=bandwidth_token,
+        )
         try:
             bandwidth = int(rattrs.get("bandwidth") or 0)
         except ValueError:

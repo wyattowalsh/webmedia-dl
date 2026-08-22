@@ -2,6 +2,12 @@
 
 ## 0.1.0
 
+- Expand DASH `$RepresentationID$` / `$Bandwidth%0Nd$` in SegmentBase
+  `Initialization` `sourceURL` the same way as SegmentList, and skip leftover
+  `$Number$` init locators instead of recording a literal path. GitHub Actions
+  `32595908708` on `2b24213` passed Python (626 pytest, 100%), doctor provider
+  probes, and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after expanding
+  SegmentList Initialization/SegmentURL identifier tokens.
 - Expand DASH `$RepresentationID$` / `$Bandwidth%0Nd$` in SegmentList
   `Initialization` `sourceURL` and `SegmentURL` `media` the same way as
   SegmentTemplate, and skip leftover `$Number$` tokens instead of recording a
