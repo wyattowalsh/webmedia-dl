@@ -4,7 +4,8 @@
 
 - DASH `$Number$` templates expand through `endNumber` or Period /
   `mediaPresentationDuration` (capped at 64 segments). Provider stdout/stderr
-  is clipped to 8 MiB before logging.
+  is clipped to 8 MiB before logging. GitHub Actions run `32552988266` on
+  `f3fd795` passed Python (529 pytest) and Swift (18 tests, 0 failures).
 - Confirmed iPhone/iPad/visionOS pairing keeps `personal-restricted` on the job
   record while the Mac worker executes yt-dlp. Unconfirmed pairing still denies
   delegation. Fetch follows redirects hop-by-hop under `authorize_url` (no
@@ -13,12 +14,12 @@
   are `0600`. Queue control and pair bodies `extra=forbid` and reject
   `nativeCommand`. Doctor reports `tools.ffprobe`. Bundle zips skip `.env` and
   key material. Provider staging ignores symlinks out of the job directory.
-  GitHub Actions run `32552492811` on `4c1b116` passed Python (528 pytest) and
-  Swift (18 tests, 0 failures).
+  GitHub Actions run `32552988266` on `f3fd795` re-proved that pairing path
+  (529 pytest; 18 Swift tests, 0 failures).
 - Mac, iPhone, iPad, and visionOS App Intents pause, resume, history, status,
   cancel, and per-job pause/resume through the same worker/relay paths as the
   in-app queue controls. watchOS and tvOS cancel, pause_job, and resume_job
-  App Intents include a job UUID. GitHub `macos-15` run `32552492811` (`4c1b116`,
+  App Intents include a job UUID. GitHub `macos-15` run `32552988266` (`f3fd795`,
   18 tests, 0 failures) compiled those intents. Prior queue App Intents compiled
   on run `32550239808` (`24aeb5c`).
 - watchOS and tvOS App Intents queue pause, resume, history, status, and
