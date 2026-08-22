@@ -42,3 +42,4 @@ def test_submit_history_job_roundtrip(tmp_path: Path, png_bytes: bytes) -> None:
     detail = json.loads(shown.stdout)
     assert detail["job"]["state"] == "completed"
     assert detail["events"]
+    assert detail["artifact_ids"] == match["artifact_ids"]

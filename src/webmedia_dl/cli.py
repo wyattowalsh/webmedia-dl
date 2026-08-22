@@ -338,16 +338,15 @@ def job(
     job_id: Annotated[UUID, typer.Argument()],
     data_dir: Annotated[Path | None, typer.Option("--data-dir")] = None,
 ) -> None:
-    """Show one job and its events."""
+    """Show one job, its events, and publishable artifact ids."""
+    from webmedia_dl.service import job_detail_payload
+
     pipeline = _pipeline(data_dir)
     try:
-        record = pipeline.job(job_id)
+        payload = job_detail_payload(pipeline, job_id)
     except KeyError as exc:
         _fail_cli(exc)
-    events = [event.model_dump(mode="json") for event in pipeline.queue.events_for(job_id)]
-    typer.echo(
-        json.dumps({"job": record.model_dump(mode="json"), "events": events}, indent=2, default=str)
-    )
+    typer.echo(json.dumps(payload, indent=2, default=str))
 
 
 @app.command()

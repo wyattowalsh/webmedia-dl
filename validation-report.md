@@ -2,8 +2,8 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 583 tests locally; GitHub Actions `ci` run `32569815075` (`91eeb25`) passed Python (583 pytest, 100%) and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED). `32569700666` (`ae33eda`) passed Python and failed Swift plan-body slash escaping; `32569147243` (`5932ebc`) passed Python and Swift after speaking App Intent results. `32568400311` (`b2839e6`) hopped complete-client queue buttons onto Core; `32568126057` (`f474719`) boxed Mac worker spawn; `32567922144` (`6516591`) passed Python and failed Swift 6 non-Sendable start closures; `32567533760` (`6aad227`) passed Python and failed Swift 6 Mac `WebMediaDLMacWorkerLaunch` Sendable |
-| `uv run pytest --cov` | PASS | 583 tests at 100% locally (`fail_under` 100); GitHub `32569815075` (`91eeb25`) was 583 tests at 100% |
+| `uv run pytest` | PASS | 583 tests locally; GitHub Actions `ci` run `32571904208` (`d5fee40`) passed Python (583 pytest, 100%) and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED). `32569815075` (`91eeb25`) decoded plan JSON objects; `32569700666` (`ae33eda`) passed Python and failed Swift plan-body slash escaping; `32569147243` (`5932ebc`) passed Python and Swift after speaking App Intent results. `32568400311` (`b2839e6`) hopped complete-client queue buttons onto Core; `32568126057` (`f474719`) boxed Mac worker spawn; `32567922144` (`6516591`) passed Python and failed Swift 6 non-Sendable start closures; `32567533760` (`6aad227`) passed Python and failed Swift 6 Mac `WebMediaDLMacWorkerLaunch` Sendable |
+| `uv run pytest --cov` | PASS | 583 tests at 100% locally (`fail_under` 100); GitHub `32571904208` (`d5fee40`) was 583 tests at 100% |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
 | `uv run ty check` | PASS | |
@@ -76,10 +76,10 @@
 | Duplicate exported ids | PASS | `stage=exported` with duplicate `produced_ids` still completes |
 | Acquired remote skip | PASS | resume at `stage=acquired` does not refetch remote media |
 | ImageMagick convert alias | PASS | health and argv resolve IM6 `convert` when `magick` is missing |
-| Job-detail / run-next helpers | PASS | `artifact_ids` come from `JOB_COMPLETED` publishable ids, not history unions or `SOURCE_REGISTERED`; empty queue returns `job: null`; a queued job returns events |
+| Job-detail / run-next helpers | PASS | `artifact_ids` come from `JOB_COMPLETED` publishable ids on job detail, history, and `webmedia-dl job`; empty queue returns `job: null`; a queued job returns events |
 | Swift Core CI job | PASS | GitHub Actions `ci` run `32560244195` on `5cb2090`: `IdentityTests` executed 6 tests, 0 failures on `macos-15` |
 | Swift Core contract tests | PASS | `ContractTests.swift` executed 12 tests, 0 failures with IdentityTests (6) on GitHub `macos-15` run `32560244195` (`5cb2090`) |
-| Apple package compile CI | PASS | GitHub Actions `ci` run `32569815075` on `91eeb25`: Core `swift test` 18 tests, 0 failures (`ContractTests` 12 + `IdentityTests` 6); Safari handler `swiftc -typecheck`; 8× package `BUILD SUCCEEDED` plus 4× unsigned `com.apple.product-type.app-extension` `.appex`. Device runtime stays BLOCKED |
+| Apple package compile CI | PASS | GitHub Actions `ci` run `32571904208` on `d5fee40`: Core `swift test` 18 tests, 0 failures (`ContractTests` 12 + `IdentityTests` 6); Safari handler `swiftc -typecheck`; 8× package `BUILD SUCCEEDED` plus 4× unsigned `com.apple.product-type.app-extension` `.appex`. Device runtime stays BLOCKED |
 | OpenSpec scenarios | PASS | every capability spec scenario has WHEN/THEN; each scenario title maps to a named Python or Swift test in a pinned source file; popup markup is parsed; drop records `local_path`; local submit does not upload; job submit forbids native argv; queue-level events use a zero UUID; `wmdl` is not the console script; remux precedes transcode; failed derivatives do not block siblings; `run_next` restores cookie grants, HTML, and browser evidence; unsafe format ids are refused; doctor keeps signing/stores/legal BLOCKED |
 | Builtin manifests / profiles | PASS | every shipped provider sets `install_automatic` false and `accepts_user_argv` false; every shipped profile forbids telemetry, DRM circumvention, and delegation |
 | Graph relation schema | PASS | Swift `WebMediaDLGraphRelation` raw values match `GraphEdge.relation` |

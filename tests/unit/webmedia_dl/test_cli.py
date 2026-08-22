@@ -350,6 +350,7 @@ def test_speak_history_artifacts_provenance_and_queue(tmp_path: Path, png_bytes:
     job_id = json.loads(submitted.stdout)["job"]["job_id"]
     shown = runner.invoke(app, ["job", job_id, "--data-dir", str(data)])
     assert shown.exit_code == 0
+    assert json.loads(shown.stdout)["artifact_ids"]
     history = runner.invoke(app, ["history", "--data-dir", str(data)])
     assert history.exit_code == 0
     listed = runner.invoke(app, ["artifacts", "--data-dir", str(data)])

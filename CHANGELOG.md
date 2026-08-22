@@ -2,6 +2,11 @@
 
 ## 0.1.0
 
+- GitHub Actions `32571904208` on `d5fee40` passed Python (583 pytest, 100%)
+  and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after merging
+  same-digest provenance and listing only publishable `JOB_COMPLETED` ids on
+  `GET /v1/jobs/{id}`. History and `webmedia-dl job` now use those same
+  publishable ids instead of unioning unpublished `SOURCE_REGISTERED` sources.
 - GitHub Actions `32569815075` on `91eeb25` passed Python (583 pytest, 100%)
   and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after decoding plan
   JSON objects instead of matching escaped slashes. Same-digest registrations

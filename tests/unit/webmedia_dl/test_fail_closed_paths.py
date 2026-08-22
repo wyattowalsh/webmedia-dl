@@ -291,6 +291,10 @@ def test_include_original_false_leaves_no_publishable_source(
         event.type is EventType.JOB_COMPLETED for event in pipeline.queue.events_for(job.job_id)
     )
     assert job_detail_payload(pipeline, job.job_id)["artifact_ids"] == []
+    history = next(item for item in pipeline.history_entries() if item["job_id"] == str(job.job_id))
+    assert history["artifact_ids"] == []
+    for artifact_id in registered:
+        assert artifact_id not in history["artifact_ids"]
 
 
 def test_pipeline_skips_preview_produced_ids_and_publishes_source(

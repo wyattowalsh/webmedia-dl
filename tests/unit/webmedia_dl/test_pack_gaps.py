@@ -8,6 +8,7 @@ from webmedia_dl.capabilities import load_platform_matrix, registry
 from webmedia_dl.domain.enums import (
     ArtifactRole,
     DestinationKind,
+    EventType,
     IntakeKind,
     JobState,
     MediaKind,
@@ -416,9 +417,15 @@ def test_history_includes_artifact_ids(tmp_path: Path, png_bytes: bytes) -> None
     media.write_bytes(png_bytes)
     pipeline = Pipeline(data_dir=tmp_path / "data")
     job = pipeline.submit(str(media))
+    pipeline.queue.emit(
+        job.job_id,
+        EventType.SOURCE_REGISTERED,
+        {"artifact_id": "sha256:unpublished"},
+    )
     entries = pipeline.history_entries()
     match = next(item for item in entries if item["job_id"] == str(job.job_id))
     assert match["artifact_ids"]
+    assert "sha256:unpublished" not in match["artifact_ids"]
     assert match["last_events"]
 
 

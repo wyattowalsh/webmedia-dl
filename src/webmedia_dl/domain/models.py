@@ -453,17 +453,11 @@ class HistoryEntry(StrictModel):
         partial = False
         failed_kinds: list[str] = []
         for event in events:
-            if event.payload.get("artifact_id"):
-                artifact_ids.append(str(event.payload["artifact_id"]))
-            for item in event.payload.get("artifact_ids") or []:
-                artifact_ids.append(str(item))
-            if event.type is EventType.JOB_COMPLETED:
-                partial = bool(event.payload.get("partial"))
-                failed_kinds = [str(item) for item in event.payload.get("failed_kinds") or []]
-        unique: list[str] = []
-        for item in artifact_ids:
-            if item not in unique:
-                unique.append(item)
+            if event.type is not EventType.JOB_COMPLETED:
+                continue
+            partial = bool(event.payload.get("partial"))
+            failed_kinds = [str(item) for item in event.payload.get("failed_kinds") or []]
+            artifact_ids = [str(item) for item in event.payload.get("artifact_ids") or []]
         return cls(
             job_id=job.job_id,
             state=job.state,
@@ -474,7 +468,7 @@ class HistoryEntry(StrictModel):
             source=job.source,
             intent=job.intent,
             error=job.error,
-            artifact_ids=unique,
+            artifact_ids=artifact_ids,
             last_events=[event.type.value for event in events[-8:]],
             partial=partial,
             failed_kinds=failed_kinds,
