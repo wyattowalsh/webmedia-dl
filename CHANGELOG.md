@@ -2,6 +2,12 @@
 
 ## 0.1.0
 
+- Slice DASH `range` / `mediaRange` values that include spaces
+  (`0 - 9`) instead of treating them as unparsed and concatenating the
+  whole media object. GitHub Actions `32585544230` on `0433acb` passed
+  Python (626 pytest, 100%), doctor provider probes, and Swift (18 tests,
+  0 failures; 12× BUILD SUCCEEDED) after resolving HTML `<base href>`
+  locators.
 - Resolve HTML, JSON-LD, and browser-evidence relative locators against
   the first `<base href>` (and capture against `document.baseURI`) so
   `video[src]="clip.mp4"` is fetched from the CDN, not the watch origin.

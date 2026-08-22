@@ -209,7 +209,7 @@ def _parse_dash_range(text: str | None) -> tuple[int | None, int | None]:
     """Parse inclusive DASH `range` / `mediaRange` (`start-end`) into offset+length."""
     if not text:
         return None, None
-    match = re.fullmatch(r"(\d+)-(\d+)", text.strip())
+    match = re.fullmatch(r"(\d+)\s*-\s*(\d+)", text.strip())
     if match is None:
         return None, None
     start = int(match.group(1))
