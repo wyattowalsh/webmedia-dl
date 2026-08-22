@@ -2,6 +2,13 @@
 
 ## 0.1.0
 
+- Bound open-ended DASH SegmentTimeline `r="-1"` repeats to the Period /
+  MPD presentation window so `$Number$` locators stop at the real duration
+  instead of always filling 64 segments. Unbounded timelines stay capped at
+  64. GitHub Actions `32595106263` on `d306b34` passed Python (626 pytest,
+  100%), doctor provider probes, and Swift (18 tests, 0 failures; 12× BUILD
+  SUCCEEDED) after slicing RFC 2616 suffix DASH ranges from the end of the
+  object.
 - Slice RFC 2616 suffix DASH `range` / `mediaRange` values (`-N`) from the end
   of the object so the last N bytes are recorded instead of concatenating the
   whole file or dropping the part. GitHub Actions `32594801247` on `2b784b7`

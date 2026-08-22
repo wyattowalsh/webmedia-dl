@@ -644,6 +644,74 @@ def test_dash_open_ended_timeline_is_capped() -> None:
         f"https://cdn.example.com/chunk_{index}.m4s"
         for index in range(1, MAX_TIMELINE_SEGMENTS + 1)
     ]
+    bounded = """
+    <MPD mediaPresentationDuration="PT6S"><Period duration="PT6S">
+      <SegmentTemplate media="chunk_$Number$.m4s" startNumber="1" timescale="1">
+        <SegmentTimeline>
+          <S t="0" d="2" r="-1"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+    </Period></MPD>
+    """
+    assert recordable_segment_urls(bounded, "https://cdn.example.com/") == [
+        f"https://cdn.example.com/chunk_{index}.m4s" for index in range(1, 4)
+    ]
+    mpd_only = """
+    <MPD mediaPresentationDuration="PT6S"><Period>
+      <SegmentTemplate media="chunk_$Number$.m4s" startNumber="1" timescale="1">
+        <SegmentTimeline>
+          <S t="0" d="2" r="-1"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+    </Period></MPD>
+    """
+    assert recordable_segment_urls(mpd_only, "https://cdn.example.com/") == [
+        f"https://cdn.example.com/chunk_{index}.m4s" for index in range(1, 4)
+    ]
+    past_end = """
+    <MPD mediaPresentationDuration="PT1S"><Period duration="PT1S">
+      <SegmentTemplate media="chunk_$Number$.m4s" startNumber="1" timescale="1">
+        <SegmentTimeline>
+          <S t="10" d="2" r="-1"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+    </Period></MPD>
+    """
+    assert recordable_segment_urls(past_end, "https://cdn.example.com/") == []
+    zero_duration = """
+    <MPD mediaPresentationDuration="PT6S"><Period duration="PT6S">
+      <SegmentTemplate media="chunk_$Number$.m4s" startNumber="1" timescale="1">
+        <SegmentTimeline>
+          <S t="0" d="0" r="-1"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+    </Period></MPD>
+    """
+    assert len(recordable_segment_urls(zero_duration, "https://cdn.example.com/")) == (
+        MAX_TIMELINE_SEGMENTS
+    )
+    empty_period = """
+    <MPD mediaPresentationDuration="PT0S"><Period duration="PT0S">
+      <SegmentTemplate media="chunk_$Number$.m4s" startNumber="1" timescale="1">
+        <SegmentTimeline>
+          <S t="0" d="2" r="-1"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+    </Period></MPD>
+    """
+    assert recordable_segment_urls(empty_period, "https://cdn.example.com/") == []
+    zero_timescale = """
+    <MPD mediaPresentationDuration="PT6S"><Period duration="PT6S">
+      <SegmentTemplate media="chunk_$Number$.m4s" startNumber="1" timescale="0">
+        <SegmentTimeline>
+          <S t="0" d="2" r="-1"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+    </Period></MPD>
+    """
+    assert len(recordable_segment_urls(zero_timescale, "https://cdn.example.com/")) == (
+        MAX_TIMELINE_SEGMENTS
+    )
 
 
 def test_dash_invalid_number_format_falls_back_to_decimal() -> None:

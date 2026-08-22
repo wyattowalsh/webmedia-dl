@@ -497,6 +497,14 @@ def _template_urls(
                 max(MAX_TIMELINE_SEGMENTS - len(urls), 1) if repeats < 0 else max(repeats + 1, 1)
             )
             count = min(count, MAX_TIMELINE_SEGMENTS)
+            if repeats < 0 and duration > 0 and period_seconds is not None:
+                timescale = _int_attr(attrs, "timescale", 1)
+                if timescale > 0:
+                    remaining = period_seconds * timescale - clock
+                    fitted = math.ceil(remaining / duration - 1e-9)
+                    if fitted <= 0:
+                        continue
+                    count = min(count, fitted)
             for _ in range(count):
                 add(media, number=number, time_value=clock)
                 number += 1
