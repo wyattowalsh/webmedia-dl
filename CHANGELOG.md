@@ -2,6 +2,12 @@
 
 ## 0.1.0
 
+- GitHub Actions `32566998821` on `2a5357c` passed Python (583 pytest, 100%)
+  and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) for throwing JSON
+  request builders. iPhone watch-forward is a Core coordinator that XCTest
+  proves: typed companion messages reach the Mac send path, and cancel
+  without a job UUID never forwards. App Intents share
+  `WebMediaDLCompanionJobControl.requireJobId`.
 - GitHub Actions `32566609235` on `159b3ce` passed Python (583 pytest, 100%)
   and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) for LAN malformed
   JSON, companion persist/load, Files `replaceItemAt`, and the 159-path

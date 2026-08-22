@@ -4,6 +4,11 @@ import WatchConnectivity
 #endif
 @testable import WebMediaDLCore
 
+private final class WebMediaDLWatchForwardProbe: @unchecked Sendable {
+    var message: WebMediaDLCompanionMessage?
+    var sent = 0
+}
+
 final class ContractTests: XCTestCase {
     func testTitleIsNeverArtifactIdentity() {
         let id = UUID()
@@ -717,6 +722,35 @@ final class ContractTests: XCTestCase {
             _ = try WebMediaDLMacCompanionForwarder.requireSealedEnvelope(Data("nope".utf8))
             XCTFail("malformed envelope JSON must fail closed")
         } catch {
+            ()
+        }
+        let probe = WebMediaDLWatchForwardProbe()
+        let reply = try await WebMediaDLWatchCompanionForward.forward(
+            WebMediaDLCompanionMessage(kind: .status, surface: .watchos)
+        ) { message in
+            probe.message = message
+            return "mac-ok"
+        }
+        XCTAssertEqual(reply, "mac-ok")
+        XCTAssertEqual(probe.message?.kind, .status)
+        XCTAssertEqual(probe.message?.surface, .watchos)
+        do {
+            _ = try await WebMediaDLWatchCompanionForward.forward(
+                WebMediaDLCompanionMessage(kind: .cancel, surface: .watchos)
+            ) { _ in
+                probe.sent += 1
+                return "nope"
+            }
+            XCTFail("iPhone must not forward cancel without a job UUID")
+        } catch WebMediaDLCompanionError.jobIdRequired {
+            XCTAssertEqual(probe.sent, 0)
+        }
+        let controlId = UUID()
+        XCTAssertEqual(try WebMediaDLCompanionJobControl.requireJobId(controlId.uuidString), controlId)
+        do {
+            _ = try WebMediaDLCompanionJobControl.requireJobId("nope")
+            XCTFail("non-UUID job ids must fail closed")
+        } catch WebMediaDLCompanionError.jobIdRequired {
             ()
         }
     }

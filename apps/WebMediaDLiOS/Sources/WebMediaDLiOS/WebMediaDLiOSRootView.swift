@@ -314,7 +314,9 @@ public struct WebMediaDLiOSRootView: View {
                 watchRelay.onReceivedMessage = { message in
                     Task { @MainActor in
                         do {
-                            status = try await WebMediaDLPairedMacSubmit.companion(message)
+                            status = try await WebMediaDLWatchCompanionForward.forward(message) {
+                                try await WebMediaDLPairedMacSubmit.companion($0)
+                            }
                         } catch {
                             status = error.localizedDescription
                         }

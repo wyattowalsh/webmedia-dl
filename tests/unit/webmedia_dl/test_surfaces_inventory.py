@@ -389,7 +389,9 @@ def test_companion_transport_and_typed_history() -> None:
     assert "func requireSealedEnvelope(" in continuity
     assert "envelope JSON is not a sealed companion" in continuity
     assert "requireHTTPSuccess" in continuity
-    assert "requireJSONBody" in continuity
+    assert "WebMediaDLWatchCompanionForward" in continuity
+    assert "func requireJobId(" in continuity
+    assert "enum WebMediaDLCompanionJobControl" in continuity
     assert "WebMediaDLLoopbackClient.jsonBody" in continuity
     assert "try? JSONSerialization.data(" not in continuity
     assert "companion relay JSON is not a message list" in continuity
@@ -672,7 +674,7 @@ def test_intents_and_share_adapters_load_credentials() -> None:
         assert "kind: .cancel, jobId:" in text
         assert "kind: .pauseJob" in text
         assert "kind: .resumeJob" in text
-        assert "throw WebMediaDLCompanionError.jobIdRequired" in text
+        assert "WebMediaDLCompanionJobControl.requireJobId" in text
         assert "else { return .result() }" not in text
         assert "Pause WebMedia DL" in text
         assert "Resume WebMedia DL" in text
@@ -824,7 +826,8 @@ def test_github_ci_compiles_apple_packages() -> None:
     assert "invalidLocator" in contracts
     assert "requireHTTPSuccess" in contracts
     assert "requireJSONBody" in contracts
-    assert "JSON content-type without a body must fail closed" in contracts
+    assert "iPhone must not forward cancel without a job UUID" in contracts
+    assert "non-UUID job ids must fail closed" in contracts
     assert "non-JSON request payloads must fail closed" in contracts
     assert "non-JSON envelope payload must fail closed" in contracts
     assert "WebMediaDLLoopbackClient.jsonBody" in contracts
@@ -982,6 +985,7 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert "UIPasteboard" not in tv
     assert "watchRelay.activateSession()" in ios
     assert "onReceivedMessage" in ios
+    assert "WebMediaDLWatchCompanionForward.forward" in ios
     assert "WebMediaDLPairedMacSubmit.companion" in ios
     assert "WebMediaDLLocalNetworkCompanionTransport" in tv
     assert "autoForward = true" not in mac
@@ -1036,7 +1040,7 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
         assert "WebMediaDLPairedMacSubmit.queueStatus" in text
         assert "WebMediaDLPairedMacSubmit.pauseJob" in text
         assert "WebMediaDLPairedMacSubmit.resumeJob" in text
-        assert "throw WebMediaDLCompanionError.jobIdRequired" in text
+        assert "WebMediaDLCompanionJobControl.requireJobId" in text
         assert "else { return .result() }" not in text
     mac_intent = (
         root / "apps/WebMediaDLMac/Sources/WebMediaDLMac/WebMediaDLMacSubmitURLIntent.swift"
@@ -1051,7 +1055,7 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert ".queueStatus()" in mac_intent
     assert ".pauseJob(jobId:" in mac_intent
     assert ".resumeJob(jobId:" in mac_intent
-    assert "throw WebMediaDLCompanionError.jobIdRequired" in mac_intent
+    assert "WebMediaDLCompanionJobControl.requireJobId" in mac_intent
     assert "else { return .result() }" not in mac_intent
     for rel, surface in (
         ("apps/WebMediaDLiOS/ShareExtension/WebMediaDLiOSShareExtension.swift", ".ios"),
@@ -1184,7 +1188,7 @@ def test_watch_control_intents_queue_companion_kinds() -> None:
         assert "kind: .cancel, jobId:" in text
         assert "kind: .pauseJob, jobId:" in text
         assert "kind: .resumeJob, jobId:" in text
-        assert "throw WebMediaDLCompanionError.jobIdRequired" in text
+        assert "WebMediaDLCompanionJobControl.requireJobId" in text
         assert "else { return .result() }" not in text
         assert "transport.send" in text
     assert "WebMediaDLWatchConnectivityTransport" in watch_intents
@@ -1207,6 +1211,7 @@ def test_iphone_forwards_watch_companion_messages() -> None:
     tv = (root / ROOT_VIEWS["tvos"]).read_text(encoding="utf-8")
     assert "watchRelay.activateSession()" in ios
     assert "onReceivedMessage" in ios
+    assert "WebMediaDLWatchCompanionForward.forward" in ios
     assert "WebMediaDLPairedMacSubmit.companion" in ios
     assert "try? await WebMediaDLPairedMacSubmit.companion" not in ios
     assert "displayedResponse" not in ios
@@ -1237,7 +1242,7 @@ def test_complete_client_control_intents_use_mac_relay() -> None:
         assert "WebMediaDLPairedMacSubmit.queueStatus" in text
         assert "WebMediaDLPairedMacSubmit.pauseJob" in text
         assert "WebMediaDLPairedMacSubmit.resumeJob" in text
-        assert "throw WebMediaDLCompanionError.jobIdRequired" in text
+        assert "WebMediaDLCompanionJobControl.requireJobId" in text
         assert "else { return .result() }" not in text
 
 

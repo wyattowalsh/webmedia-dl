@@ -127,6 +127,29 @@ public enum WebMediaDLCompanionError: Error, Equatable, LocalizedError {
     }
 }
 
+/// Cancel, pause_job, and resume_job App Intents fail closed without a job UUID.
+public enum WebMediaDLCompanionJobControl {
+    public static func requireJobId(_ raw: String) throws -> UUID {
+        guard let id = UUID(uuidString: raw) else {
+            throw WebMediaDLCompanionError.jobIdRequired
+        }
+        return id
+    }
+}
+
+/// iPhone hops WatchConnectivity companion messages onto the paired Mac relay.
+public enum WebMediaDLWatchCompanionForward {
+    public typealias Send = @Sendable (WebMediaDLCompanionMessage) async throws -> String
+
+    public static func forward(
+        _ message: WebMediaDLCompanionMessage,
+        send: Send
+    ) async throws -> String {
+        try WebMediaDLCompanionMessage.validate(message)
+        return try await send(message)
+    }
+}
+
 /// watchOS/tvOS queue companion messages until the Mac forwards them to loopback.
 public struct WebMediaDLCompanionRelay: Sendable {
     public var pending: [WebMediaDLCompanionMessage]

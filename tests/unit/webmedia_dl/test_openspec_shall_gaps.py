@@ -495,8 +495,8 @@ SCENARIO_EVIDENCE: dict[str, tuple[str, str]] = {
         "test_companion_transport_and_typed_history",
     ),
     "iPhone forwards watch companion messages": (
-        "tests/unit/webmedia_dl/test_surfaces_inventory.py",
-        "test_iphone_forwards_watch_companion_messages",
+        "apps/WebMediaDLCore/Tests/WebMediaDLCoreTests/ContractTests.swift",
+        "testWatchConnectivityFallbackAndMacRelayTyping",
     ),
     "sealed companion envelope": (
         "tests/unit/webmedia_dl/test_companion_checkpoint.py",

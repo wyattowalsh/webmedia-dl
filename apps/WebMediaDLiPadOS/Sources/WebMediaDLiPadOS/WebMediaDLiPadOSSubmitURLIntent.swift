@@ -114,7 +114,7 @@ public struct WebMediaDLiPadOSCancelIntent: AppIntent {
     }
 
     public func perform() async throws -> some IntentResult {
-        guard let id = UUID(uuidString: jobId) else { throw WebMediaDLCompanionError.jobIdRequired }
+        let id = try WebMediaDLCompanionJobControl.requireJobId(jobId)
         _ = try await WebMediaDLPairedMacSubmit.cancel(
             jobId: id,
             credentials: WebMediaDLWorkerCredentials.loadClient()
@@ -149,7 +149,7 @@ public struct WebMediaDLiPadOSPauseJobIntent: AppIntent {
     }
 
     public func perform() async throws -> some IntentResult {
-        guard let id = UUID(uuidString: jobId) else { throw WebMediaDLCompanionError.jobIdRequired }
+        let id = try WebMediaDLCompanionJobControl.requireJobId(jobId)
         _ = try await WebMediaDLPairedMacSubmit.pauseJob(
             jobId: id,
             credentials: WebMediaDLWorkerCredentials.loadClient()
@@ -171,7 +171,7 @@ public struct WebMediaDLiPadOSResumeJobIntent: AppIntent {
     }
 
     public func perform() async throws -> some IntentResult {
-        guard let id = UUID(uuidString: jobId) else { throw WebMediaDLCompanionError.jobIdRequired }
+        let id = try WebMediaDLCompanionJobControl.requireJobId(jobId)
         _ = try await WebMediaDLPairedMacSubmit.resumeJob(
             jobId: id,
             credentials: WebMediaDLWorkerCredentials.loadClient()
