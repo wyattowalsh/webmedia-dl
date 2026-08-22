@@ -331,6 +331,12 @@ def test_companion_transport_and_typed_history() -> None:
     assert "protocol WebMediaDLCompanionTransport" in continuity
     assert "struct WebMediaDLQueuedCompanionTransport" in continuity
     assert "WCSessionDelegate" in continuity
+    assert "extension WebMediaDLWatchConnectivityTransport: WCSessionDelegate" in continuity
+    assert "extension WebMediaDLMacWatchConnectivityDelegate: WCSessionDelegate" in continuity
+    assert continuity.count("public final class WebMediaDLWatchConnectivityTransport:") == 1
+    assert continuity.count("public final class WebMediaDLMacWatchConnectivityDelegate:") == 1
+    assert "#else\npublic final class WebMediaDLWatchConnectivityTransport" not in continuity
+    assert "#else\npublic final class WebMediaDLMacWatchConnectivityDelegate" not in continuity
     assert "WCSession.default.delegate" in continuity
     assert "activate()" in continuity
     assert "func activateSession()" in continuity

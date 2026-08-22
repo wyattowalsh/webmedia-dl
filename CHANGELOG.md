@@ -70,4 +70,5 @@
   keys; duplicate `produced_ids` at `stage=exported` still complete; acquired
   remote resume does not refetch. ImageMagick health/argv accept IM6 `convert`.
   Worker API job-detail and run-next payloads are module helpers. Core Swift
-  tests run on GitHub `macos-15` CI.
+  tests run on GitHub `macos-15` CI. WatchConnectivity types keep a single
+  class header and conform to `WCSessionDelegate` via extensions.

@@ -132,11 +132,7 @@ public struct WebMediaDLQueuedCompanionTransport: WebMediaDLCompanionTransport {
 }
 
 /// Typed WatchConnectivity userInfo transport. Radio delivery is BLOCKED without a paired Apple device.
-#if canImport(WatchConnectivity)
-public final class WebMediaDLWatchConnectivityTransport: NSObject, WebMediaDLCompanionTransport, WCSessionDelegate {
-#else
-public final class WebMediaDLWatchConnectivityTransport: NSObject, WebMediaDLCompanionTransport {
-#endif
+public final class WebMediaDLWatchConnectivityTransport: NSObject, WebMediaDLCompanionTransport, @unchecked Sendable {
     public var fallback = WebMediaDLQueuedCompanionTransport()
     public var lastResponse: String?
 
@@ -175,8 +171,10 @@ public final class WebMediaDLWatchConnectivityTransport: NSObject, WebMediaDLCom
             lastResponse = body
         }
     }
+}
 
-    #if canImport(WatchConnectivity)
+#if canImport(WatchConnectivity)
+extension WebMediaDLWatchConnectivityTransport: WCSessionDelegate {
     public func session(
         _ session: WCSession,
         activationDidCompleteWith activationState: WCSessionActivationState,
@@ -201,15 +199,11 @@ public final class WebMediaDLWatchConnectivityTransport: NSObject, WebMediaDLCom
         session.activate()
     }
     #endif
-    #endif
 }
+#endif
 
 /// Mac WCSessionDelegate adapter. Converts userInfo dictionaries into typed companion messages.
-#if canImport(WatchConnectivity)
-public final class WebMediaDLMacWatchConnectivityDelegate: NSObject, WCSessionDelegate {
-#else
-public final class WebMediaDLMacWatchConnectivityDelegate: NSObject {
-#endif
+public final class WebMediaDLMacWatchConnectivityDelegate: NSObject, @unchecked Sendable {
     public var forwarder: WebMediaDLMacCompanionForwarder
     public var relay = WebMediaDLCompanionRelay()
 
@@ -248,8 +242,10 @@ public final class WebMediaDLMacWatchConnectivityDelegate: NSObject {
         _ = WCSession.default.activationState
         #endif
     }
+}
 
-    #if canImport(WatchConnectivity)
+#if canImport(WatchConnectivity)
+extension WebMediaDLMacWatchConnectivityDelegate: WCSessionDelegate {
     public func session(
         _ session: WCSession,
         activationDidCompleteWith activationState: WCSessionActivationState,
@@ -271,8 +267,8 @@ public final class WebMediaDLMacWatchConnectivityDelegate: NSObject {
         session.activate()
     }
     #endif
-    #endif
 }
+#endif
 
 /// Mac receives drained companion messages and forwards them to loopback.
 public struct WebMediaDLMacCompanionForwarder: Sendable {
