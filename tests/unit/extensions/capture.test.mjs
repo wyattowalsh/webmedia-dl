@@ -54,6 +54,49 @@ describe("collectMediaEvidence", () => {
     assert.ok(!urls.some((item) => item.startsWith("javascript:")));
   });
 
+  it("classifies video source, amp-img, data-src, and twitter:player", () => {
+    const doc = {
+      location: { href: "https://example.com/amp" },
+      querySelectorAll: (selector) => {
+        if (selector.includes("iframe") || selector.includes("link[href]") || selector.includes("ld+json")) {
+          return [];
+        }
+        if (selector === "meta") {
+          return [
+            {
+              getAttribute: (name) =>
+                name === "name"
+                  ? "twitter:player"
+                  : name === "content"
+                    ? "https://cdn.example.com/player.html"
+                    : null,
+            },
+          ];
+        }
+        return [
+          {
+            tagName: "SOURCE",
+            parentElement: { tagName: "VIDEO" },
+            getAttribute: (name) =>
+              name === "src" ? "https://cdn.example.com/via-source.mp4" : null,
+          },
+          {
+            tagName: "AMP-IMG",
+            getAttribute: (name) =>
+              name === "src" ? "https://cdn.example.com/amp.png" : name === "data-src" ? "https://cdn.example.com/lazy.png" : null,
+          },
+        ];
+      },
+    };
+    const result = collectMediaEvidence(doc);
+    const byUrl = Object.fromEntries(result.evidence.map((item) => [item.url, item.kind]));
+    assert.equal(byUrl["https://cdn.example.com/via-source.mp4"], "video");
+    assert.equal(byUrl["https://cdn.example.com/amp.png"], "image");
+    assert.equal(byUrl["https://cdn.example.com/lazy.png"], "image");
+    assert.equal(byUrl["https://cdn.example.com/player.html"], "video");
+    assert.equal(result.nativeCommand, null);
+  });
+
   it("collects iframe and link preload media", () => {
     const doc = {
       location: { href: "https://example.com/page" },

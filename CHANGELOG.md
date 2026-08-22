@@ -2,6 +2,11 @@
 
 ## 0.1.0
 
+- Prefer URL-derived kinds over browser-evidence hints so a `<video><source>`
+  capture labelled `image` cannot hide the mp4. Keep both JSON-LD `contentUrl`
+  and `embedUrl`. HTML `<source>` inside `video`/`audio` keeps that kind even
+  without a media extension. Browser capture classifies `source` from its
+  parent, collects `amp-img` / `data-src`, and reads `twitter:player`.
 - Pick HLS master variants from the `BANDWIDTH` attribute map, not a greedy
   `\bBANDWIDTH=` regex. `AVERAGE-BANDWIDTH` (and duplicate / non-numeric
   `BANDWIDTH`) must not steal the highest-peak media playlist.

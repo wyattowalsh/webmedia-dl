@@ -114,6 +114,19 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
     assert "https://cdn.example.com/a.mp4" in object_urls
     assert "https://cdn.example.com/oid.mp4" in object_urls
     assert "https://cdn.example.com/a.m4a" in object_urls
+    both = """
+    <html><body>
+      <script type="application/ld+json">
+        {"@type": "VideoObject",
+         "contentUrl": "https://example.com/watch?v=1",
+         "embedUrl": "https://cdn.example.com/direct.mp4"}
+      </script>
+    </body></html>
+    """
+    both_found = discover(_source(), profile, html=both)
+    both_urls = [item.retrieval_urls[0] for item in both_found if item.retrieval_urls]
+    assert "https://example.com/watch?v=1" in both_urls
+    assert "https://cdn.example.com/direct.mp4" in both_urls
 
 
 def test_direct_png_skips_html() -> None:

@@ -58,18 +58,53 @@ export function pageCollector(doc) {
     pushJsonLdUrl(node.embedUrl, jsonLdKind);
     Object.values(node).forEach((value) => walkJsonLd(value));
   };
-  root.querySelectorAll?.("video, audio, img, source, track").forEach((el) => {
-    const tag = el.tagName;
-    const kind =
-      tag === "VIDEO" ? "video" : tag === "AUDIO" ? "audio" : tag === "TRACK" ? "subtitle" : "image";
-    push(el.getAttribute?.("src"), kind);
-    push(el.currentSrc, kind);
-    push(el.getAttribute?.("poster"), "image");
-    const srcset = el.getAttribute?.("srcset");
-    if (srcset) {
-      srcset.split(",").forEach((part) => push(part.trim().split(/\s+/)[0], kind));
+  const kindFromElement = (el) => {
+    const tag = String(el.tagName || "").toUpperCase();
+    const mime = (el.getAttribute?.("type") || "").toLowerCase();
+    const parent = String(el.parentElement?.tagName || "").toUpperCase();
+    if (tag === "TRACK") {
+      return "subtitle";
     }
-  });
+    if (tag === "AUDIO" || tag === "AMP-AUDIO" || mime.startsWith("audio/")) {
+      return "audio";
+    }
+    if (
+      tag === "VIDEO" ||
+      tag === "AMP-VIDEO" ||
+      mime.startsWith("video/") ||
+      mime.includes("mpegurl") ||
+      mime.includes("dash+xml")
+    ) {
+      return "video";
+    }
+    if (tag === "SOURCE") {
+      if (parent === "AUDIO" || parent === "AMP-AUDIO") {
+        return "audio";
+      }
+      if (parent === "VIDEO" || parent === "AMP-VIDEO") {
+        return "video";
+      }
+      if (parent === "PICTURE") {
+        return "image";
+      }
+    }
+    return "image";
+  };
+  root
+    .querySelectorAll?.(
+      "video, audio, img, source, track, amp-img, amp-video, amp-audio, picture",
+    )
+    .forEach((el) => {
+      const kind = kindFromElement(el);
+      push(el.getAttribute?.("src"), kind);
+      push(el.getAttribute?.("data-src"), kind);
+      push(el.currentSrc, kind);
+      push(el.getAttribute?.("poster"), "image");
+      const srcset = el.getAttribute?.("srcset");
+      if (srcset) {
+        srcset.split(",").forEach((part) => push(part.trim().split(/\s+/)[0], kind));
+      }
+    });
   const metaKind = {
     "og:image": "image",
     "og:image:url": "image",
@@ -78,6 +113,7 @@ export function pageCollector(doc) {
     "og:video:url": "video",
     "og:video:secure_url": "video",
     "twitter:player:stream": "video",
+    "twitter:player": "video",
     "og:audio": "audio",
     "og:audio:url": "audio",
     "og:audio:secure_url": "audio",

@@ -42,6 +42,9 @@ def test_srcset_poster_and_browser_evidence() -> None:
     """
     evidence = [
         BrowserEvidence(url="https://cdn.example.com/captured.mp4", kind=MediaKind.VIDEO),
+        BrowserEvidence(url="https://cdn.example.com/mislabelled.mp4", kind=MediaKind.IMAGE),
+        BrowserEvidence(url="https://example.com/watch?v=hinted", kind=MediaKind.VIDEO),
+        BrowserEvidence(url="https://example.com/bare-page", kind=MediaKind.UNKNOWN),
         BrowserEvidence(url="javascript:void(0)", kind=MediaKind.IMAGE),
     ]
     candidates = discover(
@@ -51,8 +54,12 @@ def test_srcset_poster_and_browser_evidence() -> None:
         evidence=evidence,
     )
     urls = {item.retrieval_urls[0] for item in candidates if item.retrieval_urls}
+    kinds = {item.retrieval_urls[0]: item.media_kind for item in candidates if item.retrieval_urls}
     assert "https://cdn.example.com/captured.mp4" in urls
     assert "https://cdn.example.com/clip.mp4" in urls
+    assert kinds["https://cdn.example.com/mislabelled.mp4"] is MediaKind.VIDEO
+    assert kinds["https://example.com/watch?v=hinted"] is MediaKind.VIDEO
+    assert kinds["https://example.com/bare-page"] is MediaKind.PAGE
     assert any(item.endswith("poster.jpg") for item in urls)
     assert "https://cdn.example.com/tw.png" in urls
     assert not any(item.startswith("javascript:") for item in urls)

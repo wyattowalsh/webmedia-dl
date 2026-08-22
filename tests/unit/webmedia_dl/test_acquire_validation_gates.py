@@ -364,7 +364,11 @@ def test_http_suffix_png_magic_and_unexpanded_number_token() -> None:
 
 
 def test_discovery_source_mime_video() -> None:
-    html = '<video><source type="video/mp4" src="https://cdn.example.com/plain"></video>'
+    html = (
+        '<video><source type="video/mp4" src="https://cdn.example.com/plain"></video>'
+        '<video><source src="https://cdn.example.com/untyped"></video>'
+        '<audio><source src="https://cdn.example.com/untyped-audio"></audio>'
+    )
     source = normalize_source(
         "https://example.com/page",
         surface=Surface.CLI,
@@ -373,6 +377,8 @@ def test_discovery_source_mime_video() -> None:
     found = discover(source, get_profile("personal-full"), html=html)
     kinds = {item.retrieval_urls[0]: item.media_kind for item in found if item.retrieval_urls}
     assert kinds["https://cdn.example.com/plain"] is MediaKind.VIDEO
+    assert kinds["https://cdn.example.com/untyped"] is MediaKind.VIDEO
+    assert kinds["https://cdn.example.com/untyped-audio"] is MediaKind.AUDIO
 
 
 def test_tracked_run_deadline_returns_124(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

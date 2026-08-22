@@ -61,6 +61,8 @@ class _MediaHTMLParser(HTMLParser):
         self._in_title = False
         self.json_ld: list[str] = []
         self._in_picture = False
+        self._in_video = False
+        self._in_audio = False
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         mapping = dict(attrs)
@@ -68,6 +70,10 @@ class _MediaHTMLParser(HTMLParser):
             self._in_title = True
         if tag == "picture":
             self._in_picture = True
+        if tag in {"video", "amp-video"}:
+            self._in_video = True
+        if tag in {"audio", "amp-audio"}:
+            self._in_audio = True
         if tag in {
             "video",
             "audio",
@@ -96,6 +102,10 @@ class _MediaHTMLParser(HTMLParser):
                 kind = mime_kind
             elif tag == "source" and self._in_picture:
                 kind = MediaKind.IMAGE
+            elif tag == "source" and self._in_audio:
+                kind = MediaKind.AUDIO
+            elif tag == "source" and self._in_video:
+                kind = MediaKind.VIDEO
             for attr in ("src", "data-src", "poster"):
                 value = mapping.get(attr)
                 if value:
@@ -151,6 +161,10 @@ class _MediaHTMLParser(HTMLParser):
             self._in_title = False
         if tag == "picture":
             self._in_picture = False
+        if tag in {"video", "amp-video"}:
+            self._in_video = False
+        if tag in {"audio", "amp-audio"}:
+            self._in_audio = False
 
     def handle_data(self, data: str) -> None:
         if self._in_title:
@@ -225,6 +239,15 @@ def _usable_url(value: str, profile: PolicyProfile | None = None) -> bool:
     except NetworkPolicyError:
         return False
     return True
+
+
+def _kind_from_evidence(url: str, hinted: MediaKind) -> MediaKind:
+    url_kind = _kind_from_url(url)
+    if url_kind not in {MediaKind.PAGE, MediaKind.UNKNOWN}:
+        return url_kind
+    if hinted not in {MediaKind.UNKNOWN, MediaKind.PAGE}:
+        return hinted
+    return url_kind
 
 
 def _kind_from_jsonld(item: dict, url: str) -> MediaKind:
@@ -377,7 +400,7 @@ def discover(
         absolute = urljoin(url, item.url)
         if not _usable_url(absolute, profile):
             continue
-        item_kind = item.kind if item.kind is not MediaKind.UNKNOWN else _kind_from_url(absolute)
+        item_kind = _kind_from_evidence(absolute, item.kind)
         seeded.append(
             _candidate(
                 source,
@@ -477,24 +500,24 @@ def discover(
             continue
         items = payload if isinstance(payload, list) else [payload]
         for item in _walk_jsonld(items):
-            raw = item.get("contentUrl") or item.get("embedUrl")
-            for content_url in _jsonld_locator_urls(raw):
-                absolute = urljoin(url, content_url)
-                if not _usable_url(absolute, profile):
-                    continue
-                if absolute in seen:
-                    continue
-                seen.add(absolute)
-                found.append(
-                    _candidate(
-                        source,
-                        absolute,
-                        _kind_from_jsonld(item, absolute),
-                        title=title,
-                        evidence=["discover:jsonld"],
-                        drm=sorted(set(detect_drm_signals(absolute)) | set(drm)),
+            for key in ("contentUrl", "embedUrl"):
+                for content_url in _jsonld_locator_urls(item.get(key)):
+                    absolute = urljoin(url, content_url)
+                    if not _usable_url(absolute, profile):
+                        continue
+                    if absolute in seen:
+                        continue
+                    seen.add(absolute)
+                    found.append(
+                        _candidate(
+                            source,
+                            absolute,
+                            _kind_from_jsonld(item, absolute),
+                            title=title,
+                            evidence=["discover:jsonld"],
+                            drm=sorted(set(detect_drm_signals(absolute)) | set(drm)),
+                        )
                     )
-                )
     if not found:
         found.append(
             _candidate(

@@ -7,7 +7,7 @@
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
 | `uv run ty check` | PASS | |
-| `node --test tests/unit/extensions/*.mjs` | PASS | 7 tests including popup `#send` → loopback POST |
+| `node --test tests/unit/extensions/*.mjs` | PASS | 8 tests including popup `#send` → loopback POST, video `source` kind, `amp-img` / `data-src`, and `twitter:player` |
 | `uv run python -m webmedia_dl.schema_export` | PASS | 19 schemas + index |
 | `uv run python scripts/validate_bundle.py` | PASS | 159 pack paths + extension/app shells + links + task DAG + traceability + archive safety + clean extraction |
 | `uv run webmedia-dl doctor` ffmpeg | PASS | `/usr/bin/ffmpeg -version` executed PASS |
