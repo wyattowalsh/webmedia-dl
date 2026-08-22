@@ -615,6 +615,15 @@ def _strip_blocks(text: str, pattern: re.Pattern[str]) -> str:
     return "".join(chunks)
 
 
+_LIVE_PLAYLIST_SUFFIXES = (".m3u8", ".m3u", ".mpd")
+
+
+def _live_playlist_locator(url: str) -> bool:
+    """True when the path names an HLS/DASH playlist, ignoring query, fragment, and case."""
+    path = urlparse(url).path.lower().rstrip("/")
+    return path.endswith(_LIVE_PLAYLIST_SUFFIXES)
+
+
 def _preferred_hls_variant(text: str, base: str) -> str | None:
     variants: list[tuple[int, str]] = []
     pending: int | None = None
@@ -1057,18 +1066,9 @@ def record_clear_stream(
     if (
         parts is None
         and depth < 2
-        and (
-            preferred
-            or first.endswith(".m3u8")
-            or first.endswith(".mpd")
-            or "#EXT-X-STREAM-INF" in playlist
-        )
+        and (preferred or _live_playlist_locator(first) or "#EXT-X-STREAM-INF" in playlist)
     ):
-        nested = [
-            item.url
-            for item in round_parts
-            if item.url.endswith(".m3u8") or item.url.endswith(".mpd")
-        ]
+        nested = [item.url for item in round_parts if _live_playlist_locator(item.url)]
         target = preferred or (nested[0] if nested else first)
         if should_stop is not None:
             should_stop()

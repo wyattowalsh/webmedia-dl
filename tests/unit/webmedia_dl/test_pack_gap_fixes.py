@@ -294,6 +294,17 @@ def test_live_watch_page_plans_ytdlp_not_clear_recorder() -> None:
         b'{"id":"abc","webpage_url":"https://www.youtube.com/watch?v=abc","is_live":true}',
     )
     assert live_watch[0].media_kind is MediaKind.VIDEO
+    for token in ("m3u8", "m3u", "mpd"):
+        listed = candidates_from_manifest_json(
+            source,
+            json.dumps({"url": "https://cdn.example.com/plain-live", "ext": token}).encode(),
+        )
+        assert listed[0].media_kind is MediaKind.LIVE_STREAM
+        listed_plan = plan_acquisition(uuid4(), listed[0], get_profile("personal-full"))
+        assert any(
+            item.capability_id == "live.record_clear_manifest" for item in listed_plan.strategies
+        )
+        assert all(item.capability_id != "acquire.ytdlp" for item in listed_plan.strategies)
     plan = plan_acquisition(uuid4(), live_watch[0], get_profile("personal-full"))
     assert all(item.capability_id != "live.record_clear_manifest" for item in plan.strategies)
     assert any(item.capability_id == "acquire.ytdlp" for item in plan.strategies)

@@ -2,6 +2,16 @@
 
 ## 0.1.0
 
+- Follow nested HLS/DASH playlist locators by path suffix so `index.m3u8?token`,
+  `CHILD.M3U8`, trailing slashes, and classic `.m3u` children are fetched as
+  playlists instead of concatenated as source bytes. A wrapper playlist that
+  points at an AES-128 child now refuses before any segment fetch. yt-dlp dump
+  `ext` of `m3u8` / `m3u` / `mpd` on an extensionless URL plans
+  `live.record_clear_manifest` instead of `ytdlp`. Watch pages with `is_live`
+  and no playlist `ext` stay `ytdlp`. GitHub Actions `32588034274` on `aaee721`
+  passed Python (626 pytest, 100%), doctor provider probes, and Swift (18 tests,
+  0 failures; 12× BUILD SUCCEEDED) after asserting namespaced MPD roots sniff as
+  `live_stream`.
 - Plan `live.record_clear_manifest` for `.m3u` locators and for non-HTML fetches
   whose `Content-Type` or body is HLS (`#EXTM3U` / `mpegurl`) or DASH (`dash+xml`
   / `<MPD>`). Those URLs were `unknown` and ranked `ytdlp` instead of the

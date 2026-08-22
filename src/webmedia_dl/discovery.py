@@ -451,7 +451,8 @@ def candidates_from_manifest_json(
         if not isinstance(url, str) or not _usable_url(url, profile):
             continue
         kind = _kind_from_url(url)
-        if item.get("is_live") and kind is MediaKind.LIVE_STREAM:
+        ext = str(item.get("ext") or "").lower().lstrip(".")
+        if kind is MediaKind.LIVE_STREAM or ext in {"m3u8", "m3u", "mpd"}:
             kind = MediaKind.LIVE_STREAM
         elif kind is MediaKind.PAGE:
             kind = MediaKind.VIDEO

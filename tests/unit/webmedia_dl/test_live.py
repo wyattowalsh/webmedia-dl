@@ -37,13 +37,48 @@ def test_record_follows_master_playlist(tmp_path: Path) -> None:
     media = "#EXTM3U\n#EXTINF:1,\nseg.ts\n"
 
     def fetch(url: str) -> tuple[int, str, bytes]:
-        if url.endswith("low.m3u8"):
+        path = url.split("?", 1)[0].rstrip("/").lower()
+        if path.endswith((".m3u8", ".m3u", ".mpd")):
             return 200, "application/vnd.apple.mpegurl", media.encode()
-        return 200, "video/MP2T", b"SEG"
+        if url.endswith("seg.ts"):
+            return 200, "video/MP2T", b"SEG"
+        raise AssertionError(url)
 
     output = tmp_path / "live.ts"
     record_clear_stream(master, "https://cdn.example.com/master.m3u8", output, fetch)
     assert output.read_bytes() == b"SEG"
+    queried = tmp_path / "query.ts"
+    record_clear_stream(
+        "#EXTM3U\nhttps://cdn.example.com/media.m3u8?hdnea=exp\n",
+        "https://cdn.example.com/index.m3u8",
+        queried,
+        fetch,
+    )
+    assert queried.read_bytes() == b"SEG"
+    classic = tmp_path / "classic.ts"
+    record_clear_stream(
+        "#EXTM3U\nchild.m3u\n",
+        "https://cdn.example.com/index.m3u",
+        classic,
+        fetch,
+    )
+    assert classic.read_bytes() == b"SEG"
+    upper = tmp_path / "upper.ts"
+    record_clear_stream(
+        "#EXTM3U\nCHILD.M3U8\n",
+        "https://cdn.example.com/index.m3u8",
+        upper,
+        fetch,
+    )
+    assert upper.read_bytes() == b"SEG"
+    slashed = tmp_path / "slash.ts"
+    record_clear_stream(
+        "#EXTM3U\nhttps://cdn.example.com/media.m3u8/\n",
+        "https://cdn.example.com/index.m3u8",
+        slashed,
+        fetch,
+    )
+    assert slashed.read_bytes() == b"SEG"
 
 
 def test_relative_segment_urls_join_base() -> None:
@@ -88,6 +123,23 @@ def test_aes128_playlist_refused_before_any_segment_fetch(tmp_path: Path) -> Non
     with pytest.raises(DrmRefused, match="AES-128"):
         record_clear_stream(text, "https://cdn.example.com/live.m3u8", tmp_path / "x.ts", fetch)
     assert fetched == []
+    secret = '#EXTM3U\n#EXT-X-KEY:METHOD=AES-128,URI="https://example.com/key"\nseg.ts\n'
+    nested_fetched: list[str] = []
+
+    def fetch_nested(url: str) -> tuple[int, str, bytes]:
+        nested_fetched.append(url)
+        if "secret.m3u8" in url:
+            return 200, "application/vnd.apple.mpegurl", secret.encode()
+        raise AssertionError(url)
+
+    with pytest.raises(DrmRefused, match="AES-128"):
+        record_clear_stream(
+            "#EXTM3U\nhttps://cdn.example.com/secret.m3u8?token=1\n",
+            "https://cdn.example.com/wrap.m3u8",
+            tmp_path / "wrap.ts",
+            fetch_nested,
+        )
+    assert nested_fetched == ["https://cdn.example.com/secret.m3u8?token=1"]
 
 
 def test_live_segment_http_error_fails_closed(tmp_path: Path) -> None:
