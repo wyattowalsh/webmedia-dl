@@ -197,6 +197,11 @@ def _parse_jsonld_block(block: str) -> object | None:
         if text.endswith("-->"):
             text = text[:-3]
         text = text.strip()
+    if text.startswith("<![CDATA["):
+        text = text.removeprefix("<![CDATA[")
+        if text.endswith("]]>"):
+            text = text[:-3]
+        text = text.strip()
     try:
         return json.loads(text)
     except json.JSONDecodeError:

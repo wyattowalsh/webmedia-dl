@@ -2,6 +2,11 @@
 
 ## 0.1.0
 
+- Unwrap JSON-LD `<![CDATA[...]]>` script bodies in the worker and browser
+  capture so `contentUrl` locators are not dropped as a page-without-direct-media
+  candidate. GitHub Actions `32582853577` on `88c319c` passed Python
+  (624 pytest, 100%), doctor provider probes, and Swift (18 tests, 0 failures;
+  12× BUILD SUCCEEDED) after binding DASH `CDATA` BaseURL values.
 - Bind DASH `BaseURL` values wrapped in `CDATA` and unescape XML entities in
   DASH attributes so templates join the CDN base, not the MPD origin.
   GitHub Actions `32582502768` on `c7bdfce` passed Python (624 pytest, 100%),

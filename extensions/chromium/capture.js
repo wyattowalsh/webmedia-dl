@@ -129,10 +129,13 @@ export function pageCollector(doc) {
   });
   root.querySelectorAll?.('script[type^="application/ld+json"]').forEach((el) => {
     const parseJsonLd = (raw) => {
-      const trimmed = String(raw || "").trim();
-      const unwrapped = trimmed.startsWith("<!--")
-        ? trimmed.replace(/^<!--/, "").replace(/-->$/, "").trim()
-        : trimmed;
+      let unwrapped = String(raw || "").trim();
+      if (unwrapped.startsWith("<!--")) {
+        unwrapped = unwrapped.replace(/^<!--/, "").replace(/-->$/, "").trim();
+      }
+      if (unwrapped.startsWith("<![CDATA[")) {
+        unwrapped = unwrapped.replace(/^<!\[CDATA\[/, "").replace(/\]\]>$/, "").trim();
+      }
       try {
         walkJsonLd(JSON.parse(unwrapped));
       } catch {

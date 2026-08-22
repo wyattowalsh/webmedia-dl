@@ -137,6 +137,12 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
       <script type="application/ld+json">
         <!--{"@type": "VideoObject", "contentUrl": "https://cdn.example.com/open-comment.mp4"}
       </script>
+      <script type="application/ld+json"><![CDATA[
+        {"@type": "VideoObject", "contentUrl": "https://cdn.example.com/cdata.mp4"}
+      ]]></script>
+      <script type="application/ld+json"><![CDATA[
+        {"@type": "VideoObject", "contentUrl": "https://cdn.example.com/open-cdata.mp4"}
+      </script>
     </body></html>
     """
     both_found = discover(_source(), profile, html=both)
@@ -146,6 +152,8 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
     assert "https://cdn.example.com/charset.mp4" in both_urls
     assert "https://cdn.example.com/commented.mp4" in both_urls
     assert "https://cdn.example.com/open-comment.mp4" in both_urls
+    assert "https://cdn.example.com/cdata.mp4" in both_urls
+    assert "https://cdn.example.com/open-cdata.mp4" in both_urls
 
 
 def test_direct_png_skips_html() -> None:
