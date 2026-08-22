@@ -168,9 +168,10 @@ class _MediaHTMLParser(HTMLParser):
                     if token:
                         self.urls.append((token, kind))
         if tag == "track":
-            src = mapping.get("src")
-            if src:
-                self.urls.append((src, MediaKind.SUBTITLE))
+            for attr in ("src", "data-src"):
+                value = mapping.get(attr)
+                if value:
+                    self.urls.append((value, MediaKind.SUBTITLE))
         if tag == "a":
             href = mapping.get("href")
             if href:

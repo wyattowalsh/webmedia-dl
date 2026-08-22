@@ -237,6 +237,11 @@ describe("collectMediaEvidence", () => {
             getAttribute: (name) =>
               name === "src" ? "https://cdn.example.com/amp.png" : name === "data-src" ? "https://cdn.example.com/lazy.png" : null,
           },
+          {
+            tagName: "TRACK",
+            getAttribute: (name) =>
+              name === "data-src" ? "https://cdn.example.com/lazy.vtt" : null,
+          },
         ];
       },
     };
@@ -247,6 +252,7 @@ describe("collectMediaEvidence", () => {
     assert.equal(byUrl["https://cdn.example.com/plain-live"], "live_stream");
     assert.equal(byUrl["https://cdn.example.com/amp.png"], "image");
     assert.equal(byUrl["https://cdn.example.com/lazy.png"], "image");
+    assert.equal(byUrl["https://cdn.example.com/lazy.vtt"], "subtitle");
     assert.equal(byUrl["https://cdn.example.com/player.html"], "video");
     assert.equal(result.nativeCommand, null);
   });

@@ -2,6 +2,13 @@
 
 ## 0.1.0
 
+- Collect `track[data-src]` locators in HTML discovery as SUBTITLE, matching
+  browser capture and `track[src]`, including lazy WebVTT and subtitle
+  playlists (`.m3u8`). GitHub Actions `32601837698` on `6ffb105` passed
+  Python (626 pytest, 100%), doctor provider probes, and Swift (18 tests, 0
+  failures; 12× BUILD SUCCEEDED) after collecting iframe/embed/object
+  `data-src` locators.
+
 - Collect iframe/embed/object `data-src` locators in HTML discovery and
   browser capture, so a lazy-loaded `.m3u8` / `.mp4` embed is typed like
   `src` / `data`. Script-asset `data-src` values stay skipped. GitHub

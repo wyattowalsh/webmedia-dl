@@ -179,6 +179,8 @@ def test_html_discovery_extracts_track_and_media_anchors() -> None:
       <video src="https://cdn.example.com/clip.mp4">
         <track src="https://cdn.example.com/clip.vtt" kind="subtitles">
         <track src="https://cdn.example.com/subs.m3u8" kind="subtitles">
+        <track data-src="https://cdn.example.com/lazy.vtt" kind="subtitles">
+        <track data-src="https://cdn.example.com/lazy-subs.m3u8" kind="subtitles">
       </video>
       <video src="https://cdn.example.com/live.m3u8"></video>
       <a href="https://cdn.example.com/notes.pdf">PDF</a>
@@ -199,6 +201,8 @@ def test_html_discovery_extracts_track_and_media_anchors() -> None:
     assert MediaKind.LIVE_STREAM in kinds
     by_url = {item.retrieval_urls[0]: item.media_kind for item in candidates if item.retrieval_urls}
     assert by_url["https://cdn.example.com/subs.m3u8"] is MediaKind.SUBTITLE
+    assert by_url["https://cdn.example.com/lazy.vtt"] is MediaKind.SUBTITLE
+    assert by_url["https://cdn.example.com/lazy-subs.m3u8"] is MediaKind.SUBTITLE
     assert by_url["https://cdn.example.com/live.m3u8"] is MediaKind.LIVE_STREAM
     preferred = preferred_by_kind(build_graph(uuid4(), candidates))
     preferred_live = [item for item in preferred if item.media_kind is MediaKind.LIVE_STREAM]
