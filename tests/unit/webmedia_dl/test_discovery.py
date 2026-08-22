@@ -419,6 +419,16 @@ def test_page_discovery_http_error_non_html_and_jsonld_podcast() -> None:
         ),
     )
     assert dash[0].media_kind is MediaKind.LIVE_STREAM
+    namespaced = discover(
+        _source(),
+        profile,
+        fetch=lambda url: (
+            200,
+            "application/octet-stream",
+            b'<dash:MPD xmlns:dash="urn:mpeg:dash:schema:mpd:2011"><Period/></dash:MPD>',
+        ),
+    )
+    assert namespaced[0].media_kind is MediaKind.LIVE_STREAM
     classic = MediaSource(
         kind=IntakeKind.URL,
         locator="https://cdn.example.com/live.m3u",
