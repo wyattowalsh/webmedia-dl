@@ -27,19 +27,31 @@ public enum WebMediaDLVisionShareExtension {
                 last = saved.outputPath
                 continue
             }
+            let intake = WebMediaDLShareIntake.fromSavedBookmark(locator: locator)
+            let files = intake.filesDestination
             last = try await WebMediaDLPairedMacSubmit.submit(
                 locator: locator,
                 surface: .visionos,
                 credentials: client,
-                intakeKind: "share_sheet"
+                intakeKind: "share_sheet",
+                destinationKind: files == nil ? nil : "files_app",
+                destinationPath: files?.approvedRoot,
+                approvedRoots: files.map { [$0.approvedRoot] } ?? [],
+                bookmarkData: files?.bookmark.bookmarkData ?? intake.bookmarkData
             )
         }
         for path in WebMediaDLShareItemExtractor.dropPaths(fromShared: values) {
+            let intake = WebMediaDLShareIntake.fromSavedBookmark(locator: path)
+            let files = intake.filesDestination
             last = try await WebMediaDLPairedMacSubmit.submit(
                 locator: path,
                 surface: .visionos,
                 credentials: client,
-                intakeKind: "drop"
+                intakeKind: "drop",
+                destinationKind: files == nil ? nil : "files_app",
+                destinationPath: files?.approvedRoot,
+                approvedRoots: files.map { [$0.approvedRoot] } ?? [],
+                bookmarkData: files?.bookmark.bookmarkData ?? intake.bookmarkData
             )
         }
         return last

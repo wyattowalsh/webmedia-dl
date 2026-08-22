@@ -369,6 +369,7 @@ SCENARIO_EVIDENCE = {
     "sealed companion envelope": "test_companion_accepts_sealed_pairing_envelope",
     "unconfirmed pairing": "test_unconfirmed_pairing_does_not_escalate",
     "mac lan relay rewrites to loopback": "testLoopbackRequestBuildersStayOnLoopback",
+    "complete-client history uses mac relay": "testLoopbackRequestBuildersStayOnLoopback",
     "HTML extracts media without using the title as identity": (
         "test_html_discovery_extracts_media_without_using_title_as_id"
     ),
@@ -406,6 +407,9 @@ SCENARIO_EVIDENCE = {
     "original archive preserved": "test_legacy_scan_is_non_destructive",
     "capture popup markup": "test_capture_popup_has_accessible_markup",
     "CLI help uses canonical name": "test_help",
+    "bundle zip uses a fixed timestamp": "test_package_bundle_uses_fixed_timestamp",
+    "encrypted HLS refuses before fetch": "test_aes128_playlist_refused_before_any_segment_fetch",
+    "default telemetry is rejected": "test_policy_profile_forbids_drm_and_default_telemetry",
 }
 
 

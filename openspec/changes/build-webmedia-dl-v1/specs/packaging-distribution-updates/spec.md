@@ -16,3 +16,8 @@ Public names SHALL be WebMedia DL / `webmedia-dl` / `webmedia_dl` / `WebMediaDL`
 
 `scripts/package_bundle.py` SHALL write a zip with a fixed timestamp.
 `scripts/validate_bundle.py` SHALL fail if required overlay files or specs are missing.
+
+#### Scenario: bundle zip uses a fixed timestamp
+
+- **WHEN** `scripts/package_bundle.py` writes an archive
+- **THEN** every zip member timestamp is `2026-08-18 00:00:00`

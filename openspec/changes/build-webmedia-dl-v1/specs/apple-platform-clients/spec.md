@@ -58,3 +58,9 @@ the phone's own `127.0.0.1`.
 - **WHEN** a complete-client POST reaches the Mac LAN relay
 - **THEN** the host is rewritten to `127.0.0.1`, public peers are refused, and
   `nativeCommand` is rejected
+
+#### Scenario: complete-client history uses mac relay
+
+- **WHEN** iPhone, iPad, or visionOS refreshes history or pauses the queue
+- **THEN** those requests target the saved private Mac URL, not the phone's
+  loopback

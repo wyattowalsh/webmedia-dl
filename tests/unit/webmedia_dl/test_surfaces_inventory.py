@@ -817,7 +817,25 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
         assert "WebMediaDLHttpDirect.saveIfDirect" in text
         assert f"surface: {surface}" in text
         assert "WebMediaDLPairedMacSubmit.submit" in text
+        assert "WebMediaDLShareIntake.fromSavedBookmark" in text
+        assert 'destinationKind: files == nil ? nil : "files_app"' in text
     mac_share = (
         root / "apps/WebMediaDLMac/ShareExtension/WebMediaDLMacShareExtension.swift"
     ).read_text(encoding="utf-8")
     assert "WebMediaDLHttpDirect" not in mac_share
+    assert "WebMediaDLShareIntake.fromSavedBookmark" in mac_share
+    assert 'destinationKind: files == nil ? nil : "files_app"' in mac_share
+    share_intake = (
+        root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/ShareIntake.swift"
+    ).read_text(encoding="utf-8")
+    assert "fromSavedBookmark" in share_intake
+    assert "resolvedForSubmit" in share_intake
+    for rel in (
+        "apps/WebMediaDLMac/Sources/WebMediaDLMac/WebMediaDLMacShareView.swift",
+        "apps/WebMediaDLiOS/Sources/WebMediaDLiOS/WebMediaDLiOSShareView.swift",
+        "apps/WebMediaDLiPadOS/Sources/WebMediaDLiPadOS/WebMediaDLiPadOSShareView.swift",
+        "apps/WebMediaDLVision/Sources/WebMediaDLVision/WebMediaDLVisionShareView.swift",
+    ):
+        text = (root / rel).read_text(encoding="utf-8")
+        assert "resolvedForSubmit" in text
+        assert 'destinationKind: files == nil ? nil : "files_app"' in text

@@ -18,7 +18,9 @@ LAN/loopback HTTP relay (`http://127.0.0.1:8766` plus private interface URLs) th
 rewrites onto that worker and refuses public peers and `nativeCommand`. Complete
 clients paste one of those advertised URLs. Complete clients also run on-device
 `http-direct` (`URLSession`) into a user-approved Files bookmark for locators that
-already name a media object. Page locators, encrypted HLS/DASH, and live
+already name a media object. Share sheets restore that Files bookmark via
+`WebMediaDLShareIntake.fromSavedBookmark` so heavy submit still carries
+`files_app`. Page locators, encrypted HLS/DASH, and live
 manifests fail closed locally and require a paired Mac. tvOS capture is typed URL
 only (`UIPasteboard` is unavailable). Photos/Files/Share destinations require a
 user-approved root. Swift packages are under `apps/`. GitHub `macos-15` CI runs

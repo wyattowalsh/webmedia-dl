@@ -2,6 +2,12 @@
 
 ## 0.1.0
 
+- Share sheets restore the App Group Files bookmark through
+  `WebMediaDLShareIntake.fromSavedBookmark` so complete-client share adapters
+  carry `files_app` destinations. OpenSpec scenarios cover Mac-relay history,
+  fixed bundle timestamps, encrypted HLS refuse-before-fetch, and default
+  telemetry rejection. GitHub `macos-15` run `32549087599` executed Core
+  `swift test` (18 tests, 0 failures) on `fea26f1`.
 - Mac LAN HTTP relay binds private/loopback addresses, rewrites onto the
   loopback worker, refuses public peers and `nativeCommand`, and advertises
   paste URLs in the Mac app. Complete-client history and queue controls use

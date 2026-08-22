@@ -145,6 +145,32 @@ final class IdentityTests: XCTestCase {
         XCTAssertFalse(WebMediaDLSecurityScopedBookmark(path: "   ").allows("/Users/me/Movies/clip.mp4"))
         XCTAssertFalse(WebMediaDLDestinationPolicy(approvedRoots: ["", " "]).allows("/Users/me/Movies/clip.mp4"))
         _ = WebMediaDLWorkerCredentials.loadBookmark()
+        let suiteName = "webmedia-dl.share-intake.\(UUID().uuidString)"
+        let suite = UserDefaults(suiteName: suiteName)!
+        let empty = WebMediaDLShareIntake.fromSavedBookmark(
+            locator: "https://example.com/a.mp4",
+            defaults: suite
+        )
+        XCTAssertNil(empty.filesDestination)
+        XCTAssertFalse(empty.canPublishToFiles)
+        suite.set("/Users/me/Movies".data(using: .utf8), forKey: WebMediaDLWorkerCredentials.bookmarkDefaultsKey)
+        let saved = WebMediaDLShareIntake.fromSavedBookmark(
+            locator: "https://example.com/a.mp4",
+            defaults: suite
+        )
+        XCTAssertEqual(saved.bookmarkData, "/Users/me/Movies".data(using: .utf8))
+        let explicit = WebMediaDLShareIntake(
+            locator: "https://example.com/a.mp4",
+            approvedRoot: "/Users/me/Movies",
+            bookmarkData: Data("bookmark".utf8)
+        )
+        XCTAssertEqual(explicit.resolvedForSubmit(defaults: suite).filesDestination?.approvedRoot, "/Users/me/Movies")
+        XCTAssertTrue(explicit.canPublishToFiles)
+        XCTAssertEqual(
+            explicit.resolvedForSubmit(defaults: suite).filesDestination?.bookmark.bookmarkData,
+            Data("bookmark".utf8)
+        )
+        suite.removePersistentDomain(forName: suiteName)
     }
 
     func testCompanionKindEncodesNullNativeCommand() throws {

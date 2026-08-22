@@ -19,6 +19,7 @@ public struct WebMediaDLMacShareView: View {
                 .accessibilityLabel("Shared locator")
             Button("Send to WebMedia DL") {
                 Task {
+                    let intake = self.intake.resolvedForSubmit()
                     let files = intake.filesDestination
                     _ = try? await client.submit(
                         locator: intake.locator,
@@ -27,7 +28,7 @@ public struct WebMediaDLMacShareView: View {
                         destinationKind: files == nil ? nil : "files_app",
                         destinationPath: files?.approvedRoot,
                         approvedRoots: files.map { [$0.approvedRoot] } ?? [],
-                        bookmarkData: files?.bookmark.bookmarkData ?? WebMediaDLWorkerCredentials.loadBookmark()
+                        bookmarkData: files?.bookmark.bookmarkData ?? intake.bookmarkData
                     )
                 }
             }

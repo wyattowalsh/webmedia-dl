@@ -17,6 +17,7 @@ public struct WebMediaDLiPadOSShareView: View {
                 .accessibilityLabel("Shared locator")
             Button("Send to paired Mac") {
                 Task {
+                    let intake = self.intake.resolvedForSubmit()
                     let files = intake.filesDestination
                     _ = try? await WebMediaDLPairedMacSubmit.submit(
                         locator: intake.locator,
@@ -26,7 +27,7 @@ public struct WebMediaDLiPadOSShareView: View {
                         destinationKind: files == nil ? nil : "files_app",
                         destinationPath: files?.approvedRoot,
                         approvedRoots: files.map { [$0.approvedRoot] } ?? [],
-                        bookmarkData: files?.bookmark.bookmarkData ?? WebMediaDLWorkerCredentials.loadBookmark()
+                        bookmarkData: files?.bookmark.bookmarkData ?? intake.bookmarkData
                     )
                 }
             }
