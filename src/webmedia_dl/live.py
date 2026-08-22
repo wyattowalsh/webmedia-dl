@@ -354,7 +354,9 @@ def _iso8601_duration_seconds(value: str | None) -> float | None:
         total += float(minutes) * 60
     if seconds:
         total += float(seconds)
-    return total if total > 0 else None
+    if not (days or hours or minutes or seconds):
+        return None
+    return total
 
 
 def _template_last_number(
@@ -974,6 +976,55 @@ def _dash_parts(text: str, base: str) -> list[ManifestPart]:
     return next(iter(kinds.values()), [])
 
 
+def _period_window_seconds(
+    period_attrs_list: list[dict[str, str]],
+    mpd_seconds: float | None,
+) -> list[float | None]:
+    """Resolve each Period's presentation window.
+
+    DASH Period `@duration` is explicit when present. Otherwise the window is
+    the difference between adjacent `@start` values, and the last Period runs
+    through MPD `mediaPresentationDuration`. A first Period without `@start`
+    begins at 0. Periods that still have no timing stay unbounded so `$Number$`
+    does not inherit the full MPD duration on every Period.
+    """
+    count = len(period_attrs_list)
+    if count == 0:
+        return []
+    starts: list[float | None] = [
+        _iso8601_duration_seconds(attrs.get("start")) for attrs in period_attrs_list
+    ]
+    durations: list[float | None] = [
+        _iso8601_duration_seconds(attrs.get("duration")) for attrs in period_attrs_list
+    ]
+    if starts[0] is None:
+        starts[0] = 0.0
+    changed = True
+    while changed:
+        changed = False
+        for index in range(count - 1):
+            start_here = starts[index]
+            start_next = starts[index + 1]
+            if durations[index] is None and start_here is not None and start_next is not None:
+                delta = start_next - start_here
+                if delta > 0:
+                    durations[index] = delta
+                    changed = True
+        for index in range(1, count):
+            start_prev = starts[index - 1]
+            duration_prev = durations[index - 1]
+            if starts[index] is None and start_prev is not None and duration_prev is not None:
+                starts[index] = start_prev + duration_prev
+                changed = True
+        last_start = starts[-1]
+        if durations[-1] is None and mpd_seconds is not None and last_start is not None:
+            delta = mpd_seconds - last_start
+            if delta > 0:
+                durations[-1] = delta
+                changed = True
+    return durations
+
+
 def _dash_kind_parts(text: str, base: str) -> dict[str, list[ManifestPart]]:
     buckets: dict[str, list[ManifestPart]] = {}
     seen: dict[str, set[tuple[str, int | None, int | None, int]]] = {}
@@ -987,15 +1038,15 @@ def _dash_kind_parts(text: str, base: str) -> dict[str, list[ManifestPart]]:
     mpd_base = _collect_baseurls(
         mpd_prefix, base, mpd_add, emit_files=not _has_indexed_segments(mpd_prefix)
     )
-    period_count = len(periods) if periods else 1
     scopes = (
         [(match.group(2) or "", _attrs(match.group(1))) for match in periods]
         if periods
         else [(text, {})]
     )
-    for index, (body, period_attrs) in enumerate(scopes):
-        own = _iso8601_duration_seconds(period_attrs.get("duration"))
-        period_seconds = own if own is not None else (mpd_seconds if period_count <= 1 else None)
+    windows = _period_window_seconds([attrs for _body, attrs in scopes], mpd_seconds)
+    for index, ((body, period_attrs), period_seconds) in enumerate(
+        zip(scopes, windows, strict=True)
+    ):
         kind_parts = _period_kind_parts(
             body,
             mpd_base,

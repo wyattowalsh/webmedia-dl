@@ -54,6 +54,7 @@ from webmedia_dl.live import (
     _format_token,
     _iso8601_duration_seconds,
     _period_parts,
+    _period_window_seconds,
     record_clear_stream,
     record_kind_streams,
     recordable_segment_urls,
@@ -681,8 +682,12 @@ def test_dash_template_tokens_and_period_fallback(monkeypatch: pytest.MonkeyPatc
     assert _iso8601_duration_seconds("P0Y0M0DT0H0M4.5S") == 4.5
     assert _iso8601_duration_seconds("P1Y") is None
     assert _iso8601_duration_seconds("P1M") is None
+    assert _iso8601_duration_seconds("P0Y") is None
+    assert _iso8601_duration_seconds("P") is None
     assert _iso8601_duration_seconds("PT1H") == 3600
+    assert _iso8601_duration_seconds("PT0S") == 0
     assert _iso8601_duration_seconds("not-a-duration") is None
+    assert _period_window_seconds([], None) == []
     timed_duration = """
     <MPD mediaPresentationDuration="PT6S"><Period>
       <SegmentTemplate media="s$Number$.m4s" startNumber="1" duration="2000" timescale="1000"/>
@@ -833,6 +838,79 @@ def test_dash_template_tokens_and_period_fallback(monkeypatch: pytest.MonkeyPatc
         "https://cdn.example.com/a2.m4s",
         "https://cdn.example.com/b1.m4s",
         "https://cdn.example.com/b2.m4s",
+    ]
+    period_starts = """
+    <MPD mediaPresentationDuration="PT10S">
+      <Period start="PT0S">
+        <SegmentTemplate media="a$Number$.m4s" startNumber="1" duration="2" timescale="1"/>
+      </Period>
+      <Period start="PT4S">
+        <SegmentTemplate media="b$Number$.m4s" startNumber="1" duration="2" timescale="1"/>
+      </Period>
+    </MPD>
+    """
+    assert recordable_segment_urls(period_starts, "https://cdn.example.com/") == [
+        "https://cdn.example.com/a1.m4s",
+        "https://cdn.example.com/a2.m4s",
+        "https://cdn.example.com/b1.m4s",
+        "https://cdn.example.com/b2.m4s",
+        "https://cdn.example.com/b3.m4s",
+    ]
+    chained_start = """
+    <MPD mediaPresentationDuration="PT10S">
+      <Period duration="PT4S">
+        <SegmentTemplate media="a$Number$.m4s" startNumber="1" duration="2" timescale="1"/>
+      </Period>
+      <Period>
+        <SegmentTemplate media="b$Number$.m4s" startNumber="1" duration="2" timescale="1"/>
+      </Period>
+    </MPD>
+    """
+    assert recordable_segment_urls(chained_start, "https://cdn.example.com/") == [
+        "https://cdn.example.com/a1.m4s",
+        "https://cdn.example.com/a2.m4s",
+        "https://cdn.example.com/b1.m4s",
+        "https://cdn.example.com/b2.m4s",
+        "https://cdn.example.com/b3.m4s",
+    ]
+    start_offset = """
+    <MPD mediaPresentationDuration="PT10S">
+      <Period start="PT2S">
+        <SegmentTemplate media="s$Number$.m4s" startNumber="1" duration="2" timescale="1"/>
+      </Period>
+    </MPD>
+    """
+    assert recordable_segment_urls(start_offset, "https://cdn.example.com/") == [
+        "https://cdn.example.com/s1.m4s",
+        "https://cdn.example.com/s2.m4s",
+        "https://cdn.example.com/s3.m4s",
+        "https://cdn.example.com/s4.m4s",
+    ]
+    inverted_starts = """
+    <MPD mediaPresentationDuration="PT6S">
+      <Period start="PT4S">
+        <SegmentTemplate media="a$Number$.m4s" startNumber="1" duration="2" timescale="1"/>
+      </Period>
+      <Period start="PT0S">
+        <SegmentTemplate media="b$Number$.m4s" startNumber="1" duration="2" timescale="1"/>
+      </Period>
+    </MPD>
+    """
+    assert recordable_segment_urls(inverted_starts, "https://cdn.example.com/") == [
+        "https://cdn.example.com/a1.m4s",
+        "https://cdn.example.com/b1.m4s",
+        "https://cdn.example.com/b2.m4s",
+        "https://cdn.example.com/b3.m4s",
+    ]
+    late_start = """
+    <MPD mediaPresentationDuration="PT2S">
+      <Period start="PT4S">
+        <SegmentTemplate media="s$Number$.m4s" startNumber="1" duration="2" timescale="1"/>
+      </Period>
+    </MPD>
+    """
+    assert recordable_segment_urls(late_start, "https://cdn.example.com/") == [
+        "https://cdn.example.com/s1.m4s",
     ]
     video = [ManifestPart("https://cdn.example.com/v.m4s")]
     monkeypatch.setattr(

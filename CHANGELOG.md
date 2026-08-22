@@ -2,6 +2,14 @@
 
 ## 0.1.0
 
+- Infer DASH Period presentation windows from `@start` (and the last Period
+  through MPD `mediaPresentationDuration`) when `@duration` is omitted, so
+  `$Number$` expansion records each Period's segments instead of a single
+  `$Number=1` locator per Period. `PT0S` is a zero instant, not a missing
+  timestamp. GitHub Actions `32593070616` on `c40901f` passed Python (626
+  pytest, 100%), doctor provider probes, and Swift (18 tests, 0 failures;
+  12× BUILD SUCCEEDED) after inheriting DASH timescale onto SegmentTemplate
+  duration expansion.
 - Inherit DASH `timescale` from Period, AdaptationSet, and Representation onto
   a SegmentTemplate that only declares `@duration`, so `$Number$` expansion
   under MPD/Period presentation duration covers the real segment count instead
