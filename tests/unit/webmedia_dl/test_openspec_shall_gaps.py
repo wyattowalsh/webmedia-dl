@@ -261,7 +261,8 @@ def test_doctor_fail_and_warn_and_missing_skip_install(
         raise AssertionError("doctor must not download providers")
 
     monkeypatch.setattr("webmedia_dl.diagnostics.resolve_provider_binary", lambda _name: None)
-    monkeypatch.setattr("webmedia_dl.diagnostics.subprocess.run", boom)
+    monkeypatch.setattr("webmedia_dl.providers.resolve_provider_binary", lambda *_a, **_k: None)
+    monkeypatch.setattr("webmedia_dl.providers.subprocess.run", boom)
     blocked = doctor()
     assert blocked["providers"]["ytdlp"]["status"] == "BLOCKED"
     assert calls == []
@@ -326,6 +327,7 @@ def test_recordable_parts_refuses_dash_system_uuid_without_protection_tag() -> N
 
 def test_doctor_version_probe_oserror_is_fail(monkeypatch: pytest.MonkeyPatch) -> None:
     from webmedia_dl import diagnostics as diagnostics_mod
+    from webmedia_dl import providers as providers_mod
 
     monkeypatch.setattr(
         diagnostics_mod,
@@ -336,7 +338,7 @@ def test_doctor_version_probe_oserror_is_fail(monkeypatch: pytest.MonkeyPatch) -
     def _boom(*_args: object, **_kwargs: object) -> None:
         raise OSError("exec format error")
 
-    monkeypatch.setattr(diagnostics_mod.subprocess, "run", _boom)
+    monkeypatch.setattr(providers_mod.subprocess, "run", _boom)
     rows = doctor()
     ffmpeg = rows["providers"]["ffmpeg"]
     assert ffmpeg["status"] == "FAIL"

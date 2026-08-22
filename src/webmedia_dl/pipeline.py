@@ -1011,10 +1011,11 @@ class Pipeline:
                 container = Path(source.local_path).suffix.lstrip(".") or None
             if container is None and preferred.retrieval_urls:
                 container = Path(preferred.retrieval_urls[0]).suffix.lstrip(".") or None
+            digest = "0" * 64
             standin = Artifact(
-                artifact_id="plan:source",
+                artifact_id=f"sha256:{digest}",
                 role=ArtifactRole.SOURCE,
-                sha256="0" * 64,
+                sha256=digest,
                 byte_size=0,
                 media_kind=preferred.media_kind,
                 storage_relpath="plan-source.bin",

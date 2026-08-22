@@ -19,7 +19,12 @@ public struct WebMediaDLSubmitURLIntent: AppIntent {
         if try await WebMediaDLHttpDirect.saveIfDirect(locator: locator, surface: .ios) != nil {
             return .result()
         }
-        _ = try await client.submit(locator: locator, surface: .ios, intakeKind: "intent")
+        _ = try await WebMediaDLPairedMacSubmit.submit(
+            locator: locator,
+            surface: .ios,
+            credentials: client,
+            intakeKind: "intent"
+        )
         let intake = WebMediaDLShareIntake(locator: locator)
         _ = intake.canPublishToPhotos
         return .result()
@@ -43,7 +48,12 @@ public struct WebMediaDLiOSSpeakURLIntent: AppIntent {
         if try await WebMediaDLHttpDirect.saveIfDirect(locator: locator, surface: .ios) != nil {
             return .result()
         }
-        _ = try await client.submit(locator: locator, surface: .ios, intakeKind: "speak")
+        _ = try await WebMediaDLPairedMacSubmit.submit(
+            locator: locator,
+            surface: .ios,
+            credentials: client,
+            intakeKind: "speak"
+        )
         return .result()
     }
 }

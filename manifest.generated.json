@@ -26,6 +26,7 @@
     "apps/WebMediaDLCore/Sources/WebMediaDLCore/HttpDirect.swift",
     "apps/WebMediaDLCore/Sources/WebMediaDLCore/LoopbackClient.swift",
     "apps/WebMediaDLCore/Sources/WebMediaDLCore/Models.swift",
+    "apps/WebMediaDLCore/Sources/WebMediaDLCore/PairedMac.swift",
     "apps/WebMediaDLCore/Sources/WebMediaDLCore/ShareIntake.swift",
     "apps/WebMediaDLCore/Tests/WebMediaDLCoreTests/ContractTests.swift",
     "apps/WebMediaDLCore/Tests/WebMediaDLCoreTests/IdentityTests.swift",

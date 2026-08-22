@@ -19,7 +19,12 @@ public struct WebMediaDLVisionSubmitURLIntent: AppIntent {
         if try await WebMediaDLHttpDirect.saveIfDirect(locator: locator, surface: .visionos) != nil {
             return .result()
         }
-        _ = try await client.submit(locator: locator, surface: .visionos, intakeKind: "intent")
+        _ = try await WebMediaDLPairedMacSubmit.submit(
+            locator: locator,
+            surface: .visionos,
+            credentials: client,
+            intakeKind: "intent"
+        )
         return .result()
     }
 }
@@ -41,7 +46,12 @@ public struct WebMediaDLVisionSpeakURLIntent: AppIntent {
         if try await WebMediaDLHttpDirect.saveIfDirect(locator: locator, surface: .visionos) != nil {
             return .result()
         }
-        _ = try await client.submit(locator: locator, surface: .visionos, intakeKind: "speak")
+        _ = try await WebMediaDLPairedMacSubmit.submit(
+            locator: locator,
+            surface: .visionos,
+            credentials: client,
+            intakeKind: "speak"
+        )
         return .result()
     }
 }

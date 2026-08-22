@@ -2,6 +2,10 @@
 
 ## 0.1.0
 
+- Source artifacts reject non-`sha256:<digest>` ids; capability health probes
+  binary versions; complete clients send heavy work to a saved Mac relay URL
+  instead of the phone's loopback; the extension popup send button is proven
+  under Node.
 - Queue SQLite transactions start with `BEGIN IMMEDIATE`, and `claim_next`
   commits only after `UPDATE … RETURNING`, so concurrent workers cannot
   double-claim the same accepted job.

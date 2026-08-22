@@ -176,7 +176,7 @@ final class ContractTests: XCTestCase {
         XCTAssertEqual(loaded, shared)
     }
 
-    func testLoopbackRequestBuildersStayOnLoopback() {
+    func testLoopbackRequestBuildersStayOnLoopback() throws {
         XCTAssertTrue(WebMediaDLLoopbackClient(baseURL: URL(string: "http://localhost:8765")!).isLoopback)
         XCTAssertTrue(WebMediaDLLoopbackClient(baseURL: URL(string: "http://[::1]:8765")!).isLoopback)
         XCTAssertFalse(WebMediaDLLoopbackClient(baseURL: URL(string: "http://example.com:8765")!).isLoopback)
@@ -205,6 +205,48 @@ final class ContractTests: XCTestCase {
         )
         XCTAssertNil(WebMediaDLLoopbackClient.jobId(from: "HTTP 200 nope"))
         XCTAssertNil(WebMediaDLLoopbackClient.jsonObject(from: "no-brace"))
+        XCTAssertFalse(
+            WebMediaDLPairedMacEndpoint.isAllowedRelay(URL(string: "http://example.com:8765")!)
+        )
+        XCTAssertTrue(
+            WebMediaDLPairedMacEndpoint.isAllowedRelay(URL(string: "http://192.168.1.9:8766")!)
+        )
+        let suiteName = "webmedia-dl.tests.\(UUID().uuidString)"
+        let suite = UserDefaults(suiteName: suiteName)!
+        XCTAssertTrue(
+            WebMediaDLPairedMacEndpoint.saveRelay(URL(string: "http://10.0.0.2:8766")!, defaults: suite)
+        )
+        XCTAssertFalse(
+            WebMediaDLPairedMacEndpoint.saveRelay(URL(string: "http://example.com:8765")!, defaults: suite)
+        )
+        let pairing = UUID()
+        let endpoint = WebMediaDLPairedMacEndpoint.load(
+            pairingId: pairing,
+            sessionKey: "sess",
+            token: "tok",
+            defaults: suite
+        )
+        XCTAssertEqual(endpoint?.relayURL.host, "10.0.0.2")
+        XCTAssertNil(
+            WebMediaDLPairedMacEndpoint.load(
+                pairingId: pairing,
+                sessionKey: "sess",
+                defaults: UserDefaults(suiteName: UUID().uuidString)!
+            )
+        )
+        let request = endpoint!.submitRequest(locator: "https://example.com/a.mp4", surface: .ios)
+        XCTAssertEqual(request.url?.host, "10.0.0.2")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "X-WebMedia-Pairing"), pairing.uuidString)
+        let forwarded = try WebMediaDLMacWorkerRelay.forwardToLoopback(request)
+        XCTAssertEqual(forwarded.url?.host, "127.0.0.1")
+        XCTAssertEqual(forwarded.url?.port, 8765)
+        var poisoned = request
+        poisoned.httpBody = try JSONSerialization.data(withJSONObject: ["nativeCommand": "yt-dlp"])
+        XCTAssertThrowsError(try WebMediaDLMacWorkerRelay.forwardToLoopback(poisoned))
+        var subprocess = request
+        subprocess.httpBody = try JSONSerialization.data(withJSONObject: ["subprocessWorker": true])
+        XCTAssertThrowsError(try WebMediaDLMacWorkerRelay.forwardToLoopback(subprocess))
+        suite.removePersistentDomain(forName: suiteName)
     }
 
     func testWorkerCredentialsLoadFromAppGroupDefaults() {
@@ -631,6 +673,18 @@ final class ContractTests: XCTestCase {
                 fetch: { _ in (200, [:], Data()) }
             )
             XCTFail("page locators must not fetch")
+        } catch WebMediaDLHttpDirect.TransferError.pairingRequired {
+            ()
+        }
+        do {
+            _ = try await WebMediaDLPairedMacSubmit.submit(
+                locator: "https://example.com/a.mp4",
+                surface: .ios,
+                pairingId: nil,
+                sessionKey: nil,
+                defaults: UserDefaults(suiteName: UUID().uuidString)!
+            )
+            XCTFail("heavy work must not POST without a saved Mac relay")
         } catch WebMediaDLHttpDirect.TransferError.pairingRequired {
             ()
         }

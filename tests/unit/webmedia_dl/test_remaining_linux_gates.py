@@ -320,7 +320,9 @@ def test_artifact_dest_exists_skip_and_sha_mismatch(tmp_path: Path, png_bytes: b
     second = store.register(path, role=ArtifactRole.SOURCE, media_kind=MediaKind.IMAGE)
     assert first.artifact_id == second.artifact_id
     assert second.immutable is True
-    store._records[second.artifact_id] = second.model_copy(update={"sha256": "00" * 32})
+    corrupted = second.model_copy()
+    object.__setattr__(corrupted, "sha256", "00" * 32)
+    store._records[second.artifact_id] = corrupted
     with pytest.raises(ArtifactImmutabilityError, match="never mutated"):
         store.register(path, role=ArtifactRole.SOURCE, media_kind=MediaKind.IMAGE)
 

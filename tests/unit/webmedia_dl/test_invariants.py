@@ -17,6 +17,7 @@ from webmedia_dl.domain.enums import (
 )
 from webmedia_dl.domain.models import (
     AcquisitionStrategy,
+    Artifact,
     MediaCandidate,
     MediaSource,
     PolicyProfile,
@@ -97,6 +98,25 @@ def test_source_artifact_cannot_be_mutated(tmp_path: Path) -> None:
     artifact = store.register(src, role=ArtifactRole.SOURCE, media_kind=MediaKind.UNKNOWN)
     with pytest.raises(ArtifactImmutabilityError):
         store.mutate_source(artifact.artifact_id, b"mutated")
+    assert artifact.artifact_id == f"sha256:{artifact.sha256}"
+    with pytest.raises(ValidationError, match="sha256:<digest>"):
+        Artifact(
+            artifact_id="plan:source",
+            role=ArtifactRole.SOURCE,
+            sha256="0" * 64,
+            byte_size=0,
+            media_kind=MediaKind.VIDEO,
+            storage_relpath="plan-source.bin",
+        )
+    with pytest.raises(ValidationError, match="sha256:<digest>"):
+        Artifact(
+            artifact_id="Cool Video Title",
+            role=ArtifactRole.SOURCE,
+            sha256="ab",
+            byte_size=1,
+            media_kind=MediaKind.VIDEO,
+            storage_relpath="a.bin",
+        )
 
 
 def test_simulated_check_cannot_pass() -> None:

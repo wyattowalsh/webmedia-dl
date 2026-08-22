@@ -62,7 +62,7 @@ def test_capability_registry_includes_live_and_ffmpeg() -> None:
     assert "process.ffmpeg.remux" in ids
     assert "acquire.ytdlp" in ids
     ytdlp = next(item for item in registry() if item.capability_id == "acquire.ytdlp")
-    assert ytdlp.health in {"healthy", "missing"}
+    assert ytdlp.health in {"healthy", "missing", "unhealthy"}
 
 
 def test_apple_app_shells_exist() -> None:
@@ -709,6 +709,9 @@ def test_github_ci_compiles_apple_packages() -> None:
     assert "testDomainInvariantsFailClosed" in contracts
     assert "WebMediaDLPipelineJob" in contracts
     assert "container_only" in contracts
+    assert "WebMediaDLPairedMacEndpoint" in contracts
+    assert "forwardToLoopback" in contracts
+    assert (repo_root() / "apps/WebMediaDLCore/Sources/WebMediaDLCore/PairedMac.swift").is_file()
 
 
 def test_complete_clients_http_direct_and_shared_domain() -> None:
@@ -761,6 +764,10 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
         assert "WebMediaDLHttpDirect.transfer" in text
         assert "Lightweight HTTP jobs stay on-device" in text
         assert "Send to paired Mac" in text
+        assert "WebMediaDLPairedMacSubmit.submit" in text
+        assert "Paired Mac URL" in text
+        assert "Save Mac address" in text
+        assert "WebMediaDLPairedMacEndpoint.startPairing" in text
     assert "Save on this device" not in watch
     assert "Save on this device" not in tv
     assert "WebMediaDLHttpDirect" not in watch
@@ -781,6 +788,7 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
         text = (root / rel).read_text(encoding="utf-8")
         assert "WebMediaDLHttpDirect.saveIfDirect" in text
         assert "WebMediaDLWorkerCredentials.loadClient()" in text
+        assert "WebMediaDLPairedMacSubmit.submit" in text
     for rel, surface in (
         ("apps/WebMediaDLiOS/ShareExtension/WebMediaDLiOSShareExtension.swift", ".ios"),
         ("apps/WebMediaDLiPadOS/ShareExtension/WebMediaDLiPadOSShareExtension.swift", ".ipados"),
@@ -789,6 +797,7 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
         text = (root / rel).read_text(encoding="utf-8")
         assert "WebMediaDLHttpDirect.saveIfDirect" in text
         assert f"surface: {surface}" in text
+        assert "WebMediaDLPairedMacSubmit.submit" in text
     mac_share = (
         root / "apps/WebMediaDLMac/ShareExtension/WebMediaDLMacShareExtension.swift"
     ).read_text(encoding="utf-8")

@@ -151,4 +151,76 @@ describe("collectMediaEvidence", () => {
       globalThis.fetch = previous;
     }
   });
+
+  it("popup send button posts one-tap capture to the loopback worker", async () => {
+    const store = {};
+    const tokenEl = { value: "worker-token" };
+    const statusEl = { textContent: "" };
+    const sendEl = {
+      listeners: {},
+      addEventListener(name, fn) {
+        this.listeners[name] = fn;
+      },
+    };
+    const previous = {
+      document: globalThis.document,
+      fetch: globalThis.fetch,
+      chrome: globalThis.chrome,
+    };
+    globalThis.document = {
+      getElementById(id) {
+        if (id === "send") return sendEl;
+        if (id === "status") return statusEl;
+        if (id === "token") return tokenEl;
+        return null;
+      },
+      location: { href: "https://example.com/watch" },
+      querySelectorAll(selector) {
+        if (String(selector).includes("video")) {
+          return [
+            {
+              tagName: "VIDEO",
+              getAttribute: () => "https://cdn.example.com/a.mp4",
+            },
+          ];
+        }
+        return [];
+      },
+    };
+    const calls = [];
+    globalThis.fetch = async (url, options) => {
+      calls.push({ url, options });
+      return { ok: true, json: async () => ({ job_id: "job-popup" }) };
+    };
+    globalThis.chrome = {
+      storage: {
+        local: {
+          get: (key) => Promise.resolve({ [key]: store[key] }),
+          set: (items) => {
+            Object.assign(store, items);
+            return Promise.resolve();
+          },
+        },
+      },
+    };
+    try {
+      await import("../../../extensions/chromium/popup.js");
+      assert.equal(typeof sendEl.listeners.click, "function");
+      await sendEl.listeners.click();
+      assert.equal(calls.length, 1);
+      assert.equal(calls[0].url, "http://127.0.0.1:8765/v1/jobs");
+      assert.equal(calls[0].options.headers.Authorization, "Bearer worker-token");
+      const body = JSON.parse(calls[0].options.body);
+      assert.equal(body.intake_kind, "browser_evidence");
+      assert.equal(body.locator, "https://example.com/watch");
+      assert.equal(body.nativeCommand, undefined);
+      assert.ok(body.evidence.some((item) => item.url === "https://cdn.example.com/a.mp4"));
+      assert.equal(statusEl.textContent, "Submitted to the local worker.");
+      assert.equal(store[WORKER_TOKEN_KEY], "worker-token");
+    } finally {
+      globalThis.document = previous.document;
+      globalThis.fetch = previous.fetch;
+      globalThis.chrome = previous.chrome;
+    }
+  });
 });

@@ -43,6 +43,26 @@ BINARY_ALIASES: dict[str, tuple[str, ...]] = {
 }
 
 
+def provider_version_ok(path: str, binary_name: str) -> bool:
+    """Execute a version probe. Presence alone is not health evidence."""
+    name = Path(path).name
+    flag = (
+        "-version"
+        if binary_name in {"ffmpeg", "magick"} or name in {"ffmpeg", "ffprobe", "magick", "convert"}
+        else "--version"
+    )
+    try:
+        completed = subprocess.run(
+            [path, flag],
+            capture_output=True,
+            timeout=8,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return completed.returncode == 0
+
+
 def resolve_provider_binary(
     name: str | None,
     *,
@@ -310,11 +330,12 @@ class ProviderRuntime:
         manifest = self._manifests[provider_id]
         if manifest.binary_name is None:
             return "healthy"
-        return (
-            "healthy"
-            if resolve_provider_binary(manifest.binary_name, which=self._which)
-            else "missing"
-        )
+        path = resolve_provider_binary(manifest.binary_name, which=self._which)
+        if path is None:
+            return "missing"
+        if not Path(path).exists():
+            return "healthy"
+        return "healthy" if provider_version_ok(path, manifest.binary_name) else "unhealthy"
 
     def execute(self, request: ProviderRequest, staging: Path) -> ProviderResult:
         key = self._job_key(request.job_id)

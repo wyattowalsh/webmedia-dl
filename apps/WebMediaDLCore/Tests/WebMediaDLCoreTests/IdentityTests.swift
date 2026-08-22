@@ -63,6 +63,12 @@ final class IdentityTests: XCTestCase {
         XCTAssertEqual(relay.pending.count, 1)
         XCTAssertEqual(relay.drain().count, 1)
         XCTAssertTrue(relay.pending.isEmpty)
+        relay.enqueue(message)
+        let suiteName = "webmedia-dl.relay.\(UUID().uuidString)"
+        let suite = UserDefaults(suiteName: suiteName)!
+        relay.persist(defaults: suite)
+        XCTAssertEqual(WebMediaDLCompanionRelay.load(defaults: suite).pending, [message])
+        suite.removePersistentDomain(forName: suiteName)
         XCTAssertEqual(
             WebMediaDLShareItemExtractor.locators(fromShared: [
                 "https://example.com/a.mp4",

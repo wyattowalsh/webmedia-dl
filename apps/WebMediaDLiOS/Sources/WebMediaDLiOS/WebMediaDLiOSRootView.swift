@@ -15,6 +15,7 @@ public struct WebMediaDLiOSRootView: View {
     @State private var filesBookmark = WebMediaDLSecurityScopedBookmark(path: "")
     @State private var pickingDestination = false
     @State private var fromClipboard = false
+    @State private var macRelay = ""
     private let role = WebMediaDLClientRole.pairedClient
 
     public init() {}
@@ -89,9 +90,10 @@ public struct WebMediaDLiOSRootView: View {
                                 ? nil
                                 : WebMediaDLFilesDestination(bookmark: filesBookmark)
                             let clip = WebMediaDLClipboardIntake(text: locator)
-                            let response = (try? await client.submit(
+                            let response = (try? await WebMediaDLPairedMacSubmit.submit(
                                 locator: locator,
                                 surface: .ios,
+                                credentials: client,
                                 pairingId: UUID(uuidString: pairingId),
                                 sessionKey: sessionKey.isEmpty ? nil : sessionKey,
                                 intakeKind: fromClipboard ? clip.intakeKind : nil,
@@ -107,6 +109,18 @@ public struct WebMediaDLiOSRootView: View {
                     .accessibilityLabel("Send to paired Mac")
                 }
                 Section("Pairing") {
+                    TextField("Paired Mac URL", text: $macRelay)
+                        .textInputAutocapitalization(.never)
+                        .accessibilityLabel("Paired Mac URL")
+                    Button("Save Mac address") {
+                        if let url = URL(string: macRelay),
+                           WebMediaDLPairedMacEndpoint.saveRelay(url) {
+                            status = "Saved Mac relay \(url.absoluteString)"
+                        } else {
+                            status = "Mac address must be loopback, .local, or a private LAN URL."
+                        }
+                    }
+                    .accessibilityLabel("Save Mac address")
                     TextField("Pairing id", text: $pairingId)
                         .textInputAutocapitalization(.never)
                         .accessibilityLabel("Pairing id")
@@ -115,7 +129,7 @@ public struct WebMediaDLiOSRootView: View {
                     Button("Start pairing") {
                         Task {
                             do {
-                                let challenge = try await client.startPairing()
+                                let challenge = try await WebMediaDLPairedMacEndpoint.startPairing()
                                 pairingId = challenge.pairingId.uuidString
                                 sessionKey = WebMediaDLLoopbackClient.derivedSessionKey(nonce: challenge.nonce)
                                 status = "Confirm this pairing on the Mac before \(challenge.expiresAt)."

@@ -3,11 +3,11 @@
 | Gate | Status | Evidence |
 |---|---|---|
 | `uv run pytest` | PASS | 521 tests |
-| `uv run pytest --cov` | PASS | 99.65% (`fail_under` 99) |
+| `uv run pytest --cov` | PASS | 99.62% (`fail_under` 99) |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
 | `uv run ty check` | PASS | |
-| `node --test tests/unit/extensions/*.mjs` | PASS | 6 tests including mocked fetch submit |
+| `node --test tests/unit/extensions/*.mjs` | PASS | 7 tests including popup `#send` → loopback POST |
 | `uv run python -m webmedia_dl.schema_export` | PASS | 19 schemas + index |
 | `uv run python scripts/validate_bundle.py` | PASS | 159 pack paths + extension/app shells + links + task DAG + traceability + archive safety + clean extraction |
 | `uv run webmedia-dl doctor` ffmpeg | PASS | `/usr/bin/ffmpeg -version` executed PASS |
@@ -31,6 +31,10 @@
 | CLI paste/speak/drop fail-closed | PASS | DRM locators exit 1 with `job.error`; missing drop files fail closed; drop publication errors exit 1 |
 | Fetch bounds | PASS | HTML truncate, media overflow error, streaming within-limit, redirect bound, owned client closed |
 | Queue durability | PASS | legacy `job_context` columns migrate; `claim_next` CAS misses return none; `UPDATE … RETURNING` plus `BEGIN IMMEDIATE` keeps concurrent claims exclusive; invalid JSON checkpoints become `{}`; `next_runnable` ignores non-accepted jobs |
+| Source artifact identity | PASS | SOURCE `artifact_id` must be `sha256:<digest>`; titles and `plan:source` sentinels are rejected |
+| Capability health probe | PASS | present binaries whose version probe fails are `unhealthy`; missing binaries stay `missing`; `/bin/false` is not `healthy` |
+| Extension popup one-tap | PASS | `popup.js` `#send` click collects page URLs and POSTs `/v1/jobs` with no `nativeCommand` |
+| Complete-client Mac relay | PASS | iPhone/iPad/visionOS heavy submit uses a saved private/loopback Mac URL plus pairing; Mac `forwardToLoopback` strips LAN hosts back to `127.0.0.1` and refuses `nativeCommand`. Physical device radio remains BLOCKED |
 | Publication skip | PASS | preview-only produced sets and `include_original=false` leave no publishable artifacts; validation failures fail the job |
 | Worker API errors | PASS | unknown pairing confirm/submit/plan/envelope fail closed; companion envelope non-objects are 400; pair `personal-full`/unknown profiles are 400; companion unknown job ids are 404; sealed companion `nativeCommand` is 400 then nonce-replay fails; loopback `serve` reaches uvicorn; `serve_worker` refuses `0.0.0.0`; `GET /v1/jobs` lists history; plan uses pairing id from auth headers; empty `run-next` returns `job: null`; `/v1/plan` DRM locators are 400 with no provider execution or job creation; `/v1/jobs` destinations outside `approved_roots` fail the job with `job.failed` |
 | Cancel during acquire | PASS | mixed-media HTTP cancel during the first kind raises closed to `cancelled` without publishing |
@@ -70,9 +74,9 @@
 | Acquired remote skip | PASS | resume at `stage=acquired` does not refetch remote media |
 | ImageMagick convert alias | PASS | health and argv resolve IM6 `convert` when `magick` is missing |
 | Job-detail / run-next helpers | PASS | unrelated history rows are skipped; empty queue returns `job: null`; a queued job returns events |
-| Swift Core CI job | PASS | GitHub Actions `ci` run `32546457257` on `d3804b7`: `IdentityTests` executed 6 tests, 0 failures on `macos-15` |
-| Swift Core contract tests | PASS | `ContractTests.swift` executed 12 tests, 0 failures with IdentityTests (6) on GitHub `macos-15` run `32546457257` (`d3804b7`) |
-| Apple package compile CI | PASS | GitHub Actions `ci` run `32546457257` on `d3804b7`: Core `swift test` 18 tests, 0 failures (`ContractTests` 12 + `IdentityTests` 6); Safari handler `swiftc -typecheck`; 8× `BUILD SUCCEEDED` (iOS, iOS share parent scheme, iPad, iPad share, vision, vision share, watchOS, tvOS). Device runtime stays BLOCKED |
+| Swift Core CI job | PASS | GitHub Actions `ci` run `32547034971` on `f025655`: `IdentityTests` executed 6 tests, 0 failures on `macos-15` |
+| Swift Core contract tests | PASS | `ContractTests.swift` executed 12 tests, 0 failures with IdentityTests (6) on GitHub `macos-15` run `32547034971` (`f025655`) |
+| Apple package compile CI | PASS | GitHub Actions `ci` run `32547034971` on `f025655`: Core `swift test` 18 tests, 0 failures (`ContractTests` 12 + `IdentityTests` 6); Safari handler `swiftc -typecheck`; 8× `BUILD SUCCEEDED`. Device runtime stays BLOCKED |
 | OpenSpec scenarios | PASS | every capability spec scenario has WHEN/THEN; each scenario title maps to a named Python or Swift test; popup markup is parsed; drop records `local_path`; local submit does not upload; job submit forbids native argv |
 | Builtin manifests / profiles | PASS | every shipped provider sets `install_automatic` false and `accepts_user_argv` false; every shipped profile forbids telemetry, DRM circumvention, and delegation |
 | Graph relation schema | PASS | Swift `WebMediaDLGraphRelation` raw values match `GraphEdge.relation` |

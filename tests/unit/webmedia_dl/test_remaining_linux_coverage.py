@@ -813,6 +813,13 @@ def test_imagemagick_accepts_convert_alias(tmp_path: Path) -> None:
         run=run,
     )
     assert runtime.health("imagemagick") == "healthy"
+    broken = ProviderRuntime(which=lambda _name: "/bin/false")
+    assert broken.health("ffmpeg") == "unhealthy"
+    assert broken.health("http-direct") == "healthy"
+    missing = ProviderRuntime(which=lambda _name: None)
+    assert missing.health("ffmpeg") == "missing"
+    stub = ProviderRuntime(which=lambda _name: str(tmp_path / "no-such-binary"))
+    assert stub.health("ffmpeg") == "healthy"
     assert (
         resolve_provider_binary(
             "magick",

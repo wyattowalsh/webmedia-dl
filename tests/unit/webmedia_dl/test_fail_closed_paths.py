@@ -711,7 +711,7 @@ def test_artifact_sha_mismatch_and_existing_dest(tmp_path: Path, png_bytes: byte
     assert second.artifact_id == first.artifact_id
     digest = sha256_file(str(path))
     artifact_id = artifact_id_for_digest(digest)
-    store._records[artifact_id] = Artifact(
+    store._records[artifact_id] = Artifact.model_construct(
         artifact_id=artifact_id,
         role=ArtifactRole.SOURCE,
         sha256="0" * 64,
@@ -719,6 +719,8 @@ def test_artifact_sha_mismatch_and_existing_dest(tmp_path: Path, png_bytes: byte
         media_kind=MediaKind.IMAGE,
         storage_relpath=first.storage_relpath,
         immutable=True,
+        parent_ids=[],
+        provenance={},
     )
     with pytest.raises(ArtifactImmutabilityError, match="never mutated"):
         store.register(path, role=ArtifactRole.SOURCE, media_kind=MediaKind.IMAGE)

@@ -114,6 +114,22 @@ public struct WebMediaDLCompanionRelay: Sendable {
         pending.append(message)
     }
 
+    public mutating func persist(defaults: UserDefaults = .standard) {
+        let data = try? JSONEncoder().encode(pending)
+        defaults.set(data, forKey: WebMediaDLCompanionRelay.defaultsKey)
+    }
+
+    public static let defaultsKey = "webmedia-dl.companion-relay"
+
+    public static func load(defaults: UserDefaults = .standard) -> WebMediaDLCompanionRelay {
+        guard let data = defaults.data(forKey: defaultsKey),
+              let pending = try? JSONDecoder().decode([WebMediaDLCompanionMessage].self, from: data)
+        else {
+            return WebMediaDLCompanionRelay()
+        }
+        return WebMediaDLCompanionRelay(pending: pending)
+    }
+
     @discardableResult
     public mutating func drain() -> [WebMediaDLCompanionMessage] {
         let items = pending

@@ -18,9 +18,10 @@ public struct WebMediaDLVisionShareView: View {
             Button("Send to paired Mac") {
                 Task {
                     let files = intake.filesDestination
-                    _ = try? await WebMediaDLWorkerCredentials.loadClient().submit(
+                    _ = try? await WebMediaDLPairedMacSubmit.submit(
                         locator: intake.locator,
                         surface: .visionos,
+                        credentials: WebMediaDLWorkerCredentials.loadClient(),
                         intakeKind: "share_sheet",
                         destinationKind: files == nil ? nil : "files_app",
                         destinationPath: files?.approvedRoot,

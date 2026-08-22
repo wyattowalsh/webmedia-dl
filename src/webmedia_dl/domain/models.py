@@ -335,6 +335,9 @@ class Artifact(StrictModel):
         if self.artifact_id == self.provenance.get("title"):
             msg = "A display title never becomes artifact identity."
             raise ValueError(msg)
+        if self.role == ArtifactRole.SOURCE and self.artifact_id != f"sha256:{self.sha256}":
+            msg = "Source artifacts SHALL be identified as sha256:<digest>."
+            raise ValueError(msg)
         return self
 
 

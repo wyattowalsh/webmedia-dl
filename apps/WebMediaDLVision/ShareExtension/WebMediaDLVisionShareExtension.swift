@@ -27,16 +27,18 @@ public enum WebMediaDLVisionShareExtension {
                 last = saved.outputPath
                 continue
             }
-            last = try await client.submit(
+            last = try await WebMediaDLPairedMacSubmit.submit(
                 locator: locator,
                 surface: .visionos,
+                credentials: client,
                 intakeKind: "share_sheet"
             )
         }
         for path in WebMediaDLShareItemExtractor.dropPaths(fromShared: values) {
-            last = try await client.submit(
+            last = try await WebMediaDLPairedMacSubmit.submit(
                 locator: path,
                 surface: .visionos,
+                credentials: client,
                 intakeKind: "drop"
             )
         }

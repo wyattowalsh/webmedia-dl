@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -12,7 +11,7 @@ from webmedia_dl.capabilities import registry
 from webmedia_dl.domain.enums import EvidenceStatus
 from webmedia_dl.names import CLI_NAME, DISPLAY_NAME
 from webmedia_dl.policy.profiles import builtin_profiles
-from webmedia_dl.providers import builtin_manifests, resolve_provider_binary
+from webmedia_dl.providers import builtin_manifests, provider_version_ok, resolve_provider_binary
 
 APPLE_SURFACES = ("macos", "ios", "ipados", "visionos", "watchos", "tvos")
 
@@ -37,22 +36,7 @@ def _status(
 
 
 def _provider_version_ok(path: str, binary_name: str) -> bool:
-    name = Path(path).name
-    flag = (
-        "-version"
-        if binary_name in {"ffmpeg", "magick"} or name in {"ffmpeg", "ffprobe", "magick", "convert"}
-        else "--version"
-    )
-    try:
-        completed = subprocess.run(
-            [path, flag],
-            capture_output=True,
-            timeout=8,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return False
-    return completed.returncode == 0
+    return provider_version_ok(path, binary_name)
 
 
 def doctor(*, data_dir: Path | None = None) -> dict[str, Any]:
