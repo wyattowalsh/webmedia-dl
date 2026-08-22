@@ -2,6 +2,12 @@
 
 ## 0.1.0
 
+- Fetch clear live playlists under the profile download bound (`error` on
+  overflow), not the HTML truncate cap. A 2 MiB HTML cap could hide a trailing
+  `#EXT-X-KEY` or drop later segments while still completing the job. GitHub
+  Actions `32584476538` on `953dde9` passed Python (624 pytest, 100%), doctor
+  provider probes, and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after
+  planning MIME-typed HLS/DASH locators without `.m3u8` / `.mpd`.
 - Plan `live.record_clear_manifest` for every `live_stream` candidate, including
   MIME-typed HLS/DASH locators without `.m3u8` / `.mpd`. Those URLs were falling
   through to yt-dlp (or no strategy) instead of the clear recorder, and capture

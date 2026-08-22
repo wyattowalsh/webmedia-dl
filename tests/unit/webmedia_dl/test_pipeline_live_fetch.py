@@ -1,7 +1,10 @@
 from pathlib import Path
 
+import pytest
+
 from webmedia_dl.domain.enums import EventType, JobState, MediaKind
 from webmedia_dl.pipeline import Pipeline
+from webmedia_dl.policy.profiles import get_profile
 from webmedia_dl.providers import ProviderRuntime
 
 
@@ -50,6 +53,43 @@ def test_pipeline_records_clear_hls(tmp_data: Path) -> None:
         if item.media_kind is MediaKind.LIVE_STREAM
     }
     assert live_bytes == {b"SEGMENT", b"PLAINLIVE"}
+
+
+def test_live_playlist_fetch_uses_download_bound(
+    tmp_data: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    playlist = b"#EXTM3U\n#EXTINF:1,\nseg.ts\n"
+    bodies = {
+        "https://cdn.example.com/live.m3u8": (200, "application/vnd.apple.mpegurl", playlist),
+        "https://cdn.example.com/seg.ts": (200, "video/mp2t", b"SEGMENT"),
+    }
+    calls: list[tuple[str, int | None, object]] = []
+
+    def fake_fetch(
+        url: str,
+        *,
+        profile: object,
+        max_bytes: int | None = None,
+        on_overflow: str = "error",
+        **_kwargs: object,
+    ) -> tuple[int, str, bytes]:
+        calls.append((url, max_bytes, on_overflow))
+        return bodies[url]
+
+    monkeypatch.setattr("webmedia_dl.pipeline.bound_fetch", fake_fetch)
+    pipeline = Pipeline(
+        data_dir=tmp_data,
+        runtime=ProviderRuntime(run=lambda _argv, _staging: (1, b"", b"")),
+    )
+    job = pipeline.submit("https://cdn.example.com/live.m3u8")
+    assert job.state is JobState.COMPLETED
+    bound = get_profile("personal-full").max_download_bytes
+    playlist_calls = [item for item in calls if item[0].endswith("/live.m3u8")]
+    segment_calls = [item for item in calls if item[0].endswith("/seg.ts")]
+    assert playlist_calls
+    assert segment_calls
+    assert all(item[1] == bound and item[2] == "error" for item in playlist_calls)
+    assert all(item[1] == bound and item[2] == "error" for item in segment_calls)
 
 
 def test_pipeline_fetches_html_when_no_fixture(tmp_data: Path, png_bytes: bytes) -> None:

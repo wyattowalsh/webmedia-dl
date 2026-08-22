@@ -710,7 +710,7 @@ class Pipeline:
 
     def _record_live(self, job: Job, candidate: MediaCandidate, staging: Path):
         url = candidate.retrieval_urls[0]
-        status, _, data = self._fetch_bytes(url, self.client_profile, html=True)
+        status, _, data = self._fetch_bytes(url, self.client_profile, html=False)
         if status >= 400:
             msg = f"Live playlist fetch failed with HTTP {status}."
             raise ProviderPolicyError(msg)
