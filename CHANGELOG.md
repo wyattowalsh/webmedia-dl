@@ -2,6 +2,12 @@
 
 ## 0.1.0
 
+- Collect `a[href]` locators that name `.svg` objects so browser capture matches
+  worker IMAGE discovery (`DIRECT_EXTENSIONS`). HTTP-direct keeps `.svg` from the
+  path or `image/svg+xml` instead of writing `.bin`. GitHub Actions
+  `32591614666` on `0355c43` passed Python (626 pytest, 100%), doctor provider
+  probes, and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after following
+  nested HLS masters beyond two hops.
 - Follow nested HLS master playlists through eight hops so a four-level
   wrapper still records media segments instead of concatenating the next
   `.m3u8` as source bytes. A four-level AES-128 child still refuses before

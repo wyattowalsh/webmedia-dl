@@ -1522,6 +1522,22 @@ final class ContractTests: XCTestCase {
             ),
             ".jpg"
         )
+        XCTAssertEqual(
+            WebMediaDLHttpDirect.suffix(
+                url: URL(string: "https://cdn.example.com/icon.svg")!,
+                headers: [:],
+                body: Data()
+            ),
+            ".svg"
+        )
+        XCTAssertEqual(
+            WebMediaDLHttpDirect.suffix(
+                url: URL(string: "https://cdn.example.com/blob")!,
+                headers: ["Content-Type": "Image/SVG+XML; charset=utf-8"],
+                body: Data()
+            ),
+            ".svg"
+        )
         XCTAssertTrue(WebMediaDLCapabilityRegistry.allows(.acquireHTTP, on: .ios))
         XCTAssertTrue(WebMediaDLCapabilityRegistry.allows(.acquireHTTP, on: .ipados))
         XCTAssertTrue(WebMediaDLCapabilityRegistry.allows(.acquireHTTP, on: .visionos))

@@ -1494,6 +1494,7 @@ def test_extension_collector_returns_no_native_command() -> None:
     assert "!nonMediaHref.test(href)" in text
     assert "!scriptAssetHref.test(resolved)" in text
     assert "m3u8|m3u|mpd" in text
+    assert "avif|svg|pdf" in text
     assert r"\/*(?:\?|#|$)" in text
     assert 'return "live_stream"' in text
     node = shutil.which("node")

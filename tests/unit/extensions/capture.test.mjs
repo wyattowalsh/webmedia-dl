@@ -249,6 +249,14 @@ describe("collectMediaEvidence", () => {
               getAttribute: (name) =>
                 name === "href" ? "https://cdn.example.com/slash.m3u8/" : null,
             },
+            {
+              getAttribute: (name) =>
+                name === "href" ? "https://cdn.example.com/icon.svg" : null,
+            },
+            {
+              getAttribute: (name) =>
+                name === "href" ? "https://cdn.example.com/slash.svg/" : null,
+            },
           ];
         }
         if (selector.includes("link[href]")) {
@@ -341,6 +349,10 @@ describe("collectMediaEvidence", () => {
     assert.ok(urls.includes("https://cdn.example.com/live.m3u8"));
     assert.ok(urls.includes("https://cdn.example.com/classic.m3u"));
     assert.ok(urls.includes("https://cdn.example.com/slash.m3u8/"));
+    assert.ok(urls.includes("https://cdn.example.com/icon.svg"));
+    assert.ok(urls.includes("https://cdn.example.com/slash.svg/"));
+    assert.equal(byUrl["https://cdn.example.com/icon.svg"], "unknown");
+    assert.equal(byUrl["https://cdn.example.com/slash.svg/"], "unknown");
     assert.ok(!urls.includes("https://cdn.example.com/embed.js"));
     assert.ok(!urls.includes("https://cdn.example.com/embed.js/"));
     assert.ok(!urls.includes("https://cdn.example.com/object.js"));

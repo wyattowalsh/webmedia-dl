@@ -44,6 +44,7 @@ public enum WebMediaDLHttpDirect {
         "image/webp": ".webp",
         "image/gif": ".gif",
         "image/avif": ".avif",
+        "image/svg+xml": ".svg",
         "audio/mpeg": ".mp3",
         "audio/mp4": ".m4a",
         "audio/aac": ".aac",

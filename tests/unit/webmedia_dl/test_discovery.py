@@ -156,6 +156,8 @@ def test_html_discovery_extracts_track_and_media_anchors() -> None:
         <track src="https://cdn.example.com/clip.vtt" kind="subtitles">
       </video>
       <a href="https://cdn.example.com/notes.pdf">PDF</a>
+      <a href="https://cdn.example.com/icon.svg">SVG</a>
+      <a href="https://cdn.example.com/slash.svg/">SVG slash</a>
       <a href="/about">About</a>
     </body></html>
     """
@@ -165,8 +167,21 @@ def test_html_discovery_extracts_track_and_media_anchors() -> None:
     urls = [item.retrieval_urls[0] for item in candidates if item.retrieval_urls]
     assert MediaKind.SUBTITLE in kinds
     assert MediaKind.DOCUMENT in kinds
+    assert MediaKind.IMAGE in kinds
     assert "https://cdn.example.com/clip.vtt" in urls
     assert "https://cdn.example.com/notes.pdf" in urls
+    assert "https://cdn.example.com/icon.svg" in urls
+    assert "https://cdn.example.com/slash.svg/" in urls
+    assert all(
+        item.media_kind is MediaKind.IMAGE
+        for item in candidates
+        if item.retrieval_urls
+        and item.retrieval_urls[0]
+        in {
+            "https://cdn.example.com/icon.svg",
+            "https://cdn.example.com/slash.svg/",
+        }
+    )
     assert not any(item.endswith("/about") for item in urls)
 
 

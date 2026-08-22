@@ -975,6 +975,8 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert "never launches yt-dlp, ffmpeg, or gallery-dl" in http_direct
     assert "Process(" not in http_direct
     assert 'providerId = "http-direct"' in http_direct
+    assert '".svg": .image' in http_direct
+    assert '"image/svg+xml": ".svg"' in http_direct
     assert "isOnDeviceTransfer" in http_direct
     assert "func mediaURL(from" in http_direct
     assert "blockedSchemes" in http_direct
