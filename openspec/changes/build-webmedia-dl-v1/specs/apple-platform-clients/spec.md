@@ -29,6 +29,11 @@ subprocess runtime.
 - **THEN** the companion message is queued for Mac relay with `nativeCommand`
   null and `subprocessWorker` false, and those surfaces do not open yt-dlp
 
+#### Scenario: watch control intents queue companion kinds
+
+- **WHEN** watchOS or tvOS Siri/Shortcuts pause, resume, history, status, or cancel
+- **THEN** each action queues the matching companion kind with `nativeCommand` null
+
 #### Scenario: sealed companion envelope
 
 - **WHEN** the Mac worker receives a companion POST with AES-GCM envelope fields

@@ -590,6 +590,16 @@ def test_intents_and_share_adapters_load_credentials() -> None:
         assert "loadClient()" not in text
         assert 'intakeKind: "speak"' not in text
         assert "Process(" not in text
+        assert "kind: .pause" in text
+        assert "kind: .resume" in text
+        assert "kind: .history" in text
+        assert "kind: .status" in text
+        assert "kind: .cancel" in text
+        assert "Pause WebMedia DL" in text
+        assert "Resume WebMedia DL" in text
+        assert "WebMedia DL history" in text
+        assert "WebMedia DL status" in text
+        assert "Cancel WebMedia DL" in text
     loopback = (root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/LoopbackClient.swift").read_text(
         encoding="utf-8"
     )

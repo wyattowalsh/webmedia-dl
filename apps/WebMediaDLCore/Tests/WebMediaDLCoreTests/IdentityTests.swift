@@ -58,6 +58,10 @@ final class IdentityTests: XCTestCase {
         XCTAssertFalse(message.subprocessWorker)
         XCTAssertTrue(bridge.companionRequest().url?.absoluteString.contains("companion") ?? false)
         XCTAssertTrue(WebMediaDLContinuityBridge.allowedKinds.contains("history"))
+        XCTAssertEqual(
+            Set(WebMediaDLCompanionKind.allCases.map(\.rawValue)),
+            Set(["capture", "pause", "resume", "history", "status", "cancel", "pause_job", "resume_job"])
+        )
         var relay = WebMediaDLCompanionRelay()
         relay.enqueue(message)
         XCTAssertEqual(relay.pending.count, 1)

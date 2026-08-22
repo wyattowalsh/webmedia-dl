@@ -2,6 +2,10 @@
 
 ## 0.1.0
 
+- watchOS and tvOS App Intents queue pause, resume, history, status, and
+  cancel companion kinds in addition to capture. GitHub `macos-15` run
+  `32549874958` executed Core `swift test` (18 tests, 0 failures) on
+  `b0d10de`.
 - App Intents restore the same App Group Files bookmark as share sheets.
   `destination_kind=share` publishes under approved roots. GitHub `macos-15`
   run `32549540515` executed Core `swift test` (18 tests, 0 failures) on

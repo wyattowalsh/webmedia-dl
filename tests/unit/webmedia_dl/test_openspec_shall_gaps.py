@@ -367,6 +367,7 @@ SCENARIO_EVIDENCE = {
     "companion capture has no native command": "testContinuityIsNotASubprocessWorker",
     "watch worker cannot run yt-dlp": "test_watch_is_not_a_subprocess_worker",
     "watch queues for Mac relay": "test_watch_tv_capture_queues_without_ytdlp",
+    "watch control intents queue companion kinds": "test_intents_and_share_adapters_load_credentials",
     "sealed companion envelope": "test_companion_accepts_sealed_pairing_envelope",
     "unconfirmed pairing": "test_unconfirmed_pairing_does_not_escalate",
     "mac lan relay rewrites to loopback": "testLoopbackRequestBuildersStayOnLoopback",
