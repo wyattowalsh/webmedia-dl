@@ -2,6 +2,12 @@
 
 ## 0.1.0
 
+- Sniff HLS/DASH bodies after repeatedly stripping a leading UTF-8 BOM and
+  surrounding whitespace, so a padded BOM before `#EXTM3U` or `<MPD` still
+  plans `live.record_clear_manifest`. GitHub Actions `32590413729` on `0f02f71`
+  passed Python (626 pytest, 100%), doctor provider probes, and Swift
+  (18 tests, 0 failures; 12× BUILD SUCCEEDED) after refusing BOM-prefixed
+  AES-128 playlists before any segment fetch.
 - Strip a leading UTF-8 BOM from HLS/DASH bodies so `#EXTM3U` sniffing and
   playlist parsing do not treat `\ufeff#EXTM3U` as a segment URI. A BOM-prefixed
   AES-128 playlist now refuses before any segment fetch instead of recording the
