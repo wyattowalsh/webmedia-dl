@@ -6,8 +6,10 @@
 
 - Python **3.13** worker and CLI (`webmedia_dl` / `webmedia-dl`) managed with **uv**.
 - Browser capture extensions under `extensions/` (vanilla JS modules).
-- Swift packages under `apps/` for Apple clients. Core `swift test` runs on
-  GitHub `macos-15` CI; Linux workers do not compile Swift.
+- Swift packages under `apps/` for Apple clients. GitHub `macos-15` CI runs
+  Core `swift test`, builds the Mac package, and typechecks the remaining
+  Apple packages. Linux workers do not compile Swift. Device UI, signing,
+  and store submission stay BLOCKED.
   Shells: `WebMediaDLMac`, `WebMediaDLiOS`, `WebMediaDLiPadOS`, `WebMediaDLVision`,
   `WebMediaDLWatch`, `WebMediaDLTV`, plus `WebMediaDLCore`.
 
@@ -24,6 +26,7 @@
 | Types | `uv run ty check` |
 | Schemas | `uv run python -m webmedia_dl.schema_export` |
 | Bundle | `uv run python scripts/validate_bundle.py` |
+| Apple packages (macOS) | `bash scripts/build_apple_packages.sh` |
 | Extension tests | `node --test tests/unit/extensions/*.mjs` |
 | Sync extension trees | `uv run python scripts/sync_browser_extensions.py` |
 | Extension zips | `uv run python scripts/package_extensions.py` |

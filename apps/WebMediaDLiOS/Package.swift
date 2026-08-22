@@ -4,10 +4,10 @@ import PackageDescription
 let package = Package(
     name: "WebMediaDLiOS",
     platforms: [.iOS(.v17)],
-    products: [.library(name: "WebMediaDLiOS", targets: ["WebMediaDLiOS"])],
+    products: [.executable(name: "WebMediaDLiOS", targets: ["WebMediaDLiOS"])],
     dependencies: [.package(path: "../WebMediaDLCore")],
     targets: [
-        .target(
+        .executableTarget(
             name: "WebMediaDLiOS",
             dependencies: [.product(name: "WebMediaDLCore", package: "WebMediaDLCore")]
         ),

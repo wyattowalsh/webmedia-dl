@@ -577,3 +577,49 @@ def test_pack_inventory_count() -> None:
     payload = json.loads((repo_root() / "scripts/pack_inventory.json").read_text(encoding="utf-8"))
     assert payload["count"] == 159
     assert len(payload["paths_relative"]) == 159
+
+
+def test_github_ci_compiles_apple_packages() -> None:
+    workflow = (repo_root() / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    script = (repo_root() / "scripts/build_apple_packages.sh").read_text(encoding="utf-8")
+    assert "runs-on: macos-15" in workflow
+    assert "bash scripts/build_apple_packages.sh" in workflow
+    assert "if: false" not in workflow
+    assert "swift test --package-path" in script
+    assert "apps/WebMediaDLCore" in script
+    assert "swift build --package-path" in script
+    assert "apps/WebMediaDLMac" in script
+    assert 'generic/platform=iOS"' in script or "generic/platform=iOS" in script
+    assert "generic/platform=watchOS" in script
+    assert "generic/platform=tvOS" in script
+    assert "generic/platform=visionOS" in script
+    for scheme in (
+        "WebMediaDLiOS",
+        "WebMediaDLiOSShareExtension",
+        "WebMediaDLiPadOS",
+        "WebMediaDLiPadOSShareExtension",
+        "WebMediaDLVision",
+        "WebMediaDLVisionShareExtension",
+        "WebMediaDLWatch",
+        "WebMediaDLTV",
+    ):
+        assert scheme in script
+    contracts = (
+        repo_root() / "apps/WebMediaDLCore/Tests/WebMediaDLCoreTests/ContractTests.swift"
+    ).read_text(encoding="utf-8")
+    assert "testCompanionMessageRejectsNativeCommand" in contracts
+    assert 'nativeCommand": "yt-dlp"' in contracts
+    assert "libraryWriteAvailable" in contracts
+    assert "titleUsedAsIdentity" in contracts
+    for rel, name in (
+        ("apps/WebMediaDLiOS/Package.swift", "WebMediaDLiOS"),
+        ("apps/WebMediaDLiPadOS/Package.swift", "WebMediaDLiPadOS"),
+        ("apps/WebMediaDLVision/Package.swift", "WebMediaDLVision"),
+        ("apps/WebMediaDLWatch/Package.swift", "WebMediaDLWatch"),
+        ("apps/WebMediaDLTV/Package.swift", "WebMediaDLTV"),
+        ("apps/WebMediaDLMac/Package.swift", "WebMediaDLMac"),
+    ):
+        text = (repo_root() / rel).read_text(encoding="utf-8")
+        assert f'.executable(name: "{name}"' in text
+        assert ".executableTarget(" in text
+        assert f'.library(name: "{name}"' not in text

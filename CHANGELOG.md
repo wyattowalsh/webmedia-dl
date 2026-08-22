@@ -69,6 +69,10 @@
   provider; export progress accepts a null artifact and duplicate operation
   keys; duplicate `produced_ids` at `stage=exported` still complete; acquired
   remote resume does not refetch. ImageMagick health/argv accept IM6 `convert`.
-  Worker API job-detail and run-next payloads are module helpers. Core Swift
-  tests run on GitHub `macos-15` CI. WatchConnectivity types keep a single
-  class header and conform to `WCSessionDelegate` via extensions.
+  Worker API job-detail and run-next payloads are module helpers. GitHub
+  `macos-15` CI on `94e423b` executed Core `IdentityTests` (6 tests, 0
+  failures). Core contract tests cover nativeCommand refuse, Photos closed,
+  history envelopes, and bookmark denial. CI builds the Mac package and
+  typechecks the remaining Apple packages including share extensions.
+  WatchConnectivity types keep a single class header and conform to
+  `WCSessionDelegate` via extensions.

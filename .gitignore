@@ -162,6 +162,9 @@ worker.token
 
 # Apple / Xcode
 DerivedData/
+.build/
+.ci-derived/
+.swiftpm/
 *.xcuserstate
 *.xccheckout
 *.moved-aside

@@ -24,5 +24,5 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v5
-      - name: Swift tests (macOS only)
-        run: swift test --package-path apps/WebMediaDLCore
+      - name: Swift tests and Apple package builds (macOS only)
+        run: bash scripts/build_apple_packages.sh

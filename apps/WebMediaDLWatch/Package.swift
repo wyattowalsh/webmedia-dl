@@ -4,10 +4,10 @@ import PackageDescription
 let package = Package(
     name: "WebMediaDLWatch",
     platforms: [.watchOS(.v10)],
-    products: [.library(name: "WebMediaDLWatch", targets: ["WebMediaDLWatch"])],
+    products: [.executable(name: "WebMediaDLWatch", targets: ["WebMediaDLWatch"])],
     dependencies: [.package(path: "../WebMediaDLCore")],
     targets: [
-        .target(
+        .executableTarget(
             name: "WebMediaDLWatch",
             dependencies: [.product(name: "WebMediaDLCore", package: "WebMediaDLCore")]
         ),

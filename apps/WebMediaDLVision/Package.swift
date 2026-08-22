@@ -4,10 +4,10 @@ import PackageDescription
 let package = Package(
     name: "WebMediaDLVision",
     platforms: [.visionOS(.v1)],
-    products: [.library(name: "WebMediaDLVision", targets: ["WebMediaDLVision"])],
+    products: [.executable(name: "WebMediaDLVision", targets: ["WebMediaDLVision"])],
     dependencies: [.package(path: "../WebMediaDLCore")],
     targets: [
-        .target(
+        .executableTarget(
             name: "WebMediaDLVision",
             dependencies: [.product(name: "WebMediaDLCore", package: "WebMediaDLCore")]
         ),

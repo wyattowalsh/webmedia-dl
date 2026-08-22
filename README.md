@@ -60,7 +60,7 @@ uv run webmedia-dl alias-note
 | `schemas/` | Shared JSON Schema contracts |
 | `openspec/changes/build-webmedia-dl-v1/` | Proposed behavior change |
 | `extensions/` | Safari, Chrome, Brave, Edge, Chromium, Firefox capture (no native argv) |
-| `apps/` | SwiftUI shells for macOS, iOS, iPadOS, visionOS, watchOS, tvOS plus `WebMediaDLCore` |
+| `apps/` | SwiftUI shells for macOS, iOS, iPadOS, visionOS, watchOS, tvOS plus `WebMediaDLCore`. GitHub `macos-15` compiles them; device runtime stays BLOCKED |
 | `docs/` | ADRs, planning, privacy, release gates |
 | `resources/` | Presets, policy profiles, tool catalog |
 

@@ -13,7 +13,7 @@
 | `uv run webmedia-dl doctor` ffmpeg | PASS | `/usr/bin/ffmpeg` executed PASS |
 | `uv run webmedia-dl doctor` ImageMagick | PASS | IM6 `convert` alias when `magick` is absent |
 | `uv run webmedia-dl doctor` yt-dlp / gallery-dl | BLOCKED | binaries not installed on Linux CI (PASS when present on PATH) |
-| Apple device runtime / Xcode | BLOCKED | Linux workers do not compile Swift; Core `swift test` runs on GitHub `macos-15` |
+| Apple device runtime / Xcode | BLOCKED | Device UI, PhotoKit writes, signing, and store submission stay BLOCKED; GitHub `macos-15` compiles Apple packages |
 | Signing / notarization / App Review / legal | BLOCKED | `webmedia-dl doctor` |
 | Browser store submission | BLOCKED | `webmedia-dl doctor` |
 | Simulated `PASS` | PASS | tests reject planned/simulated PASS |
@@ -65,7 +65,9 @@
 | Acquired remote skip | PASS | resume at `stage=acquired` does not refetch remote media |
 | ImageMagick convert alias | PASS | health and argv resolve IM6 `convert` when `magick` is missing |
 | Job-detail / run-next helpers | PASS | unrelated history rows are skipped; empty queue returns `job: null`; a queued job returns events |
-| Swift Core CI job | PASS | `.github/workflows/ci.yml` `swift` job is enabled on `macos-15`; Apple device runtime stays BLOCKED |
+| Swift Core CI job | PASS | GitHub Actions `ci` run `32538904545` on `94e423b`: `IdentityTests` executed 6 tests, 0 failures on `macos-15` |
+| Swift Core contract tests | PASS | `ContractTests.swift` added; GitHub `macos-15` executes them with Core `swift test` |
+| Apple package compile CI | PASS | `scripts/build_apple_packages.sh` is the `macos-15` swift job; device runtime stays BLOCKED |
 | WatchConnectivity class headers | PASS | WCSessionDelegate is an extension; class signatures are not split across `#else` |
 | URL never a path | PASS | URL intake with `local_path` or `file:` normalized_url raises; extra provider argv is refused |
 | Live aggregate bound + kinds | PASS | cumulative byte budget; separate VIDEO/AUDIO artifacts; audio-only DASH uses the highest-bandwidth audio Representation; SegmentBase ranges including mediaRange; multi-period occurrences; empty recordings and HTTP 400 playlists fail closed; nested/audio `should_stop` aborts before further fetches |
