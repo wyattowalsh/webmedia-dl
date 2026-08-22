@@ -5,7 +5,8 @@
 - Source artifacts reject non-`sha256:<digest>` ids; capability health probes
   binary versions; complete clients send heavy work to a saved Mac relay URL
   instead of the phone's loopback; the extension popup send button is proven
-  under Node.
+  under Node. GitHub `macos-15` run `32548311255` executed Core `swift test`
+  (18 tests, 0 failures) and built the Apple packages on `cf41473`.
 - Queue SQLite transactions start with `BEGIN IMMEDIATE`, and `claim_next`
   commits only after `UPDATE … RETURNING`, so concurrent workers cannot
   double-claim the same accepted job.
