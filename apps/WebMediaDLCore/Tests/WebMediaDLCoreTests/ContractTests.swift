@@ -9,6 +9,10 @@ private final class WebMediaDLWatchForwardProbe: @unchecked Sendable {
     var sent = 0
 }
 
+private final class WebMediaDLWorkerStartProbe: @unchecked Sendable {
+    var process: AnyObject?
+}
+
 private final class WebMediaDLCompleteClientControlProbe: @unchecked Sendable {
     var kind: WebMediaDLCompleteClientControl.Kind?
     var jobId: UUID?
@@ -417,13 +421,17 @@ final class ContractTests: XCTestCase {
         )
         XCTAssertEqual(WebMediaDLMacWorkerProcess.loopbackHost, "127.0.0.1")
         XCTAssertNil(WebMediaDLMacWorkerProcess.executableURL(pathEnvironment: ""))
-        let dummy = NSObject()
+        let spawnProbe = WebMediaDLWorkerStartProbe()
         let spawned = try await WebMediaDLMacWorkerSupervision.startOrClaimExisting(
-            start: { dummy },
+            start: {
+                let process = NSObject()
+                spawnProbe.process = process
+                return WebMediaDLUncheckedBox(process)
+            },
             health: { XCTFail("spawned worker must not probe health") }
         )
         if case .started(let process) = spawned {
-            XCTAssertTrue(process === dummy)
+            XCTAssertTrue(process === spawnProbe.process)
         } else {
             XCTFail("successful spawn must start the worker")
         }

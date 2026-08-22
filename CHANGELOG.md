@@ -2,9 +2,12 @@
 
 ## 0.1.0
 
-- GitHub Actions `32567533760` on `6aad227` passed Python (583 pytest, 100%)
-  and failed Swift 6: `WebMediaDLMacWorkerLaunch` (`started(AnyObject)`) is not
-  Sendable, so the Mac app `Task` could not receive `startOrClaimExisting`.
+- GitHub Actions `32567922144` on `6516591` passed Python (583 pytest, 100%)
+  and failed Swift 6: `startOrClaimExisting` still took a non-Sendable
+  `() throws -> AnyObject` start closure. Spawn now returns
+  `WebMediaDLUncheckedBox<AnyObject>` from a `@Sendable` start, matching share
+  extensions. `32567533760` on `6aad227` failed because
+  `WebMediaDLMacWorkerLaunch` (`started(AnyObject)`) is not Sendable.
   The launch enum is `@unchecked Sendable` and `startMacWorker` applies UI
   updates with `MainActor.run` after the nonisolated spawn/claim. Complete-client
   Siri/Shortcuts controls share

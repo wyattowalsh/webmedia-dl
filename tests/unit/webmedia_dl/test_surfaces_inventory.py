@@ -1014,6 +1014,7 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert "relayServer?.loopbackToken = value" in mac
     start_worker = mac.split("func startMacWorker()", 1)[1].split("func startMacRelay()", 1)[0]
     assert "await MainActor.run" in start_worker
+    assert "WebMediaDLUncheckedBox" in start_worker
     assert "WebMediaDLMacWorkerSupervision.startOrClaimExisting" in start_worker
     worker_launch = (
         root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/MacWorkerProcess.swift"
@@ -1028,6 +1029,7 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert "func start(dataDir:" in worker_launch
     assert "func startOrClaimExisting(" in worker_launch
     assert "WebMediaDLMacWorkerLaunch: @unchecked Sendable" in worker_launch
+    assert "@Sendable () throws -> WebMediaDLUncheckedBox<AnyObject>" in worker_launch
     assert 'NSClassFromString("NSTask")' in worker_launch
     assert "Process(" not in worker_launch
     assert worker_launch.index("#if os(macOS)") < worker_launch.index("homeDirectoryForCurrentUser")
@@ -1162,6 +1164,7 @@ def test_macos_app_supervises_the_loopback_worker() -> None:
     assert "loopbackToken: token" in mac
     start_worker = mac.split("func startMacWorker()", 1)[1].split("func startMacRelay()", 1)[0]
     assert "await MainActor.run" in start_worker
+    assert "WebMediaDLUncheckedBox" in start_worker
     assert "WebMediaDLMacWorkerSupervision.startOrClaimExisting" in start_worker
     assert "bindWatchDelegate" not in mac
     assert "historyEntries()" in mac
@@ -1182,6 +1185,7 @@ def test_macos_app_supervises_the_loopback_worker() -> None:
     assert "func start(dataDir:" in worker
     assert "func startOrClaimExisting(" in worker
     assert "WebMediaDLMacWorkerLaunch: @unchecked Sendable" in worker
+    assert "@Sendable () throws -> WebMediaDLUncheckedBox<AnyObject>" in worker
     assert "claimedExisting" in worker
     assert 'NSClassFromString("NSTask")' in worker
     assert "Process(" not in worker

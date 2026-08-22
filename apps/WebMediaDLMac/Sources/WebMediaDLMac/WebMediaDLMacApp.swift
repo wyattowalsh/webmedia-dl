@@ -283,8 +283,10 @@ struct MacRootView: View {
             do {
                 let launch = try await WebMediaDLMacWorkerSupervision.startOrClaimExisting(
                     start: {
-                        try WebMediaDLMacWorkerProcess.start(
-                            dataDir: WebMediaDLMacWorkerProcess.defaultDataDirectory()
+                        WebMediaDLUncheckedBox(
+                            try WebMediaDLMacWorkerProcess.start(
+                                dataDir: WebMediaDLMacWorkerProcess.defaultDataDirectory()
+                            )
                         )
                     },
                     health: { try await WebMediaDLLoopbackClient().requireHealthyWorker() }

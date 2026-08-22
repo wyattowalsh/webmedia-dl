@@ -79,11 +79,11 @@ public enum WebMediaDLMacWorkerLaunch: @unchecked Sendable {
 
 public enum WebMediaDLMacWorkerSupervision {
     public static func startOrClaimExisting(
-        start: () throws -> AnyObject,
+        start: @Sendable () throws -> WebMediaDLUncheckedBox<AnyObject>,
         health: @Sendable () async throws -> Void
     ) async throws -> WebMediaDLMacWorkerLaunch {
         do {
-            return .started(try start())
+            return .started(try start().value)
         } catch {
             let spawnError = error
             do {
