@@ -2,7 +2,7 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 514 tests |
+| `uv run pytest` | PASS | 519 tests |
 | `uv run pytest --cov` | PASS | 99.65% (`fail_under` 99) |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
@@ -14,6 +14,9 @@
 | `uv run webmedia-dl doctor` ImageMagick | WARN | IM6 `convert -version` executed; `magick` is absent |
 | ImageMagick convert pipeline | PASS | `test_pipeline_executes_imagemagick_convert` runs `process.imagemagick.convert` on a PNG |
 | Stream-copy semantic parity | PASS | remux/copy derivatives must keep source codecs and duration; missing probes stay BLOCKED |
+| Complete-client share http-direct | PASS | iPhone/iPad/visionOS share adapters call `saveIfDirect` before loopback POST; Mac share stays worker-only; watch/tv still lack `WebMediaDLHttpDirect` |
+| Queue pause durability | PASS | a second `Pipeline` on the same data dir observes the SQL pause flag and does not `run_next` until resume |
+| Extension collector under pytest | PASS | `test_extension_collector_returns_no_native_command` runs `node --test tests/unit/extensions/capture.test.mjs` |
 | `uv run webmedia-dl doctor` yt-dlp / gallery-dl | PASS when present | version probe executed; Linux CI without those binaries stays BLOCKED |
 | Apple device runtime / Xcode | BLOCKED | Device UI, PhotoKit writes, signing, and store submission stay BLOCKED; GitHub `macos-15` compiles Apple packages |
 | Signing / notarization / App Review / legal | BLOCKED | `webmedia-dl doctor` |

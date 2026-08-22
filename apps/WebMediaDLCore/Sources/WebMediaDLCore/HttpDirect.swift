@@ -65,6 +65,7 @@ public enum WebMediaDLHttpDirect {
         case httpStatus(Int)
         case overflow
         case writeFailed(String)
+        case unsupportedSurface
 
         public var errorDescription: String? {
             switch self {
@@ -86,6 +87,8 @@ public enum WebMediaDLHttpDirect {
                 return "The download exceeded the complete-client byte bound."
             case .writeFailed(let message):
                 return message
+            case .unsupportedSurface:
+                return "On-device http-direct runs on iPhone, iPad, visionOS, Mac, and CLI only."
             }
         }
     }
@@ -229,9 +232,13 @@ public enum WebMediaDLHttpDirect {
     public static func transfer(
         locator: String,
         bookmark: WebMediaDLSecurityScopedBookmark,
+        surface: WebMediaDLSurface = .ios,
         maxBytes: Int = defaultMaxBytes,
         fetch: Fetch? = nil
     ) async throws -> Result {
+        if !WebMediaDLCapabilityRegistry.allows(.acquireHTTP, on: surface) {
+            throw TransferError.unsupportedSurface
+        }
         let trimmed = locator.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let url = URL(string: trimmed),
               let scheme = url.scheme?.lowercased(),
@@ -260,12 +267,12 @@ public enum WebMediaDLHttpDirect {
         if body.count > maxBytes {
             throw TransferError.overflow
         }
+        if status >= 400 {
+            throw TransferError.httpStatus(status)
+        }
         let bodySignals = drmSignals(in: String(decoding: body, as: UTF8.self))
         if !bodySignals.isEmpty {
             throw TransferError.drmRefused(bodySignals.joined(separator: ", "))
-        }
-        if status >= 400 {
-            throw TransferError.httpStatus(status)
         }
         let destRoot = URL(fileURLWithPath: root, isDirectory: true)
         try FileManager.default.createDirectory(at: destRoot, withIntermediateDirectories: true)
@@ -293,30 +300,6 @@ public enum WebMediaDLHttpDirect {
         let digest = SHA256.hash(data: body)
         let hex = digest.map { String(format: "%02x", $0) }.joined()
         let jobId = UUID()
-        _ = try WebMediaDLMediaSource(
-            kind: .url,
-            locator: trimmed,
-            normalizedURL: trimmed,
-            surface: .ios,
-            policyProfileId: "personal-restricted"
-        )
-        _ = try WebMediaDLArtifact(
-            artifactId: "sha256:\(hex)",
-            role: .source,
-            sha256: hex,
-            byteSize: body.count,
-            mediaKind: kind,
-            storageRelpath: final.lastPathComponent,
-            provenance: ["provider": providerId]
-        )
-        _ = try WebMediaDLValidationResult(
-            jobId: jobId,
-            targetArtifactId: "sha256:\(hex)",
-            gateId: "validate.hash",
-            status: .pass,
-            message: "sha256 executed",
-            executed: true
-        )
         return Result(
             jobId: jobId,
             outputPath: final.path,
@@ -334,13 +317,14 @@ public enum WebMediaDLHttpDirect {
     public static func saveIfDirect(
         locator: String,
         bookmarkData: Data? = WebMediaDLWorkerCredentials.loadBookmark(),
+        surface: WebMediaDLSurface = .ios,
         fetch: Fetch? = nil
     ) async throws -> Result? {
         guard isOnDeviceTransfer(locator) else { return nil }
         guard let bookmarkData else { return nil }
         let bookmark = WebMediaDLSecurityScopedBookmark(path: "", bookmarkData: bookmarkData).resolve()
         guard !bookmark.path.isEmpty, !bookmark.stale else { return nil }
-        return try await transfer(locator: locator, bookmark: bookmark, fetch: fetch)
+        return try await transfer(locator: locator, bookmark: bookmark, surface: surface, fetch: fetch)
     }
 
     private static func withSecurityScope<T>(
@@ -392,11 +376,24 @@ public enum WebMediaDLHttpDirect {
             }
             var data = Data()
             data.reserveCapacity(min(maxBytes, 1_048_576))
+            let chunkLimit = 65_536
+            var chunk = [UInt8]()
+            chunk.reserveCapacity(chunkLimit)
             for try await byte in bytes {
+                chunk.append(byte)
+                if chunk.count == chunkLimit {
+                    data.append(contentsOf: chunk)
+                    chunk.removeAll(keepingCapacity: true)
+                    if data.count >= maxBytes {
+                        throw TransferError.overflow
+                    }
+                }
+            }
+            if !chunk.isEmpty {
+                data.append(contentsOf: chunk)
                 if data.count >= maxBytes {
                     throw TransferError.overflow
                 }
-                data.append(byte)
             }
             return (http.statusCode, headers, data)
         }

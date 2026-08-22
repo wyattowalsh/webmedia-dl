@@ -405,6 +405,7 @@ def test_hls_live_poll_appends_new_segments(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     "payload",
     [
+        {"stdout": "ffmpeg"},
         {"stderr": "ffmpeg"},
         {"nativeCommand": "yt-dlp"},
         {"providerArgv": ["--format"]},

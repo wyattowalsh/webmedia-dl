@@ -72,7 +72,8 @@ public struct WebMediaDLVisionRootView: View {
                     do {
                         let result = try await WebMediaDLHttpDirect.transfer(
                             locator: locator,
-                            bookmark: filesBookmark
+                            bookmark: filesBookmark,
+                            surface: .visionos
                         )
                         status = "Saved on this device \(result.outputPath)"
                         lastJobId = result.jobId

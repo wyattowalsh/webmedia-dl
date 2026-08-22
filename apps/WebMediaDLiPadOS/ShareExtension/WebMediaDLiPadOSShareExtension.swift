@@ -20,6 +20,13 @@ public enum WebMediaDLiPadOSShareExtension {
         let client = token.map { WebMediaDLLoopbackClient(token: $0) } ?? WebMediaDLWorkerCredentials.loadClient()
         var last = "no shared locator"
         for locator in WebMediaDLShareItemExtractor.locators(fromShared: values) {
+            if let saved = try await WebMediaDLHttpDirect.saveIfDirect(
+                locator: locator,
+                surface: .ipados
+            ) {
+                last = saved.outputPath
+                continue
+            }
             last = try await client.submit(
                 locator: locator,
                 surface: .ipados,

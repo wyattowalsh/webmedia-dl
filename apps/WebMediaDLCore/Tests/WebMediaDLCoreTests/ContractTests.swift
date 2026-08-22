@@ -1,4 +1,7 @@
 import XCTest
+#if canImport(WatchConnectivity)
+import WatchConnectivity
+#endif
 @testable import WebMediaDLCore
 
 final class ContractTests: XCTestCase {
@@ -48,6 +51,31 @@ final class ContractTests: XCTestCase {
         XCTAssertEqual(wrapped.first?.state, "completed")
         let raw = try WebMediaDLHistoryEntry.decodeCompanionHistory(from: listData)
         XCTAssertEqual(raw.first?.workerId, "mac")
+        let pairingId = UUID()
+        let challenge = try JSONDecoder().decode(
+            WebMediaDLPairingChallenge.self,
+            from: JSONSerialization.data(withJSONObject: [
+                "pairing_id": pairingId.uuidString,
+                "nonce": "pairing-nonce",
+                "expires_at": "2026-08-18T00:05:00Z",
+                "worker_id": "mac",
+                "confirmed": false,
+            ])
+        )
+        XCTAssertEqual(challenge.pairingId, pairingId)
+        XCTAssertEqual(challenge.nonce, "pairing-nonce")
+        XCTAssertEqual(challenge.confirmed, false)
+        let confirmation = try JSONDecoder().decode(
+            WebMediaDLPairingConfirmation.self,
+            from: JSONSerialization.data(withJSONObject: [
+                "pairing_id": pairingId.uuidString,
+                "confirmed": true,
+                "session_key": "sess",
+                "expires_at": "2026-08-18T00:10:00Z",
+            ])
+        )
+        XCTAssertEqual(confirmation.sessionKey, "sess")
+        XCTAssertTrue(confirmation.confirmed)
     }
 
     func testCompanionMessageRejectsNativeCommand() throws {
@@ -115,7 +143,7 @@ final class ContractTests: XCTestCase {
         XCTAssertFalse(picked.resolve().stale)
     }
 
-    func testClipboardAndShareExtractorIgnoreNonHTTP() {
+    func testClipboardAndShareExtractorIgnoreNonHTTP() async {
         XCTAssertNil(WebMediaDLClipboardIntake(text: "not a locator").locator)
         XCTAssertEqual(
             WebMediaDLShareItemExtractor.locators(fromShared: [
@@ -139,6 +167,13 @@ final class ContractTests: XCTestCase {
             payload: ["stdout": "secret"]
         )
         XCTAssertTrue(noisy.exposesProviderConsole)
+        let shared = URL(string: "https://cdn.example.com/a.mp4")!
+        let provider = NSItemProvider(
+            item: shared as NSURL,
+            typeIdentifier: WebMediaDLShareItemExtractor.urlTypeIdentifier
+        )
+        let loaded = await WebMediaDLShareExtensionLoader.loadItem(from: provider)
+        XCTAssertEqual(loaded, shared.absoluteString)
     }
 
     func testLoopbackRequestBuildersStayOnLoopback() {
@@ -225,6 +260,19 @@ final class ContractTests: XCTestCase {
             UUID(uuidString: "11111111-1111-1111-1111-111111111111")
         )
         transport.activateSession()
+        let queuedMessage = WebMediaDLCompanionMessage(
+            kind: .capture,
+            locator: "https://cdn.example.com/a.mp4",
+            surface: .watchos
+        )
+        try await transport.send(queuedMessage)
+        #if canImport(WatchConnectivity)
+        if !WCSession.isSupported() {
+            XCTAssertEqual(transport.fallback.relay.pending.last?.kind, .capture)
+        }
+        #else
+        XCTAssertEqual(transport.fallback.relay.pending.last?.kind, .capture)
+        #endif
 
         var forwarder = WebMediaDLMacCompanionForwarder(client: WebMediaDLLoopbackClient())
         let delegate = WebMediaDLMacWatchConnectivityDelegate(forwarder: forwarder)
@@ -333,6 +381,72 @@ final class ContractTests: XCTestCase {
             try WebMediaDLExportIntent(
                 destinationKind: .photos,
                 approvedRoots: []
+            )
+        )
+        XCTAssertThrowsError(
+            try WebMediaDLExportIntent(
+                destinationKind: .filesApp,
+                destinationPath: "/tmp/escape",
+                approvedRoots: ["/tmp/movies"],
+                securityScopedBookmark: "ZmFrZQ=="
+            )
+        )
+        XCTAssertThrowsError(
+            try JSONDecoder().decode(
+                WebMediaDLMediaSource.self,
+                from: JSONSerialization.data(withJSONObject: [
+                    "kind": "url",
+                    "locator": "https://cdn.example.com/a.mp4",
+                    "local_path": "/tmp/a.mp4",
+                    "surface": "ios",
+                    "policy_profile_id": "personal-restricted",
+                ])
+            )
+        )
+        XCTAssertThrowsError(
+            try JSONDecoder().decode(
+                WebMediaDLPolicyProfile.self,
+                from: JSONSerialization.data(withJSONObject: [
+                    "profile_id": "bad",
+                    "display_name": "bad",
+                    "allowed_capabilities": ["acquire.http"],
+                    "drm_circumvention": true,
+                ])
+            )
+        )
+        XCTAssertThrowsError(
+            try JSONDecoder().decode(
+                WebMediaDLPolicyProfile.self,
+                from: JSONSerialization.data(withJSONObject: [
+                    "profile_id": "bad",
+                    "display_name": "bad",
+                    "allowed_capabilities": ["acquire.http"],
+                    "telemetry_default": true,
+                ])
+            )
+        )
+        XCTAssertThrowsError(
+            try JSONDecoder().decode(
+                WebMediaDLAcquisitionStrategy.self,
+                from: JSONSerialization.data(withJSONObject: [
+                    "strategy_id": "http-direct",
+                    "provider_id": "http-direct",
+                    "capability_id": "acquire.http",
+                    "extra_args": ["--user"],
+                ])
+            )
+        )
+        XCTAssertThrowsError(
+            try JSONDecoder().decode(
+                WebMediaDLProviderManifest.self,
+                from: JSONSerialization.data(withJSONObject: [
+                    "provider_id": "ytdlp",
+                    "display_name": "yt-dlp",
+                    "capabilities": ["acquire.ytdlp"],
+                    "license": "Unlicense",
+                    "source_url": "https://example.com",
+                    "install_automatic": true,
+                ])
             )
         )
         let files = try WebMediaDLExportIntent(
@@ -453,6 +567,35 @@ final class ContractTests: XCTestCase {
         XCTAssertTrue(WebMediaDLHttpDirect.hlsKeyIsProtected("#EXT-X-KEY:METHOD=AES-128,URI=\"https://cdn.example.com/key\""))
         XCTAssertFalse(WebMediaDLHttpDirect.hlsKeyIsProtected("#EXT-X-KEY:METHOD=NONE"))
         XCTAssertFalse(WebMediaDLHttpDirect.drmSignals(in: "#EXT-X-KEY:METHOD=NONE").contains("ext-x-key"))
+        XCTAssertEqual(
+            WebMediaDLHttpDirect.suffix(
+                url: URL(string: "https://cdn.example.com/photo.jpeg")!,
+                headers: [:],
+                body: Data()
+            ),
+            ".jpg"
+        )
+        XCTAssertEqual(
+            WebMediaDLHttpDirect.suffix(
+                url: URL(string: "https://cdn.example.com/blob")!,
+                headers: [:],
+                body: Data()
+            ),
+            ".bin"
+        )
+        XCTAssertEqual(
+            WebMediaDLHttpDirect.suffix(
+                url: URL(string: "https://cdn.example.com/blob")!,
+                headers: ["Content-Type": "image/jpeg; charset=utf-8"],
+                body: Data()
+            ),
+            ".jpg"
+        )
+        XCTAssertTrue(WebMediaDLCapabilityRegistry.allows(.acquireHTTP, on: .ios))
+        XCTAssertTrue(WebMediaDLCapabilityRegistry.allows(.acquireHTTP, on: .ipados))
+        XCTAssertTrue(WebMediaDLCapabilityRegistry.allows(.acquireHTTP, on: .visionos))
+        XCTAssertFalse(WebMediaDLCapabilityRegistry.allows(.acquireHTTP, on: .watchos))
+        XCTAssertFalse(WebMediaDLCapabilityRegistry.allows(.acquireHTTP, on: .tvos))
 
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("wmdl-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -567,6 +710,28 @@ final class ContractTests: XCTestCase {
             )
             XCTFail("stale Files bookmarks must not write")
         } catch WebMediaDLHttpDirect.TransferError.filesDestinationRequired {
+            ()
+        }
+        do {
+            _ = try await WebMediaDLHttpDirect.transfer(
+                locator: "https://cdn.example.com/a.mp4",
+                bookmark: bookmark,
+                surface: .watchos,
+                fetch: { _ in XCTFail("watchOS must not fetch"); return (200, [:], Data()) }
+            )
+            XCTFail("watchOS must not run on-device http-direct")
+        } catch WebMediaDLHttpDirect.TransferError.unsupportedSurface {
+            ()
+        }
+        do {
+            _ = try await WebMediaDLHttpDirect.transfer(
+                locator: "https://cdn.example.com/a.mp4",
+                bookmark: bookmark,
+                surface: .tvos,
+                fetch: { _ in XCTFail("tvOS must not fetch"); return (200, [:], Data()) }
+            )
+            XCTFail("tvOS must not run on-device http-direct")
+        } catch WebMediaDLHttpDirect.TransferError.unsupportedSurface {
             ()
         }
     }

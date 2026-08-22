@@ -1,8 +1,8 @@
 import AppIntents
 import WebMediaDLCore
 
-/// watchOS App Intent: speak or capture a URL for Mac relay. Not a subprocess worker.
-/// Speak intake uses intakeKind: "speak" on the Mac after companion transport delivery.
+/// watchOS App Intent: capture a URL for Mac relay. Not a subprocess worker.
+/// Companion `capture` has no intake kind; the Mac classifies the locator as `url`.
 public struct WebMediaDLWatchSubmitURLIntent: AppIntent {
     public static let title: LocalizedStringResource = "Send to WebMedia DL"
 

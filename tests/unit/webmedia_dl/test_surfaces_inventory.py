@@ -497,10 +497,21 @@ def test_companion_transport_and_typed_history() -> None:
         "apps/WebMediaDLiOS/Sources/WebMediaDLiOS/WebMediaDLSubmitURLIntent.swift",
         "apps/WebMediaDLiPadOS/Sources/WebMediaDLiPadOS/WebMediaDLiPadOSSubmitURLIntent.swift",
         "apps/WebMediaDLVision/Sources/WebMediaDLVision/WebMediaDLVisionSubmitURLIntent.swift",
-        *COMPANION_INTENTS,
     ):
         text = (root / rel).read_text(encoding="utf-8")
         assert 'intakeKind: "speak"' in text
+        assert "AppShortcutsProvider" in text
+        assert "public static let title" in text
+        assert "public static var title" not in text
+        assert "public static var appShortcuts: [AppShortcut]" in text
+        assert "AppShortcut(" in text
+        assert "[\n            AppShortcut(" not in text
+        assert "[\n        AppShortcut(" not in text
+        assert "),\n            AppShortcut(" not in text
+    for rel in COMPANION_INTENTS:
+        text = (root / rel).read_text(encoding="utf-8")
+        assert 'intakeKind: "speak"' not in text
+        assert "classifies the locator as `url`" in text
         assert "AppShortcutsProvider" in text
         assert "public static let title" in text
         assert "public static var title" not in text
@@ -573,7 +584,7 @@ def test_intents_and_share_adapters_load_credentials() -> None:
         assert "var transport" not in text
         assert "transport.send" in text
         assert "loadClient()" not in text
-        assert 'intakeKind: "speak"' in text
+        assert 'intakeKind: "speak"' not in text
         assert "Process(" not in text
     loopback = (root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/LoopbackClient.swift").read_text(
         encoding="utf-8"
@@ -733,6 +744,8 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert "URLSession.shared.bytes" in http_direct
     assert "data.count >= maxBytes" in http_direct
     assert "TransferError.overflow" in http_direct
+    assert "unsupportedSurface" in http_direct
+    assert "WebMediaDLCapabilityRegistry.allows(.acquireHTTP, on: surface)" in http_direct
     ios = (root / ROOT_VIEWS["ios"]).read_text(encoding="utf-8")
     ipad = (root / ROOT_VIEWS["ipados"]).read_text(encoding="utf-8")
     vision = (root / ROOT_VIEWS["visionos"]).read_text(encoding="utf-8")
@@ -764,3 +777,15 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
         text = (root / rel).read_text(encoding="utf-8")
         assert "WebMediaDLHttpDirect.saveIfDirect" in text
         assert "WebMediaDLWorkerCredentials.loadClient()" in text
+    for rel, surface in (
+        ("apps/WebMediaDLiOS/ShareExtension/WebMediaDLiOSShareExtension.swift", ".ios"),
+        ("apps/WebMediaDLiPadOS/ShareExtension/WebMediaDLiPadOSShareExtension.swift", ".ipados"),
+        ("apps/WebMediaDLVision/ShareExtension/WebMediaDLVisionShareExtension.swift", ".visionos"),
+    ):
+        text = (root / rel).read_text(encoding="utf-8")
+        assert "WebMediaDLHttpDirect.saveIfDirect" in text
+        assert f"surface: {surface}" in text
+    mac_share = (
+        root / "apps/WebMediaDLMac/ShareExtension/WebMediaDLMacShareExtension.swift"
+    ).read_text(encoding="utf-8")
+    assert "WebMediaDLHttpDirect" not in mac_share

@@ -16,7 +16,7 @@ public struct WebMediaDLSubmitURLIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let client = WebMediaDLWorkerCredentials.loadClient()
-        if try await WebMediaDLHttpDirect.saveIfDirect(locator: locator) != nil {
+        if try await WebMediaDLHttpDirect.saveIfDirect(locator: locator, surface: .ios) != nil {
             return .result()
         }
         _ = try await client.submit(locator: locator, surface: .ios, intakeKind: "intent")
@@ -40,7 +40,7 @@ public struct WebMediaDLiOSSpeakURLIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let client = WebMediaDLWorkerCredentials.loadClient()
-        if try await WebMediaDLHttpDirect.saveIfDirect(locator: locator) != nil {
+        if try await WebMediaDLHttpDirect.saveIfDirect(locator: locator, surface: .ios) != nil {
             return .result()
         }
         _ = try await client.submit(locator: locator, surface: .ios, intakeKind: "speak")

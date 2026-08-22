@@ -5,6 +5,8 @@ from __future__ import annotations
 import ast
 import importlib.util
 import re
+import shutil
+import subprocess
 import zipfile
 from collections import Counter
 from pathlib import Path
@@ -157,6 +159,30 @@ def test_transport_modules_do_not_import_policy() -> None:
         assert not any("policy" in item or "capabilities" in item for item in imported), name
 
 
+def _imported_modules(relative: str) -> list[str]:
+    tree = ast.parse((repo_root() / "src" / "webmedia_dl" / relative).read_text(encoding="utf-8"))
+    imported: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module:
+            imported.append(node.module)
+        elif isinstance(node, ast.Import):
+            imported.extend(alias.name for alias in node.names)
+    return imported
+
+
+def test_intake_does_not_perform_network_retrieval() -> None:
+    imported = _imported_modules("intake.py")
+    banned = ("httpx", "urllib.request", "requests", "aiohttp", "http.client")
+    assert not any(
+        item == name or item.startswith(f"{name}.") for item in imported for name in banned
+    )
+
+
+def test_discovery_does_not_import_acquisition() -> None:
+    imported = _imported_modules("discovery.py")
+    assert not any("acquisition" in item for item in imported)
+
+
 def test_package_bundle_uses_fixed_timestamp(tmp_path: Path) -> None:
     spec = importlib.util.spec_from_file_location(
         "package_bundle",
@@ -177,6 +203,19 @@ def test_package_bundle_uses_fixed_timestamp(tmp_path: Path) -> None:
     with zipfile.ZipFile(first) as archive:
         info = archive.getinfo("keep.txt")
         assert info.date_time == (2026, 8, 18, 0, 0, 0)
+
+
+def test_validate_bundle_fails_when_one_spec_is_missing() -> None:
+    spec = importlib.util.spec_from_file_location(
+        "validate_bundle_missing_spec",
+        repo_root() / "scripts" / "validate_bundle.py",
+    )
+    assert spec is not None and spec.loader is not None
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    current = list(vars(mod)["CAPABILITIES"])
+    vars(mod)["CAPABILITIES"] = [*current, "missing-capability"]
+    assert mod.main() != 0
 
 
 def test_validate_bundle_fails_when_overlay_is_missing(
@@ -396,6 +435,9 @@ def _named_tests() -> set[str]:
             r"\bfunc (test[A-Za-z0-9_]+)\s*\(", path.read_text(encoding="utf-8")
         ):
             names.add(match.group(1))
+    for path in tests_root.rglob("*.mjs"):
+        for match in re.finditer(r'\bit\(\s*"([^"]+)"', path.read_text(encoding="utf-8")):
+            names.add(match.group(1))
     return names
 
 
@@ -426,6 +468,18 @@ def test_extension_collector_returns_no_native_command() -> None:
     assert "Never becomes a generic native command runner" in text
     assert "nativeCommand: null" in text
     assert '!value.toLowerCase().startsWith("javascript:")' in text
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not installed")
+    script = repo_root() / "tests/unit/extensions/capture.test.mjs"
+    completed = subprocess.run(
+        [node, "--test", str(script)],
+        check=False,
+        capture_output=True,
+        text=True,
+        cwd=str(repo_root()),
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
 
 
 def test_builtin_manifests_never_auto_install_or_accept_argv() -> None:

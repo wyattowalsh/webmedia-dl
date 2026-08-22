@@ -84,6 +84,25 @@ def test_queue_pause_leaves_job_accepted(tmp_data: Path, png_bytes: bytes) -> No
     assert ran.state is JobState.COMPLETED
 
 
+def test_queue_pause_survives_new_pipeline_reader(tmp_data: Path, png_bytes: bytes) -> None:
+    first = Pipeline(data_dir=tmp_data)
+    first.pause_queue()
+    media = tmp_data / "held.png"
+    media.write_bytes(png_bytes)
+    job = first.submit(str(media))
+    assert job.state is JobState.ACCEPTED
+    assert first.queue.is_paused() is True
+    del first
+    second = Pipeline(data_dir=tmp_data)
+    assert second.queue.is_paused() is True
+    assert second.run_next() is None
+    second.resume_queue()
+    ran = second.run_next()
+    assert ran is not None
+    assert ran.job_id == job.job_id
+    assert ran.state is JobState.COMPLETED
+
+
 def test_html_cookie_file_rejected(tmp_path: Path) -> None:
     cookies = tmp_path / "cookies.html"
     cookies.write_text("<html>not cookies</html>", encoding="utf-8")

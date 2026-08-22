@@ -79,7 +79,8 @@ public struct WebMediaDLiPadOSRootView: View {
                         do {
                             let result = try await WebMediaDLHttpDirect.transfer(
                                 locator: locator,
-                                bookmark: filesBookmark
+                                bookmark: filesBookmark,
+                                surface: .ipados
                             )
                             status = "Saved on this device \(result.outputPath)"
                             lastJobId = result.jobId

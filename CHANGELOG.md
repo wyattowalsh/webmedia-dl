@@ -2,6 +2,8 @@
 
 ## 0.1.0
 
+- Complete-client http-direct binds the calling surface, chunks URLSession
+  bytes, and share sheets on iPhone/iPad/visionOS try on-device save first.
 - Bundle validation executes START_HERE link, task DAG, traceability, archive
   safety, and clean-extraction gates; stream-copy exports require semantic
   parity; ImageMagick convert runs under the packaged policy.
