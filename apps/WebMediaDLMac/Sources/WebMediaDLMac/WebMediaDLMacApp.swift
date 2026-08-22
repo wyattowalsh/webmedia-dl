@@ -29,6 +29,7 @@ struct MacRootView: View {
     @State private var watchDelegate: WebMediaDLMacWatchConnectivityDelegate?
     @State private var advertisedAddresses = "Mac relay is starting…"
     @State private var relayServer: WebMediaDLMacRelayServer?
+    @State private var workerProcess: Process?
     private let role = WebMediaDLClientRole.fullWorker
     private let bridge = WebMediaDLContinuityBridge()
 
@@ -262,9 +263,11 @@ struct MacRootView: View {
                     approvedRoot = filesBookmark.path
                 }
                 bindWatchDelegate()
+                startMacWorker()
                 Task { await startMacRelay() }
             }
             .onDisappear {
+                workerProcess?.terminate()
                 relayServer?.stop()
             }
             .onChange(of: token) { _, value in
@@ -281,6 +284,18 @@ struct MacRootView: View {
             }
         }
         .frame(minWidth: 480, minHeight: 320)
+    }
+
+    @MainActor
+    private func startMacWorker() {
+        do {
+            workerProcess = try WebMediaDLMacWorkerProcess.start(
+                dataDir: WebMediaDLMacWorkerProcess.defaultDataDirectory()
+            )
+            status = "Local worker started on \(WebMediaDLLoopbackClient.defaultBaseURL.absoluteString)"
+        } catch {
+            status = "Using existing loopback worker (\(error.localizedDescription))"
+        }
     }
 
     @MainActor

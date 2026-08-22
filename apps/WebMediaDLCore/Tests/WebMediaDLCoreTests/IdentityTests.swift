@@ -91,27 +91,30 @@ final class IdentityTests: XCTestCase {
         )
     }
 
-    func testPhotosDestinationRequiresApprovedRoot() {
+    func testPhotosDestinationRequiresApprovedRoot() throws {
         let policy = WebMediaDLDestinationPolicy(approvedRoots: ["/Users/me/Movies"])
         XCTAssertTrue(policy.allows("/Users/me/Movies/clip.mp4"))
         XCTAssertFalse(policy.allows("/tmp/escape.mp4"))
         XCTAssertFalse(policy.allows("/Users/me/Movies-backup/clip.mp4"))
+        XCTAssertFalse(WebMediaDLDestinationPolicy(approvedRoots: ["Movies"]).allows("Movies/clip.mp4"))
         let share = WebMediaDLShareIntake(locator: "https://example.com/a.mp4")
         XCTAssertFalse(share.canPublishToPhotos)
         XCTAssertFalse(share.canPublishToFiles)
         let bookmark = WebMediaDLSecurityScopedBookmark(path: "/Users/me/Movies")
         XCTAssertTrue(bookmark.allows("/Users/me/Movies/clip.mp4"))
         XCTAssertFalse(bookmark.allows("/Users/me/Movies-backup/clip.mp4"))
+        XCTAssertFalse(bookmark.allows("/Users/me/Movies/../Movies-backup/clip.mp4"))
+        XCTAssertFalse(WebMediaDLSecurityScopedBookmark(path: "Movies").allows("Movies/clip.mp4"))
         XCTAssertFalse(WebMediaDLPhotoKitDestination(approvedRoot: "/Users/me/Movies").canPublish)
         let clip = WebMediaDLClipboardIntake(text: "see https://cdn.example.com/a.mp4 please")
         XCTAssertEqual(clip.locator, "https://cdn.example.com/a.mp4")
         XCTAssertFalse(clip.usesURLAsPath)
         XCTAssertEqual(clip.intakeKind, "paste")
-        let event = WebMediaDLEvent(jobId: UUID(), type: "job.completed", sequence: 1)
+        let event = try WebMediaDLEvent(jobId: UUID(), type: "job.completed", sequence: 1)
         XCTAssertFalse(event.exposesProviderConsole)
         let files = WebMediaDLFilesDestination(bookmark: bookmark)
         XCTAssertTrue(files.allows("/Users/me/Movies/out.mp4"))
-        for surface in [WebMediaDLSurface.macos, .ios, .ipados, .visionos] {
+        for surface in [WebMediaDLSurface.macos] {
             let request = WebMediaDLLoopbackClient().submitRequest(
                 locator: "https://example.com/a.mp4",
                 surface: surface,
@@ -125,6 +128,21 @@ final class IdentityTests: XCTestCase {
             XCTAssertTrue(body.contains("security_scoped_path"), surface.rawValue)
             XCTAssertTrue(body.contains("security_scoped_bookmark"), surface.rawValue)
             XCTAssertTrue(body.contains(surface.rawValue), surface.rawValue)
+        }
+        for surface in WebMediaDLSurface.completeClients {
+            XCTAssertTrue(surface.isCompleteClient)
+            let request = WebMediaDLLoopbackClient().submitRequest(
+                locator: "https://example.com/a.mp4",
+                surface: surface,
+                destinationKind: "files_app",
+                destinationPath: "/var/mobile/Containers/Data/clip",
+                approvedRoots: ["/var/mobile/Containers/Data/clip"],
+                bookmarkData: Data("bookmark".utf8)
+            )
+            let body = String(data: request.httpBody ?? Data(), encoding: .utf8) ?? ""
+            XCTAssertTrue(body.contains("staging_only"), surface.rawValue)
+            XCTAssertFalse(body.contains("files_app"), surface.rawValue)
+            XCTAssertFalse(body.contains("/var/mobile"), surface.rawValue)
         }
         let request = WebMediaDLLoopbackClient().submitRequest(
             locator: "https://example.com/a.mp4",

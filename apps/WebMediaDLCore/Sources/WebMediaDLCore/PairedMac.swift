@@ -118,18 +118,24 @@ public struct WebMediaDLPairedMacEndpoint: Sendable {
         if let intakeKind {
             body["intake_kind"] = intakeKind
         }
-        if let destinationKind, !destinationKind.isEmpty {
+        let destination = surface.macJobDestination(
+            kind: destinationKind,
+            path: destinationPath,
+            approvedRoots: approvedRoots,
+            bookmarkData: bookmarkData
+        )
+        if let destinationKind = destination.kind, !destinationKind.isEmpty {
             var intent: [String: Any] = ["destination_kind": destinationKind]
-            if let destinationPath {
+            if let destinationPath = destination.path {
                 intent["destination_path"] = destinationPath
             }
-            if !approvedRoots.isEmpty {
-                intent["approved_roots"] = approvedRoots
+            if !destination.roots.isEmpty {
+                intent["approved_roots"] = destination.roots
             }
-            if destinationKind == "files_app", let destinationPath {
+            if destinationKind == "files_app", let destinationPath = destination.path {
                 intent["security_scoped_path"] = destinationPath
             }
-            if let bookmarkData {
+            if let bookmarkData = destination.bookmark {
                 intent["security_scoped_bookmark"] = bookmarkData.base64EncodedString()
             }
             body["intent"] = intent
@@ -140,6 +146,23 @@ public struct WebMediaDLPairedMacEndpoint: Sendable {
 
     public func historyRequest() -> URLRequest {
         authorized(relayURL.appendingPathComponent("v1/jobs"))
+    }
+
+    public func jobDetailRequest(jobId: UUID) -> URLRequest {
+        authorized(
+            relayURL
+                .appendingPathComponent("v1/jobs")
+                .appendingPathComponent(jobId.uuidString)
+        )
+    }
+
+    public func artifactContentRequest(artifactId: String) -> URLRequest {
+        authorized(
+            relayURL
+                .appendingPathComponent("v1/artifacts")
+                .appendingPathComponent(artifactId)
+                .appendingPathComponent("content")
+        )
     }
 
     public func pauseQueueRequest() -> URLRequest {
@@ -247,6 +270,60 @@ public struct WebMediaDLPairedMacEndpoint: Sendable {
             )
         }
         return payload
+    }
+
+    public func pullToFiles(
+        jobId: UUID,
+        bookmark: WebMediaDLSecurityScopedBookmark
+    ) async throws -> [String] {
+        let (detailData, detailResponse) = try await URLSession.shared.data(
+            for: jobDetailRequest(jobId: jobId)
+        )
+        let detailStatus = (detailResponse as? HTTPURLResponse)?.statusCode ?? 0
+        guard (200 ..< 300).contains(detailStatus) else {
+            throw WebMediaDLHttpDirect.TransferError.writeFailed("Job detail HTTP \(detailStatus)")
+        }
+        guard let detail = try JSONSerialization.jsonObject(with: detailData) as? [String: Any] else {
+            throw WebMediaDLHttpDirect.TransferError.writeFailed("Job detail is not JSON.")
+        }
+        let artifactIds = (detail["artifact_ids"] as? [String]) ?? []
+        if artifactIds.isEmpty {
+            throw WebMediaDLHttpDirect.TransferError.writeFailed(
+                "Job has no published artifacts yet."
+            )
+        }
+        var written: [String] = []
+        for artifactId in artifactIds {
+            let (bytes, response) = try await URLSession.shared.data(
+                for: artifactContentRequest(artifactId: artifactId)
+            )
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            guard (200 ..< 300).contains(status) else {
+                throw WebMediaDLHttpDirect.TransferError.writeFailed(
+                    "Artifact download HTTP \(status)"
+                )
+            }
+            let hex = Self.sha256Hex(bytes)
+            let declared = (response as? HTTPURLResponse)?
+                .value(forHTTPHeaderField: "X-WebMedia-Digest") ?? ""
+            let normalized = declared.hasPrefix("sha256:")
+                ? String(declared.dropFirst(7))
+                : declared
+            if !normalized.isEmpty, normalized != hex {
+                throw WebMediaDLHttpDirect.TransferError.writeFailed(
+                    "Artifact digest does not match the declared sha256."
+                )
+            }
+            let filename = artifactId.replacingOccurrences(of: ":", with: "-") + ".bin"
+            written.append(
+                try WebMediaDLHttpDirect.write(
+                    data: bytes,
+                    filename: filename,
+                    bookmark: bookmark
+                )
+            )
+        }
+        return written
     }
 
     public static func sha256Hex(_ data: Data) -> String {
@@ -417,6 +494,22 @@ public enum WebMediaDLPairedMacSubmit {
             intakeKind: "drop",
             destinationKind: "staging_only"
         )
+    }
+
+    public static func pullToFiles(
+        jobId: UUID,
+        bookmark: WebMediaDLSecurityScopedBookmark,
+        credentials: WebMediaDLLoopbackClient = WebMediaDLWorkerCredentials.loadClient(),
+        pairingId: UUID? = nil,
+        sessionKey: String? = nil,
+        defaults: UserDefaults = WebMediaDLWorkerCredentials.defaults()
+    ) async throws -> [String] {
+        try await loadEndpoint(
+            credentials: credentials,
+            pairingId: pairingId,
+            sessionKey: sessionKey,
+            defaults: defaults
+        ).pullToFiles(jobId: jobId, bookmark: bookmark)
     }
 
     public static func history(

@@ -549,6 +549,9 @@ public struct WebMediaDLArtifact: Codable, Sendable {
         if artifactId == provenance["title"] {
             throw WebMediaDLDomainError("A display title never becomes artifact identity.")
         }
+        if role == .source, artifactId != "sha256:\(sha256)" {
+            throw WebMediaDLDomainError("Source artifacts SHALL be identified as sha256:<digest>.")
+        }
         self.artifactId     = artifactId
         self.role           = role
         self.sha256         = sha256

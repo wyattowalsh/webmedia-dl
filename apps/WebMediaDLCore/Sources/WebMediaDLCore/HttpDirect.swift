@@ -213,6 +213,55 @@ public enum WebMediaDLHttpDirect {
         return safe
     }
 
+    /// Write already-fetched bytes into a user-approved Files bookmark.
+    public static func write(
+        data: Data,
+        filename: String,
+        bookmark: WebMediaDLSecurityScopedBookmark,
+        maxBytes: Int = defaultMaxBytes
+    ) throws -> String {
+        if data.count > maxBytes {
+            throw TransferError.overflow
+        }
+        let resolved = bookmark.resolve()
+        let root = resolved.path.trimmingCharacters(in: .whitespacesAndNewlines)
+        if root.isEmpty {
+            throw TransferError.filesDestinationRequired
+        }
+        if resolved.stale {
+            throw TransferError.destinationDenied
+        }
+        let destRoot = URL(fileURLWithPath: root, isDirectory: true)
+        let fileURL = URL(fileURLWithPath: filename)
+        let stem = outputStem(from: fileURL)
+        let ext = fileURL.pathExtension.isEmpty ? "bin" : fileURL.pathExtension
+        let final = destRoot.appendingPathComponent("\(stem).\(ext)")
+        if !resolved.allows(final.path) {
+            throw TransferError.destinationDenied
+        }
+        let tmp = destRoot.appendingPathComponent(".webmedia-dl-\(UUID().uuidString).tmp")
+        if !resolved.allows(tmp.path) {
+            throw TransferError.destinationDenied
+        }
+        try withSecurityScope(resolved) {
+            do {
+                try FileManager.default.createDirectory(at: destRoot, withIntermediateDirectories: true)
+                try data.write(to: tmp, options: .atomic)
+                if FileManager.default.fileExists(atPath: final.path) {
+                    try FileManager.default.removeItem(at: final)
+                }
+                try FileManager.default.moveItem(at: tmp, to: final)
+            } catch let error as TransferError {
+                try? FileManager.default.removeItem(at: tmp)
+                throw error
+            } catch {
+                try? FileManager.default.removeItem(at: tmp)
+                throw TransferError.writeFailed(error.localizedDescription)
+            }
+        }
+        return final.path
+    }
+
     public static func suffix(url: URL, headers: [String: String], body: Data) -> String {
         for (key, value) in headers where key.lowercased() == "content-type" {
             let type = value.split(separator: ";").first.map(String.init)?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""

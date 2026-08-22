@@ -217,3 +217,56 @@ def test_staging_upload_then_drop_job(
     assert phone_path not in job["source"]["locator"]
     assert job["state"] in {"completed", "failed"}
     assert job["intent"]["destination_kind"] == "staging_only"
+
+
+def test_artifact_content_is_confined(
+    tmp_path: Path, png_bytes: bytes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from webmedia_dl.artifacts import ArtifactStore
+    from webmedia_dl.domain.enums import ArtifactRole, MediaKind
+    from webmedia_dl.pipeline import Pipeline
+
+    pipeline = Pipeline(data_dir=tmp_path)
+    src = tmp_path / "hero.png"
+    src.write_bytes(png_bytes)
+    artifact = pipeline.store.register(src, role=ArtifactRole.SOURCE, media_kind=MediaKind.IMAGE)
+    other = tmp_path / "q.bin"
+    other.write_bytes(b"quarantine-bytes")
+    quarantined = pipeline.store.register(
+        other, role=ArtifactRole.QUARANTINE, media_kind=MediaKind.IMAGE
+    )
+    app = create_app(tmp_path)
+    client = TestClient(app)
+    token = load_or_create_token(tmp_path)
+    auth = {"Authorization": f"Bearer {token}"}
+    assert client.get("/v1/artifacts/sha256:deadbeef/content", headers=auth).status_code == 404
+    assert client.get(f"/v1/artifacts/{artifact.artifact_id}/content").status_code == 401
+    body = client.get(f"/v1/artifacts/{artifact.artifact_id}/content", headers=auth)
+    assert body.status_code == 200
+    assert body.content == png_bytes
+    assert body.headers["x-webmedia-digest"] == f"sha256:{artifact.sha256}"
+    assert (
+        client.get(f"/v1/artifacts/{quarantined.artifact_id}/content", headers=auth).status_code
+        == 403
+    )
+    artifact_path = pipeline.store.resolve(artifact).resolve()
+    original_is_file = Path.is_file
+
+    def missing_bytes(self: Path) -> bool:
+        if self.resolve() == artifact_path:
+            return False
+        return original_is_file(self)
+
+    monkeypatch.setattr(Path, "is_file", missing_bytes)
+    assert (
+        client.get(f"/v1/artifacts/{artifact.artifact_id}/content", headers=auth).status_code == 404
+    )
+    monkeypatch.setattr(Path, "is_file", original_is_file)
+
+    def escaped(self: ArtifactStore, _artifact: object) -> Path:
+        return Path("/etc/passwd")
+
+    monkeypatch.setattr(ArtifactStore, "resolve", escaped)
+    escaped_resp = client.get(f"/v1/artifacts/{artifact.artifact_id}/content", headers=auth)
+    assert escaped_resp.status_code == 400
+    assert "escaped" in escaped_resp.text

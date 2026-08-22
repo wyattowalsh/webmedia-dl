@@ -2,6 +2,15 @@
 
 ## 0.1.0
 
+- Complete-client URL jobs with a Files bookmark submit `staging_only` to the Mac
+  worker. A phone sandbox `files_app` path is refused. Published artifacts are
+  pulled with `GET /v1/artifacts/{id}/content` into the local Files bookmark.
+  Swift events reject provider-console payload keys; SOURCE artifacts must be
+  `sha256:<digest>`. Files bookmark `allows()` requires an absolute root. The Mac
+  app launches `webmedia-dl serve` on `127.0.0.1:8765` when the binary is on PATH.
+  GitHub Actions `32560244195` on `5cb2090` passed Python (571 pytest, 99.97%) and
+  Swift (18 tests, 0 failures; 8× BUILD SUCCEEDED). Local `uv run pytest --cov` on
+  this revision is 573 tests at 99.99%.
 - Stale or unresolvable Files bookmarks raise `destinationDenied`; empty roots
   stay `filesDestinationRequired`. Cookie grants fail closed when the file is
   missing, unresolvable, or the path changed after issue. Queue `set_state`

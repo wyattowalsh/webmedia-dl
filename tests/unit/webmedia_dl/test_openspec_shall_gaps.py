@@ -18,7 +18,7 @@ from webmedia_dl.candidates import build_graph
 from webmedia_dl.diagnostics import doctor
 from webmedia_dl.domain.enums import DestinationKind, EventType, MediaKind, Surface
 from webmedia_dl.domain.models import ExportIntent, MediaCandidate
-from webmedia_dl.errors import CapabilityDenied, DrmRefused, ProviderPolicyError
+from webmedia_dl.errors import CapabilityDenied, DrmRefused, IntakeError, ProviderPolicyError
 from webmedia_dl.identity import is_safe_format_id
 from webmedia_dl.live import inspect_manifest, record_clear_stream, recordable_parts
 from webmedia_dl.paths import repo_root
@@ -313,6 +313,46 @@ def test_files_app_intent_requires_bookmark(tmp_path: Path) -> None:
     assert filled.security_scoped_bookmark == "ZmFrZQ=="
 
 
+def test_complete_client_files_app_job_is_refused(tmp_path: Path) -> None:
+    dest = tmp_path / "Movies"
+    dest.mkdir()
+    intent = ExportIntent(
+        destination_kind=DestinationKind.FILES_APP,
+        destination_path=str(dest),
+        approved_roots=[str(dest)],
+        security_scoped_bookmark="ZmFrZQ==",
+    )
+    pipeline = Pipeline(data_dir=tmp_path)
+    with pytest.raises(IntakeError, match="staging_only"):
+        pipeline.submit(
+            "https://example.com/a.mp4",
+            surface=Surface.IOS,
+            intent=intent,
+            wait=False,
+        )
+    with pytest.raises(IntakeError, match="staging_only"):
+        pipeline.submit(
+            "https://example.com/a.mp4",
+            surface=Surface.IPADOS,
+            intent=intent,
+            wait=False,
+        )
+    with pytest.raises(IntakeError, match="staging_only"):
+        pipeline.submit(
+            "https://example.com/a.mp4",
+            surface=Surface.VISIONOS,
+            intent=intent,
+            wait=False,
+        )
+    macos_job = pipeline.submit(
+        "https://example.com/a.mp4",
+        surface=Surface.MACOS,
+        intent=intent,
+        wait=False,
+    )
+    assert macos_job.intent.destination_kind is DestinationKind.FILES_APP
+
+
 def test_inspect_dash_content_protection_without_named_drm_still_refuses() -> None:
     with pytest.raises(DrmRefused, match="ContentProtection"):
         inspect_manifest("<MPD><ContentProtection /></MPD>")
@@ -375,6 +415,10 @@ SCENARIO_EVIDENCE: dict[str, tuple[str, str]] = {
         "test_staging_upload_then_drop_job",
     ),
     "complete clients carry files destinations": (
+        "tests/unit/webmedia_dl/test_openspec_shall_gaps.py",
+        "test_complete_client_files_app_job_is_refused",
+    ),
+    "macos app supervises the loopback worker": (
         "tests/unit/webmedia_dl/test_surfaces_inventory.py",
         "test_complete_clients_http_direct_and_shared_domain",
     ),

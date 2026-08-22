@@ -323,7 +323,7 @@ def test_files_destinations_use_bookmarks_not_typed_paths() -> None:
         assert "fromPickedURL" in text
         assert "Choose Files destination" in text
         assert 'TextField("Approved Files destination"' not in text
-        assert "bookmarkData: filesBookmark.bookmarkData" in text
+        assert "bookmark: filesBookmark" in text
         assert "loadBookmark()" in text
 
 
@@ -454,7 +454,7 @@ def test_companion_transport_and_typed_history() -> None:
         assert "clip.intakeKind" in text
         assert "onAppear" in text
         assert "loadBookmark()" in text
-        assert "bookmarkData: filesBookmark.bookmarkData" in text
+        assert "bookmark: filesBookmark" in text
         assert "defaults.string(forKey: WebMediaDLWorkerCredentials.pairingDefaultsKey)" in text
         assert "defaults.string(forKey: WebMediaDLWorkerCredentials.sessionDefaultsKey)" in text
         assert "Pause queue" in text
@@ -787,6 +787,8 @@ def test_github_ci_compiles_apple_packages() -> None:
     assert "func submitDrop(" in paired_mac
     assert 'appendingPathComponent("v1/staging")' in paired_mac
     assert 'destinationKind: "staging_only"' in paired_mac
+    assert "func pullToFiles(" in paired_mac
+    assert "artifactContentRequest" in paired_mac
     assert "X-WebMedia-Digest" in paired_mac
     assert "maxStagingBytes" in relay_http
     assert "func maxBytes(for target: String)" in relay_http
@@ -803,6 +805,7 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     )
     assert "A source URL never becomes a filesystem path." in domain
     assert "A display title never becomes artifact identity." in domain
+    assert "Source artifacts SHALL be identified as sha256:<digest>." in domain
     assert "A provider never receives arbitrary user arguments." in domain
     assert "A planned or simulated check never becomes runtime PASS." in domain
     assert "DRM circumvention is forbidden." in domain
@@ -826,6 +829,7 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert "destinationDenied" in http_direct
     assert "filesDestinationRequired" in http_direct
     assert "saveIfDirect" in http_direct
+    assert "func write(" in http_direct
     assert "outputStem" in http_direct
     assert "URLSession.shared.bytes" in http_direct
     assert "data.count >= maxBytes" in http_direct
@@ -849,6 +853,10 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
         assert "WebMediaDLPairedMacSubmit.history" in text
         assert "WebMediaDLPairedMacSubmit.pauseQueue" in text
         assert "WebMediaDLPairedMacSubmit.queueStatus" in text
+        assert "WebMediaDLPairedMacSubmit.pullToFiles" in text
+        assert "Save published files here" in text
+        assert 'destinationKind: files == nil ? nil : "staging_only"' in text
+        assert 'destinationKind: files == nil ? nil : "files_app"' not in text
         assert "client.historyRequest()" not in text
         assert "pairedClient.historyRequest()" not in text
         assert "client.pauseQueue()" not in text
@@ -870,6 +878,19 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert "autoForward = true" in mac
     assert "bindWatchDelegate" in mac
     assert "WebMediaDLMacRelayServer.start" in mac
+    assert "WebMediaDLMacWorkerProcess.start" in mac
+    assert "startMacWorker" in mac
+    worker_launch = (
+        root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/MacWorkerProcess.swift"
+    ).read_text(encoding="utf-8")
+    assert '"serve"' in worker_launch
+    assert '"--host"' in worker_launch
+    assert '"127.0.0.1"' in worker_launch
+    assert '"--port"' in worker_launch
+    assert "loopbackPort" in worker_launch
+    assert "8765" in worker_launch
+    assert '"--data-dir"' in worker_launch
+    assert "func start(dataDir:" in worker_launch
     assert "This Mac's address" in mac
     assert "localOnly: false" in mac
     assert "WebMediaDLPairedMacSubmit.history" not in mac
@@ -890,7 +911,7 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
         assert "WebMediaDLWorkerCredentials.loadClient()" in text
         assert "WebMediaDLPairedMacSubmit.submit" in text
         assert "WebMediaDLShareIntake.fromSavedBookmark" in text
-        assert 'destinationKind: files == nil ? nil : "files_app"' in text
+        assert 'destinationKind: files == nil ? nil : "staging_only"' in text
         assert "WebMediaDLPairedMacSubmit.pauseQueue" in text
         assert "WebMediaDLPairedMacSubmit.resumeQueue" in text
         assert "WebMediaDLPairedMacSubmit.history" in text
@@ -922,7 +943,7 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
         assert "WebMediaDLPairedMacSubmit.submit" in text
         assert "WebMediaDLPairedMacSubmit.submitDrop" in text
         assert "WebMediaDLShareIntake.fromSavedBookmark" in text
-        assert 'destinationKind: files == nil ? nil : "files_app"' in text
+        assert 'destinationKind: files == nil ? nil : "staging_only"' in text
     mac_share = (
         root / "apps/WebMediaDLMac/ShareExtension/WebMediaDLMacShareExtension.swift"
     ).read_text(encoding="utf-8")
@@ -934,15 +955,19 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     ).read_text(encoding="utf-8")
     assert "fromSavedBookmark" in share_intake
     assert "resolvedForSubmit" in share_intake
+    mac_share_view = (
+        root / "apps/WebMediaDLMac/Sources/WebMediaDLMac/WebMediaDLMacShareView.swift"
+    ).read_text(encoding="utf-8")
+    assert "resolvedForSubmit" in mac_share_view
+    assert 'destinationKind: files == nil ? nil : "files_app"' in mac_share_view
     for rel in (
-        "apps/WebMediaDLMac/Sources/WebMediaDLMac/WebMediaDLMacShareView.swift",
         "apps/WebMediaDLiOS/Sources/WebMediaDLiOS/WebMediaDLiOSShareView.swift",
         "apps/WebMediaDLiPadOS/Sources/WebMediaDLiPadOS/WebMediaDLiPadOSShareView.swift",
         "apps/WebMediaDLVision/Sources/WebMediaDLVision/WebMediaDLVisionShareView.swift",
     ):
         text = (root / rel).read_text(encoding="utf-8")
         assert "resolvedForSubmit" in text
-        assert 'destinationKind: files == nil ? nil : "files_app"' in text
+        assert 'destinationKind: files == nil ? nil : "staging_only"' in text
 
 
 def test_privacy_manifests_declare_user_defaults() -> None:

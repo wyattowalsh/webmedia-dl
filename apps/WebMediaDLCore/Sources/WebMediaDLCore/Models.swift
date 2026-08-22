@@ -11,6 +11,27 @@ public struct WebMediaDLUncheckedBox<Value>: @unchecked Sendable {
 public enum WebMediaDLSurface: String, Codable, Sendable {
     case macos, ios, ipados, visionos, watchos, tvos
     case safari, chrome, brave, edge, chromium, firefox, cli
+
+    public static let completeClients: Set<WebMediaDLSurface> = [.ios, .ipados, .visionos]
+
+    public var isCompleteClient: Bool { Self.completeClients.contains(self) }
+
+    /// Phone Files bookmarks are not Mac paths. Complete-client `files_app`
+    /// jobs become Mac `staging_only` so the client can pull bytes locally.
+    public func macJobDestination(
+        kind: String?,
+        path: String?,
+        approvedRoots: [String],
+        bookmarkData: Data?
+    ) -> (kind: String?, path: String?, roots: [String], bookmark: Data?) {
+        guard let kind, !kind.isEmpty else {
+            return (nil, nil, [], nil)
+        }
+        if isCompleteClient, kind == "files_app" {
+            return ("staging_only", nil, [], nil)
+        }
+        return (kind, path, approvedRoots, bookmarkData)
+    }
 }
 
 public struct WebMediaDLJob: Codable, Sendable, Identifiable {

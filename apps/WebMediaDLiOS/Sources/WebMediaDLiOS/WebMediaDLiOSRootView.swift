@@ -98,10 +98,7 @@ public struct WebMediaDLiOSRootView: View {
                                 pairingId: UUID(uuidString: pairingId),
                                 sessionKey: sessionKey.isEmpty ? nil : sessionKey,
                                 intakeKind: fromClipboard ? clip.intakeKind : nil,
-                                destinationKind: files == nil ? nil : "files_app",
-                                destinationPath: files?.approvedRoot,
-                                approvedRoots: files.map { [$0.approvedRoot] } ?? [],
-                                bookmarkData: filesBookmark.bookmarkData
+                                destinationKind: files == nil ? nil : "staging_only"
                             )) ?? "Pairing required"
                             status = response
                             lastJobId = WebMediaDLLoopbackClient.jobId(from: response)
@@ -172,6 +169,27 @@ public struct WebMediaDLiOSRootView: View {
                         }
                     }
                     .accessibilityLabel("Refresh history")
+                    Button("Save published files here") {
+                        Task {
+                            guard let lastJobId else {
+                                status = "No job to save"
+                                return
+                            }
+                            do {
+                                let written = try await WebMediaDLPairedMacSubmit.pullToFiles(
+                                    jobId: lastJobId,
+                                    bookmark: filesBookmark,
+                                    credentials: client,
+                                    pairingId: UUID(uuidString: pairingId),
+                                    sessionKey: sessionKey.isEmpty ? nil : sessionKey
+                                )
+                                status = "Saved \(written.joined(separator: ", "))"
+                            } catch {
+                                status = error.localizedDescription
+                            }
+                        }
+                    }
+                    .accessibilityLabel("Save published files here")
                 }
                 Section("Queue") {
                     Button("Pause queue") {

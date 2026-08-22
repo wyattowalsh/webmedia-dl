@@ -38,10 +38,7 @@ public enum WebMediaDLiPadOSShareExtension {
                 surface: .ipados,
                 credentials: client,
                 intakeKind: "share_sheet",
-                destinationKind: files == nil ? nil : "files_app",
-                destinationPath: files?.approvedRoot,
-                approvedRoots: files.map { [$0.approvedRoot] } ?? [],
-                bookmarkData: files?.bookmark.bookmarkData ?? intake.bookmarkData
+                destinationKind: files == nil ? nil : "staging_only"
             )
         }
         for path in WebMediaDLShareItemExtractor.dropPaths(fromShared: values) {

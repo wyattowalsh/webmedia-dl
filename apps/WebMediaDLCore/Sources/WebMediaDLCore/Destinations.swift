@@ -70,9 +70,11 @@ public struct WebMediaDLSecurityScopedBookmark: Codable, Sendable, Equatable {
         if stale { return false }
         let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty { return false }
+        if !trimmed.hasPrefix("/") { return false }
         let root = Self.standardizedPath(trimmed)
         let item = Self.standardizedPath(candidate)
         if root.isEmpty || item.isEmpty { return false }
+        if !root.hasPrefix("/") || !item.hasPrefix("/") { return false }
         if item == root { return true }
         let prefix = root.hasSuffix("/") ? root : root + "/"
         return item.hasPrefix(prefix)
@@ -273,6 +275,10 @@ public struct WebMediaDLClipboardIntake: Codable, Sendable {
 
 /// Typed local lifecycle event. Never a provider console dump.
 public struct WebMediaDLEvent: Codable, Sendable, Identifiable {
+    public static let forbiddenPayloadKeys: Set<String> = [
+        "stdout", "stderr", "argv", "nativeCommand", "providerArgv", "cookies_path",
+    ]
+
     public var id: UUID
     public var jobId: UUID
     public var type: String
@@ -287,17 +293,17 @@ public struct WebMediaDLEvent: Codable, Sendable, Identifiable {
         sequence: Int,
         ts: String? = nil,
         payload: [String: String] = [:]
-    ) {
+    ) throws {
         self.id = id
         self.jobId = jobId
         self.type = type
         self.sequence = sequence
         self.ts = ts
-        self.payload = payload
+        self.payload = try Self.sanitizedPayload(payload)
     }
 
     public var exposesProviderConsole: Bool {
-        payload.keys.contains(where: { ["stdout", "stderr", "argv"].contains($0) })
+        payload.keys.contains(where: { Self.forbiddenPayloadKeys.contains($0) })
     }
 
     enum CodingKeys: String, CodingKey {
@@ -309,13 +315,33 @@ public struct WebMediaDLEvent: Codable, Sendable, Identifiable {
         case payload
     }
 
+    public static func sanitizedPayload(_ payload: [String: String]) throws -> [String: String] {
+        var forbidden: [String] = []
+        for (key, value) in payload {
+            if forbiddenPayloadKeys.contains(key) {
+                forbidden.append(key)
+            } else if key.lowercased().contains("cookie"),
+                      value.contains("/") || value.contains("\\") || value.hasPrefix("~") {
+                forbidden.append(key)
+            }
+        }
+        if !forbidden.isEmpty {
+            throw WebMediaDLDomainError(
+                "Event payloads must not include \(forbidden.sorted())."
+            )
+        }
+        return payload
+    }
+
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
-        jobId = try container.decode(UUID.self, forKey: .jobId)
-        type = try container.decode(String.self, forKey: .type)
-        sequence = try container.decode(Int.self, forKey: .sequence)
-        ts = try container.decodeIfPresent(String.self, forKey: .ts)
-        payload = try container.decodeIfPresent([String: String].self, forKey: .payload) ?? [:]
+        try self.init(
+            id: try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID(),
+            jobId: try container.decode(UUID.self, forKey: .jobId),
+            type: try container.decode(String.self, forKey: .type),
+            sequence: try container.decode(Int.self, forKey: .sequence),
+            ts: try container.decodeIfPresent(String.self, forKey: .ts),
+            payload: try container.decodeIfPresent([String: String].self, forKey: .payload) ?? [:]
+        )
     }
 }

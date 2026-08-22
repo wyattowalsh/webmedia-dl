@@ -46,7 +46,13 @@ to the loopback worker. Those adapters SHALL NOT run provider argv.
 
 #### Scenario: complete clients carry files destinations
 - **WHEN** iPhone, iPad, or visionOS submit with an approved Files path
-- **THEN** the job intent uses `files_app` and the security-scoped path boundary
+- **THEN** the Mac job uses `staging_only` instead of a phone sandbox `files_app`
+  path, and published artifact bytes are written into the local Files bookmark
+
+#### Scenario: macos app supervises the loopback worker
+- **WHEN** the Mac app appears
+- **THEN** it launches `webmedia-dl serve` on `127.0.0.1:8765` when the binary
+  is on PATH
 
 #### Scenario: share destination publishes under approved root
 

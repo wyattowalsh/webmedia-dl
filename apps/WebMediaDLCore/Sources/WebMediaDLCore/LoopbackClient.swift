@@ -73,18 +73,24 @@ public struct WebMediaDLLoopbackClient: Sendable {
         if let intakeKind {
             body["intake_kind"] = intakeKind
         }
-        if let destinationKind, !destinationKind.isEmpty {
+        let destination = surface.macJobDestination(
+            kind: destinationKind,
+            path: destinationPath,
+            approvedRoots: approvedRoots,
+            bookmarkData: bookmarkData
+        )
+        if let destinationKind = destination.kind, !destinationKind.isEmpty {
             var intent: [String: Any] = ["destination_kind": destinationKind]
-            if let destinationPath {
+            if let destinationPath = destination.path {
                 intent["destination_path"] = destinationPath
             }
-            if !approvedRoots.isEmpty {
-                intent["approved_roots"] = approvedRoots
+            if !destination.roots.isEmpty {
+                intent["approved_roots"] = destination.roots
             }
-            if destinationKind == "files_app", let destinationPath {
+            if destinationKind == "files_app", let destinationPath = destination.path {
                 intent["security_scoped_path"] = destinationPath
             }
-            if let bookmarkData {
+            if let bookmarkData = destination.bookmark {
                 intent["security_scoped_bookmark"] = bookmarkData.base64EncodedString()
             }
             body["intent"] = intent
@@ -146,6 +152,23 @@ public struct WebMediaDLLoopbackClient: Sendable {
 
     public func artifactsRequest() -> URLRequest {
         authorized(baseURL.appendingPathComponent("v1/artifacts"))
+    }
+
+    public func jobDetailRequest(jobId: UUID) -> URLRequest {
+        authorized(
+            baseURL
+                .appendingPathComponent("v1/jobs")
+                .appendingPathComponent(jobId.uuidString)
+        )
+    }
+
+    public func artifactContentRequest(artifactId: String) -> URLRequest {
+        authorized(
+            baseURL
+                .appendingPathComponent("v1/artifacts")
+                .appendingPathComponent(artifactId)
+                .appendingPathComponent("content")
+        )
     }
 
     public func resumeJobRequest(jobId: UUID) -> URLRequest {
@@ -400,6 +423,7 @@ public struct WebMediaDLDestinationPolicy: Sendable {
         approvedRoots.contains { root in
             let trimmed = root.trimmingCharacters(in: .whitespacesAndNewlines)
             if trimmed.isEmpty { return false }
+            if !trimmed.hasPrefix("/") { return false }
             let normalizedRoot = WebMediaDLSecurityScopedBookmark.standardizedPath(trimmed)
             let item = WebMediaDLSecurityScopedBookmark.standardizedPath(path)
             if normalizedRoot.isEmpty || item.isEmpty { return false }

@@ -160,13 +160,26 @@ final class ContractTests: XCTestCase {
             ]),
             []
         )
-        let noisy = WebMediaDLEvent(
-            jobId: UUID(),
-            type: "job.failed",
-            sequence: 1,
-            payload: ["stdout": "secret"]
+        XCTAssertThrowsError(
+            try WebMediaDLEvent(
+                jobId: UUID(),
+                type: "job.failed",
+                sequence: 1,
+                payload: ["stdout": "secret"]
+            )
         )
-        XCTAssertTrue(noisy.exposesProviderConsole)
+        XCTAssertThrowsError(
+            try WebMediaDLEvent(
+                jobId: UUID(),
+                type: "job.failed",
+                sequence: 1,
+                payload: ["cookies_path": "/tmp/cookies.txt"]
+            )
+        )
+        let eventJSON = Data("""
+            {"event_id":"11111111-1111-1111-1111-111111111111","job_id":"11111111-1111-1111-1111-111111111111","type":"job.failed","sequence":1,"payload":{"nativeCommand":"yt-dlp"}}
+            """.utf8)
+        XCTAssertThrowsError(try JSONDecoder().decode(WebMediaDLEvent.self, from: eventJSON))
         let shared = "https://cdn.example.com/a.mp4"
         let provider = NSItemProvider(
             item: shared as NSString,
@@ -190,6 +203,10 @@ final class ContractTests: XCTestCase {
         XCTAssertTrue(client.pauseJobRequest(jobId: jobId).url?.path.contains("pause") ?? false)
         XCTAssertTrue(client.resumeJobRequest(jobId: jobId).url?.path.contains("resume") ?? false)
         XCTAssertTrue(client.artifactsRequest().url?.path.contains("artifacts") ?? false)
+        XCTAssertTrue(client.jobDetailRequest(jobId: jobId).url?.path.contains(jobId.uuidString) ?? false)
+        XCTAssertTrue(
+            client.artifactContentRequest(artifactId: "sha256:abc").url?.path.hasSuffix("/content") ?? false
+        )
         let pairBody = String(data: client.pairRequest().httpBody ?? Data(), encoding: .utf8) ?? ""
         XCTAssertTrue(pairBody.contains("personal-restricted"))
         let wrap = client.envelopeWrapRequest(
@@ -247,6 +264,50 @@ final class ContractTests: XCTestCase {
         XCTAssertEqual(endpoint!.cancelRequest(jobId: pairing).url?.host, "10.0.0.2")
         XCTAssertEqual(endpoint!.pauseJobRequest(jobId: pairing).url?.host, "10.0.0.2")
         XCTAssertEqual(endpoint!.resumeJobRequest(jobId: pairing).url?.host, "10.0.0.2")
+        XCTAssertTrue(
+            endpoint!.jobDetailRequest(jobId: pairing).url?.path.contains(pairing.uuidString) ?? false
+        )
+        XCTAssertTrue(
+            endpoint!.artifactContentRequest(artifactId: "sha256:abc").url?.path.hasSuffix("/content") ?? false
+        )
+        let remapped = endpoint!.submitRequest(
+            locator: "https://example.com/a.mp4",
+            surface: .ios,
+            destinationKind: "files_app",
+            destinationPath: "/var/mobile/Containers/Data/clip",
+            approvedRoots: ["/var/mobile/Containers/Data/clip"],
+            bookmarkData: Data("phone".utf8)
+        )
+        let remappedBody = String(data: remapped.httpBody ?? Data(), encoding: .utf8) ?? ""
+        XCTAssertTrue(remappedBody.contains("staging_only"))
+        XCTAssertFalse(remappedBody.contains("files_app"))
+        XCTAssertFalse(remappedBody.contains("/var/mobile"))
+        let macFiles = endpoint!.submitRequest(
+            locator: "https://example.com/a.mp4",
+            surface: .macos,
+            destinationKind: "files_app",
+            destinationPath: "/Users/me/Movies",
+            approvedRoots: ["/Users/me/Movies"],
+            bookmarkData: Data("mac".utf8)
+        )
+        let macFilesBody = String(data: macFiles.httpBody ?? Data(), encoding: .utf8) ?? ""
+        XCTAssertTrue(macFilesBody.contains("files_app"))
+        XCTAssertEqual(
+            WebMediaDLMacWorkerProcess.serveArguments(dataDir: "/tmp/webmedia-dl"),
+            ["serve", "--host", "127.0.0.1", "--port", "8765", "--data-dir", "/tmp/webmedia-dl"]
+        )
+        XCTAssertEqual(WebMediaDLMacWorkerProcess.loopbackHost, "127.0.0.1")
+        XCTAssertNil(WebMediaDLMacWorkerProcess.executableURL(pathEnvironment: ""))
+        do {
+            _ = try await WebMediaDLPairedMacSubmit.pullToFiles(
+                jobId: pairing,
+                bookmark: WebMediaDLSecurityScopedBookmark(path: "/tmp"),
+                defaults: UserDefaults(suiteName: UUID().uuidString)!
+            )
+            XCTFail("pull without pairing must fail closed")
+        } catch WebMediaDLHttpDirect.TransferError.pairingRequired {
+            ()
+        }
         let forwarded = try WebMediaDLMacWorkerRelay.forwardToLoopback(request)
         XCTAssertEqual(forwarded.url?.host, "127.0.0.1")
         XCTAssertEqual(forwarded.url?.port, 8765)
@@ -529,6 +590,16 @@ final class ContractTests: XCTestCase {
                 planned: true
             )
         )
+        XCTAssertThrowsError(
+            try WebMediaDLArtifact(
+                artifactId: "plan:source",
+                role: .source,
+                sha256: "abc",
+                byteSize: 1,
+                mediaKind: .video,
+                storageRelpath: "a.mp4"
+            )
+        )
         let source = try WebMediaDLArtifact(
             artifactId: "sha256:abc",
             role: .source,
@@ -793,6 +864,23 @@ final class ContractTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: saved.outputPath))
         XCTAssertTrue(saved.artifactId.hasPrefix("sha256:"))
         XCTAssertEqual(saved.byteSize, png.count)
+        let written = try WebMediaDLHttpDirect.write(
+            data: Data("pulled".utf8),
+            filename: "clip.mp4",
+            bookmark: bookmark
+        )
+        XCTAssertTrue(written.hasSuffix("clip.mp4"))
+        XCTAssertEqual(try Data(contentsOf: URL(fileURLWithPath: written)), Data("pulled".utf8))
+        do {
+            _ = try WebMediaDLHttpDirect.write(
+                data: Data("x".utf8),
+                filename: "clip.mp4",
+                bookmark: WebMediaDLSecurityScopedBookmark(path: "")
+            )
+            XCTFail("empty Files root must fail closed")
+        } catch WebMediaDLHttpDirect.TransferError.filesDestinationRequired {
+            ()
+        }
 
         do {
             _ = try await WebMediaDLHttpDirect.transfer(

@@ -19,8 +19,11 @@ rewrites onto that worker and refuses public peers and `nativeCommand`. Complete
 clients paste one of those advertised URLs. Complete clients also run on-device
 `http-direct` (`URLSession`) into a user-approved Files bookmark for locators that
 already name a media object. Share sheets restore that Files bookmark via
-`WebMediaDLShareIntake.fromSavedBookmark` so heavy submit still carries
-`files_app`. Page locators, encrypted HLS/DASH, and live
+`WebMediaDLShareIntake.fromSavedBookmark` so on-device HTTP still writes there.
+Heavy complete-client jobs submit `staging_only` to the Mac worker; a phone
+sandbox `files_app` path is not a Mac destination. After the Mac job publishes,
+complete clients pull artifact bytes from `GET /v1/artifacts/{id}/content` into
+that same Files bookmark. Page locators, encrypted HLS/DASH, and live
 manifests fail closed locally and require a paired Mac. tvOS capture is typed URL
 only (`UIPasteboard` is unavailable). Photos/Files/Share destinations require a
 user-approved root. Swift packages are under `apps/`. GitHub `macos-15` CI runs

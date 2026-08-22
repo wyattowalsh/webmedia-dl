@@ -9,6 +9,7 @@ from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import Body, Depends, FastAPI, Header, HTTPException, Request
+from fastapi.responses import FileResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -16,8 +17,8 @@ from webmedia_dl import __version__
 from webmedia_dl.continuity import validate_companion_message
 from webmedia_dl.diagnostics import doctor
 from webmedia_dl.dispatcher import QueueDispatcher
-from webmedia_dl.domain.enums import IntakeKind, Surface
-from webmedia_dl.domain.models import BrowserEvidence, ExportIntent
+from webmedia_dl.domain.enums import ArtifactRole, IntakeKind, Surface
+from webmedia_dl.domain.models import BrowserEvidence, ExportIntent, path_is_under
 from webmedia_dl.envelope import open_payload, seal_payload
 from webmedia_dl.errors import (
     CancelledError,
@@ -303,6 +304,27 @@ def create_app(data_dir: Path | None = None, *, enable_dispatcher: bool = False)
     @app.get("/v1/artifacts", dependencies=[Depends(require_auth)])
     def list_artifacts() -> list[dict]:
         return [item.model_dump(mode="json") for item in pipeline.store.list_artifacts()]
+
+    @app.get("/v1/artifacts/{artifact_id}/content", dependencies=[Depends(require_auth)])
+    def artifact_content(artifact_id: str) -> FileResponse:
+        try:
+            artifact = pipeline.store.get(artifact_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="Unknown artifact") from exc
+        if artifact.role not in {ArtifactRole.SOURCE, ArtifactRole.DERIVATIVE}:
+            raise HTTPException(status_code=403, detail="Artifact is not publishable")
+        path = pipeline.store.resolve(artifact).resolve()
+        root = pipeline.store.root.resolve()
+        if not path_is_under(path, root):
+            raise HTTPException(status_code=400, detail="Artifact path escaped the store.")
+        if not path.is_file():
+            raise HTTPException(status_code=404, detail="Artifact bytes are missing")
+        return FileResponse(
+            path,
+            media_type="application/octet-stream",
+            filename=path.name,
+            headers={"X-WebMedia-Digest": f"sha256:{artifact.sha256}"},
+        )
 
     @app.get("/v1/artifacts/{artifact_id}/provenance", dependencies=[Depends(require_auth)])
     def artifact_provenance(artifact_id: str) -> list[dict]:

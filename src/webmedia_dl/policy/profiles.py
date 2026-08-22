@@ -213,6 +213,14 @@ REMOTE_CLIENT_SURFACES = frozenset(
     }
 )
 
+COMPLETE_CLIENT_SURFACES = frozenset(
+    {
+        Surface.IOS,
+        Surface.IPADOS,
+        Surface.VISIONOS,
+    }
+)
+
 
 def default_worker_for_surface(surface: Surface, worker_id: str = "local-macos") -> Worker:
     if surface in {Surface.WATCHOS}:

@@ -16,6 +16,7 @@ from webmedia_dl.candidates import build_graph, preferred_by_kind
 from webmedia_dl.discovery import DIRECT_EXTENSIONS, candidates_from_manifest_json, discover
 from webmedia_dl.domain.enums import (
     ArtifactRole,
+    DestinationKind,
     EventType,
     IntakeKind,
     JobState,
@@ -36,6 +37,7 @@ from webmedia_dl.errors import (
     CancelledError,
     CookiePolicyError,
     DrmRefused,
+    IntakeError,
     PauseRequested,
     ProviderPolicyError,
     PublicationError,
@@ -49,6 +51,7 @@ from webmedia_dl.live import manifest_is_live, record_kind_streams
 from webmedia_dl.pairing import PairingStore
 from webmedia_dl.paths import repo_root, staging_dir, worker_data_dir
 from webmedia_dl.policy.profiles import (
+    COMPLETE_CLIENT_SURFACES,
     SAME_MACHINE_SURFACES,
     assert_no_privilege_escalation,
     assert_worker_capability,
@@ -166,6 +169,14 @@ class Pipeline:
         intake_kind: IntakeKind | None = None,
         host_owned: bool = False,
     ) -> Job:
+        resolved_intent = intent or ExportIntent()
+        if (
+            resolved_intent.destination_kind is DestinationKind.FILES_APP
+            and surface in COMPLETE_CLIENT_SURFACES
+        ):
+            raise IntakeError(
+                "Complete-client Files destinations stay on-device; Mac jobs use staging_only."
+            )
         job_worker, client_profile = self._job_owner(
             surface,
             local_user_confirmed=local_user_confirmed,
@@ -186,7 +197,7 @@ class Pipeline:
             source=source,
             policy_profile_id=client_profile.profile_id,
             worker_id=job_worker.worker_id,
-            intent=intent or ExportIntent(),
+            intent=resolved_intent,
         )
         self.queue.put_job(job)
         self.queue.emit(
