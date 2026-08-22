@@ -2,8 +2,8 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 448 tests |
-| `uv run pytest --cov` | PASS | 99.68% (`fail_under` 99) |
+| `uv run pytest` | PASS | 479 tests |
+| `uv run pytest --cov` | PASS | 99.56% (`fail_under` 99) |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
 | `uv run ty check` | PASS | |
@@ -17,7 +17,7 @@
 | Signing / notarization / App Review / legal | BLOCKED | `webmedia-dl doctor` |
 | Browser store submission | BLOCKED | `webmedia-dl doctor` |
 | Simulated `PASS` | PASS | tests reject planned/simulated PASS |
-| DRM circumvention | PASS | encrypted HLS/DASH refused before any segment fetch; `#EXT-X-SESSION-KEY` SAMPLE-AES/FairPlay refused before fetch; `cenc` / Widevine / PlayReady UUIDs / `skd://` detected; mixed clear-then-key records the prefix only; later live-poll DRM stops without fetching protected parts |
+| DRM circumvention | PASS | encrypted HLS/DASH refused before any segment fetch; `#EXT-X-SESSION-KEY` SAMPLE-AES/FairPlay refused before fetch; `cenc` / Widevine / PlayReady UUIDs / `skd://` detected; mixed clear-then-key records the prefix only; later live-poll DRM stops without fetching protected parts; dynamic A/V DASH stops remaining renditions after late ContentProtection; growing HLS byte-ranges refetch and append only the new suffix; HTTP probe encryption quarantines and does not fall back to yt-dlp |
 | Pairing profile bound | PASS | restricted/browser/watch/tv pairing stays on the client profile; unknown/full/expired pairing and missing/mismatched session keys fail closed; CLI `pair create/confirm` reports `DelegationDenied` |
 | Cookie grants | PASS | job-bound grants persist in `cookie-grants.json` with merge/`0600` lock; dump-json uses the grant; relative and in-repo paths rejected |
 | Default telemetry | PASS | false in doctor and profiles; `policy-profiles.json` cannot enable DRM circumvention, telemetry, cookie widening, subprocess, or delegation |
@@ -27,7 +27,7 @@
 | Fetch bounds | PASS | HTML truncate, media overflow error, streaming within-limit, redirect bound, owned client closed |
 | Queue durability | PASS | legacy `job_context` columns migrate; `claim_next` CAS misses return none; invalid JSON checkpoints become `{}`; `next_runnable` ignores non-accepted jobs |
 | Publication skip | PASS | preview-only produced sets and `include_original=false` leave no publishable artifacts; validation failures fail the job |
-| Worker API errors | PASS | unknown pairing confirm/submit/plan/envelope fail closed; companion envelope non-objects are 400; loopback `serve` reaches uvicorn; `GET /v1/jobs` lists history; plan uses pairing id from auth headers; empty `run-next` returns `job: null` |
+| Worker API errors | PASS | unknown pairing confirm/submit/plan/envelope fail closed; companion envelope non-objects are 400; pair `personal-full`/unknown profiles are 400; companion unknown job ids are 404; loopback `serve` reaches uvicorn; `GET /v1/jobs` lists history; plan uses pairing id from auth headers; empty `run-next` returns `job: null`; `/v1/plan` DRM locators are 400 with no provider execution or job creation; `/v1/jobs` destinations outside `approved_roots` fail the job with `job.failed` |
 | Cancel during acquire | PASS | mixed-media HTTP cancel during the first kind raises closed to `cancelled` without publishing |
 | All-kind DRM | PASS | every candidate `DrmRefused` re-raises the original error instead of a generic empty-acquisition message |
 | SOURCE validation skip | PASS | a failed SOURCE validation still publishes a validated remux derivative |
@@ -67,7 +67,7 @@
 | Job-detail / run-next helpers | PASS | unrelated history rows are skipped; empty queue returns `job: null`; a queued job returns events |
 | Swift Core CI job | PASS | GitHub Actions `ci` run `32538904545` on `94e423b`: `IdentityTests` executed 6 tests, 0 failures on `macos-15` |
 | Swift Core contract tests | PASS | `ContractTests.swift` executed 10 tests, 0 failures with IdentityTests (6) on GitHub `macos-15` run `32539374548` (`5f85fe3`) |
-| Apple package compile CI | PENDING | Mac `swift build` failed on `5f85fe3` capturing `NSExtensionContext` in `Task`; this revision boxes the context and excludes share-extension plists. Device runtime stays BLOCKED |
+| Apple package compile CI | PENDING | `1bbf9c5` failed Mac `swift build` on AppIntent `static var title`, `appShortcuts` comma syntax, and `inout` companion relay capture. This revision uses `static let title`, AppShortcut arrays, and by-value `forward`/`forwardSealed`. Device runtime stays BLOCKED |
 | WatchConnectivity class headers | PASS | WCSessionDelegate is an extension; class signatures are not split across `#else` |
 | URL never a path | PASS | URL intake with `local_path` or `file:` normalized_url raises; extra provider argv is refused |
 | Live aggregate bound + kinds | PASS | cumulative byte budget; separate VIDEO/AUDIO artifacts; audio-only DASH uses the highest-bandwidth audio Representation; SegmentBase ranges including mediaRange; multi-period occurrences; empty recordings and HTTP 400 playlists fail closed; nested/audio `should_stop` aborts before further fetches |
@@ -77,7 +77,9 @@
 | Envelope replay | PASS | consumed nonce cannot be opened twice; malformed envelopes and tampered MAC fail closed; non-hex session keys still round-trip |
 | Companion native command | PASS | `/v1/companion` rejects `nativeCommand` and provider argv |
 | Cooperative per-job pause checkpoint | PASS | mixed-media pause keeps registered sources; resume acquires remaining kinds |
-| Pause/resume last job | PASS | CLI `--job`, `/v1/jobs/{id}/pause`, companion `pause_job`/`resume_job`, Apple shells |
+| Publication I/O | PASS | `publish_artifacts` `OSError` becomes `PublicationError`; the durable job is `failed` with `job.failed` |
+| CLI unknown controls | PASS | unknown `job`/`cancel`/`pause`/`resume`/companion ids and DRM `plan` exit 1 with user-facing text |
+| Unconfirmed pairing | PASS | iOS jobs with an unconfirmed pairing id raise `DelegationDenied` and do not execute yt-dlp |
 | Mixed-media containment | PASS | one kind failure still publishes the other; `job.completed` records `partial`/`failed_kinds` |
 | Job-scoped cancel and atomic claim | PASS | canceling one job does not poison the next; `claim_next` is compare-and-set |
 | Packaged runtime assets | PASS | presets/policies/ImageMagick policy load from `webmedia_dl.runtime` without a git checkout |

@@ -356,6 +356,7 @@
     "tests/unit/webmedia_dl/test_discovery.py",
     "tests/unit/webmedia_dl/test_dispatcher.py",
     "tests/unit/webmedia_dl/test_envelope_cancel_quarantine.py",
+    "tests/unit/webmedia_dl/test_fail_closed_followups.py",
     "tests/unit/webmedia_dl/test_fail_closed_paths.py",
     "tests/unit/webmedia_dl/test_fetch.py",
     "tests/unit/webmedia_dl/test_intake.py",

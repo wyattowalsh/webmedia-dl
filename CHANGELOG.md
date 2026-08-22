@@ -84,4 +84,12 @@
   `convert`). Provider argv is allowlisted for every binary; format ids cannot
   start with `-`. ImageMagick policy denies MSL/MVG/URL/FTP and all delegates.
   Share-extension principals box `NSExtensionContext` for Swift 6 sending.
-  Coverage `fail_under` is 99.
+  Coverage `fail_under` is 99. Pairing `personal-full`/unknown profiles return
+  400; companion unknown job ids return 404; envelope payloads must be JSON
+  objects. Dynamic DASH stops remaining renditions after late
+  ContentProtection; growing HLS byte-ranges refetch and append only the new
+  suffix. Probe-discovered encryption is terminal (quarantine, no yt-dlp
+  fallback). Publication `OSError` fails the durable job. CLI unknown
+  job/cancel/pause/resume/companion and DRM `plan` exit 1. AppIntent titles
+  are `static let`; companion `forward`/`forwardSealed` take the relay by
+  value for Swift 6.

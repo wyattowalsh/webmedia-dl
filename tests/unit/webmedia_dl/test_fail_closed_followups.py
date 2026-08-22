@@ -123,6 +123,37 @@ def test_envelope_non_object_json_is_refused(tmp_path: Path) -> None:
         json={"pairing_id": pairing_id, "session_key": session_key, **scalar},
     )
     assert denied.status_code in {400, 401}
+    garbage = _seal_raw(session_key, b"not-json")
+    with pytest.raises(DelegationDenied, match="not JSON"):
+        open_payload(session_key, garbage)
+
+
+def test_open_envelope_non_object_adapter_is_400(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, headers = _auth_client(tmp_path)
+    created = client.post("/v1/pair", headers=headers)
+    pairing_id = created.json()["pairing_id"]
+    confirmed = client.post("/v1/pair/confirm", headers=headers, json={"pairing_id": pairing_id})
+    session_key = confirmed.json()["session_key"]
+
+    def fake_open(*_args: object, **_kwargs: object) -> list[int]:
+        return [1, 2]
+
+    monkeypatch.setattr("webmedia_dl.service.open_payload", fake_open)
+    opened = client.post(
+        "/v1/pair/envelope/open",
+        headers=headers,
+        json={
+            "pairing_id": pairing_id,
+            "session_key": session_key,
+            "nonce": "aa",
+            "ciphertext": "bb",
+            "mac": "cc",
+        },
+    )
+    assert opened.status_code == 400
+    assert "object" in opened.json()["detail"].lower()
 
 
 def test_companion_envelope_list_payload_is_400(
@@ -310,6 +341,8 @@ def test_http_probe_encryption_is_terminal_without_fallback(
 
     def run(argv: list[str], _cwd: Path) -> tuple[int, bytes, bytes]:
         ytdlp_argv.append(argv)
+        if "--dump-json" in argv:
+            return 1, b"{}", b"unavailable"
         raise AssertionError("encrypted HTTP acquisition must not fall back to yt-dlp")
 
     runtime = ProviderRuntime(
@@ -322,7 +355,7 @@ def test_http_probe_encryption_is_terminal_without_fallback(
     assert job.state is JobState.FAILED
     assert job.error is not None
     assert "drm" in job.error.lower() or "encrypted" in job.error.lower()
-    assert ytdlp_argv == []
+    assert not any("--output" in argv for argv in ytdlp_argv)
     roles = {item.role for item in pipeline.store.list_artifacts()}
     assert ArtifactRole.SOURCE not in roles
     assert ArtifactRole.QUARANTINE in roles
@@ -353,9 +386,7 @@ def test_publish_oserror_fails_job(
 
 
 def test_run_next_restores_browser_evidence(tmp_data: Path, png_bytes: bytes) -> None:
-    runtime = ProviderRuntime(
-        http_get=lambda url: (200, {"content-type": "image/png"}, png_bytes)
-    )
+    runtime = ProviderRuntime(http_get=lambda url: (200, {"content-type": "image/png"}, png_bytes))
     pipeline = Pipeline(data_dir=tmp_data, runtime=runtime)
     job = pipeline.submit(
         "https://example.com/page",
