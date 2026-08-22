@@ -17,7 +17,7 @@ from webmedia_dl import __version__
 from webmedia_dl.continuity import validate_companion_message
 from webmedia_dl.diagnostics import doctor
 from webmedia_dl.dispatcher import QueueDispatcher
-from webmedia_dl.domain.enums import ArtifactRole, IntakeKind, Surface
+from webmedia_dl.domain.enums import ArtifactRole, EventType, IntakeKind, Surface
 from webmedia_dl.domain.models import BrowserEvidence, ExportIntent, path_is_under
 from webmedia_dl.envelope import open_payload, seal_payload
 from webmedia_dl.errors import (
@@ -39,12 +39,12 @@ bearer = HTTPBearer(auto_error=False)
 
 def job_detail_payload(pipeline: Pipeline, job_id: UUID) -> dict[str, Any]:
     job = pipeline.job(job_id)
-    events = [event.model_dump(mode="json") for event in pipeline.queue.events_for(job_id)]
+    records = pipeline.queue.events_for(job_id)
+    events = [event.model_dump(mode="json") for event in records]
     artifact_ids: list[str] = []
-    for item in pipeline.history_entries():
-        if item["job_id"] == str(job_id):
-            artifact_ids = list(item.get("artifact_ids") or [])
-            break
+    for event in records:
+        if event.type is EventType.JOB_COMPLETED:
+            artifact_ids = [str(item) for item in event.payload.get("artifact_ids") or []]
     return {"job": job.model_dump(mode="json"), "events": events, "artifact_ids": artifact_ids}
 
 

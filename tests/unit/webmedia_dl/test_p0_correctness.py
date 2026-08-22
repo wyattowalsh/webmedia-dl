@@ -202,6 +202,31 @@ def test_identical_bytes_keep_later_job_occurrence(tmp_path: Path) -> None:
     assert "one" in jobs
     assert "two" in jobs
     assert "parent-two" in second.parent_ids
+    derivative_path = tmp_path / "derived.bin"
+    derivative_path.write_bytes(b"same-bytes")
+    derived = store.register(
+        derivative_path,
+        role=ArtifactRole.DERIVATIVE,
+        media_kind=MediaKind.VIDEO,
+        parent_ids=["op-remux"],
+        provenance={"job_id": "three", "operation": "remux"},
+    )
+    assert derived.artifact_id == first.artifact_id
+    assert derived.role is ArtifactRole.SOURCE
+    assert derived.immutable is True
+    assert "op-remux" in derived.parent_ids
+    roles = [item.get("role") for item in derived.provenance["occurrences"]]
+    assert "derivative" in roles
+    source_again = store.register(
+        path,
+        role=ArtifactRole.SOURCE,
+        media_kind=MediaKind.VIDEO,
+        provenance={"job_id": "four", "provider": "http-direct"},
+    )
+    jobs = [item.get("job_id") for item in source_again.provenance["occurrences"]]
+    assert "three" in jobs
+    assert "four" in jobs
+    assert "op-remux" in source_again.parent_ids
 
 
 def test_dash_content_protection_without_cenc_is_refused() -> None:

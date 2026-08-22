@@ -316,10 +316,20 @@ def test_artifact_dest_exists_skip_and_sha_mismatch(tmp_path: Path, png_bytes: b
     store = ArtifactStore(tmp_path / "store")
     path = tmp_path / "a.png"
     path.write_bytes(png_bytes)
-    first = store.register(path, role=ArtifactRole.DERIVATIVE, media_kind=MediaKind.IMAGE)
+    first = store.register(
+        path,
+        role=ArtifactRole.DERIVATIVE,
+        media_kind=MediaKind.IMAGE,
+        parent_ids=["op-remux"],
+        provenance={"job_id": "derived", "operation": "remux"},
+    )
     second = store.register(path, role=ArtifactRole.SOURCE, media_kind=MediaKind.IMAGE)
     assert first.artifact_id == second.artifact_id
     assert second.immutable is True
+    assert second.role is ArtifactRole.SOURCE
+    assert "op-remux" in second.parent_ids
+    jobs = [item.get("job_id") for item in second.provenance["occurrences"]]
+    assert "derived" in jobs
     corrupted = second.model_copy()
     object.__setattr__(corrupted, "sha256", "00" * 32)
     store._records[second.artifact_id] = corrupted

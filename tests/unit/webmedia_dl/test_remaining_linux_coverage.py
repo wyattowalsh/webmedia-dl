@@ -858,6 +858,11 @@ def test_job_detail_skips_unrelated_history_and_run_next_payload(
     empty = run_next_payload(pipeline)
     assert empty == {"job": None, "events": []}
     job = pipeline.submit(str(media), wait=False)
+    pipeline.queue.emit(
+        job.job_id,
+        EventType.SOURCE_REGISTERED,
+        {"artifact_id": "sha256:unpublished"},
+    )
     original = pipeline.history_entries
 
     def history(_self: Pipeline) -> list[dict[str, Any]]:
@@ -869,19 +874,19 @@ def test_job_detail_skips_unrelated_history_and_run_next_payload(
     monkeypatch.setattr(Pipeline, "history_entries", history)
     detail = job_detail_payload(pipeline, job.job_id)
     assert detail["job"]["job_id"] == str(job.job_id)
+    assert detail["artifact_ids"] == []
     assert "skip" not in detail["artifact_ids"]
+    assert "sha256:unpublished" not in detail["artifact_ids"]
     monkeypatch.setattr(Pipeline, "history_entries", lambda _self: [])
-    assert job_detail_payload(pipeline, job.job_id)["artifact_ids"] == []
-    monkeypatch.setattr(
-        Pipeline,
-        "history_entries",
-        lambda _self: [{"job_id": str(job.job_id)}],
-    )
     assert job_detail_payload(pipeline, job.job_id)["artifact_ids"] == []
     ran = run_next_payload(pipeline)
     assert ran["job"] is not None
     assert ran["job"]["job_id"] == str(job.job_id)
     assert ran["events"]
+    completed = job_detail_payload(pipeline, job.job_id)
+    assert completed["artifact_ids"]
+    assert "skip" not in completed["artifact_ids"]
+    assert "sha256:unpublished" not in completed["artifact_ids"]
 
 
 def test_doctor_reports_missing_provider_binaries(monkeypatch: pytest.MonkeyPatch) -> None:

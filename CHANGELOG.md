@@ -2,6 +2,11 @@
 
 ## 0.1.0
 
+- GitHub Actions `32569815075` on `91eeb25` passed Python (583 pytest, 100%)
+  and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after decoding plan
+  JSON objects instead of matching escaped slashes. Same-digest registrations
+  now always merge occurrences and parent ids, and `GET /v1/jobs/{id}`
+  `artifact_ids` lists only `JOB_COMPLETED` publishable artifacts.
 - GitHub Actions `32569700666` on `ae33eda` passed Python (583 pytest, 100%)
   and failed Swift: plan-body assertions compared raw JSON text to
   `https://example.com/a.mp4`, but Apple `JSONSerialization` escapes `/`.

@@ -69,10 +69,14 @@ class ArtifactStore:
         dest = dest_dir / relpath
         dest.parent.mkdir(parents=True, exist_ok=True)
         existing = self._records.get(artifact_id)
-        if existing and existing.immutable:
-            if existing.sha256 != digest:
-                msg = "A source artifact is never mutated after registration."
-                raise ArtifactImmutabilityError(msg)
+        if existing and existing.sha256 != digest:
+            msg = "A source artifact is never mutated after registration."
+            raise ArtifactImmutabilityError(msg)
+        if not dest.exists():
+            shutil.copy2(src, dest)
+        if role == ArtifactRole.SOURCE:
+            dest.chmod(0o444)
+        if existing:
             occurrences = list(existing.provenance.get("occurrences") or [])
             if not occurrences and existing.provenance:
                 seed = {
@@ -89,8 +93,15 @@ class ArtifactStore:
                     }
                 )
             merged_parents = list(dict.fromkeys([*existing.parent_ids, *(parent_ids or [])]))
+            promoted = (
+                ArtifactRole.SOURCE
+                if existing.role is ArtifactRole.SOURCE or role is ArtifactRole.SOURCE
+                else existing.role
+            )
             updated = existing.model_copy(
                 update={
+                    "role": promoted,
+                    "immutable": promoted is ArtifactRole.SOURCE or existing.immutable,
                     "parent_ids": merged_parents,
                     "provenance": {**existing.provenance, "occurrences": occurrences},
                 }
@@ -98,10 +109,6 @@ class ArtifactStore:
             self._records[artifact_id] = updated
             self._save()
             return updated
-        if not dest.exists():
-            shutil.copy2(src, dest)
-        if role == ArtifactRole.SOURCE:
-            dest.chmod(0o444)
         artifact = Artifact(
             artifact_id=artifact_id,
             role=role,

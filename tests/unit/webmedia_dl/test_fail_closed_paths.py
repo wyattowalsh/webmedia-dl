@@ -68,7 +68,7 @@ from webmedia_dl.providers import (
     _terminate_process,
 )
 from webmedia_dl.queue import QueueStore
-from webmedia_dl.service import create_app, load_or_create_token, serve_worker
+from webmedia_dl.service import create_app, job_detail_payload, load_or_create_token, serve_worker
 
 runner = CliRunner()
 
@@ -281,6 +281,16 @@ def test_include_original_false_leaves_no_publishable_source(
     assert job.state is JobState.FAILED
     assert job.error is not None
     assert "publishable" in job.error.lower()
+    registered = [
+        str(event.payload.get("artifact_id"))
+        for event in pipeline.queue.events_for(job.job_id)
+        if event.type is EventType.SOURCE_REGISTERED
+    ]
+    assert registered
+    assert not any(
+        event.type is EventType.JOB_COMPLETED for event in pipeline.queue.events_for(job.job_id)
+    )
+    assert job_detail_payload(pipeline, job.job_id)["artifact_ids"] == []
 
 
 def test_pipeline_skips_preview_produced_ids_and_publishes_source(

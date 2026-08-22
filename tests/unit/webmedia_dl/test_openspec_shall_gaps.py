@@ -181,6 +181,10 @@ def test_intake_does_not_perform_network_retrieval() -> None:
 def test_discovery_does_not_import_acquisition() -> None:
     imported = _imported_modules("discovery.py")
     assert not any("acquisition" in item for item in imported)
+    banned = ("webmedia_dl.providers", "webmedia_dl.processing", "subprocess")
+    assert not any(
+        item == name or item.startswith(f"{name}.") for item in imported for name in banned
+    )
 
 
 def test_package_bundle_uses_fixed_timestamp(tmp_path: Path) -> None:

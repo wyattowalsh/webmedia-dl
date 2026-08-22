@@ -574,9 +574,6 @@ class Pipeline:
         for item, _path, _results in publishable:
             if item.artifact_id not in artifact_ids:
                 artifact_ids.append(item.artifact_id)
-        for item in sources:
-            if item.artifact_id not in artifact_ids:
-                artifact_ids.append(item.artifact_id)
         self.queue.emit(
             job.job_id,
             EventType.JOB_COMPLETED,
