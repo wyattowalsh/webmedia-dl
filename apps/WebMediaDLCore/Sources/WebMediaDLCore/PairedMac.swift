@@ -123,7 +123,62 @@ public struct WebMediaDLPairedMacEndpoint: Sendable {
     }
 
     public func historyRequest() -> URLRequest {
-        var request = URLRequest(url: relayURL.appendingPathComponent("v1/jobs"))
+        authorized(relayURL.appendingPathComponent("v1/jobs"))
+    }
+
+    public func pauseQueueRequest() -> URLRequest {
+        authorized(relayURL.appendingPathComponent("v1/queue/pause"), method: "POST")
+    }
+
+    public func resumeQueueRequest() -> URLRequest {
+        authorized(relayURL.appendingPathComponent("v1/queue/resume"), method: "POST")
+    }
+
+    public func cancelRequest(jobId: UUID) -> URLRequest {
+        authorized(
+            relayURL
+                .appendingPathComponent("v1/jobs")
+                .appendingPathComponent(jobId.uuidString)
+                .appendingPathComponent("cancel"),
+            method: "POST"
+        )
+    }
+
+    public func pauseJobRequest(jobId: UUID) -> URLRequest {
+        authorized(
+            relayURL
+                .appendingPathComponent("v1/jobs")
+                .appendingPathComponent(jobId.uuidString)
+                .appendingPathComponent("pause"),
+            method: "POST"
+        )
+    }
+
+    public func resumeJobRequest(jobId: UUID) -> URLRequest {
+        authorized(
+            relayURL
+                .appendingPathComponent("v1/jobs")
+                .appendingPathComponent(jobId.uuidString)
+                .appendingPathComponent("resume"),
+            method: "POST"
+        )
+    }
+
+    public func historyEntries() async throws -> [WebMediaDLHistoryEntry] {
+        let (data, _) = try await URLSession.shared.data(for: historyRequest())
+        return (try? WebMediaDLHistoryEntry.decodeCompanionHistory(from: data))
+            ?? ((try? JSONDecoder().decode([WebMediaDLHistoryEntry].self, from: data)) ?? [])
+    }
+
+    public func pauseQueue() async throws -> String { try await send(pauseQueueRequest()) }
+    public func resumeQueue() async throws -> String { try await send(resumeQueueRequest()) }
+    public func cancel(jobId: UUID) async throws -> String { try await send(cancelRequest(jobId: jobId)) }
+    public func pauseJob(jobId: UUID) async throws -> String { try await send(pauseJobRequest(jobId: jobId)) }
+    public func resumeJob(jobId: UUID) async throws -> String { try await send(resumeJobRequest(jobId: jobId)) }
+
+    private func authorized(_ url: URL, method: String = "GET") -> URLRequest {
+        var request = URLRequest(url: url)
+        request.httpMethod = method
         if !token.isEmpty {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
@@ -252,5 +307,109 @@ public enum WebMediaDLPairedMacSubmit {
             approvedRoots: approvedRoots,
             bookmarkData: bookmarkData
         )
+    }
+
+    public static func history(
+        credentials: WebMediaDLLoopbackClient = WebMediaDLWorkerCredentials.loadClient(),
+        pairingId: UUID? = nil,
+        sessionKey: String? = nil,
+        defaults: UserDefaults = WebMediaDLWorkerCredentials.defaults()
+    ) async throws -> [WebMediaDLHistoryEntry] {
+        try await loadEndpoint(
+            credentials: credentials,
+            pairingId: pairingId,
+            sessionKey: sessionKey,
+            defaults: defaults
+        ).historyEntries()
+    }
+
+    public static func pauseQueue(
+        credentials: WebMediaDLLoopbackClient = WebMediaDLWorkerCredentials.loadClient(),
+        pairingId: UUID? = nil,
+        sessionKey: String? = nil,
+        defaults: UserDefaults = WebMediaDLWorkerCredentials.defaults()
+    ) async throws -> String {
+        try await loadEndpoint(
+            credentials: credentials,
+            pairingId: pairingId,
+            sessionKey: sessionKey,
+            defaults: defaults
+        ).pauseQueue()
+    }
+
+    public static func resumeQueue(
+        credentials: WebMediaDLLoopbackClient = WebMediaDLWorkerCredentials.loadClient(),
+        pairingId: UUID? = nil,
+        sessionKey: String? = nil,
+        defaults: UserDefaults = WebMediaDLWorkerCredentials.defaults()
+    ) async throws -> String {
+        try await loadEndpoint(
+            credentials: credentials,
+            pairingId: pairingId,
+            sessionKey: sessionKey,
+            defaults: defaults
+        ).resumeQueue()
+    }
+
+    public static func cancel(
+        jobId: UUID,
+        credentials: WebMediaDLLoopbackClient = WebMediaDLWorkerCredentials.loadClient(),
+        pairingId: UUID? = nil,
+        sessionKey: String? = nil,
+        defaults: UserDefaults = WebMediaDLWorkerCredentials.defaults()
+    ) async throws -> String {
+        try await loadEndpoint(
+            credentials: credentials,
+            pairingId: pairingId,
+            sessionKey: sessionKey,
+            defaults: defaults
+        ).cancel(jobId: jobId)
+    }
+
+    public static func pauseJob(
+        jobId: UUID,
+        credentials: WebMediaDLLoopbackClient = WebMediaDLWorkerCredentials.loadClient(),
+        pairingId: UUID? = nil,
+        sessionKey: String? = nil,
+        defaults: UserDefaults = WebMediaDLWorkerCredentials.defaults()
+    ) async throws -> String {
+        try await loadEndpoint(
+            credentials: credentials,
+            pairingId: pairingId,
+            sessionKey: sessionKey,
+            defaults: defaults
+        ).pauseJob(jobId: jobId)
+    }
+
+    public static func resumeJob(
+        jobId: UUID,
+        credentials: WebMediaDLLoopbackClient = WebMediaDLWorkerCredentials.loadClient(),
+        pairingId: UUID? = nil,
+        sessionKey: String? = nil,
+        defaults: UserDefaults = WebMediaDLWorkerCredentials.defaults()
+    ) async throws -> String {
+        try await loadEndpoint(
+            credentials: credentials,
+            pairingId: pairingId,
+            sessionKey: sessionKey,
+            defaults: defaults
+        ).resumeJob(jobId: jobId)
+    }
+
+    public static func loadEndpoint(
+        credentials: WebMediaDLLoopbackClient = WebMediaDLWorkerCredentials.loadClient(),
+        pairingId: UUID? = nil,
+        sessionKey: String? = nil,
+        defaults: UserDefaults = WebMediaDLWorkerCredentials.defaults()
+    ) throws -> WebMediaDLPairedMacEndpoint {
+        guard let endpoint = WebMediaDLPairedMacEndpoint.load(
+            pairingId: pairingId ?? credentials.pairingId,
+            sessionKey: sessionKey ?? credentials.sessionKey,
+            token: credentials.token,
+            defaults: defaults
+        ) else {
+            throw WebMediaDLHttpDirect.TransferError.pairingRequired
+        }
+        return endpoint
     }
 }

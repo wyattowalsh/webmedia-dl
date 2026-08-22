@@ -536,7 +536,11 @@ def test_companion_transport_and_typed_history() -> None:
     for rel in ROOT_VIEWS.values():
         text = (root / rel).read_text(encoding="utf-8")
         assert "WebMediaDLHistoryEntry" in text
-        assert "JSONDecoder()" in text or "decodeCompanionHistory" in text
+        assert (
+            "JSONDecoder()" in text
+            or "decodeCompanionHistory" in text
+            or "WebMediaDLPairedMacSubmit.history" in text
+        )
 
 
 def test_runtime_assets_match_authored_trees() -> None:
@@ -770,6 +774,12 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
         assert "Lightweight HTTP jobs stay on-device" in text
         assert "Send to paired Mac" in text
         assert "WebMediaDLPairedMacSubmit.submit" in text
+        assert "WebMediaDLPairedMacSubmit.history" in text
+        assert "WebMediaDLPairedMacSubmit.pauseQueue" in text
+        assert "client.historyRequest()" not in text
+        assert "pairedClient.historyRequest()" not in text
+        assert "client.pauseQueue()" not in text
+        assert "pairedClient.pauseQueue()" not in text
         assert "Paired Mac URL" in text
         assert "Save Mac address" in text
         assert "WebMediaDLPairedMacEndpoint.startPairing" in text
@@ -783,6 +793,7 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert "WebMediaDLMacRelayServer.start" in mac
     assert "This Mac's address" in mac
     assert "localOnly: false" in mac
+    assert "WebMediaDLPairedMacSubmit.history" not in mac
     continuity = (
         root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/ContinuityBridge.swift"
     ).read_text(encoding="utf-8")

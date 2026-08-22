@@ -4,7 +4,9 @@
 
 - Mac LAN HTTP relay binds private/loopback addresses, rewrites onto the
   loopback worker, refuses public peers and `nativeCommand`, and advertises
-  paste URLs in the Mac app.
+  paste URLs in the Mac app. Complete-client history and queue controls use
+  that relay instead of the phone's loopback. GitHub `macos-15` run
+  `32548815452` executed Core `swift test` (18 tests, 0 failures) on `8f075d1`.
 - Source artifacts reject non-`sha256:<digest>` ids; capability health probes
   binary versions; complete clients send heavy work to a saved Mac relay URL
   instead of the phone's loopback; the extension popup send button is proven
