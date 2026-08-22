@@ -126,12 +126,19 @@ export function pageCollector(doc) {
     }
   });
   root.querySelectorAll?.('script[type^="application/ld+json"]').forEach((el) => {
+    const parseJsonLd = (raw) => {
+      const trimmed = String(raw || "").trim();
+      const unwrapped = trimmed.startsWith("<!--")
+        ? trimmed.replace(/^<!--/, "").replace(/-->$/, "").trim()
+        : trimmed;
+      try {
+        walkJsonLd(JSON.parse(unwrapped));
+      } catch {
+        /* ignore malformed JSON-LD */
+      }
+    };
     const raw = el.textContent || el.innerText || "";
-    try {
-      walkJsonLd(JSON.parse(raw));
-    } catch {
-      /* ignore malformed JSON-LD */
-    }
+    parseJsonLd(raw);
   });
   root.querySelectorAll?.("iframe, embed, object").forEach((el) => {
     push(el.getAttribute?.("src") || el.getAttribute?.("data"), "video");
@@ -148,7 +155,9 @@ export function pageCollector(doc) {
       rel.includes("preload") ||
       mime.startsWith("video/") ||
       mime.startsWith("audio/") ||
-      mime.startsWith("image/")
+      mime.startsWith("image/") ||
+      mime.includes("mpegurl") ||
+      mime.includes("dash+xml")
     ) {
       let kind = "video";
       if (asAttr === "audio" || mime.startsWith("audio/")) {

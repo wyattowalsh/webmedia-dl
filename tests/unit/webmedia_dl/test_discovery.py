@@ -76,6 +76,8 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
       <head>
         <meta property="og:video:secure_url" content="https://cdn.example.com/secure.mp4">
         <link rel="preload" as="video" href="https://cdn.example.com/pre.mp4">
+        <link type="application/dash+xml;charset=utf-8" href="https://cdn.example.com/alt.mpd">
+        <link type="application/vnd.apple.mpegurl" href="https://cdn.example.com/alt.m3u8">
         <script type="application/ld+json">
           {"@type": "VideoObject", "embedUrl": "https://example.com/watch?v=1"}
         </script>
@@ -94,6 +96,8 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
     assert "https://cdn.example.com/player.m3u8" in urls
     assert kinds["https://example.com/watch?v=1"] is MediaKind.VIDEO
     assert kinds["https://cdn.example.com/player.m3u8"] is MediaKind.LIVE_STREAM
+    assert kinds["https://cdn.example.com/alt.mpd"] is MediaKind.LIVE_STREAM
+    assert kinds["https://cdn.example.com/alt.m3u8"] is MediaKind.LIVE_STREAM
     object_id = """
     <html><body>
       <script type="application/ld+json">
@@ -126,6 +130,13 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
       <script type="application/ld+json;charset=utf-8">
         {"@type": "VideoObject", "contentUrl": "https://cdn.example.com/charset.mp4"}
       </script>
+      <script type="application/ld+json">1</script>
+      <script type="application/ld+json">
+        <!--{"@type": "VideoObject", "contentUrl": "https://cdn.example.com/commented.mp4"}-->
+      </script>
+      <script type="application/ld+json">
+        <!--{"@type": "VideoObject", "contentUrl": "https://cdn.example.com/open-comment.mp4"}
+      </script>
     </body></html>
     """
     both_found = discover(_source(), profile, html=both)
@@ -133,6 +144,8 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
     assert "https://example.com/watch?v=1" in both_urls
     assert "https://cdn.example.com/direct.mp4" in both_urls
     assert "https://cdn.example.com/charset.mp4" in both_urls
+    assert "https://cdn.example.com/commented.mp4" in both_urls
+    assert "https://cdn.example.com/open-comment.mp4" in both_urls
 
 
 def test_direct_png_skips_html() -> None:

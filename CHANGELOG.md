@@ -2,6 +2,13 @@
 
 ## 0.1.0
 
+- GitHub Actions `32581604639` on `000f55c` passed Python (624 pytest, 100%),
+  doctor provider probes, and Swift (18 tests, 0 failures; 12× BUILD
+  SUCCEEDED) after collecting JSON-LD scripts that declare a charset.
+- Unwrap HTML comments around JSON-LD script bodies and collect
+  `link` HLS/DASH MIME types (`mpegurl` / `dash+xml`, including charset
+  parameters) as live locators. Capture does the same for comments and
+  alternate manifest links.
 - Collect JSON-LD from `application/ld+json` scripts that carry a charset
   (or other type parameter). The old quoted-type regex required the quote
   immediately after `json` and dropped those locators.

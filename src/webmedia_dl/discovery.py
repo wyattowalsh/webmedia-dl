@@ -143,12 +143,13 @@ class _MediaHTMLParser(HTMLParser):
             rel = (mapping.get("rel") or "").lower()
             as_attr = (mapping.get("as") or "").lower()
             mime = (mapping.get("type") or "").lower()
+            mime_kind = _kind_from_mime(mapping.get("type"))
             if href and (
                 as_attr in {"video", "audio", "image", "track"}
                 or "preload" in rel
-                or mime.startswith(("video/", "audio/", "image/", "application/vnd.apple.mpegurl"))
+                or mime_kind is not None
             ):
-                kind = MediaKind.VIDEO
+                kind = mime_kind or MediaKind.VIDEO
                 if as_attr == "audio" or mime.startswith("audio/"):
                     kind = MediaKind.AUDIO
                 elif as_attr == "image" or mime.startswith("image/"):
@@ -189,11 +190,25 @@ class _MediaHTMLParser(HTMLParser):
                 self.title = text
 
 
+def _parse_jsonld_block(block: str) -> object | None:
+    text = block.strip()
+    if text.startswith("<!--"):
+        text = text.removeprefix("<!--")
+        if text.endswith("-->"):
+            text = text[:-3]
+        text = text.strip()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return None
+
+
 def _kind_from_mime(mime: str | None) -> MediaKind | None:
     if not mime:
         return None
     text = mime.lower()
-    if "mpegurl" in text or text in {"application/dash+xml", "application/vnd.apple.mpegurl"}:
+    if "mpegurl" in text or "dash+xml" in text:
+        return MediaKind.LIVE_STREAM
         return MediaKind.LIVE_STREAM
     if text.startswith("video/"):
         return MediaKind.VIDEO
@@ -517,9 +532,8 @@ def discover(
         )
     )
     for block in ld_hits:
-        try:
-            payload = json.loads(block)
-        except json.JSONDecodeError:
+        payload = _parse_jsonld_block(block)
+        if not isinstance(payload, (dict, list)):
             continue
         items = payload if isinstance(payload, list) else [payload]
         for item in _walk_jsonld(items):

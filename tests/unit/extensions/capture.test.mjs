@@ -31,6 +31,10 @@ describe("collectMediaEvidence", () => {
                 ],
               }),
             },
+            {
+              textContent:
+                '<!--{"@type":"VideoObject","contentUrl":"https://cdn.example.com/commented.mp4"}-->',
+            },
           ];
         }
         if (selector.includes("ld+json")) {
@@ -59,6 +63,7 @@ describe("collectMediaEvidence", () => {
     assert.ok(urls.includes("https://cdn.example.com/ld.mp4"));
     assert.ok(urls.includes("https://cdn.example.com/oid.mp4"));
     assert.ok(urls.includes("https://cdn.example.com/charset.mp4"));
+    assert.ok(urls.includes("https://cdn.example.com/commented.mp4"));
     assert.ok(!urls.some((item) => item.startsWith("javascript:")));
   });
 
@@ -130,6 +135,13 @@ describe("collectMediaEvidence", () => {
                 return null;
               },
             },
+            {
+              getAttribute: (name) => {
+                if (name === "href") return "https://cdn.example.com/alt.mpd";
+                if (name === "type") return "application/dash+xml";
+                return null;
+              },
+            },
           ];
         }
         return [];
@@ -140,6 +152,7 @@ describe("collectMediaEvidence", () => {
     assert.ok(urls.includes("https://cdn.example.com/live.m3u8"));
     assert.ok(urls.includes("https://cdn.example.com/pre.mp4"));
     assert.ok(urls.includes("https://cdn.example.com/still.png"));
+    assert.ok(urls.includes("https://cdn.example.com/alt.mpd"));
     assert.equal(result.nativeCommand, null);
   });
 
