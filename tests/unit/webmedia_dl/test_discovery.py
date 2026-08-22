@@ -94,6 +94,26 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
     assert "https://cdn.example.com/player.m3u8" in urls
     assert kinds["https://example.com/watch?v=1"] is MediaKind.VIDEO
     assert kinds["https://cdn.example.com/player.m3u8"] is MediaKind.LIVE_STREAM
+    object_id = """
+    <html><body>
+      <script type="application/ld+json">
+        {"@type": "VideoObject", "contentUrl": [
+          "https://cdn.example.com/a.mp4",
+          {"@id": "https://cdn.example.com/oid.mp4"},
+          {"@id": 1},
+          7
+        ]}
+      </script>
+      <script type="application/ld+json">
+        {"@type": "AudioObject", "embedUrl": {"url": "https://cdn.example.com/a.m4a"}}
+      </script>
+    </body></html>
+    """
+    object_found = discover(_source(), profile, html=object_id)
+    object_urls = [item.retrieval_urls[0] for item in object_found if item.retrieval_urls]
+    assert "https://cdn.example.com/a.mp4" in object_urls
+    assert "https://cdn.example.com/oid.mp4" in object_urls
+    assert "https://cdn.example.com/a.m4a" in object_urls
 
 
 def test_direct_png_skips_html() -> None:

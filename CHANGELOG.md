@@ -2,6 +2,9 @@
 
 ## 0.1.0
 
+- Collect JSON-LD `contentUrl` / `embedUrl` objects that carry `@id` or
+  `url`, in the worker and in browser capture, so typed JSON-LD locators
+  are not dropped as a page-without-direct-media candidate.
 - Attach page-level DRM signals to browser-evidence seeds. Those URLs
   were marked `seen` before HTML/JSON-LD union, so a Widevine/`cenc`
   page could keep a clear capture candidate.

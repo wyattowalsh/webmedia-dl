@@ -37,12 +37,25 @@ export function pageCollector(doc) {
       : jsonLdType.includes("image")
         ? "image"
         : "video";
-    if (typeof node.contentUrl === "string") {
-      push(node.contentUrl, jsonLdKind);
-    }
-    if (typeof node.embedUrl === "string") {
-      push(node.embedUrl, jsonLdKind);
-    }
+    const pushJsonLdUrl = (value, kind) => {
+      if (typeof value === "string") {
+        push(value, kind);
+        return;
+      }
+      if (Array.isArray(value)) {
+        value.forEach((item) => pushJsonLdUrl(item, kind));
+        return;
+      }
+      if (value && typeof value === "object") {
+        if (typeof value["@id"] === "string") {
+          push(value["@id"], kind);
+        } else if (typeof value.url === "string") {
+          push(value.url, kind);
+        }
+      }
+    };
+    pushJsonLdUrl(node.contentUrl, jsonLdKind);
+    pushJsonLdUrl(node.embedUrl, jsonLdKind);
     Object.values(node).forEach((value) => walkJsonLd(value));
   };
   root.querySelectorAll?.("video, audio, img, source, track").forEach((el) => {

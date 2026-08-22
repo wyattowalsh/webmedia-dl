@@ -243,6 +243,19 @@ def _kind_from_jsonld(item: dict, url: str) -> MediaKind:
     return kind
 
 
+def _jsonld_locator_urls(raw: object) -> list[str]:
+    items = raw if isinstance(raw, list) else [raw]
+    found: list[str] = []
+    for item in items:
+        if isinstance(item, str):
+            found.append(item)
+        elif isinstance(item, dict):
+            token = item.get("@id") or item.get("url")
+            if isinstance(token, str):
+                found.append(token)
+    return found
+
+
 def _walk_jsonld(node: object):
     if isinstance(node, dict):
         yield node
@@ -465,25 +478,23 @@ def discover(
         items = payload if isinstance(payload, list) else [payload]
         for item in _walk_jsonld(items):
             raw = item.get("contentUrl") or item.get("embedUrl")
-            locators = raw if isinstance(raw, list) else [raw]
-            for content_url in locators:
-                if isinstance(content_url, str):
-                    absolute = urljoin(url, content_url)
-                    if not _usable_url(absolute, profile):
-                        continue
-                    if absolute in seen:
-                        continue
-                    seen.add(absolute)
-                    found.append(
-                        _candidate(
-                            source,
-                            absolute,
-                            _kind_from_jsonld(item, absolute),
-                            title=title,
-                            evidence=["discover:jsonld"],
-                            drm=sorted(set(detect_drm_signals(absolute)) | set(drm)),
-                        )
+            for content_url in _jsonld_locator_urls(raw):
+                absolute = urljoin(url, content_url)
+                if not _usable_url(absolute, profile):
+                    continue
+                if absolute in seen:
+                    continue
+                seen.add(absolute)
+                found.append(
+                    _candidate(
+                        source,
+                        absolute,
+                        _kind_from_jsonld(item, absolute),
+                        title=title,
+                        evidence=["discover:jsonld"],
+                        drm=sorted(set(detect_drm_signals(absolute)) | set(drm)),
                     )
+                )
     if not found:
         found.append(
             _candidate(

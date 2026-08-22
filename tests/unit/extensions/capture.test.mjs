@@ -21,7 +21,10 @@ describe("collectMediaEvidence", () => {
           return [
             {
               textContent: JSON.stringify({
-                "@graph": [{ contentUrl: "https://cdn.example.com/ld.mp4" }],
+                "@graph": [
+                  { contentUrl: "https://cdn.example.com/ld.mp4" },
+                  { contentUrl: { "@id": "https://cdn.example.com/oid.mp4" } },
+                ],
               }),
             },
           ];
@@ -47,6 +50,7 @@ describe("collectMediaEvidence", () => {
     assert.ok(urls.includes("https://cdn.example.com/a.mp4"));
     assert.ok(urls.includes("https://cdn.example.com/og.png"));
     assert.ok(urls.includes("https://cdn.example.com/ld.mp4"));
+    assert.ok(urls.includes("https://cdn.example.com/oid.mp4"));
     assert.ok(!urls.some((item) => item.startsWith("javascript:")));
   });
 
