@@ -98,3 +98,7 @@
   executable so `macos-15` `xcodebuild` compiles them when SwiftPM omits a scheme.
   Live byte-range refetch HTTP errors fail closed; overlapping already-written
   ranges are not rewound; `run_next` restores the job-bound cookie grant.
+  visionOS WatchConnectivity implements `sessionDidBecomeInactive` /
+  `sessionDidDeactivate`. `serve_worker` refuses non-loopback hosts. Sealed
+  companion envelopes still refuse `nativeCommand`. `original-sacred` keeps
+  `keep-original` at `LossClass.NONE` with no transcode.

@@ -36,15 +36,15 @@ Original pack SHALL text remains unverified until the 2026-08-18 ZIP is re-attac
 |---|---|---|
 | accessibility-ux | `openspec/.../accessibility-ux/spec.md` | `test_accessibility_markup.py` |
 | acquisition-adapters | `openspec/.../acquisition-adapters/spec.md` | `test_providers.py`, `test_openspec_shall_gaps.py` |
-| apple-platform-clients | `openspec/.../apple-platform-clients/spec.md` | `test_surfaces_inventory.py`, `test_pairing_surfaces.py`, `test_openspec_shall_gaps.py` |
+| apple-platform-clients | `openspec/.../apple-platform-clients/spec.md` | `test_surfaces_inventory.py`, `test_pairing_surfaces.py`, `test_openspec_shall_gaps.py`, `test_fail_closed_followups.py` |
 | apple-system-integrations | `openspec/.../apple-system-integrations/spec.md` | Share/intent files + `IdentityTests.swift` + `test_openspec_shall_gaps.py` |
 | asset-store-provenance | `openspec/.../asset-store-provenance/spec.md` | `test_invariants.py` |
 | browser-extensions | `openspec/.../browser-extensions/spec.md` | `capture.test.mjs` |
 | cross-device-workers | `openspec/.../cross-device-workers/spec.md` | `test_pairing_surfaces.py`, `test_openspec_shall_gaps.py` |
 | diagnostics-support | `openspec/.../diagnostics-support/spec.md` | `test_cli.py` doctor, `test_openspec_shall_gaps.py` |
 | discovery-candidates | `openspec/.../discovery-candidates/spec.md` | `test_discovery.py`, `test_candidates.py`, `test_openspec_shall_gaps.py` |
-| export-planning | `openspec/.../export-planning/spec.md` | `test_coverage_gaps.py` |
-| export-validation-publication | `openspec/.../export-validation-publication/spec.md` | `test_validation_publish.py` |
+| export-planning | `openspec/.../export-planning/spec.md` | `test_coverage_gaps.py`, `test_fail_closed_followups.py` |
+| export-validation-publication | `openspec/.../export-validation-publication/spec.md` | `test_validation_publish.py`, `test_fail_closed_followups.py` |
 | intake-routing | `openspec/.../intake-routing/spec.md` | `test_intake.py` |
 | live-manifest-recording | `openspec/.../live-manifest-recording/spec.md` | `test_live.py`, `test_p2_contracts.py`, `test_openspec_shall_gaps.py`, `test_fail_closed_followups.py` |
 | media-processing | `openspec/.../media-processing/spec.md` | `test_processing.py` |

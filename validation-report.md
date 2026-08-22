@@ -2,13 +2,13 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 482 tests |
+| `uv run pytest` | PASS | 489 tests |
 | `uv run pytest --cov` | PASS | 99.65% (`fail_under` 99) |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
 | `uv run ty check` | PASS | |
 | `node --test tests/unit/extensions/*.mjs` | PASS | 6 tests including mocked fetch submit |
-| `uv run python -m webmedia_dl.schema_export` | PASS | 20 schemas + index |
+| `uv run python -m webmedia_dl.schema_export` | PASS | 19 schemas + index |
 | `uv run python scripts/validate_bundle.py` | PASS | 159 pack paths + extension/app shells |
 | `uv run webmedia-dl doctor` ffmpeg | PASS | `/usr/bin/ffmpeg -version` executed PASS |
 | `uv run webmedia-dl doctor` ImageMagick | WARN | IM6 `convert -version` executed; `magick` is absent |
@@ -27,7 +27,7 @@
 | Fetch bounds | PASS | HTML truncate, media overflow error, streaming within-limit, redirect bound, owned client closed |
 | Queue durability | PASS | legacy `job_context` columns migrate; `claim_next` CAS misses return none; invalid JSON checkpoints become `{}`; `next_runnable` ignores non-accepted jobs |
 | Publication skip | PASS | preview-only produced sets and `include_original=false` leave no publishable artifacts; validation failures fail the job |
-| Worker API errors | PASS | unknown pairing confirm/submit/plan/envelope fail closed; companion envelope non-objects are 400; pair `personal-full`/unknown profiles are 400; companion unknown job ids are 404; loopback `serve` reaches uvicorn; `GET /v1/jobs` lists history; plan uses pairing id from auth headers; empty `run-next` returns `job: null`; `/v1/plan` DRM locators are 400 with no provider execution or job creation; `/v1/jobs` destinations outside `approved_roots` fail the job with `job.failed` |
+| Worker API errors | PASS | unknown pairing confirm/submit/plan/envelope fail closed; companion envelope non-objects are 400; pair `personal-full`/unknown profiles are 400; companion unknown job ids are 404; sealed companion `nativeCommand` is 400 then nonce-replay fails; loopback `serve` reaches uvicorn; `serve_worker` refuses `0.0.0.0`; `GET /v1/jobs` lists history; plan uses pairing id from auth headers; empty `run-next` returns `job: null`; `/v1/plan` DRM locators are 400 with no provider execution or job creation; `/v1/jobs` destinations outside `approved_roots` fail the job with `job.failed` |
 | Cancel during acquire | PASS | mixed-media HTTP cancel during the first kind raises closed to `cancelled` without publishing |
 | All-kind DRM | PASS | every candidate `DrmRefused` re-raises the original error instead of a generic empty-acquisition message |
 | SOURCE validation skip | PASS | a failed SOURCE validation still publishes a validated remux derivative |
@@ -67,7 +67,7 @@
 | Job-detail / run-next helpers | PASS | unrelated history rows are skipped; empty queue returns `job: null`; a queued job returns events |
 | Swift Core CI job | PASS | GitHub Actions `ci` run `32538904545` on `94e423b`: `IdentityTests` executed 6 tests, 0 failures on `macos-15` |
 | Swift Core contract tests | PASS | `ContractTests.swift` executed 10 tests, 0 failures with IdentityTests (6) on GitHub `macos-15` run `32539374548` (`5f85fe3`) |
-| Apple package compile CI | PENDING | `5bbd182` Mac `swift build` and iOS `xcodebuild -scheme WebMediaDLiOS` succeeded (`** BUILD SUCCEEDED **`); share-extension schemes were missing because those targets were not products. This revision exposes share-extension library products, makes complete-client executables depend on them, compiles `WebMediaDLMacShareExtension` with `swift build --target`, and routes iOS/iPad/vision share-extension `xcodebuild` through the executable scheme. Device runtime stays BLOCKED |
+| Apple package compile CI | PENDING | `27fce3b` python job succeeded; iOS and iPadOS including share-extension targets compiled; visionOS failed because `WCSessionDelegate` requires `sessionDidBecomeInactive`/`sessionDidDeactivate`. This revision implements those methods for iOS/macOS/visionOS. Device runtime stays BLOCKED |
 | WatchConnectivity class headers | PASS | WCSessionDelegate is an extension; class signatures are not split across `#else` |
 | URL never a path | PASS | URL intake with `local_path` or `file:` normalized_url raises; extra provider argv is refused |
 | Live aggregate bound + kinds | PASS | cumulative byte budget; separate VIDEO/AUDIO artifacts; audio-only DASH uses the highest-bandwidth audio Representation; SegmentBase ranges including mediaRange; multi-period occurrences; empty recordings and HTTP 400 playlists fail closed; nested/audio `should_stop` aborts before further fetches |

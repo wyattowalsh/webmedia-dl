@@ -200,7 +200,7 @@ extension WebMediaDLWatchConnectivityTransport: WCSessionDelegate {
         _ = session
     }
 
-    #if os(iOS) || os(macOS)
+    #if os(iOS) || os(macOS) || os(visionOS)
     public func sessionDidBecomeInactive(_ session: WCSession) {
         _ = session
     }
@@ -268,7 +268,7 @@ extension WebMediaDLMacWatchConnectivityDelegate: WCSessionDelegate {
         self.session("default", didReceiveUserInfo: userInfo)
     }
 
-    #if os(iOS) || os(macOS)
+    #if os(iOS) || os(macOS) || os(visionOS)
     public func sessionDidBecomeInactive(_ session: WCSession) {
         _ = session
     }

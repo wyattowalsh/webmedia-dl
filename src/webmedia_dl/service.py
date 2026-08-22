@@ -19,7 +19,13 @@ from webmedia_dl.dispatcher import QueueDispatcher
 from webmedia_dl.domain.enums import IntakeKind, Surface
 from webmedia_dl.domain.models import BrowserEvidence, ExportIntent
 from webmedia_dl.envelope import open_payload, seal_payload
-from webmedia_dl.errors import CancelledError, DelegationDenied, PauseRequested, WebMediaError
+from webmedia_dl.errors import (
+    CancelledError,
+    DelegationDenied,
+    NetworkPolicyError,
+    PauseRequested,
+    WebMediaError,
+)
 from webmedia_dl.names import DISPLAY_NAME
 from webmedia_dl.pipeline import Pipeline
 from webmedia_dl.settings import Settings
@@ -392,5 +398,8 @@ def create_app(data_dir: Path | None = None, *, enable_dispatcher: bool = False)
 def serve_worker(*, data_dir: Path | None, host: str, port: int) -> None:
     import uvicorn
 
+    if host not in {"127.0.0.1", "localhost", "::1"}:
+        msg = "Worker API binds loopback only."
+        raise NetworkPolicyError(msg)
     app = create_app(data_dir, enable_dispatcher=True)
     uvicorn.run(app, host=host, port=port, log_level="info")

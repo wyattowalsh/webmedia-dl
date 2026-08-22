@@ -5,21 +5,33 @@ from __future__ import annotations
 import json
 import secrets
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 from typer.testing import CliRunner
 
 from webmedia_dl.cli import app
-from webmedia_dl.domain.enums import ArtifactRole, DestinationKind, EventType, JobState, MediaKind
-from webmedia_dl.domain.models import BrowserEvidence
-from webmedia_dl.envelope import _NONCE_SIZE, _TAG_SIZE, _key_bytes, open_payload
-from webmedia_dl.errors import DelegationDenied, DiscoveryError
+from webmedia_dl.continuity import CompanionRelay, companion_message
+from webmedia_dl.domain.enums import (
+    ArtifactRole,
+    DestinationKind,
+    EventType,
+    JobState,
+    LossClass,
+    MediaKind,
+    Surface,
+)
+from webmedia_dl.domain.models import Artifact, BrowserEvidence, ExportIntent
+from webmedia_dl.envelope import _NONCE_SIZE, _TAG_SIZE, _key_bytes, open_payload, seal_payload
+from webmedia_dl.errors import DelegationDenied, DiscoveryError, NetworkPolicyError
+from webmedia_dl.export import plan_export
 from webmedia_dl.live import record_clear_stream, record_kind_streams
 from webmedia_dl.pipeline import Pipeline
 from webmedia_dl.providers import ProviderRuntime
-from webmedia_dl.service import create_app, load_or_create_token
+from webmedia_dl.service import create_app, load_or_create_token, serve_worker
 
 runner = CliRunner()
 UNKNOWN_JOB = "11111111-1111-1111-1111-111111111111"
@@ -515,3 +527,153 @@ def test_run_next_restores_cookie_grant(tmp_data: Path, tmp_path: Path, ytdlp_ru
     assert any(resolved in argv for argv in cookie_argv)
     types = [event.type.value for event in pipeline.queue.events_for(job.job_id)]
     assert "cookie.attached" in types
+
+
+def test_user_approved_path_omits_approved_roots() -> None:
+    with pytest.raises(ValidationError, match="approved"):
+        ExportIntent(
+            destination_kind=DestinationKind.USER_APPROVED_PATH,
+            destination_path="/tmp/webmedia-dl-out",
+        )
+
+
+def test_original_sacred_keeps_original_with_no_loss() -> None:
+    source = Artifact(
+        artifact_id="sha256:ab",
+        role=ArtifactRole.SOURCE,
+        sha256="ab",
+        byte_size=1,
+        media_kind=MediaKind.VIDEO,
+        storage_relpath="a.mp4",
+        container="mp4",
+    )
+    sacred = plan_export(uuid4(), source, ExportIntent(preset_id="original-sacred"))
+    assert sacred.operations[0].operation_id == "keep-original"
+    assert sacred.operations[0].loss_class is LossClass.NONE
+    assert all(item.operation_id != "transcode" for item in sacred.operations)
+    remux_only = plan_export(
+        uuid4(),
+        source,
+        ExportIntent(preset_id="original-sacred", container_preference="mkv"),
+    )
+    ids = [item.operation_id for item in remux_only.operations]
+    assert "keep-original" in ids
+    assert "remux" in ids
+    assert "transcode" not in ids
+    assert remux_only.operations[0].loss_class is LossClass.NONE
+
+
+def test_sealed_companion_native_command_is_refused(tmp_path: Path) -> None:
+    client, headers = _auth_client(tmp_path)
+    created = client.post("/v1/pair", headers=headers)
+    pairing_id = created.json()["pairing_id"]
+    confirmed = client.post("/v1/pair/confirm", headers=headers, json={"pairing_id": pairing_id})
+    session_key = confirmed.json()["session_key"]
+    sealed = seal_payload(
+        session_key,
+        {
+            "kind": "capture",
+            "locator": "https://cdn.example.com/a.mp4",
+            "nativeCommand": "yt-dlp",
+            "subprocessWorker": False,
+            "surface": Surface.WATCHOS.value,
+        },
+    )
+    refused = client.post(
+        "/v1/companion",
+        json={"pairing_id": pairing_id, "session_key": session_key, **sealed},
+        headers=headers,
+    )
+    assert refused.status_code == 400
+    assert "native command" in refused.json()["detail"].lower()
+    replay = client.post(
+        "/v1/companion",
+        json={"pairing_id": pairing_id, "session_key": session_key, **sealed},
+        headers=headers,
+    )
+    assert replay.status_code in {400, 401}
+
+
+@pytest.mark.parametrize("surface", [Surface.WATCHOS, Surface.TVOS])
+def test_watch_tv_capture_queues_without_ytdlp(
+    surface: Surface, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    opened: list[str] = []
+
+    def which(name: str) -> str | None:
+        opened.append(name)
+        return None
+
+    monkeypatch.setattr("shutil.which", which)
+    message = companion_message(
+        "capture",
+        locator="https://cdn.example.com/a.mp4",
+        surface=surface,
+    )
+    queued = CompanionRelay().enqueue(message)
+    assert queued["nativeCommand"] is None
+    assert queued["subprocessWorker"] is False
+    assert message["surface"] == surface.value
+    assert "yt-dlp" not in opened
+
+
+def test_serve_worker_rejects_non_loopback(tmp_path: Path) -> None:
+    with pytest.raises(NetworkPolicyError, match="loopback"):
+        serve_worker(data_dir=tmp_path, host="0.0.0.0", port=8765)
+
+
+def test_publish_stages_under_approved_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, png_bytes: bytes
+) -> None:
+    from webmedia_dl.identity import sha256_file
+    from webmedia_dl.publish import publish_artifacts
+    from webmedia_dl.validation import validate_artifact
+
+    src = tmp_path / "hero.png"
+    src.write_bytes(png_bytes)
+    digest = sha256_file(str(src))
+    artifact = Artifact(
+        artifact_id=f"sha256:{digest}",
+        role=ArtifactRole.SOURCE,
+        sha256=digest,
+        byte_size=len(png_bytes),
+        media_kind=MediaKind.IMAGE,
+        storage_relpath="hero.png",
+        container="png",
+    )
+    dest = tmp_path / "out"
+    dest.mkdir()
+    staged_dirs: list[Path] = []
+    replaced: list[tuple[Path, Path]] = []
+    real_mkdtemp = __import__("tempfile").mkdtemp
+    real_replace = __import__("os").replace
+
+    def spy_mkdtemp(
+        suffix: str | None = None,
+        prefix: str | None = None,
+        dir: str | Path | None = None,
+    ) -> str:
+        path = real_mkdtemp(suffix=suffix, prefix=prefix, dir=dir)
+        staged_dirs.append(Path(path))
+        return path
+
+    def spy_replace(src_path: str | Path, dest_path: str | Path) -> None:
+        replaced.append((Path(src_path), Path(dest_path)))
+        real_replace(src_path, dest_path)
+
+    monkeypatch.setattr("webmedia_dl.publish.tempfile.mkdtemp", spy_mkdtemp)
+    monkeypatch.setattr("webmedia_dl.publish.os.replace", spy_replace)
+    published = publish_artifacts(
+        [(artifact, src, validate_artifact(uuid4(), artifact, src))],
+        ExportIntent(
+            destination_kind=DestinationKind.USER_APPROVED_PATH,
+            destination_path=str(dest),
+            approved_roots=[str(dest)],
+        ),
+    )
+    assert published
+    assert staged_dirs
+    assert staged_dirs[0].is_relative_to(dest)
+    assert replaced
+    assert replaced[0][1].is_relative_to(dest)
+    assert replaced[0][1] == published[0]

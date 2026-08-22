@@ -337,6 +337,9 @@ def test_companion_transport_and_typed_history() -> None:
     assert "WCSessionDelegate" in continuity
     assert "extension WebMediaDLWatchConnectivityTransport: WCSessionDelegate" in continuity
     assert "extension WebMediaDLMacWatchConnectivityDelegate: WCSessionDelegate" in continuity
+    assert continuity.count("#if os(iOS) || os(macOS) || os(visionOS)") == 2
+    assert "sessionDidBecomeInactive" in continuity
+    assert "sessionDidDeactivate" in continuity
     assert continuity.count("public final class WebMediaDLWatchConnectivityTransport:") == 1
     assert continuity.count("public final class WebMediaDLMacWatchConnectivityDelegate:") == 1
     assert "#else\npublic final class WebMediaDLWatchConnectivityTransport" not in continuity
