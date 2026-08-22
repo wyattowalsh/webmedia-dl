@@ -57,4 +57,12 @@ def open_payload(
         raise DelegationDenied(msg) from exc
     if ledger is not None:
         ledger.consume(envelope["nonce"])
-    return json.loads(raw.decode())
+    try:
+        payload = json.loads(raw.decode())
+    except json.JSONDecodeError as exc:
+        msg = "Pairing envelope payload is not JSON."
+        raise DelegationDenied(msg) from exc
+    if not isinstance(payload, dict):
+        msg = "Pairing envelope payload must be an object."
+        raise DelegationDenied(msg)
+    return payload

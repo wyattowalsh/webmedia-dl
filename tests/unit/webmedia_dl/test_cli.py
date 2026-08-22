@@ -36,6 +36,9 @@ def test_doctor_json() -> None:
     assert payload["apple_devices"]["macos"]["status"] == "BLOCKED"
     assert payload["signing_notarization"]["status"] == "BLOCKED"
     assert payload["original_planning_pack"]["status"] == "BLOCKED"
+    assert payload["browser_stores"]["status"] == "BLOCKED"
+    assert payload["app_review"]["status"] == "BLOCKED"
+    assert payload["legal_review"]["status"] == "BLOCKED"
     ffmpeg = payload["providers"]["ffmpeg"]
     if shutil.which("ffmpeg"):
         assert ffmpeg["status"] == "PASS"

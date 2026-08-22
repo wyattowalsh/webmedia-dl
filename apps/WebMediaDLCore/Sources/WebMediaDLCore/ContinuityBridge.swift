@@ -76,6 +76,13 @@ public struct WebMediaDLCompanionMessage: Codable, Sendable, Equatable {
                 debugDescription: "Companion messages cannot carry a native command."
             )
         }
+        if try container.decodeIfPresent(Bool.self, forKey: .subprocessWorker) == true {
+            throw DecodingError.dataCorruptedError(
+                forKey: .subprocessWorker,
+                in: container,
+                debugDescription: "watchOS and tvOS are not subprocess workers."
+            )
+        }
     }
 
     public func dictionary() -> [String: Any] {
@@ -281,9 +288,10 @@ public struct WebMediaDLMacCompanionForwarder: Sendable {
         self.client = client
     }
 
-    public func forward(_ relay: inout WebMediaDLCompanionRelay) async throws -> [String] {
+    public func forward(_ relay: WebMediaDLCompanionRelay) async throws -> [String] {
+        var copy = relay
         var bodies: [String] = []
-        for message in relay.drain() {
+        for message in copy.drain() {
             let body = try await client.forwardCompanion(
                 kind: message.kind.rawValue,
                 locator: message.locator,
@@ -296,12 +304,13 @@ public struct WebMediaDLMacCompanionForwarder: Sendable {
     }
 
     public func forwardSealed(
-        _ relay: inout WebMediaDLCompanionRelay,
+        _ relay: WebMediaDLCompanionRelay,
         pairingId: UUID,
         sessionKey: String
     ) async throws -> [String] {
+        var copy = relay
         var bodies: [String] = []
-        for message in relay.drain() {
+        for message in copy.drain() {
             let wrap = client.envelopeWrapRequest(
                 pairingId: pairingId,
                 sessionKey: sessionKey,

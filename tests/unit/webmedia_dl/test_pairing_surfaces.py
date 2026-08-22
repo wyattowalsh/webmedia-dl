@@ -38,6 +38,16 @@ def test_ios_http_direct_image(tmp_data: Path, png_bytes: bytes) -> None:
     assert job.state is JobState.COMPLETED
 
 
+@pytest.mark.parametrize("surface", [Surface.IPADOS, Surface.VISIONOS])
+def test_complete_mobile_clients_http_direct_image(
+    tmp_data: Path, png_bytes: bytes, surface: Surface
+) -> None:
+    runtime = ProviderRuntime(http_get=lambda url: (200, {}, png_bytes))
+    pipeline = Pipeline(data_dir=tmp_data, runtime=runtime)
+    job = pipeline.submit("https://cdn.example.com/hero.png", surface=surface)
+    assert job.state is JobState.COMPLETED
+
+
 def test_pairing_confirmation_lets_mac_own_without_widening(tmp_data: Path, ytdlp_run_ok) -> None:
     captured: list[list[str]] = []
 
@@ -68,7 +78,18 @@ def test_pairing_confirmation_lets_mac_own_without_widening(tmp_data: Path, ytdl
 
 
 def test_unconfirmed_pairing_does_not_escalate(tmp_data: Path) -> None:
-    pipeline = Pipeline(data_dir=tmp_data)
+    captured: list[list[str]] = []
+
+    def run(argv: list[str], _cwd: Path) -> tuple[int, bytes, bytes]:
+        captured.append(argv)
+        raise AssertionError("unconfirmed pairing must not execute yt-dlp")
+
+    runtime = ProviderRuntime(
+        which=lambda name: "/usr/bin/yt-dlp" if name == "yt-dlp" else None,
+        run=run,
+        http_get=lambda url: (200, {}, b"nope"),
+    )
+    pipeline = Pipeline(data_dir=tmp_data, runtime=runtime)
     challenge = pipeline.pairing.create("personal-restricted", pipeline.host_worker.worker_id)
     with pytest.raises(DelegationDenied):
         pipeline.submit(
@@ -77,6 +98,8 @@ def test_unconfirmed_pairing_does_not_escalate(tmp_data: Path) -> None:
             surface=Surface.IOS,
             pairing_id=UUID(str(challenge.pairing_id)),
         )
+    assert captured == []
+    assert pipeline.history() == []
 
 
 def test_service_confirm_and_paired_job(tmp_path: Path, png_bytes: bytes) -> None:

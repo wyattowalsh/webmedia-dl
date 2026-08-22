@@ -73,6 +73,14 @@ final class ContractTests: XCTestCase {
         XCTAssertTrue(decoded.dictionary()["nativeCommand"] is NSNull)
         XCTAssertEqual(decoded.dictionary()["subprocessWorker"] as? String, "false")
         XCTAssertNil((decoded.dictionary()["nativeCommand"] as? String))
+
+        let subprocess: [String: Any] = [
+            "kind": "status",
+            "subprocessWorker": true,
+            "surface": "watchos",
+        ]
+        let subprocessData = try JSONSerialization.data(withJSONObject: subprocess)
+        XCTAssertThrowsError(try JSONDecoder().decode(WebMediaDLCompanionMessage.self, from: subprocessData))
     }
 
     func testShareIntakeFilesOpenPhotosStayClosed() {

@@ -725,8 +725,10 @@ def _write_recorded_parts(
     max_segments: int,
     cache: dict[str, bytes],
     recorded: set[tuple],
+    written_through: dict[str, int] | None = None,
 ) -> int:
     written = 0
+    through = written_through if written_through is not None else {}
     dest.parent.mkdir(parents=True, exist_ok=True)
     with dest.open("ab" if dest.exists() else "wb") as handle:
         for part in tqdm(parts[:max_segments], desc="live-record", disable=True, unit="seg"):
@@ -741,10 +743,25 @@ def _write_recorded_parts(
                     msg = f"Live segment fetch failed with HTTP {status}."
                     raise DiscoveryError(msg)
                 cache[part.url] = data
+            elif live and part.start is not None:
+                needed = part.start + (part.length if part.length is not None else 0)
+                if part.length is None or needed > len(cache[part.url]):
+                    status, _, data = fetch(part.url)
+                    if status >= 400:
+                        msg = f"Live segment fetch failed with HTTP {status}."
+                        raise DiscoveryError(msg)
+                    cache[part.url] = data
             chunk = cache[part.url]
             if part.start is not None:
                 end = part.start + (part.length if part.length is not None else len(chunk))
-                chunk = chunk[part.start : end]
+                origin = part.start
+                if live:
+                    origin = max(origin, through.get(part.url, 0))
+                if origin >= end or origin >= len(chunk):
+                    recorded.add(key)
+                    continue
+                chunk = chunk[origin:end]
+                through[part.url] = max(through.get(part.url, 0), min(end, len(cache[part.url])))
             budget.consume(len(chunk))
             handle.write(chunk)
             written += len(chunk)
@@ -766,6 +783,7 @@ def record_clear_stream(
     budget: ByteBudget | None = None,
     parts: list[ManifestPart] | None = None,
     rendition_kind: str | None = None,
+    drm_flag: list[bool] | None = None,
 ) -> Path:
     dest = output
     playlist = playlist_text
@@ -821,12 +839,14 @@ def record_clear_stream(
             live_polls=live_polls,
             budget=bound,
             rendition_kind=rendition_kind,
+            drm_flag=drm_flag,
         )
     dest.parent.mkdir(parents=True, exist_ok=True)
     if dest.exists():
         dest.unlink()
     cache: dict[str, bytes] = {}
     recorded: set[tuple] = set()
+    through: dict[str, int] = {}
     polls = max(1, min(live_polls, MAX_LIVE_POLLS))
     written = 0
     live_mode = polls > 1 or manifest_is_live(playlist)
@@ -840,6 +860,8 @@ def record_clear_stream(
             else:
                 current_parts = recordable_parts(playlist, playlist_url)
         except DrmRefused:
+            if drm_flag is not None:
+                drm_flag.append(True)
             if written > 0:
                 break
             raise
@@ -853,6 +875,7 @@ def record_clear_stream(
             max_segments=max_segments,
             cache=cache,
             recorded=recorded,
+            written_through=through,
         )
         more = round_index + 1 < polls and manifest_is_live(playlist)
         if not more:
@@ -892,7 +915,10 @@ def record_kind_streams(
             mapping.append((MediaKind.AUDIO, "audio"))
         if mapping:
             recorded: list[tuple[MediaKind, Path]] = []
+            drm_flag: list[bool] = []
             for media_kind, name in mapping:
+                if drm_flag:
+                    break
                 dest = (
                     output
                     if len(mapping) == 1
@@ -908,6 +934,7 @@ def record_kind_streams(
                     budget=bound,
                     parts=kinds[name],
                     rendition_kind=name,
+                    drm_flag=drm_flag,
                 )
                 recorded.append((media_kind, dest))
             return recorded
@@ -922,6 +949,7 @@ def record_kind_streams(
         )
         return [(MediaKind.LIVE_STREAM, output)]
     audio_uris = hls_audio_playlist_urls(playlist_text, playlist_url)
+    drm_flag: list[bool] = []
     record_clear_stream(
         playlist_text,
         playlist_url,
@@ -930,9 +958,10 @@ def record_kind_streams(
         should_stop=should_stop,
         live_polls=live_polls,
         budget=bound,
+        drm_flag=drm_flag,
     )
-    if not audio_uris:
-        return [(MediaKind.LIVE_STREAM, output)]
+    if not audio_uris or drm_flag:
+        return [(MediaKind.LIVE_STREAM, output)] if not audio_uris else [(MediaKind.VIDEO, output)]
     video_dest = output
     results: list[tuple[MediaKind, Path]] = [(MediaKind.VIDEO, video_dest)]
     audio_url = audio_uris[0]
@@ -951,6 +980,7 @@ def record_kind_streams(
         should_stop=should_stop,
         live_polls=live_polls,
         budget=bound,
+        drm_flag=drm_flag,
     )
     results.append((MediaKind.AUDIO, audio_dest))
     return results

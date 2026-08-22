@@ -402,13 +402,23 @@ def test_hls_live_poll_appends_new_segments(tmp_path: Path) -> None:
     assert output.read_bytes() == b"AB"
 
 
-def test_event_payload_rejects_provider_console() -> None:
-    with pytest.raises(ValidationError, match="stdout"):
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"stderr": "ffmpeg"},
+        {"nativeCommand": "yt-dlp"},
+        {"providerArgv": ["--format"]},
+        {"cookies_path": "/tmp/cookies.txt"},
+        {"nested": {"stdout": "secret"}},
+    ],
+)
+def test_event_payload_rejects_every_forbidden_key(payload: dict) -> None:
+    with pytest.raises(ValidationError):
         EventRecord(
             job_id=uuid4(),
             type=EventType.OPERATION_COMPLETED,
             sequence=1,
-            payload={"stdout": "ffmpeg"},
+            payload=payload,
         )
 
 

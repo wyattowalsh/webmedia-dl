@@ -245,7 +245,10 @@ def create_app(data_dir: Path | None = None, *, enable_dispatcher: bool = False)
     @app.post("/v1/pair")
     def pair(body: Annotated[PairStartBody | None, Body()] = None) -> dict:
         profile_id = body.client_profile_id if body is not None else "personal-restricted"
-        challenge = pipeline.pairing.create(profile_id, pipeline.host_worker.worker_id)
+        try:
+            challenge = pipeline.pairing.create(profile_id, pipeline.host_worker.worker_id)
+        except DelegationDenied as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         return {
             "pairing_id": str(challenge.pairing_id),
             "nonce": challenge.nonce,
@@ -326,6 +329,10 @@ def create_app(data_dir: Path | None = None, *, enable_dispatcher: bool = False)
             )
         except DelegationDenied as exc:
             raise HTTPException(status_code=401, detail=str(exc)) from exc
+        if not isinstance(opened, dict):
+            raise HTTPException(
+                status_code=400, detail="Pairing envelope payload must be an object."
+            )
         return opened
 
     @app.post("/v1/companion")
@@ -376,6 +383,8 @@ def create_app(data_dir: Path | None = None, *, enable_dispatcher: bool = False)
             raise HTTPException(status_code=401, detail=str(exc)) from exc
         except WebMediaError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="Unknown job") from exc
 
     return app
 

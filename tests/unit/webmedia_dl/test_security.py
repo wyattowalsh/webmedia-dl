@@ -8,8 +8,9 @@ from webmedia_dl.policy.profiles import get_profile
 from webmedia_dl.security import detect_drm_signals, refuse_drm, resolve_cookie_path
 
 
-def test_widevine_refused() -> None:
-    signals = detect_drm_signals("com.widevine.alpha pssh box")
+@pytest.mark.parametrize("token", ["widevine", "fairplay", "playready"])
+def test_named_drm_systems_refuse_closed(token: str) -> None:
+    signals = detect_drm_signals(token)
     assert signals
     with pytest.raises(DrmRefused):
         refuse_drm(signals)

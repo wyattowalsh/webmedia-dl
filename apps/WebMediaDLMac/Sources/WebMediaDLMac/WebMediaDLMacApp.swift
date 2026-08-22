@@ -192,13 +192,14 @@ struct MacRootView: View {
                                     sessionKey: sessionKey.isEmpty ? nil : sessionKey
                                 )
                                 var forwarder = WebMediaDLMacCompanionForwarder(client: client)
+                                var relay = companionRelay
                                 forwarder.receiveWatchConnectivityUserInfo(
                                     ["kind": "capture", "locator": companionLocator, "surface": "watchos"],
-                                    into: &companionRelay
+                                    into: &relay
                                 )
                                 if let id = UUID(uuidString: pairingId), !pairingId.isEmpty, !sessionKey.isEmpty {
                                     let bodies = try await forwarder.forwardSealed(
-                                        &companionRelay,
+                                        relay,
                                         pairingId: id,
                                         sessionKey: sessionKey
                                     )
@@ -206,11 +207,12 @@ struct MacRootView: View {
                                         watchDelegate?.sendResponse(["kind": "response", "body": body])
                                     }
                                 } else {
-                                    let bodies = try await forwarder.forward(&companionRelay)
+                                    let bodies = try await forwarder.forward(relay)
                                     if let body = bodies.last {
                                         watchDelegate?.sendResponse(["kind": "response", "body": body])
                                     }
                                 }
+                                companionRelay = WebMediaDLCompanionRelay()
                                 status = "Forwarded companion capture"
                             } catch {
                                 status = error.localizedDescription

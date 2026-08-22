@@ -100,6 +100,21 @@ final class IdentityTests: XCTestCase {
         XCTAssertFalse(event.exposesProviderConsole)
         let files = WebMediaDLFilesDestination(bookmark: bookmark)
         XCTAssertTrue(files.allows("/Users/me/Movies/out.mp4"))
+        for surface in [WebMediaDLSurface.macos, .ios, .ipados, .visionos] {
+            let request = WebMediaDLLoopbackClient().submitRequest(
+                locator: "https://example.com/a.mp4",
+                surface: surface,
+                destinationKind: "files_app",
+                destinationPath: "/Users/me/Movies",
+                approvedRoots: ["/Users/me/Movies"],
+                bookmarkData: Data("bookmark".utf8)
+            )
+            let body = String(data: request.httpBody ?? Data(), encoding: .utf8) ?? ""
+            XCTAssertTrue(body.contains("files_app"), surface.rawValue)
+            XCTAssertTrue(body.contains("security_scoped_path"), surface.rawValue)
+            XCTAssertTrue(body.contains("security_scoped_bookmark"), surface.rawValue)
+            XCTAssertTrue(body.contains(surface.rawValue), surface.rawValue)
+        }
         let request = WebMediaDLLoopbackClient().submitRequest(
             locator: "https://example.com/a.mp4",
             surface: .macos,

@@ -4,7 +4,7 @@ import WebMediaDLCore
 /// tvOS App Intent: speak or capture a URL for Mac relay. Not a subprocess worker.
 /// Speak intake uses intakeKind: "speak" on the Mac after companion transport delivery.
 public struct WebMediaDLTVSubmitURLIntent: AppIntent {
-    public static var title: LocalizedStringResource = "Send to WebMedia DL"
+    public static let title: LocalizedStringResource = "Send to WebMedia DL"
 
     @Parameter(title: "Media URL")
     public var locator: String
@@ -26,13 +26,15 @@ public struct WebMediaDLTVSubmitURLIntent: AppIntent {
 
 public struct WebMediaDLTVShortcuts: AppShortcutsProvider {
     public static var appShortcuts: [AppShortcut] {
-        AppShortcut(
-            intent: WebMediaDLTVSubmitURLIntent(),
-            phrases: [
-                "Speak a media URL to \(.applicationName)",
-            ],
-            shortTitle: "Send to WebMedia DL",
-            systemImageName: "arrow.down.circle"
-        )
+        [
+            AppShortcut(
+                intent: WebMediaDLTVSubmitURLIntent(),
+                phrases: [
+                    "Speak a media URL to \(.applicationName)",
+                ],
+                shortTitle: "Send to WebMedia DL",
+                systemImageName: "arrow.down.circle"
+            ),
+        ]
     }
 }

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, NoReturn
 from uuid import UUID
 
 import typer
@@ -36,6 +36,12 @@ app = typer.Typer(
 def _pipeline(data_dir: Path | None) -> Pipeline:
     settings = Settings(data_dir=data_dir)
     return Pipeline(data_dir=settings.resolved_data_dir())
+
+
+def _fail_cli(exc: BaseException) -> NoReturn:
+    message = "Unknown job" if isinstance(exc, KeyError) else str(exc)
+    typer.echo(message)
+    raise typer.Exit(code=1) from exc
 
 
 def _reject_unknown_preset(preset: str) -> None:
@@ -284,9 +290,8 @@ def companion(
     payload["surface"] = surface.value
     try:
         result = pipeline.handle_companion(payload)
-    except WebMediaError as exc:
-        typer.echo(str(exc))
-        raise typer.Exit(code=1) from exc
+    except (WebMediaError, KeyError) as exc:
+        _fail_cli(exc)
     typer.echo(json.dumps(result, indent=2, default=str))
 
 
@@ -306,17 +311,20 @@ def plan_cmd(
     _reject_unknown_preset(preset)
     pipeline = _pipeline(data_dir)
     html_text = html.read_text(encoding="utf-8") if html else None
-    payload = pipeline.explain(
-        locator,
-        surface=surface,
-        html=html_text,
-        intent=ExportIntent(
-            preset_id=preset,
-            allow_lossy=allow_lossy,
-            container_preference=container,
-        ),
-        local_user_confirmed=True,
-    )
+    try:
+        payload = pipeline.explain(
+            locator,
+            surface=surface,
+            html=html_text,
+            intent=ExportIntent(
+                preset_id=preset,
+                allow_lossy=allow_lossy,
+                container_preference=container,
+            ),
+            local_user_confirmed=True,
+        )
+    except WebMediaError as exc:
+        _fail_cli(exc)
     typer.echo(json.dumps(payload, indent=2, default=str))
 
 
@@ -327,7 +335,10 @@ def job(
 ) -> None:
     """Show one job and its events."""
     pipeline = _pipeline(data_dir)
-    record = pipeline.job(job_id)
+    try:
+        record = pipeline.job(job_id)
+    except KeyError as exc:
+        _fail_cli(exc)
     events = [event.model_dump(mode="json") for event in pipeline.queue.events_for(job_id)]
     typer.echo(
         json.dumps({"job": record.model_dump(mode="json"), "events": events}, indent=2, default=str)
@@ -434,9 +445,8 @@ def cancel(
     pipeline = _pipeline(data_dir)
     try:
         record = pipeline.cancel(job_id)
-    except CancelledError as exc:
-        typer.echo(str(exc))
-        raise typer.Exit(code=1) from exc
+    except (CancelledError, KeyError) as exc:
+        _fail_cli(exc)
     typer.echo(record.model_dump_json(indent=2))
 
 
@@ -451,7 +461,10 @@ def pause_cmd(
     if queue or job_id is None:
         typer.echo(json.dumps(pipeline.pause_queue(), indent=2))
         return
-    record = pipeline.pause_job(job_id)
+    try:
+        record = pipeline.pause_job(job_id)
+    except (WebMediaError, KeyError) as exc:
+        _fail_cli(exc)
     typer.echo(record.model_dump_json(indent=2))
 
 
@@ -466,7 +479,10 @@ def resume_cmd(
     if queue or job_id is None:
         typer.echo(json.dumps(pipeline.resume_queue(), indent=2))
         return
-    record = pipeline.resume_job(job_id)
+    try:
+        record = pipeline.resume_job(job_id)
+    except (WebMediaError, KeyError) as exc:
+        _fail_cli(exc)
     typer.echo(record.model_dump_json(indent=2))
 
 

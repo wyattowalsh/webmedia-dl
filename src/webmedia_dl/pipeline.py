@@ -38,6 +38,7 @@ from webmedia_dl.errors import (
     DrmRefused,
     PauseRequested,
     ProviderPolicyError,
+    PublicationError,
     RequiredOperationFailed,
     WebMediaError,
 )
@@ -314,19 +315,12 @@ class Pipeline:
             if not sources:
                 self._check_control(job.job_id)
                 self.queue.set_state(job.job_id, JobState.ACQUIRING)
-                artifact = self.store.register(
+                artifact = self._register_acquired(
+                    job,
                     Path(job.source.local_path),
-                    role=ArtifactRole.SOURCE,
                     media_kind=chosen[0].media_kind,
-                    provenance={"provider": "local-file", "job_id": str(job.job_id)},
-                )
-                self.queue.emit(
-                    job.job_id,
-                    EventType.SOURCE_REGISTERED,
-                    {"artifact_id": artifact.artifact_id, "provider": "local-file"},
-                )
-                self._record_probe(
-                    job, artifact, Path(job.source.local_path), chosen[0].candidate_id
+                    provider="local-file",
+                    candidate_id=chosen[0].candidate_id,
                 )
                 sources.append(artifact)
                 acquired_kinds.add(chosen[0].media_kind.value)
@@ -524,7 +518,10 @@ class Pipeline:
             raise ProviderPolicyError(msg)
 
         self.queue.set_state(job.job_id, JobState.PUBLISHING)
-        published = publish_artifacts(publishable, job.intent)
+        try:
+            published = publish_artifacts(publishable, job.intent)
+        except OSError as exc:
+            raise PublicationError(str(exc)) from exc
         self.queue.emit(
             job.job_id,
             EventType.PUBLISHED,
@@ -585,23 +582,7 @@ class Pipeline:
             try:
                 self._authorize(strategy.capability_id)
                 if strategy.capability_id == "live.record_clear_manifest":
-                    live_artifacts = self._record_live(job, candidate, staging)
-                    for live_artifact in live_artifacts:
-                        self.queue.emit(
-                            job.job_id,
-                            EventType.SOURCE_REGISTERED,
-                            {
-                                "artifact_id": live_artifact.artifact_id,
-                                "provider": strategy.provider_id,
-                            },
-                        )
-                        self._record_probe(
-                            job,
-                            live_artifact,
-                            self.store.resolve(live_artifact),
-                            candidate.candidate_id,
-                        )
-                    artifact = live_artifacts
+                    artifact = self._record_live(job, candidate, staging)
                     break
                 request = ProviderRequest(
                     provider_id=strategy.provider_id,
@@ -645,25 +626,13 @@ class Pipeline:
                 for path in paths:
                     suffix = path.suffix.lower()
                     kind = DIRECT_EXTENSIONS.get(suffix, candidate.media_kind)
-                    item = self.store.register(
+                    item = self._register_acquired(
+                        job,
                         path,
-                        role=ArtifactRole.SOURCE,
                         media_kind=kind,
-                        provenance={
-                            "provider": strategy.provider_id,
-                            "job_id": str(job.job_id),
-                            "member_of": candidate.media_kind.value,
-                        },
+                        provider=strategy.provider_id,
+                        candidate_id=candidate.candidate_id,
                     )
-                    self.queue.emit(
-                        job.job_id,
-                        EventType.SOURCE_REGISTERED,
-                        {
-                            "artifact_id": item.artifact_id,
-                            "provider": strategy.provider_id,
-                        },
-                    )
-                    self._record_probe(job, item, self.store.resolve(item), candidate.candidate_id)
                     registered.append(item)
                 if registered:
                     artifact = registered
@@ -672,9 +641,9 @@ class Pipeline:
                     f"{strategy.provider_id} produced no source files",
                 )
                 continue
-            except (PauseRequested, CancelledError):
+            except (PauseRequested, CancelledError, DrmRefused):
                 raise
-            except (DrmRefused, WebMediaError) as exc:
+            except WebMediaError as exc:
                 last_error = exc
                 continue
         if artifact is None:
@@ -704,14 +673,50 @@ class Pipeline:
         artifacts = []
         for kind, path in recorded:
             artifacts.append(
-                self.store.register(
+                self._register_acquired(
+                    job,
                     path,
-                    role=ArtifactRole.SOURCE,
                     media_kind=kind,
-                    provenance={"provider": "live-clear-record", "job_id": str(job.job_id)},
+                    provider="live-clear-record",
+                    candidate_id=candidate.candidate_id,
                 )
             )
         return artifacts
+
+    def _register_acquired(
+        self,
+        job: Job,
+        path: Path,
+        *,
+        media_kind: MediaKind,
+        provider: str,
+        candidate_id,
+    ):
+        probe = probe_media(path, candidate_id=candidate_id)
+        encrypted = bool(
+            probe is not None
+            and (any(stream.encrypted for stream in probe.streams) or probe.drm_signals)
+        )
+        item = self.store.register(
+            path,
+            role=ArtifactRole.QUARANTINE if encrypted else ArtifactRole.SOURCE,
+            media_kind=media_kind,
+            provenance={"provider": provider, "job_id": str(job.job_id)},
+        )
+        if encrypted:
+            self.queue.emit(
+                job.job_id,
+                EventType.ACQUISITION_QUARANTINE,
+                {"artifact_id": item.artifact_id},
+            )
+            refuse_drm(probe.drm_signals or ["probe:encrypted-stream"])
+        self.queue.emit(
+            job.job_id,
+            EventType.SOURCE_REGISTERED,
+            {"artifact_id": item.artifact_id, "provider": provider},
+        )
+        self._record_probe(job, item, path, candidate_id)
+        return item
 
     def _manifest_candidates(self, job: Job, *, staging: Path | None) -> list[MediaCandidate]:
         url = job.source.normalized_url
@@ -970,6 +975,8 @@ class Pipeline:
         )
         graph = build_graph(source.source_id, candidates)
         chosen = preferred_by_kind(graph)
+        for candidate in chosen:
+            refuse_drm(candidate.drm_signals)
         strategies: list[dict[str, Any]] = []
         mixed: list[dict[str, Any]] = []
         for candidate in chosen:

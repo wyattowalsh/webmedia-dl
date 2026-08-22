@@ -75,6 +75,7 @@ def test_wheel_contains_runtime_and_cli(tmp_path: Path) -> None:
     assert help_out.returncode == 0, help_out.stderr
     assert "webmedia-dl" in help_out.stdout
     assert "wmdl" not in help_out.stdout.split("Usage")[0]
+    assert not (venv / "bin" / "wmdl").exists()
     packaged = tmp_path / "extensions"
     packaged_out = subprocess.run(
         [

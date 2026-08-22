@@ -347,6 +347,9 @@ def test_companion_transport_and_typed_history() -> None:
     assert "struct WebMediaDLMacCompanionForwarder" in continuity
     assert "func send(_ message: WebMediaDLCompanionMessage)" in continuity
     assert "func forward(" in continuity
+    assert "func forward(_ relay: WebMediaDLCompanionRelay)" in continuity
+    assert "func forward(_ relay: inout" not in continuity
+    assert "_ relay: inout WebMediaDLCompanionRelay" not in continuity
     assert "receiveWatchConnectivityUserInfo" in continuity
     assert "var surface:" in continuity
     watch = (root / ROOT_VIEWS["watchos"]).read_text(encoding="utf-8")
@@ -380,6 +383,9 @@ def test_companion_transport_and_typed_history() -> None:
     assert "sessionKey: token" not in mac
     assert 'nonce: "wrap"' not in mac
     assert "forwardSealed(" in mac
+    assert "var relay = companionRelay" in mac
+    assert "companionRelay = WebMediaDLCompanionRelay()" in mac
+    assert "&companionRelay" not in mac
     assert "sessionKey: sessionKey" in mac
     assert "sendResponse(" in mac
     assert "sessionKey(from:" in mac
@@ -485,6 +491,10 @@ def test_companion_transport_and_typed_history() -> None:
         text = (root / rel).read_text(encoding="utf-8")
         assert 'intakeKind: "speak"' in text
         assert "AppShortcutsProvider" in text
+        assert "public static let title" in text
+        assert "public static var title" not in text
+        assert "public static var appShortcuts: [AppShortcut]" in text
+        assert "[\n            AppShortcut(" in text or "[\n        AppShortcut(" in text
     for rel in SHARE_PRINCIPALS:
         sources = list((root / rel).glob("*ShareExtension.swift"))
         assert sources, rel
