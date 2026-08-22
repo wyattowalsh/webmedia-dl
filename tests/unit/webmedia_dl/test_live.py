@@ -95,6 +95,12 @@ def test_relative_segment_urls_join_base() -> None:
     assert recordable_segment_urls(absolute, "https://cdn.example.com/live/index.m3u8") == [
         "https://cdn.example.com/abs.ts"
     ]
+    assert recordable_segment_urls(
+        "#EXTM3U\nseg.ts\n", "https://cdn.example.com/live/index.m3u8/"
+    ) == ["https://cdn.example.com/live/seg.ts"]
+    assert recordable_segment_urls(
+        "#EXTM3U\nseg.ts\n", "https://cdn.example.com/live/index.m3u8/?token=1"
+    ) == ["https://cdn.example.com/live/seg.ts"]
 
 
 def test_encrypted_master_refused_before_fetch(tmp_path: Path) -> None:

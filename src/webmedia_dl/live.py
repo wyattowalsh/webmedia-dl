@@ -202,6 +202,11 @@ def recordable_parts(text: str, base: str) -> list[ManifestPart]:
 
 
 def _join(base: str, href: str) -> str:
+    if _live_playlist_locator(base):
+        parsed = urlparse(base)
+        stripped = parsed.path.rstrip("/")
+        if parsed.path != stripped:
+            base = parsed._replace(path=stripped).geturl()
     return urljoin(base, href)
 
 
