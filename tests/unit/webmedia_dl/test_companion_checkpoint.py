@@ -1,5 +1,5 @@
 from pathlib import Path
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -183,6 +183,61 @@ def test_companion_endpoint_requires_mac_actor(tmp_path: Path) -> None:
         json={"kind": "resume"},
         headers={"Authorization": f"Bearer {token}"},
     )
+
+
+def test_companion_mac_bearer_does_not_skip_pairing_headers(tmp_path: Path) -> None:
+    app = create_app(tmp_path)
+    token = load_or_create_token(tmp_path)
+    client = TestClient(app)
+    mac = {"Authorization": f"Bearer {token}"}
+    unknown = str(uuid4())
+    capture = client.post(
+        "/v1/companion",
+        headers={
+            **mac,
+            "X-WebMedia-Pairing": unknown,
+            "X-WebMedia-Session": "sess",
+        },
+        json={
+            "kind": "capture",
+            "locator": "https://cdn.example.com/a.mp4",
+            "nativeCommand": None,
+            "subprocessWorker": False,
+        },
+    )
+    assert capture.status_code == 401
+    assert client.get("/v1/jobs", headers=mac).json() == []
+    created = client.post("/v1/pair", headers=mac)
+    pairing_id = created.json()["pairing_id"]
+    unconfirmed = client.post(
+        "/v1/companion",
+        headers={
+            **mac,
+            "X-WebMedia-Pairing": pairing_id,
+            "X-WebMedia-Session": "preview",
+        },
+        json={"kind": "status", "nativeCommand": None, "subprocessWorker": False},
+    )
+    assert unconfirmed.status_code == 401
+    confirmed = client.post("/v1/pair/confirm", headers=mac, json={"pairing_id": pairing_id})
+    session_key = confirmed.json()["session_key"]
+    ok = client.post(
+        "/v1/companion",
+        headers={
+            **mac,
+            "X-WebMedia-Pairing": pairing_id,
+            "X-WebMedia-Session": session_key,
+        },
+        json={"kind": "status", "nativeCommand": None, "subprocessWorker": False},
+    )
+    assert ok.status_code == 200
+    assert ok.json()["paused"] is False
+    incomplete = client.post(
+        "/v1/companion",
+        headers={**mac, "X-WebMedia-Pairing": pairing_id},
+        json={"kind": "status", "nativeCommand": None, "subprocessWorker": False},
+    )
+    assert incomplete.status_code == 401
 
 
 def test_companion_pause_and_resume_job(tmp_path: Path, png_bytes: bytes) -> None:

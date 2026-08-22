@@ -433,12 +433,24 @@ def create_app(data_dir: Path | None = None, *, enable_dispatcher: bool = False)
         return opened
 
     @app.post("/v1/companion")
-    def companion(body: CompanionBody, auth: dict[str, str] = Depends(require_auth)) -> dict:
+    def companion(
+        body: CompanionBody,
+        auth: dict[str, str] = Depends(require_auth),
+        x_pairing: str | None = Header(default=None, alias="X-WebMedia-Pairing"),
+        x_session: str | None = Header(default=None, alias="X-WebMedia-Session"),
+    ) -> dict:
         if auth.get("actor") != "mac":
             raise HTTPException(
                 status_code=403,
                 detail="Companion messages are forwarded by the Mac worker only.",
             )
+        pairing_header = (x_pairing or "").strip()
+        session_header = (x_session or "").strip()
+        if pairing_header or session_header:
+            try:
+                pipeline.pairing.require_confirmed(UUID(pairing_header), session_header)
+            except (DelegationDenied, ValueError) as exc:
+                raise HTTPException(status_code=401, detail="Unauthorized pairing") from exc
         sealed = bool(body.nonce and body.ciphertext and body.mac)
         try:
             if sealed:

@@ -913,6 +913,9 @@ def test_github_ci_compiles_apple_packages() -> None:
     assert "macOnlyEndpoint" in paired_mac
     assert "invalidJSON" in paired_mac
     assert "loopbackToken" in paired_mac
+    assert 'url.scheme?.lowercased() == "http"' in paired_mac
+    assert "omittingEmptySubsequences: false" in paired_mac
+    assert "compactMap { Int($0) }" not in paired_mac
     assert 'forHTTPHeaderField: "X-WebMedia-Token"' in paired_mac
     assert "enum WebMediaDLCompleteClientControl" in paired_mac
     assert "unknown complete-client control" in paired_mac

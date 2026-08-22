@@ -2,6 +2,11 @@
 
 ## 0.1.0
 
+- Companion `/v1/companion` still requires the Mac actor, and pairing
+  headers on that path must be a confirmed pairing even when the Mac
+  loopback bearer is present. Relay URLs must be `http` private LAN,
+  `.local`, or loopback; HTTPS and extra-label hosts such as
+  `10.0.0.1.example.com` are refused.
 - Swift `WebMediaDLExportIntent` shares the Python alphanumeric
   `container_preference` allowlist (1–12) and refuses hostile JSON decode.
 - CLI `--container` and `POST /v1/jobs` / `/v1/plan` refuse hostile

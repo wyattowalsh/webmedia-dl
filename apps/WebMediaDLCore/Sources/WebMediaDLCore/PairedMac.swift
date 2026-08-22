@@ -55,17 +55,27 @@ public struct WebMediaDLPairedMacEndpoint: Sendable {
     }
 
     public static func isAllowedRelay(_ url: URL) -> Bool {
+        guard url.scheme?.lowercased() == "http" else { return false }
         guard let host = url.host?.lowercased(), !host.isEmpty else { return false }
         if host == "127.0.0.1" || host == "localhost" || host == "::1" || host == "[::1]" {
             return true
         }
         if host.hasSuffix(".local") { return true }
-        let parts = host.split(separator: ".").compactMap { Int($0) }
-        if parts.count == 4 {
-            if parts[0] == 10 { return true }
-            if parts[0] == 192 && parts[1] == 168 { return true }
-            if parts[0] == 172 && (16 ... 31).contains(parts[1]) { return true }
+        let labels = host.split(separator: ".", omittingEmptySubsequences: false)
+        guard labels.count == 4 else { return false }
+        var parts: [Int] = []
+        for label in labels {
+            guard let value = Int(label),
+                  (0...255).contains(value),
+                  String(value) == String(label)
+            else {
+                return false
+            }
+            parts.append(value)
         }
+        if parts[0] == 10 { return true }
+        if parts[0] == 192 && parts[1] == 168 { return true }
+        if parts[0] == 172 && (16 ... 31).contains(parts[1]) { return true }
         return false
     }
 

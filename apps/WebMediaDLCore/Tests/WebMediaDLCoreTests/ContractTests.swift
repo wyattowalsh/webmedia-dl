@@ -381,6 +381,15 @@ final class ContractTests: XCTestCase {
         XCTAssertTrue(
             WebMediaDLPairedMacEndpoint.isAllowedRelay(URL(string: "http://192.168.1.9:8766")!)
         )
+        XCTAssertTrue(
+            WebMediaDLPairedMacEndpoint.isAllowedRelay(URL(string: "http://127.0.0.1:8766")!)
+        )
+        XCTAssertFalse(
+            WebMediaDLPairedMacEndpoint.isAllowedRelay(URL(string: "https://192.168.1.9:8766")!)
+        )
+        XCTAssertFalse(
+            WebMediaDLPairedMacEndpoint.isAllowedRelay(URL(string: "http://10.0.0.1.example.com:8766")!)
+        )
         let suiteName = "webmedia-dl.tests.\(UUID().uuidString)"
         let suite = UserDefaults(suiteName: suiteName)!
         XCTAssertTrue(
