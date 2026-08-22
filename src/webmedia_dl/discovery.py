@@ -47,6 +47,7 @@ DIRECT_EXTENSIONS = {
     ".vtt": MediaKind.SUBTITLE,
     ".srt": MediaKind.SUBTITLE,
     ".m3u8": MediaKind.LIVE_STREAM,
+    ".m3u": MediaKind.LIVE_STREAM,
     ".mpd": MediaKind.LIVE_STREAM,
 }
 
@@ -264,6 +265,21 @@ def _kind_from_mime(mime: str | None) -> MediaKind | None:
     if text.startswith("image/"):
         return MediaKind.IMAGE
     return None
+
+
+_MPD_HINT = re.compile(r"<[A-Za-z_][\w.-]*:?MPD\b", re.I)
+
+
+def _sniff_live_manifest(content_type: str, body: str) -> bool:
+    """True when a non-HTML fetch is itself an HLS/DASH playlist."""
+    if _kind_from_mime(content_type) is MediaKind.LIVE_STREAM:
+        return True
+    stripped = body.lstrip()
+    if stripped.startswith("#EXTM3U"):
+        return True
+    if "html" in content_type.lower():
+        return False
+    return _MPD_HINT.search(stripped[:8192]) is not None
 
 
 def is_direct_media_url(url: str) -> bool:
@@ -537,6 +553,18 @@ def discover(
         if len(data) > profile.max_html_bytes:
             data = data[: profile.max_html_bytes]
         body = data.decode("utf-8", errors="replace")
+        if _sniff_live_manifest(content_type, body):
+            drm = detect_drm_signals(body[:2048])
+            return [
+                _candidate(
+                    source,
+                    url,
+                    MediaKind.LIVE_STREAM,
+                    evidence=["intake:manifest"],
+                    drm=drm,
+                ),
+                *_candidates_from_evidence(source, evidence, url, profile),
+            ]
         if "html" not in content_type and not body.lstrip().lower().startswith("<"):
             drm = detect_drm_signals(body[:2048])
             sniff = MediaKind.UNKNOWN

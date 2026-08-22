@@ -238,6 +238,14 @@ describe("collectMediaEvidence", () => {
             { getAttribute: (name) => (name === "data" ? "https://cdn.example.com/object.js" : null) },
           ];
         }
+        if (selector.includes("a[href]")) {
+          return [
+            {
+              getAttribute: (name) =>
+                name === "href" ? "https://cdn.example.com/classic.m3u" : null,
+            },
+          ];
+        }
         if (selector.includes("link[href]")) {
           return [
             {
@@ -317,6 +325,7 @@ describe("collectMediaEvidence", () => {
     const urls = result.evidence.map((item) => item.url);
     const byUrl = Object.fromEntries(result.evidence.map((item) => [item.url, item.kind]));
     assert.ok(urls.includes("https://cdn.example.com/live.m3u8"));
+    assert.ok(urls.includes("https://cdn.example.com/classic.m3u"));
     assert.ok(!urls.includes("https://cdn.example.com/embed.js"));
     assert.ok(!urls.includes("https://cdn.example.com/object.js"));
     assert.ok(urls.includes("https://cdn.example.com/pre.mp4"));

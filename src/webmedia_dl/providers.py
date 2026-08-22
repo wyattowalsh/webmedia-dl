@@ -677,6 +677,7 @@ def _http_suffix(url: str, headers: dict[str, str], body: bytes) -> str:
         ".vtt",
         ".srt",
         ".m3u8",
+        ".m3u",
         ".mpd",
     ):
         if path.endswith(ext):

@@ -188,6 +188,8 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
       </head>
       <body>
         <iframe src="https://cdn.example.com/player.m3u8"></iframe>
+        <video src="https://cdn.example.com/classic.m3u"></video>
+        <a href="https://cdn.example.com/listed.m3u">playlist</a>
       </body>
     </html>
     """
@@ -240,6 +242,8 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
     assert kinds["https://cdn.example.com/alt.mpd"] is MediaKind.LIVE_STREAM
     assert kinds["https://cdn.example.com/alt.m3u8"] is MediaKind.LIVE_STREAM
     assert kinds["https://cdn.example.com/playlist.json"] is MediaKind.LIVE_STREAM
+    assert kinds["https://cdn.example.com/classic.m3u"] is MediaKind.LIVE_STREAM
+    assert kinds["https://cdn.example.com/listed.m3u"] is MediaKind.LIVE_STREAM
     object_id = """
     <html><body>
       <script type="application/ld+json">
@@ -391,6 +395,40 @@ def test_page_discovery_http_error_non_html_and_jsonld_podcast() -> None:
         fetch=lambda url: (200, "application/octet-stream", b"\x00\x01not-html"),
     )
     assert sniffed[0].evidence_refs == ["intake:bytes"]
+    assert sniffed[0].media_kind is MediaKind.UNKNOWN
+    hls = discover(
+        _source(),
+        profile,
+        fetch=lambda url: (200, "application/octet-stream", b"#EXTM3U\n#EXTINF:1,\nseg.ts\n"),
+    )
+    assert hls[0].media_kind is MediaKind.LIVE_STREAM
+    assert hls[0].evidence_refs == ["intake:manifest"]
+    mpegurl = discover(
+        _source(),
+        profile,
+        fetch=lambda url: (200, "application/vnd.apple.mpegurl", b"#EXTM3U\nseg.ts\n"),
+    )
+    assert mpegurl[0].media_kind is MediaKind.LIVE_STREAM
+    dash = discover(
+        _source(),
+        profile,
+        fetch=lambda url: (
+            200,
+            "application/octet-stream",
+            b'<MPD xmlns="urn:mpeg:dash:schema:mpd:2011"><Period/></MPD>',
+        ),
+    )
+    assert dash[0].media_kind is MediaKind.LIVE_STREAM
+    classic = MediaSource(
+        kind=IntakeKind.URL,
+        locator="https://cdn.example.com/live.m3u",
+        normalized_url="https://cdn.example.com/live.m3u",
+        surface=Surface.CLI,
+        policy_profile_id="personal-full",
+    )
+    direct = discover(classic, profile)
+    assert direct[0].media_kind is MediaKind.LIVE_STREAM
+    assert direct[0].evidence_refs == ["intake:direct"]
     html = """
     <html>
       <script type="application/ld+json">{not-json</script>

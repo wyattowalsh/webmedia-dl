@@ -53,6 +53,22 @@ def test_pipeline_records_clear_hls(tmp_data: Path) -> None:
         if item.media_kind is MediaKind.LIVE_STREAM
     }
     assert live_bytes == {b"SEGMENT", b"PLAINLIVE"}
+    bodies["https://cdn.example.com/live.m3u"] = b"#EXTM3U\n#EXTINF:1,\nm3u.ts\n"
+    bodies["https://cdn.example.com/m3u.ts"] = b"M3ULIVE"
+    job = pipeline.submit("https://cdn.example.com/live.m3u")
+    assert job.state is JobState.COMPLETED
+    ranked = [
+        event.payload["strategies"]
+        for event in pipeline.queue.events_for(job.job_id)
+        if event.type is EventType.PLAN_RANKED
+    ]
+    assert ranked == [["live-clear-record"]]
+    live_bytes = {
+        pipeline.store.resolve(item).read_bytes()
+        for item in pipeline.store._records.values()
+        if item.media_kind is MediaKind.LIVE_STREAM
+    }
+    assert live_bytes == {b"SEGMENT", b"PLAINLIVE", b"M3ULIVE"}
 
 
 def test_live_playlist_fetch_uses_download_bound(

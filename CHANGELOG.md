@@ -2,6 +2,13 @@
 
 ## 0.1.0
 
+- Plan `live.record_clear_manifest` for `.m3u` locators and for non-HTML fetches
+  whose `Content-Type` or body is HLS (`#EXTM3U` / `mpegurl`) or DASH (`dash+xml`
+  / `<MPD>`). Those URLs were `unknown` and ranked `ytdlp` instead of the
+  clear recorder. GitHub Actions `32587585576` on `46369ba` passed Python
+  (626 pytest, 100%), doctor provider probes, and Swift (18 tests, 0 failures;
+  12× BUILD SUCCEEDED) after binding DASH BaseURL `$RepresentationID$` /
+  `$Bandwidth$` tokens.
 - Bind DASH AdaptationSet/Representation `BaseURL` `$RepresentationID$` and
   `$Bandwidth$` tokens to the child Representation so locators are
   `…/v1/seg1.m4s` instead of a literal `$RepresentationID$` path. Collapse
