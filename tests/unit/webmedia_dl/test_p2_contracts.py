@@ -31,6 +31,7 @@ from webmedia_dl.live import (
     ManifestPart,
     hls_audio_playlist_urls,
     hls_subtitle_playlist_urls,
+    hls_video_playlist_urls,
     manifest_is_live,
     record_clear_stream,
     record_kind_streams,
@@ -576,7 +577,8 @@ def test_hls_live_poll_stops_on_later_aes128(tmp_path: Path) -> None:
         "#EXTM3U\n"
         '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",URI="audio.m3u8"\n'
         '#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",URI="subs.vtt"\n'
-        '#EXT-X-STREAM-INF:BANDWIDTH=1,AUDIO="aac",SUBTITLES="subs"\n'
+        '#EXT-X-MEDIA:TYPE=VIDEO,GROUP-ID="vid",URI="angle.m3u8"\n'
+        '#EXT-X-STREAM-INF:BANDWIDTH=1,AUDIO="aac",SUBTITLES="subs",VIDEO="vid"\n'
         "video.m3u8\n"
     )
     video_rounds = [first, second]
@@ -589,7 +591,7 @@ def test_hls_live_poll_stops_on_later_aes128(tmp_path: Path) -> None:
             return 200, "application/vnd.apple.mpegurl", payload.encode()
         if url.endswith("seg1.ts"):
             return 200, "video/MP2T", b"A"
-        if url.endswith(("audio.m3u8", "subs.vtt", "secret.ts")) or "key" in url:
+        if url.endswith(("audio.m3u8", "subs.vtt", "angle.m3u8", "secret.ts")) or "key" in url:
             raise AssertionError(url)
         return 200, "application/vnd.apple.mpegurl", master.encode()
 
@@ -602,7 +604,7 @@ def test_hls_live_poll_stops_on_later_aes128(tmp_path: Path) -> None:
     )
     assert recorded == [(MediaKind.VIDEO, tmp_path / "mux.bin")]
     assert (tmp_path / "mux.bin").read_bytes() == b"A"
-    assert not any(item.endswith(("audio.m3u8", "subs.vtt")) for item in skipped)
+    assert not any(item.endswith(("audio.m3u8", "subs.vtt", "angle.m3u8")) for item in skipped)
 
 
 def test_hls_live_poll_keeps_prefix_when_playlist_fetch_fails(tmp_path: Path) -> None:
@@ -919,6 +921,9 @@ def test_hls_audio_media_skips_non_audio_and_duplicates() -> None:
     assert hls_audio_playlist_urls(text, "https://cdn.example.com/") == [
         "https://cdn.example.com/a.m3u8"
     ]
+    assert hls_video_playlist_urls(text, "https://cdn.example.com/") == [
+        "https://cdn.example.com/v.m3u8"
+    ]
     defaulted = (
         "#EXTM3U\n"
         '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="commentary",URI="comment.m3u8"\n'
@@ -1025,6 +1030,44 @@ def test_hls_audio_media_skips_non_audio_and_duplicates() -> None:
         "video.m3u8\n"
     )
     assert hls_subtitle_playlist_urls(muxed_subs, "https://cdn.example.com/") == []
+    videos = (
+        "#EXTM3U\n"
+        '#EXT-X-MEDIA:TYPE=VIDEO,GROUP-ID="vid",NAME="alt",URI="alt.m3u8"\n'
+        '#EXT-X-MEDIA:TYPE=VIDEO,GROUP-ID="vid",NAME="main",DEFAULT=YES,URI="angle.m3u8"\n'
+        '#EXT-X-MEDIA:TYPE=VIDEO,GROUP-ID="other",URI="other.m3u8"\n'
+        '#EXT-X-STREAM-INF:BANDWIDTH=800000,VIDEO="vid"\n'
+        "audio-only.m3u8\n"
+    )
+    assert hls_video_playlist_urls(videos, "https://cdn.example.com/") == [
+        "https://cdn.example.com/angle.m3u8",
+        "https://cdn.example.com/alt.m3u8",
+    ]
+    autoselect_videos = (
+        "#EXTM3U\n"
+        '#EXT-X-MEDIA:TYPE=VIDEO,GROUP-ID="vid",NAME="alt",URI="alt.m3u8"\n'
+        '#EXT-X-MEDIA:TYPE=VIDEO,GROUP-ID="vid",NAME="main",AUTOSELECT=YES,URI="angle.m3u8"\n'
+        '#EXT-X-STREAM-INF:BANDWIDTH=800000,VIDEO="vid"\n'
+        "audio-only.m3u8\n"
+    )
+    assert hls_video_playlist_urls(autoselect_videos, "https://cdn.example.com/") == [
+        "https://cdn.example.com/angle.m3u8",
+        "https://cdn.example.com/alt.m3u8",
+    ]
+    missing_videos = (
+        "#EXTM3U\n"
+        '#EXT-X-MEDIA:TYPE=VIDEO,GROUP-ID="vid",URI="angle.m3u8"\n'
+        '#EXT-X-STREAM-INF:BANDWIDTH=800000,VIDEO="nope"\n'
+        "audio-only.m3u8\n"
+    )
+    assert hls_video_playlist_urls(missing_videos, "https://cdn.example.com/") == []
+    muxed_videos = (
+        "#EXTM3U\n"
+        '#EXT-X-MEDIA:TYPE=VIDEO,GROUP-ID="vid",NAME="main",DEFAULT=YES,AUTOSELECT=YES\n'
+        '#EXT-X-MEDIA:TYPE=VIDEO,GROUP-ID="vid",NAME="alt",URI="alt.m3u8"\n'
+        '#EXT-X-STREAM-INF:BANDWIDTH=800000,VIDEO="vid"\n'
+        "video.m3u8\n"
+    )
+    assert hls_video_playlist_urls(muxed_videos, "https://cdn.example.com/") == []
 
 
 def test_hls_audio_playlist_fetch_failure(tmp_path: Path) -> None:
@@ -1073,6 +1116,29 @@ def test_hls_audio_playlist_fetch_failure(tmp_path: Path) -> None:
             "https://cdn.example.com/master.m3u8",
             tmp_path / "subs.bin",
             fetch_sub,
+        )
+    video_master = (
+        "#EXTM3U\n"
+        '#EXT-X-MEDIA:TYPE=VIDEO,GROUP-ID="vid",URI="angle.m3u8"\n'
+        '#EXT-X-STREAM-INF:BANDWIDTH=1,VIDEO="vid"\n'
+        "audio-only.m3u8\n"
+    )
+
+    def fetch_video(url: str) -> tuple[int, str, bytes]:
+        if url.endswith("audio-only.m3u8"):
+            return 200, "application/vnd.apple.mpegurl", b"#EXTM3U\n#EXTINF:1,\na.ts\n"
+        if url.endswith("a.ts"):
+            return 200, "audio/MP2T", b"A"
+        if url.endswith("angle.m3u8"):
+            return 404, "", b""
+        return 200, "application/vnd.apple.mpegurl", video_master.encode()
+
+    with pytest.raises(DiscoveryError, match="video playlist"):
+        record_kind_streams(
+            video_master,
+            "https://cdn.example.com/master.m3u8",
+            tmp_path / "angle.bin",
+            fetch_video,
         )
 
 

@@ -2,6 +2,16 @@
 
 ## 0.1.0
 
+- Record nested HLS `#EXT-X-MEDIA:TYPE=VIDEO` playlists as a VIDEO sidecar.
+  Selection follows the preferred STREAM-INF `VIDEO` group with `DEFAULT=YES`
+  first and `AUTOSELECT=YES` when no default is advertised, so an alternate
+  camera listed first is not recorded. A muxed DEFAULT or AUTOSELECT
+  rendition without URI stays in the variant playlist. Late AES-128 on the
+  variant skips remaining video/audio/subtitle fetches. GitHub Actions
+  `32600992613` on `529c6be` passed Python (626 pytest, 100%), doctor
+  provider probes, and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED)
+  after recording DASH text AdaptationSets as a SUBTITLE sidecar.
+
 - Record DASH text/subtitle AdaptationSets (`contentType="text"`, `text/vtt`,
   `wvtt` / `stpp` / `ttml`) as a separate SUBTITLE sidecar, using the
   highest-bandwidth text Representation. Primary `recordable_parts` still

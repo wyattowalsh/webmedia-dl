@@ -1366,6 +1366,13 @@ def hls_audio_playlist_urls(text: str, base: str) -> list[str]:
     return _hls_rendition_playlist_urls(text, base, media_type="AUDIO", group=group or None)
 
 
+def hls_video_playlist_urls(text: str, base: str) -> list[str]:
+    """Video rendition playlists referenced by the preferred STREAM-INF group."""
+    chosen = _preferred_hls_stream(text, base)
+    group = chosen[1].get("VIDEO") if chosen is not None else None
+    return _hls_rendition_playlist_urls(text, base, media_type="VIDEO", group=group or None)
+
+
 def hls_subtitle_playlist_urls(text: str, base: str) -> list[str]:
     """Subtitle rendition playlists referenced by the preferred STREAM-INF group."""
     chosen = _preferred_hls_stream(text, base)
@@ -1569,7 +1576,7 @@ def _record_hls_sidecar(
     drm_flag: list[bool],
     fail_label: str,
 ) -> None:
-    """Record a nested AUDIO/SUBTITLES playlist, or a direct WebVTT/SRT object."""
+    """Record a nested AUDIO/VIDEO/SUBTITLES playlist, or a direct WebVTT/SRT object."""
     if should_stop is not None:
         should_stop()
     status, _, data = fetch(url)
@@ -1604,7 +1611,7 @@ def record_kind_streams(
     should_stop: StopFn | None = None,
     live_polls: int = 1,
 ) -> list[tuple[MediaKind, Path]]:
-    """Record the primary stream plus audio and subtitle renditions when present."""
+    """Record the primary stream plus audio, video, and subtitle renditions when present."""
     inspect_manifest(playlist_text)
     playlist_text = _without_bom(playlist_text)
     bound = ByteBudget(max_bytes)
@@ -1655,6 +1662,7 @@ def record_kind_streams(
         )
         return [(MediaKind.LIVE_STREAM, output)]
     audio_uris = hls_audio_playlist_urls(playlist_text, playlist_url)
+    video_uris = hls_video_playlist_urls(playlist_text, playlist_url)
     subtitle_uris = hls_subtitle_playlist_urls(playlist_text, playlist_url)
     drm_flag: list[bool] = []
     record_clear_stream(
@@ -1667,11 +1675,24 @@ def record_kind_streams(
         budget=bound,
         drm_flag=drm_flag,
     )
-    if drm_flag or not (audio_uris or subtitle_uris):
+    if drm_flag or not (audio_uris or video_uris or subtitle_uris):
         return [(MediaKind.VIDEO, output)] if audio_uris else [(MediaKind.LIVE_STREAM, output)]
     results: list[tuple[MediaKind, Path]] = (
         [(MediaKind.VIDEO, output)] if audio_uris else [(MediaKind.LIVE_STREAM, output)]
     )
+    if video_uris:
+        video_dest = output.parent / f"{output.stem}-video{output.suffix or '.bin'}"
+        _record_hls_sidecar(
+            video_uris[0],
+            video_dest,
+            fetch,
+            budget=bound,
+            should_stop=should_stop,
+            live_polls=live_polls,
+            drm_flag=drm_flag,
+            fail_label="video",
+        )
+        results.append((MediaKind.VIDEO, video_dest))
     if audio_uris:
         audio_dest = output.parent / f"{output.stem}-audio{output.suffix or '.bin'}"
         _record_hls_sidecar(

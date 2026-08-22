@@ -354,6 +354,62 @@ def test_hls_and_dash_keep_alternate_audio(tmp_path: Path) -> None:
     )
     assert muxed == [(MediaKind.LIVE_STREAM, tmp_path / "muxed.bin")]
     assert (tmp_path / "muxed.bin").read_bytes() == b"VIDEO"
+    video_group = (
+        "#EXTM3U\n"
+        '#EXT-X-MEDIA:TYPE=VIDEO,GROUP-ID="vid",NAME="alt",URI="comment.m3u8"\n'
+        '#EXT-X-MEDIA:TYPE=VIDEO,GROUP-ID="vid",NAME="main",DEFAULT=YES,URI="angle.m3u8"\n'
+        '#EXT-X-STREAM-INF:BANDWIDTH=800000,VIDEO="vid"\n'
+        "video.m3u8\n"
+    )
+    angle = "#EXTM3U\n#EXTINF:1,\nangle.ts\n"
+    video_bodies = {
+        **bodies,
+        "https://cdn.example.com/angle.m3u8": angle.encode(),
+        "https://cdn.example.com/angle.ts": b"ANGLE",
+    }
+
+    def fetch_video(url: str) -> tuple[int, str, bytes]:
+        if url.endswith("comment.m3u8"):
+            raise AssertionError(url)
+        return 200, "application/vnd.apple.mpegurl", video_bodies[url]
+
+    grouped = record_kind_streams(
+        video_group,
+        "https://cdn.example.com/master.m3u8",
+        tmp_path / "angle.bin",
+        fetch_video,
+    )
+    grouped_kinds = {kind for kind, _path in grouped}
+    assert MediaKind.LIVE_STREAM in grouped_kinds
+    assert MediaKind.VIDEO in grouped_kinds
+    assert MediaKind.AUDIO not in grouped_kinds
+    video_path = next(path for kind, path in grouped if kind is MediaKind.VIDEO)
+    assert video_path.name == "angle-video.bin"
+    assert video_path.read_bytes() == b"ANGLE"
+    assert any(
+        kind is MediaKind.LIVE_STREAM and path.read_bytes() == b"VIDEO" for kind, path in grouped
+    )
+    muxed_video = (
+        "#EXTM3U\n"
+        '#EXT-X-MEDIA:TYPE=VIDEO,GROUP-ID="vid",NAME="main",DEFAULT=YES,AUTOSELECT=YES\n'
+        '#EXT-X-MEDIA:TYPE=VIDEO,GROUP-ID="vid",NAME="alt",URI="angle.m3u8"\n'
+        '#EXT-X-STREAM-INF:BANDWIDTH=800000,VIDEO="vid"\n'
+        "video.m3u8\n"
+    )
+
+    def fetch_muxed_video(url: str) -> tuple[int, str, bytes]:
+        if url.endswith("angle.m3u8"):
+            raise AssertionError(url)
+        return 200, "application/vnd.apple.mpegurl", bodies[url]
+
+    muxed_v = record_kind_streams(
+        muxed_video,
+        "https://cdn.example.com/master.m3u8",
+        tmp_path / "muxed-video.bin",
+        fetch_muxed_video,
+    )
+    assert muxed_v == [(MediaKind.LIVE_STREAM, tmp_path / "muxed-video.bin")]
+    assert (tmp_path / "muxed-video.bin").read_bytes() == b"VIDEO"
     dash = """
     <MPD><Period>
       <AdaptationSet contentType="audio">
