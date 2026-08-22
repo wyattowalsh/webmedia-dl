@@ -2,8 +2,8 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 583 tests locally; GitHub Actions `ci` run `32566998821` (`2a5357c`) passed Python (583 pytest, 100%) and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED). `32566609235` (`159b3ce`) passed the same counts for LAN JSON / companion persist / Files replace; `32565897471` (`786e78c`) passed Python (582 pytest, 100%) after the MainActor watch-forward fix; `32565480088` (`7088fda`) passed Python and failed Swift 6 iOS `status` mutation; `32565220846` (`8cc0172`) failed Swift 6 non-Sendable `displayedResponse` closures |
-| `uv run pytest --cov` | PASS | 583 tests at 100% locally (`fail_under` 100); GitHub `32566998821` (`2a5357c`) was 583 tests at 100% |
+| `uv run pytest` | PASS | 583 tests locally; GitHub Actions `ci` run `32567291154` (`9e8a154`) passed Python (583 pytest, 100%) and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED). `32566998821` (`2a5357c`) passed throwing JSON builders; `32566609235` (`159b3ce`) passed LAN JSON / companion persist / Files replace; `32565897471` (`786e78c`) passed Python (582 pytest, 100%) after the MainActor watch-forward fix; `32565480088` (`7088fda`) passed Python and failed Swift 6 iOS `status` mutation; `32565220846` (`8cc0172`) failed Swift 6 non-Sendable `displayedResponse` closures |
+| `uv run pytest --cov` | PASS | 583 tests at 100% locally (`fail_under` 100); GitHub `32567291154` (`9e8a154`) was 583 tests at 100% |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
 | `uv run ty check` | PASS | |
@@ -79,7 +79,7 @@
 | Job-detail / run-next helpers | PASS | unrelated history rows are skipped; empty queue returns `job: null`; a queued job returns events |
 | Swift Core CI job | PASS | GitHub Actions `ci` run `32560244195` on `5cb2090`: `IdentityTests` executed 6 tests, 0 failures on `macos-15` |
 | Swift Core contract tests | PASS | `ContractTests.swift` executed 12 tests, 0 failures with IdentityTests (6) on GitHub `macos-15` run `32560244195` (`5cb2090`) |
-| Apple package compile CI | PASS | GitHub Actions `ci` run `32566998821` on `2a5357c`: Core `swift test` 18 tests, 0 failures (`ContractTests` 12 + `IdentityTests` 6); Safari handler `swiftc -typecheck`; 8× package `BUILD SUCCEEDED` plus 4× unsigned `com.apple.product-type.app-extension` `.appex` (`macho=64` iPhone/iPad/visionOS, `macho=fat` Mac). Device runtime stays BLOCKED |
+| Apple package compile CI | PASS | GitHub Actions `ci` run `32567291154` on `9e8a154`: Core `swift test` 18 tests, 0 failures (`ContractTests` 12 + `IdentityTests` 6); Safari handler `swiftc -typecheck`; 8× package `BUILD SUCCEEDED` plus 4× unsigned `com.apple.product-type.app-extension` `.appex` (`macho=64` iPhone/iPad/visionOS, `macho=fat` Mac). Device runtime stays BLOCKED |
 | OpenSpec scenarios | PASS | every capability spec scenario has WHEN/THEN; each scenario title maps to a named Python or Swift test in a pinned source file; popup markup is parsed; drop records `local_path`; local submit does not upload; job submit forbids native argv; queue-level events use a zero UUID; `wmdl` is not the console script; remux precedes transcode; failed derivatives do not block siblings; `run_next` restores cookie grants, HTML, and browser evidence; unsafe format ids are refused; doctor keeps signing/stores/legal BLOCKED |
 | Builtin manifests / profiles | PASS | every shipped provider sets `install_automatic` false and `accepts_user_argv` false; every shipped profile forbids telemetry, DRM circumvention, and delegation |
 | Graph relation schema | PASS | Swift `WebMediaDLGraphRelation` raw values match `GraphEdge.relation` |

@@ -150,6 +150,44 @@ public enum WebMediaDLWatchCompanionForward {
     }
 }
 
+/// watchOS/tvOS Siri and UI controls build typed companion messages. Unknown kinds fail closed.
+public enum WebMediaDLCompanionControlMessage {
+    public static func make(
+        kind: WebMediaDLCompanionKind,
+        locator: String? = nil,
+        jobId: String? = nil,
+        surface: WebMediaDLSurface
+    ) throws -> WebMediaDLCompanionMessage {
+        let resolvedJobId: String?
+        switch kind {
+        case .cancel, .pauseJob, .resumeJob:
+            resolvedJobId = try WebMediaDLCompanionJobControl.requireJobId(jobId ?? "").uuidString
+        default:
+            resolvedJobId = jobId
+        }
+        let message = WebMediaDLCompanionMessage(
+            kind: kind,
+            locator: locator,
+            jobId: resolvedJobId,
+            surface: surface
+        )
+        try WebMediaDLCompanionMessage.validate(message)
+        return message
+    }
+
+    public static func make(
+        kind: String,
+        locator: String? = nil,
+        jobId: String? = nil,
+        surface: WebMediaDLSurface
+    ) throws -> WebMediaDLCompanionMessage {
+        guard let parsed = WebMediaDLCompanionKind(rawValue: kind) else {
+            throw WebMediaDLDomainError("unknown companion kind")
+        }
+        return try make(kind: parsed, locator: locator, jobId: jobId, surface: surface)
+    }
+}
+
 /// watchOS/tvOS queue companion messages until the Mac forwards them to loopback.
 public struct WebMediaDLCompanionRelay: Sendable {
     public var pending: [WebMediaDLCompanionMessage]

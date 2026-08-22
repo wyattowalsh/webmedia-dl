@@ -16,10 +16,12 @@ public struct WebMediaDLWatchSubmitURLIntent: AppIntent {
     }
 
     public func perform() async throws -> some IntentResult {
-        let bridge = WebMediaDLContinuityBridge()
         let transport = WebMediaDLWatchConnectivityTransport()
-        let message = bridge.message(kind: .capture, locator: locator, surface: .watchos)
-        try await transport.send(message)
+        try await transport.send(
+            try WebMediaDLCompanionControlMessage.make(
+                kind: .capture, locator: locator, surface: .watchos
+            )
+        )
         return .result()
     }
 }
@@ -30,9 +32,10 @@ public struct WebMediaDLWatchPauseIntent: AppIntent {
     public init() {}
 
     public func perform() async throws -> some IntentResult {
-        let bridge = WebMediaDLContinuityBridge()
         let transport = WebMediaDLWatchConnectivityTransport()
-        try await transport.send(bridge.message(kind: .pause, surface: .watchos))
+        try await transport.send(
+            try WebMediaDLCompanionControlMessage.make(kind: .pause, surface: .watchos)
+        )
         return .result()
     }
 }
@@ -43,9 +46,10 @@ public struct WebMediaDLWatchResumeIntent: AppIntent {
     public init() {}
 
     public func perform() async throws -> some IntentResult {
-        let bridge = WebMediaDLContinuityBridge()
         let transport = WebMediaDLWatchConnectivityTransport()
-        try await transport.send(bridge.message(kind: .resume, surface: .watchos))
+        try await transport.send(
+            try WebMediaDLCompanionControlMessage.make(kind: .resume, surface: .watchos)
+        )
         return .result()
     }
 }
@@ -56,9 +60,10 @@ public struct WebMediaDLWatchHistoryIntent: AppIntent {
     public init() {}
 
     public func perform() async throws -> some IntentResult {
-        let bridge = WebMediaDLContinuityBridge()
         let transport = WebMediaDLWatchConnectivityTransport()
-        try await transport.send(bridge.message(kind: .history, surface: .watchos))
+        try await transport.send(
+            try WebMediaDLCompanionControlMessage.make(kind: .history, surface: .watchos)
+        )
         return .result()
     }
 }
@@ -69,9 +74,10 @@ public struct WebMediaDLWatchStatusIntent: AppIntent {
     public init() {}
 
     public func perform() async throws -> some IntentResult {
-        let bridge = WebMediaDLContinuityBridge()
         let transport = WebMediaDLWatchConnectivityTransport()
-        try await transport.send(bridge.message(kind: .status, surface: .watchos))
+        try await transport.send(
+            try WebMediaDLCompanionControlMessage.make(kind: .status, surface: .watchos)
+        )
         return .result()
     }
 }
@@ -89,10 +95,10 @@ public struct WebMediaDLWatchCancelIntent: AppIntent {
     }
 
     public func perform() async throws -> some IntentResult {
-        let id = try WebMediaDLCompanionJobControl.requireJobId(jobId)
-        let bridge = WebMediaDLContinuityBridge()
         let transport = WebMediaDLWatchConnectivityTransport()
-        try await transport.send(bridge.message(kind: .cancel, jobId: id.uuidString, surface: .watchos))
+        try await transport.send(
+            try WebMediaDLCompanionControlMessage.make(kind: .cancel, jobId: jobId, surface: .watchos)
+        )
         return .result()
     }
 }
@@ -110,10 +116,10 @@ public struct WebMediaDLWatchPauseJobIntent: AppIntent {
     }
 
     public func perform() async throws -> some IntentResult {
-        let id = try WebMediaDLCompanionJobControl.requireJobId(jobId)
-        let bridge = WebMediaDLContinuityBridge()
         let transport = WebMediaDLWatchConnectivityTransport()
-        try await transport.send(bridge.message(kind: .pauseJob, jobId: id.uuidString, surface: .watchos))
+        try await transport.send(
+            try WebMediaDLCompanionControlMessage.make(kind: .pauseJob, jobId: jobId, surface: .watchos)
+        )
         return .result()
     }
 }
@@ -131,10 +137,10 @@ public struct WebMediaDLWatchResumeJobIntent: AppIntent {
     }
 
     public func perform() async throws -> some IntentResult {
-        let id = try WebMediaDLCompanionJobControl.requireJobId(jobId)
-        let bridge = WebMediaDLContinuityBridge()
         let transport = WebMediaDLWatchConnectivityTransport()
-        try await transport.send(bridge.message(kind: .resumeJob, jobId: id.uuidString, surface: .watchos))
+        try await transport.send(
+            try WebMediaDLCompanionControlMessage.make(kind: .resumeJob, jobId: jobId, surface: .watchos)
+        )
         return .result()
     }
 }

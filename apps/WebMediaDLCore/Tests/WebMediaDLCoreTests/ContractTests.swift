@@ -411,6 +411,34 @@ final class ContractTests: XCTestCase {
         )
         XCTAssertEqual(WebMediaDLMacWorkerProcess.loopbackHost, "127.0.0.1")
         XCTAssertNil(WebMediaDLMacWorkerProcess.executableURL(pathEnvironment: ""))
+        let dummy = NSObject()
+        let spawned = try await WebMediaDLMacWorkerSupervision.startOrClaimExisting(
+            start: { dummy },
+            health: { XCTFail("spawned worker must not probe health") }
+        )
+        if case .started(let process) = spawned {
+            XCTAssertTrue(process === dummy)
+        } else {
+            XCTFail("successful spawn must start the worker")
+        }
+        let claimed = try await WebMediaDLMacWorkerSupervision.startOrClaimExisting(
+            start: { throw WebMediaDLDomainError("missing binary") },
+            health: { }
+        )
+        if case .claimedExisting(let spawnError) = claimed {
+            XCTAssertTrue(spawnError.contains("missing binary"))
+        } else {
+            XCTFail("healthy existing loopback must be claimed")
+        }
+        do {
+            _ = try await WebMediaDLMacWorkerSupervision.startOrClaimExisting(
+                start: { throw WebMediaDLDomainError("missing binary") },
+                health: { throw WebMediaDLDomainError("not ok") }
+            )
+            XCTFail("unhealthy existing worker must keep the spawn error")
+        } catch let error as WebMediaDLDomainError {
+            XCTAssertTrue(error.message.contains("missing binary"))
+        }
         do {
             _ = try await WebMediaDLPairedMacSubmit.pullToFiles(
                 jobId: pairing,
@@ -752,6 +780,41 @@ final class ContractTests: XCTestCase {
             XCTFail("non-UUID job ids must fail closed")
         } catch WebMediaDLCompanionError.jobIdRequired {
             ()
+        }
+        for kind in [
+            WebMediaDLCompanionKind.capture,
+            .pause,
+            .resume,
+            .history,
+            .status,
+        ] {
+            let message = try WebMediaDLCompanionControlMessage.make(kind: kind, surface: .watchos)
+            XCTAssertEqual(message.kind, kind)
+            XCTAssertNil(message.nativeCommand)
+            XCTAssertFalse(message.subprocessWorker)
+        }
+        let controlJob = UUID().uuidString
+        for kind in [WebMediaDLCompanionKind.cancel, .pauseJob, .resumeJob] {
+            let message = try WebMediaDLCompanionControlMessage.make(
+                kind: kind,
+                jobId: controlJob,
+                surface: .tvos
+            )
+            XCTAssertEqual(message.kind, kind)
+            XCTAssertEqual(message.surface, .tvos)
+            XCTAssertNil(message.nativeCommand)
+        }
+        do {
+            _ = try WebMediaDLCompanionControlMessage.make(kind: .cancel, surface: .watchos)
+            XCTFail("control intents must not queue cancel without a job UUID")
+        } catch WebMediaDLCompanionError.jobIdRequired {
+            ()
+        }
+        do {
+            _ = try WebMediaDLCompanionControlMessage.make(kind: "not-a-kind", surface: .tvos)
+            XCTFail("unknown companion kinds must fail closed")
+        } catch let error as WebMediaDLDomainError {
+            XCTAssertTrue(error.message.contains("unknown companion"))
         }
     }
 

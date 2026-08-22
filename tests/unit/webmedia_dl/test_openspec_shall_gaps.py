@@ -419,8 +419,8 @@ SCENARIO_EVIDENCE: dict[str, tuple[str, str]] = {
         "test_complete_client_files_app_job_is_refused",
     ),
     "macos app supervises the loopback worker": (
-        "tests/unit/webmedia_dl/test_surfaces_inventory.py",
-        "test_macos_app_supervises_the_loopback_worker",
+        "apps/WebMediaDLCore/Tests/WebMediaDLCoreTests/ContractTests.swift",
+        "testLoopbackRequestBuildersStayOnLoopback",
     ),
     "unsigned share extension bundles are assembled": (
         "tests/unit/webmedia_dl/test_surfaces_inventory.py",
@@ -487,12 +487,12 @@ SCENARIO_EVIDENCE: dict[str, tuple[str, str]] = {
         "test_watch_tv_capture_queues_without_ytdlp",
     ),
     "watch control intents queue companion kinds": (
-        "tests/unit/webmedia_dl/test_surfaces_inventory.py",
-        "test_watch_control_intents_queue_companion_kinds",
+        "apps/WebMediaDLCore/Tests/WebMediaDLCoreTests/ContractTests.swift",
+        "testWatchConnectivityFallbackAndMacRelayTyping",
     ),
     "tvOS uses local-network companion transport": (
-        "tests/unit/webmedia_dl/test_surfaces_inventory.py",
-        "test_companion_transport_and_typed_history",
+        "apps/WebMediaDLCore/Tests/WebMediaDLCoreTests/ContractTests.swift",
+        "testWatchConnectivityFallbackAndMacRelayTyping",
     ),
     "iPhone forwards watch companion messages": (
         "apps/WebMediaDLCore/Tests/WebMediaDLCoreTests/ContractTests.swift",

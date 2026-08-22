@@ -83,8 +83,13 @@ public struct WebMediaDLTVRootView: View {
 
     @MainActor
     private func send(kind: String, locator: String? = nil, jobId: String? = nil) async {
-        let message = bridge.message(kind: kind, locator: locator, jobId: jobId, surface: .tvos)
         do {
+            let message = try WebMediaDLCompanionControlMessage.make(
+                kind: kind,
+                locator: locator,
+                jobId: jobId,
+                surface: .tvos
+            )
             try await transport.send(message)
             status = "Queued \(message.kind) for Mac relay"
             if let body = transport.lastResponse,

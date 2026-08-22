@@ -392,6 +392,8 @@ def test_companion_transport_and_typed_history() -> None:
     assert "WebMediaDLWatchCompanionForward" in continuity
     assert "func requireJobId(" in continuity
     assert "enum WebMediaDLCompanionJobControl" in continuity
+    assert "WebMediaDLCompanionControlMessage" in continuity
+    assert "unknown companion kind" in continuity
     assert "WebMediaDLLoopbackClient.jsonBody" in continuity
     assert "try? JSONSerialization.data(" not in continuity
     assert "companion relay JSON is not a message list" in continuity
@@ -674,7 +676,7 @@ def test_intents_and_share_adapters_load_credentials() -> None:
         assert "kind: .cancel, jobId:" in text
         assert "kind: .pauseJob" in text
         assert "kind: .resumeJob" in text
-        assert "WebMediaDLCompanionJobControl.requireJobId" in text
+        assert "WebMediaDLCompanionControlMessage.make" in text
         assert "else { return .result() }" not in text
         assert "Pause WebMedia DL" in text
         assert "Resume WebMedia DL" in text
@@ -827,6 +829,8 @@ def test_github_ci_compiles_apple_packages() -> None:
     assert "requireHTTPSuccess" in contracts
     assert "requireJSONBody" in contracts
     assert "iPhone must not forward cancel without a job UUID" in contracts
+    assert "unknown companion kinds must fail closed" in contracts
+    assert "unhealthy existing worker must keep the spawn error" in contracts
     assert "non-UUID job ids must fail closed" in contracts
     assert "non-JSON request payloads must fail closed" in contracts
     assert "non-JSON envelope payload must fail closed" in contracts
@@ -996,6 +1000,7 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert "WebMediaDLMacRelayServer.start" in mac
     assert "WebMediaDLMacWorkerProcess.start" in mac
     assert "startMacWorker" in mac
+    assert "WebMediaDLMacWorkerSupervision.startOrClaimExisting" in mac
     assert "loopbackToken: token" in mac
     assert "relayServer?.loopbackToken = value" in mac
     worker_launch = (
@@ -1009,6 +1014,7 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert "8765" in worker_launch
     assert '"--data-dir"' in worker_launch
     assert "func start(dataDir:" in worker_launch
+    assert "func startOrClaimExisting(" in worker_launch
     assert 'NSClassFromString("NSTask")' in worker_launch
     assert "Process(" not in worker_launch
     assert worker_launch.index("#if os(macOS)") < worker_launch.index("homeDirectoryForCurrentUser")
@@ -1135,11 +1141,10 @@ def test_macos_app_supervises_the_loopback_worker() -> None:
     )
     assert "WebMediaDLMacWorkerProcess.start" in mac
     assert "startMacWorker" in mac
-    assert "adoptExistingLoopbackWorkerIfHealthy" in mac
+    assert "WebMediaDLMacWorkerSupervision.startOrClaimExisting" in mac
     assert "requireHealthyWorker" in mac
     assert "Using existing loopback worker" in mac
     assert "error.localizedDescription" in mac
-    assert "status = message" in mac
     assert "loopbackToken: token" in mac
     assert "bindWatchDelegate" not in mac
     assert "historyEntries()" in mac
@@ -1158,6 +1163,8 @@ def test_macos_app_supervises_the_loopback_worker() -> None:
     assert "loopbackPort" in worker
     assert "8765" in worker
     assert "func start(dataDir:" in worker
+    assert "func startOrClaimExisting(" in worker
+    assert "claimedExisting" in worker
     assert 'NSClassFromString("NSTask")' in worker
     assert "Process(" not in worker
     assert "WebMediaDLMacWorkerProcess.terminate" in mac
@@ -1188,14 +1195,14 @@ def test_watch_control_intents_queue_companion_kinds() -> None:
         assert "kind: .cancel, jobId:" in text
         assert "kind: .pauseJob, jobId:" in text
         assert "kind: .resumeJob, jobId:" in text
-        assert "WebMediaDLCompanionJobControl.requireJobId" in text
+        assert "WebMediaDLCompanionControlMessage.make" in text
         assert "else { return .result() }" not in text
         assert "transport.send" in text
     assert "WebMediaDLWatchConnectivityTransport" in watch_intents
     assert "WebMediaDLLocalNetworkCompanionTransport" in tv_intents
     assert "WebMediaDLWatchConnectivityTransport" not in tv_intents
     for text in (watch, tv):
-        assert "try? await transport.send" not in text
+        assert "WebMediaDLCompanionControlMessage.make" in text
         assert "try await transport.send" in text
         assert "status = error.localizedDescription" in text
         assert "try? WebMediaDLHistoryEntry.decodeCompanionHistory" not in text

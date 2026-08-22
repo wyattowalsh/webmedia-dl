@@ -70,3 +70,28 @@ public enum WebMediaDLMacWorkerProcess {
     }
 #endif
 }
+
+/// Mac app launches `webmedia-dl serve` or claims a healthy existing loopback worker.
+public enum WebMediaDLMacWorkerLaunch {
+    case started(AnyObject)
+    case claimedExisting(spawnError: String)
+}
+
+public enum WebMediaDLMacWorkerSupervision {
+    public static func startOrClaimExisting(
+        start: () throws -> AnyObject,
+        health: @Sendable () async throws -> Void
+    ) async throws -> WebMediaDLMacWorkerLaunch {
+        do {
+            return .started(try start())
+        } catch {
+            let spawnError = error
+            do {
+                try await health()
+                return .claimedExisting(spawnError: spawnError.localizedDescription)
+            } catch {
+                throw spawnError
+            }
+        }
+    }
+}

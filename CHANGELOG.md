@@ -2,6 +2,13 @@
 
 ## 0.1.0
 
+- GitHub Actions `32567291154` on `9e8a154` passed Python (583 pytest, 100%)
+  and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after proving iPhone
+  watch-forward in Core. Watch/tv control intents share
+  `WebMediaDLCompanionControlMessage` so unknown kinds and cancel without a
+  UUID fail closed before transport. Mac worker supervision
+  `startOrClaimExisting` claims a healthy loopback worker and keeps the spawn
+  error when health is not ok.
 - GitHub Actions `32566998821` on `2a5357c` passed Python (583 pytest, 100%)
   and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) for throwing JSON
   request builders. iPhone watch-forward is a Core coordinator that XCTest
