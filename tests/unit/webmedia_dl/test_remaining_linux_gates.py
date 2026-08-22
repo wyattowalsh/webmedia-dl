@@ -802,6 +802,7 @@ def test_discovery_picture_embed_gallery_and_jsonld_list() -> None:
         <meta property="og:image:url" content="https://cdn.example.com/og.png">
         <meta property="og:image:secure_url" content="https://cdn.example.com/og-secure.png">
         <meta name="twitter:image" content="https://cdn.example.com/tw.png">
+        <meta name="twitter:image:src" content="https://cdn.example.com/tw-src.png">
         <link rel="preload" type="audio/mpeg" href="https://cdn.example.com/x.mp3">
         <script type="application/ld+json">
           {"@type": ["Movie", "Broadcast"], "contentUrl": [
@@ -834,6 +835,8 @@ def test_discovery_picture_embed_gallery_and_jsonld_list() -> None:
     assert "https://cdn.example.com/hero.png" in urls
     assert "https://cdn.example.com/og-secure.png" in urls
     assert kinds["https://cdn.example.com/og-secure.png"] is MediaKind.IMAGE
+    assert "https://cdn.example.com/tw-src.png" in urls
+    assert kinds["https://cdn.example.com/tw-src.png"] is MediaKind.IMAGE
     assert "https://cdn.example.com/player.mp4" in urls
     assert "https://cdn.example.com/other.mp4" in urls
     assert "https://cdn.example.com/amp.mp4" in urls

@@ -162,6 +162,7 @@ export function pageCollector(doc) {
     "og:image:url": "image",
     "og:image:secure_url": "image",
     "twitter:image": "image",
+    "twitter:image:src": "image",
     "og:video": "video",
     "og:video:url": "video",
     "og:video:secure_url": "video",

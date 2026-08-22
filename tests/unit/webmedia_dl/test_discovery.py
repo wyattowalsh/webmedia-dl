@@ -546,6 +546,7 @@ def test_html_discovery_amp_img_and_twitter_player() -> None:
     <html>
       <head>
         <meta name="twitter:player" content="https://cdn.example.com/player.mp4">
+        <meta name="twitter:image:src" content="https://cdn.example.com/tw-src.png">
       </head>
       <body>
         <amp-img src="https://cdn.example.com/amp.png"></amp-img>
@@ -558,7 +559,9 @@ def test_html_discovery_amp_img_and_twitter_player() -> None:
     kinds = {item.retrieval_urls[0]: item.media_kind for item in candidates if item.retrieval_urls}
     assert "https://cdn.example.com/amp.png" in urls
     assert "https://cdn.example.com/player.mp4" in urls
+    assert "https://cdn.example.com/tw-src.png" in urls
     assert kinds["https://cdn.example.com/amp.png"] is MediaKind.IMAGE
+    assert kinds["https://cdn.example.com/tw-src.png"] is MediaKind.IMAGE
     assert kinds["https://cdn.example.com/player.mp4"] is MediaKind.VIDEO
 
 

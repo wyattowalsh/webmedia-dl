@@ -205,6 +205,14 @@ describe("collectMediaEvidence", () => {
                     ? "https://cdn.example.com/player.html"
                     : null,
             },
+            {
+              getAttribute: (name) =>
+                name === "name"
+                  ? "twitter:image:src"
+                  : name === "content"
+                    ? "https://cdn.example.com/tw-src.png"
+                    : null,
+            },
           ];
         }
         return [
@@ -254,6 +262,7 @@ describe("collectMediaEvidence", () => {
     assert.equal(byUrl["https://cdn.example.com/lazy.png"], "image");
     assert.equal(byUrl["https://cdn.example.com/lazy.vtt"], "subtitle");
     assert.equal(byUrl["https://cdn.example.com/player.html"], "video");
+    assert.equal(byUrl["https://cdn.example.com/tw-src.png"], "image");
     assert.equal(result.nativeCommand, null);
   });
 

@@ -610,6 +610,7 @@ def discover(
         ("og:image:url", MediaKind.IMAGE),
         ("og:image:secure_url", MediaKind.IMAGE),
         ("twitter:image", MediaKind.IMAGE),
+        ("twitter:image:src", MediaKind.IMAGE),
         ("og:video", MediaKind.VIDEO),
         ("og:video:url", MediaKind.VIDEO),
         ("og:video:secure_url", MediaKind.VIDEO),

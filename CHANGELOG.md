@@ -2,6 +2,12 @@
 
 ## 0.1.0
 
+- Collect `twitter:image:src` as IMAGE in HTML discovery and browser capture,
+  matching `twitter:image` and `og:image:url`. GitHub Actions `32605646411` on
+  `a85f83f` passed Python (626 pytest, 100%), doctor provider probes, and
+  Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after treating HLS
+  `#EXT-X-DISCONTINUITY-SEQUENCE` as a playlist tag.
+
 - Treat HLS `#EXT-X-DISCONTINUITY-SEQUENCE` as a playlist tag, not a
   discontinuity, so held `#EXT-X-PART` prefixes are replaced by the completed
   segment URI instead of being flushed and concatenated with the parent.
