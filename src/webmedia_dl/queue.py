@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy import event, text
 from sqlalchemy.pool import NullPool
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 
@@ -73,9 +74,18 @@ class QueueStore:
         self.root.mkdir(parents=True, exist_ok=True)
         self.engine = create_engine(
             f"sqlite:///{self.root / 'queue.sqlite'}",
-            connect_args={"check_same_thread": False},
+            connect_args={"check_same_thread": False, "timeout": 30.0},
             poolclass=NullPool,
         )
+
+        @event.listens_for(self.engine, "connect")
+        def _disable_sqlite_autobegin(dbapi_connection, _connection_record) -> None:
+            dbapi_connection.isolation_level = None
+
+        @event.listens_for(self.engine, "begin")
+        def _begin_immediate(conn) -> None:
+            conn.exec_driver_sql("BEGIN IMMEDIATE")
+
         tables = [table for table in SQLModel.metadata.sorted_tables if table.name in _QUEUE_TABLES]
         SQLModel.metadata.create_all(self.engine, tables=tables)
         self._ensure_control()
@@ -149,8 +159,6 @@ class QueueStore:
 
     def claim_next(self) -> Job | None:
         """Atomically claim the oldest accepted job by moving it to discovering."""
-        from sqlalchemy import text
-
         for _ in range(8):
             with self.engine.begin() as conn:
                 paused = conn.execute(
@@ -161,7 +169,8 @@ class QueueStore:
                 row = conn.execute(
                     text(
                         "SELECT job_id, payload FROM jobs "
-                        "WHERE state = :state ORDER BY created_at ASC LIMIT 1"
+                        "WHERE state = :state "
+                        "ORDER BY created_at ASC, job_id ASC LIMIT 1"
                     ),
                     {"state": JobState.ACCEPTED.value},
                 ).fetchone()
@@ -169,10 +178,11 @@ class QueueStore:
                     return None
                 job = Job.model_validate_json(row[1])
                 claimed = job.model_copy(update={"state": JobState.DISCOVERING})
-                result = conn.execute(
+                returned = conn.execute(
                     text(
                         "UPDATE jobs SET state = :new_state, payload = :payload "
-                        "WHERE job_id = :job_id AND state = :old_state"
+                        "WHERE job_id = :job_id AND state = :old_state "
+                        "RETURNING job_id"
                     ),
                     {
                         "new_state": JobState.DISCOVERING.value,
@@ -180,8 +190,8 @@ class QueueStore:
                         "job_id": row[0],
                         "old_state": JobState.ACCEPTED.value,
                     },
-                )
-                if result.rowcount == 1:
+                ).fetchone()
+                if returned is not None:
                     return claimed
         return None
 

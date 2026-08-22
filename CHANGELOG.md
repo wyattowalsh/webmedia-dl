@@ -2,6 +2,9 @@
 
 ## 0.1.0
 
+- Queue SQLite transactions start with `BEGIN IMMEDIATE`, and `claim_next`
+  commits only after `UPDATE … RETURNING`, so concurrent workers cannot
+  double-claim the same accepted job.
 - Complete-client http-direct binds the calling surface, chunks URLSession
   bytes, and share sheets on iPhone/iPad/visionOS try on-device save first.
 - Bundle validation executes START_HERE link, task DAG, traceability, archive

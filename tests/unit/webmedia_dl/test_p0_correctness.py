@@ -6,13 +6,14 @@ import json
 import sys
 import threading
 import time
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
 import pytest
 
 from webmedia_dl.artifacts import ArtifactStore
-from webmedia_dl.domain.enums import ArtifactRole, IntakeKind, MediaKind
+from webmedia_dl.domain.enums import ArtifactRole, IntakeKind, JobState, MediaKind, Surface
 from webmedia_dl.domain.models import ExportPlan, Job, MediaSource, Operation
 from webmedia_dl.errors import (
     CancelledError,
@@ -93,8 +94,10 @@ def test_claim_next_runs_each_accepted_job_once(tmp_path: Path, png_bytes: bytes
     pipeline.submit(str(second), wait=False)
     seen: list[str] = []
     lock = threading.Lock()
+    barrier = threading.Barrier(2)
 
     def worker() -> None:
+        barrier.wait()
         job = pipeline.run_next()
         with lock:
             seen.append(str(job.job_id) if job is not None else "")
@@ -103,10 +106,61 @@ def test_claim_next_runs_each_accepted_job_once(tmp_path: Path, png_bytes: bytes
     for thread in threads:
         thread.start()
     for thread in threads:
-        thread.join(timeout=10)
+        thread.join(timeout=60)
+    assert all(not thread.is_alive() for thread in threads)
     assert "" not in seen
     assert len(set(seen)) == 2
     assert pipeline.run_next() is None
+
+
+def test_claim_next_is_exclusive_across_threads(tmp_path: Path) -> None:
+    store = QueueStore(tmp_path / "queue")
+    base = datetime(2026, 1, 1, tzinfo=UTC)
+    expected: set[str] = set()
+    workers = 8
+    queued = 24
+    for index in range(queued):
+        src = tmp_path / f"file-{index}.bin"
+        src.write_bytes(b"x")
+        job = Job(
+            source=MediaSource(
+                kind=IntakeKind.FILE,
+                locator=str(src),
+                local_path=str(src),
+                surface=Surface.CLI,
+                policy_profile_id="personal-full",
+            ),
+            policy_profile_id="personal-full",
+            worker_id="local-macos",
+            created_at=base + timedelta(milliseconds=index),
+        )
+        store.put_job(job)
+        expected.add(str(job.job_id))
+        assert job.state is JobState.ACCEPTED
+
+    claimed: list[str] = []
+    lock = threading.Lock()
+    barrier = threading.Barrier(workers)
+
+    def worker() -> None:
+        barrier.wait()
+        while True:
+            job = store.claim_next()
+            if job is None:
+                return
+            assert job.state is JobState.DISCOVERING
+            with lock:
+                claimed.append(str(job.job_id))
+
+    threads = [threading.Thread(target=worker) for _ in range(workers)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=30)
+    assert all(not thread.is_alive() for thread in threads)
+    assert len(claimed) == queued
+    assert set(claimed) == expected
+    assert store.claim_next() is None
 
 
 def test_http_direct_uses_content_type_suffix(tmp_path: Path, png_bytes: bytes) -> None:

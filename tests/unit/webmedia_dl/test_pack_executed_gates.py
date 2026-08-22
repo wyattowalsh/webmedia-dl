@@ -37,6 +37,19 @@ def test_validate_bundle_executes_start_here_gates() -> None:
     assert all(not path.endswith(".zip") for path in listed)
 
 
+def test_planning_note_writes_column_zero_yaml_front_matter(tmp_path: Path) -> None:
+    mod = _load("generate_planning_overlay", "scripts/generate_planning_overlay.py")
+    mod.ROOT = tmp_path
+    dest = tmp_path / "docs" / "planning" / "build-webmedia-dl-v1"
+    dest.mkdir(parents=True)
+    mod.planning_note("sample", "Sample", "first line\nsecond line")
+    text = (dest / "sample.md").read_text(encoding="utf-8")
+    assert text.startswith("---\n")
+    assert not text.startswith(" ")
+    assert 'title: "Sample"' in text.split("---", 2)[1]
+    assert text.split("---", 2)[2].lstrip().startswith("# Sample")
+
+
 def test_package_bundle_skips_symlinks(tmp_path: Path) -> None:
     mod = _load("package_bundle", "scripts/package_bundle.py")
     tree = tmp_path / "tree"
