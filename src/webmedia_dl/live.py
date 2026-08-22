@@ -275,7 +275,8 @@ def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
     fetched, matching PART `GAP=YES`. Held PARTs share the next media-sequence
     slot so a later parent URI can replace those prefixes instead of appending
     them twice. `#EXTINF` does not flush: RFC order is PARTs, then EXTINF, then
-    the completed segment URI.
+    the completed segment URI. `#EXT-X-DISCONTINUITY-SEQUENCE` is not a
+    discontinuity and must not flush held PART prefixes.
     """
     parts: list[ManifestPart] = []
     held: list[ManifestPart] = []
@@ -325,7 +326,7 @@ def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
                 flush_held()
                 break
             continue
-        if stripped.upper().startswith("#EXT-X-DISCONTINUITY"):
+        if stripped.split(":", 1)[0].upper() == "#EXT-X-DISCONTINUITY":
             flush_held()
             continue
         if stripped.upper().startswith("#EXT-X-MAP:"):

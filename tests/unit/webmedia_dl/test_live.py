@@ -65,6 +65,34 @@ def test_record_clear_stream_concatenates_segments(tmp_path: Path) -> None:
     disc_out = tmp_path / "disc.ts"
     record_clear_stream(discontinuous, "https://cdn.example.com/live/index.m3u8", disc_out, fetch)
     assert disc_out.read_bytes() == b"AAABBB"
+    sequenced = (
+        "#EXTM3U\n#EXT-X-DISCONTINUITY-SEQUENCE:0\n#EXTINF:1,\nseg1.ts\n#EXTINF:1,\nseg2.ts\n"
+    )
+    seq_out = tmp_path / "seq.ts"
+    record_clear_stream(sequenced, "https://cdn.example.com/live/index.m3u8", seq_out, fetch)
+    assert seq_out.read_bytes() == b"AAABBB"
+    sequence_parent = (
+        "#EXTM3U\n"
+        '#EXT-X-PART:DURATION=0.5,URI="a.m4s"\n'
+        '#EXT-X-PART:DURATION=0.5,URI="b.m4s"\n'
+        "#EXT-X-DISCONTINUITY-SEQUENCE:0\n"
+        "seg.ts\n"
+    )
+    sequence_parent_bodies = {"https://cdn.example.com/live/seg.ts": b"PARENT"}
+
+    def fetch_sequence_parent(url: str) -> tuple[int, str, bytes]:
+        if url.endswith(("a.m4s", "b.m4s")):
+            raise AssertionError(url)
+        return 200, "video/mp4", sequence_parent_bodies[url]
+
+    seq_parent_out = tmp_path / "seq-parent.ts"
+    record_clear_stream(
+        sequence_parent,
+        "https://cdn.example.com/live/index.m3u8",
+        seq_parent_out,
+        fetch_sequence_parent,
+    )
+    assert seq_parent_out.read_bytes() == b"PARENT"
 
 
 def test_record_follows_master_playlist(tmp_path: Path) -> None:

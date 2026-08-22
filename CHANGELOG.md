@@ -2,6 +2,14 @@
 
 ## 0.1.0
 
+- Treat HLS `#EXT-X-DISCONTINUITY-SEQUENCE` as a playlist tag, not a
+  discontinuity, so held `#EXT-X-PART` prefixes are replaced by the completed
+  segment URI instead of being flushed and concatenated with the parent.
+  `#EXT-X-DISCONTINUITY` still flushes. GitHub Actions `32605284559` on
+  `12f590a` passed Python (626 pytest, 100%), doctor provider probes, and
+  Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after collecting
+  `amp-iframe` locators.
+
 - Collect `amp-iframe` locators in HTML discovery and browser capture like
   `iframe` / `embed` / `object`, including lazy `data-src`. Script-asset
   `amp-iframe` values stay skipped. GitHub Actions `32604896910` on `5689ef6`
