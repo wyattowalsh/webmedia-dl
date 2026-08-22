@@ -117,7 +117,7 @@ def test_discovery_skips_empty_tokens_and_jsonld_kinds() -> None:
           [{"@type": "AudioObject", "contentUrl": "https://cdn.example.com/song"}]
         </script>
         <script type="application/ld+json">
-          {"@type": "Photograph", "embedUrl": "https://cdn.example.com/photo"}
+          {"@type": "Photograph", "embedUrl": "https://cdn.example.com/photo", "url": "https://cdn.example.com/photo-url"}
         </script>
         <link rel="preload" as="track" href="https://cdn.example.com/sub.vtt">
       </head>
@@ -142,8 +142,10 @@ def test_discovery_skips_empty_tokens_and_jsonld_kinds() -> None:
     assert "https://cdn.example.com/poster.jpg" in urls
     assert "https://cdn.example.com/song" in urls
     assert "https://cdn.example.com/photo" in urls
+    assert "https://cdn.example.com/photo-url" in urls
     assert kinds["https://cdn.example.com/song"] is MediaKind.AUDIO
     assert kinds["https://cdn.example.com/photo"] is MediaKind.IMAGE
+    assert kinds["https://cdn.example.com/photo-url"] is MediaKind.IMAGE
     assert kinds["https://cdn.example.com/plain.jpg"] is MediaKind.IMAGE
     assert kinds["https://cdn.example.com/sub.vtt"] is MediaKind.SUBTITLE
     assert kinds["https://cdn.example.com/typed.mp4"] is MediaKind.VIDEO

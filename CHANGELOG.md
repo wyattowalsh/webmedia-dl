@@ -2,6 +2,14 @@
 
 ## 0.1.0
 
+- Collect JSON-LD `url` on VideoObject / AudioObject / ImageObject (and the
+  same `@type` families) in HTML discovery and browser capture, so a watch-page
+  or embed locator without `contentUrl` / `embedUrl` is still typed from `@type`.
+  Organization / WebPage `url` values stay ignored. GitHub Actions
+  `32600417330` on `546551e` passed Python (626 pytest, 100%), doctor provider
+  probes, and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after skipping
+  muxed HLS DEFAULT/AUTOSELECT sidecars that have no URI.
+
 - Skip HLS `#EXT-X-MEDIA` AUDIO/SUBTITLES sidecars when the preferred
   `DEFAULT=YES` or `AUTOSELECT=YES` rendition has no `URI` (muxed into the
   variant playlist), so commentary listed with a URI is not recorded instead of

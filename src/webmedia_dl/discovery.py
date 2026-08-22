@@ -666,7 +666,7 @@ def discover(
             continue
         items = payload if isinstance(payload, list) else [payload]
         for item in _walk_jsonld(items):
-            for key in ("contentUrl", "embedUrl"):
+            for key in ("contentUrl", "embedUrl", "url"):
                 for content_url in _jsonld_locator_urls(item.get(key)):
                     absolute = urljoin(document_base, content_url)
                     if not _usable_url(absolute, profile):
@@ -675,12 +675,15 @@ def discover(
                         continue
                     if _locator_has_script_asset_suffix(absolute):
                         continue
+                    kind = _kind_from_jsonld(item, absolute)
+                    if key == "url" and kind in {MediaKind.PAGE, MediaKind.UNKNOWN}:
+                        continue
                     seen.add(absolute)
                     found.append(
                         _candidate(
                             source,
                             absolute,
-                            _kind_from_jsonld(item, absolute),
+                            kind,
                             title=title,
                             evidence=["discover:jsonld"],
                             drm=sorted(set(detect_drm_signals(absolute)) | set(drm)),

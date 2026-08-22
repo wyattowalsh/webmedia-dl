@@ -266,6 +266,22 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
     assert "https://cdn.example.com/app.js" not in urls
     assert "https://cdn.example.com/boot.js" not in urls
     assert "https://cdn.example.com/playlist.json" in urls
+    jsonld_url = """
+    <html><body>
+      <script type="application/ld+json">
+        {"@type": "VideoObject", "url": "https://example.com/watch?v=url-only"}
+      </script>
+      <script type="application/ld+json">
+        {"@type": "Organization", "url": "https://cdn.example.com/about"}
+      </script>
+    </body></html>
+    """
+    url_found = discover(_source(), profile, html=jsonld_url)
+    url_kinds = {
+        item.retrieval_urls[0]: item.media_kind for item in url_found if item.retrieval_urls
+    }
+    assert url_kinds["https://example.com/watch?v=url-only"] is MediaKind.VIDEO
+    assert "https://cdn.example.com/about" not in url_kinds
     stolen = """
     <html>
       <head>
@@ -493,6 +509,19 @@ def test_html_link_audio_image_track_and_jsonld_kinds() -> None:
     assert kinds["https://cdn.example.com/t.m3u8"] is MediaKind.SUBTITLE
     assert kinds["https://example.com/listen"] is MediaKind.AUDIO
     assert kinds["https://example.com/photo"] is MediaKind.IMAGE
+    jsonld_url = """
+    <html><body>
+      <script type="application/ld+json">
+        {"@type": "AudioObject", "url": "https://example.com/listen-url"}
+      </script>
+    </body></html>
+    """
+    url_kinds = {
+        item.retrieval_urls[0]: item.media_kind
+        for item in discover(_source(), profile, html=jsonld_url)
+        if item.retrieval_urls
+    }
+    assert url_kinds["https://example.com/listen-url"] is MediaKind.AUDIO
 
 
 def test_html_discovery_amp_img_and_twitter_player() -> None:

@@ -96,6 +96,21 @@ export function pageCollector(doc) {
     };
     pushJsonLdUrl(node.contentUrl, jsonLdKind);
     pushJsonLdUrl(node.embedUrl, jsonLdKind);
+    const mediaType =
+      jsonLdType.includes("video") ||
+      jsonLdType.includes("movie") ||
+      jsonLdType.includes("clip") ||
+      jsonLdType.includes("broadcast") ||
+      jsonLdType.includes("audio") ||
+      jsonLdType.includes("music") ||
+      jsonLdType.includes("podcast") ||
+      jsonLdType.includes("song") ||
+      jsonLdType.includes("image") ||
+      jsonLdType.includes("photograph") ||
+      jsonLdType.includes("photo");
+    if (mediaType) {
+      pushJsonLdUrl(node.url, jsonLdKind);
+    }
     Object.values(node).forEach((value) => walkJsonLd(value));
   };
   const kindFromElement = (el) => {
