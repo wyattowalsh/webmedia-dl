@@ -2,6 +2,12 @@
 
 ## 0.1.0
 
+- Slice RFC 2616 suffix DASH `range` / `mediaRange` values (`-N`) from the end
+  of the object so the last N bytes are recorded instead of concatenating the
+  whole file or dropping the part. GitHub Actions `32594801247` on `2b784b7`
+  passed Python (626 pytest, 100%), doctor provider probes, and Swift (18
+  tests, 0 failures; 12× BUILD SUCCEEDED) after slicing open-ended DASH
+  `mediaRange` from start through EOF.
 - Slice open-ended DASH `range` / `mediaRange` values (`start-`, RFC 2616
   byte-range-spec) from that offset through the end of the object instead of
   concatenating the whole file or dropping the part. GitHub Actions

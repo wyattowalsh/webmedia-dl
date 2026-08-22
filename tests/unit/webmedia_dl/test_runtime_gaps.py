@@ -351,6 +351,21 @@ def test_dash_segment_timeline(tmp_path: Path) -> None:
         ManifestPart("https://cdn.example.com/r/bundle.mp4", 0, 4),
         ManifestPart("https://cdn.example.com/r/bundle.mp4", 4, None),
     ]
+    suffix_end = """
+    <MPD><Period><SegmentList>
+      <Initialization sourceURL="bundle.mp4" range="0-3"/>
+      <SegmentURL media="bundle.mp4" mediaRange="-4"/>
+    </SegmentList></Period></MPD>
+    """
+    assert recordable_parts(suffix_end, "https://cdn.example.com/r/") == [
+        ManifestPart("https://cdn.example.com/r/bundle.mp4", 0, 4),
+        ManifestPart("https://cdn.example.com/r/bundle.mp4", -4, None),
+    ]
+    suffix_out = tmp_path / "dash-suffix.bin"
+    record_clear_stream(
+        suffix_end, "https://cdn.example.com/r/manifest.mpd", suffix_out, fetch_bundle
+    )
+    assert suffix_out.read_bytes() == b"INITXXXX"
 
 
 def test_live_empty_and_nested_failure(tmp_path: Path) -> None:

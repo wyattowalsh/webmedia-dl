@@ -225,11 +225,19 @@ def _parse_dash_range(text: str | None) -> tuple[int | None, int | None]:
     """Parse DASH `range` / `mediaRange` into offset+length.
 
     Closed `start-end` is inclusive. Open `start-` (RFC 2616 byte-range-spec)
-    means from that offset through the end of the fetched object.
+    means from that offset through the end of the fetched object. Suffix
+    `-N` means the last N bytes (`start=-N`).
     """
     if not text:
         return None, None
-    match = re.fullmatch(r"(\d+)\s*-\s*(\d+)?", text.strip())
+    stripped = text.strip()
+    suffix = re.fullmatch(r"-\s*(\d+)", stripped)
+    if suffix:
+        count = int(suffix.group(1))
+        if count <= 0:
+            return None, None
+        return -count, None
+    match = re.fullmatch(r"(\d+)\s*-\s*(\d+)?", stripped)
     if match is None:
         return None, None
     start = int(match.group(1))
@@ -1218,8 +1226,10 @@ def _write_recorded_parts(
                     cache[cache_key] = data
             chunk = cache[cache_key]
             if part.start is not None:
-                end = part.start + (part.length if part.length is not None else len(chunk))
                 origin = part.start
+                if origin < 0:
+                    origin = max(0, len(chunk) + origin)
+                end = origin + (part.length if part.length is not None else len(chunk) - origin)
                 if live:
                     origin = max(origin, through.get(cache_key, 0))
                 if origin >= end or origin >= len(chunk):
