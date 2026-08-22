@@ -8,7 +8,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, cast
 from unittest.mock import MagicMock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -18,14 +18,23 @@ from typer.testing import CliRunner
 from webmedia_dl.artifacts import ArtifactStore
 from webmedia_dl.cli import app
 from webmedia_dl.discovery import discover
-from webmedia_dl.domain.enums import ArtifactRole, IntakeKind, JobState, MediaKind, Surface
+from webmedia_dl.domain.enums import (
+    ArtifactRole,
+    EventType,
+    IntakeKind,
+    JobState,
+    MediaKind,
+    Surface,
+)
 from webmedia_dl.domain.models import (
     Artifact,
     ExportIntent,
     ExportPlan,
     Job,
+    MediaProbe,
     MediaSource,
     Operation,
+    StreamInfo,
 )
 from webmedia_dl.errors import (
     ArtifactImmutabilityError,
@@ -397,6 +406,48 @@ def test_acquired_kinds_without_restored_sources_fail_closed(
     assert result.state is JobState.FAILED
     assert result.error is not None
     assert "no source artifact" in result.error.lower()
+
+
+def test_record_probe_refuses_drm_after_clear_acquire(
+    tmp_data: Path, tmp_path: Path, png_bytes: bytes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = {"n": 0}
+
+    def two_phase(_path: Path, **kwargs: object) -> MediaProbe:
+        calls["n"] += 1
+        candidate = kwargs.get("candidate_id")
+        probe_id = candidate if isinstance(candidate, UUID) else uuid4()
+        if calls["n"] == 1:
+            return MediaProbe(
+                candidate_id=probe_id,
+                container="png",
+                streams=[StreamInfo(index=0, codec="png", media_kind=MediaKind.IMAGE)],
+            )
+        return MediaProbe(
+            candidate_id=probe_id,
+            container="png",
+            streams=[
+                StreamInfo(
+                    index=0,
+                    codec="png",
+                    media_kind=MediaKind.IMAGE,
+                    encrypted=True,
+                )
+            ],
+            drm_signals=["probe:encrypted-stream"],
+        )
+
+    monkeypatch.setattr("webmedia_dl.pipeline.probe_media", two_phase)
+    media = _png(tmp_path, png_bytes)
+    pipeline = Pipeline(data_dir=tmp_data)
+    job = pipeline.submit(str(media))
+    assert job.state is JobState.FAILED
+    assert job.error is not None
+    assert "drm" in job.error.lower()
+    assert calls["n"] >= 2
+    types = [event.type for event in pipeline.queue.events_for(job.job_id)]
+    assert EventType.SOURCE_REGISTERED in types
+    assert EventType.ACQUISITION_QUARANTINE not in types
 
 
 def test_validation_failure_fails_closed(
@@ -929,6 +980,63 @@ def test_processing_skips_existing_compound_and_failed_inputs(
         existing={f"{source.artifact_id}:remux": (recorded, derived)},
     )
     assert skipped == []
+
+
+def test_lossy_transcode_skips_semantic_parity(
+    tmp_path: Path, png_bytes: bytes, pass_container_probe: object
+) -> None:
+    src = tmp_path / "source.mp4"
+    src.write_bytes(png_bytes)
+    store = ArtifactStore(tmp_path / "data")
+    source = store.register(
+        src, role=ArtifactRole.SOURCE, media_kind=MediaKind.VIDEO, container="mp4"
+    )
+    queue = QueueStore(tmp_path / "data" / "queue")
+    job = Job(
+        source=MediaSource(
+            kind=IntakeKind.FILE,
+            locator=str(src),
+            local_path=str(src),
+            surface="cli",
+            policy_profile_id="personal-full",
+        ),
+        policy_profile_id="personal-full",
+        worker_id="local-macos",
+    )
+    queue.put_job(job)
+    transcode = Operation(
+        operation_id="transcode",
+        op_type="ffmpeg.transcode",
+        capability_id="process.ffmpeg.transcode",
+        input_artifact_ids=[source.artifact_id],
+        output_role=ArtifactRole.DERIVATIVE,
+        loss_class="lossy_transcode",
+        validator_ids=[],
+        typed_inputs={"container": "mp4", "video_codec": "libx264", "audio_codec": "aac"},
+    )
+
+    def run(argv: list[str], _cwd: Path) -> tuple[int, bytes, bytes]:
+        Path(argv[-1]).write_bytes(b"lossy")
+        return 0, b"", b""
+
+    produced = execute_export_plan(
+        ExportPlan(job_id=job.job_id, operations=[transcode]),
+        job_id=job.job_id,
+        source=source,
+        source_path=store.resolve(source),
+        store=store,
+        runtime=ProviderRuntime(which=lambda name: f"/usr/bin/{name}", run=run),
+        staging=tmp_path / "stage-lossy",
+        queue=queue,
+        authorize=lambda _cap: None,
+    )
+    assert produced
+    assert any(artifact.role is ArtifactRole.DERIVATIVE for artifact, _path in produced)
+    assert not any(
+        event.type is EventType.VALIDATION_RECORDED
+        and event.payload.get("gate") == "semantic-parity"
+        for event in queue.events_for(job.job_id)
+    )
 
 
 def test_artifact_sha_mismatch_and_existing_dest(tmp_path: Path, png_bytes: bytes) -> None:

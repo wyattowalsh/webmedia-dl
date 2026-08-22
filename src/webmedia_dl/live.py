@@ -189,7 +189,7 @@ def _parse_byterange(
 def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
     """Collect MAP + URI parts until the first non-NONE EXT-X-KEY."""
     parts: list[ManifestPart] = []
-    pending: tuple[int | None, int | None] | None = None
+    pending: tuple[int | None, int] | None = None
     next_offset: dict[str, int] = {}
     for line in text.splitlines():
         stripped = line.strip()
@@ -224,8 +224,7 @@ def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
             if offset is None:
                 offset = next_offset.get(url, 0)
             parts.append(ManifestPart(url, offset, length))
-            if length is not None:
-                next_offset[url] = offset + length
+            next_offset[url] = offset + length
             continue
         parts.append(ManifestPart(url))
     return parts

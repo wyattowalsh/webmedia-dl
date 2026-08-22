@@ -2,8 +2,8 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 542 tests on GitHub Actions `ci` run `32554146657` (`873141b`); local follow-up covers preview skip during validation and acquired-kinds without restored sources |
-| `uv run pytest --cov` | PASS | 99.67% on `873141b` (`fail_under` 99) |
+| `uv run pytest` | PASS | 546 tests on GitHub Actions `ci` run `32554393786` (`b6e3755`); local follow-up covers second-probe DRM after a clear acquire, lossy transcode skip of semantic-parity, and staging resolve escape |
+| `uv run pytest --cov` | PASS | 99.80% on `b6e3755`; local 99.89% (`fail_under` 99) |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
 | `uv run ty check` | PASS | |
@@ -14,7 +14,7 @@
 | `uv run webmedia-dl doctor` ffprobe | PASS | `tools.ffprobe` version probe executed PASS on this host |
 | `uv run webmedia-dl doctor` ImageMagick | WARN | IM6 `convert -version` executed; `magick` is absent |
 | ImageMagick convert pipeline | PASS | `test_pipeline_executes_imagemagick_convert` runs `process.imagemagick.convert` on a PNG |
-| Stream-copy semantic parity | PASS | remux/copy derivatives must keep source codecs and duration; missing probes stay BLOCKED |
+| Stream-copy semantic parity | PASS | remux/copy derivatives must keep source codecs and duration; missing probes stay BLOCKED; lossy transcode skips `semantic-parity` |
 | Complete-client share http-direct | PASS | iPhone/iPad/visionOS share adapters and App Intents call `saveIfDirect` then restore the App Group Files bookmark via `WebMediaDLShareIntake.fromSavedBookmark`; Mac share/intents stay worker-only; watch/tv still lack `WebMediaDLHttpDirect` |
 | Queue pause durability | PASS | a second `Pipeline` on the same data dir observes the SQL pause flag and does not `run_next` until resume |
 | Extension collector under pytest | PASS | `test_extension_collector_returns_no_native_command` runs `node --test tests/unit/extensions/capture.test.mjs` |
@@ -23,7 +23,7 @@
 | Signing / notarization / App Review / legal | BLOCKED | `webmedia-dl doctor` |
 | Browser store submission | BLOCKED | `webmedia-dl doctor` |
 | Simulated `PASS` | PASS | tests reject planned/simulated PASS |
-| DRM circumvention | PASS | encrypted HLS/DASH refused before any segment fetch; `#EXT-X-SESSION-KEY` SAMPLE-AES/FairPlay refused before fetch; `cenc` / Widevine / PlayReady UUIDs / `skd://` detected; mixed clear-then-key records the prefix only; later live-poll DRM stops without fetching protected parts; dynamic A/V DASH stops remaining renditions after late ContentProtection; growing HLS byte-ranges refetch and append only the new suffix; a later growing-range HTTP error fails closed; already-written live ranges are not rewound; HTTP probe encryption quarantines and does not fall back to yt-dlp |
+| DRM circumvention | PASS | encrypted HLS/DASH refused before any segment fetch; `#EXT-X-SESSION-KEY` SAMPLE-AES/FairPlay refused before fetch; `cenc` / Widevine / PlayReady UUIDs / `skd://` detected; mixed clear-then-key records the prefix only; later live-poll DRM stops without fetching protected parts; dynamic A/V DASH stops remaining renditions after late ContentProtection; growing HLS byte-ranges refetch and append only the new suffix; a later growing-range HTTP error fails closed; already-written live ranges are not rewound; HTTP probe encryption quarantines and does not fall back to yt-dlp; a later `_record_probe` that reports encryption after a clear acquire probe fails closed without quarantining |
 | Pairing profile bound | PASS | restricted/browser/watch/tv pairing stays on the client profile; unknown/full/expired pairing and missing/mismatched session keys fail closed; CLI `pair create/confirm` reports `DelegationDenied` |
 | Cookie grants | PASS | job-bound grants persist in `cookie-grants.json` with merge/`0600` lock; dump-json uses the grant; relative and in-repo paths rejected; `run_next` restores the grant from job context and passes `--cookies` |
 | Default telemetry | PASS | false in doctor and profiles; `policy-profiles.json` cannot enable DRM circumvention, telemetry, cookie widening, subprocess, or delegation |
@@ -35,7 +35,7 @@
 | Source artifact identity | PASS | SOURCE `artifact_id` must be `sha256:<digest>`; titles and `plan:source` sentinels are rejected |
 | Capability health probe | PASS | present binaries whose version probe fails are `unhealthy`; missing binaries stay `missing`; `/bin/false` is not `healthy`; `http-direct` records an executed httpx probe; `validate.container` is not `healthy` when ffprobe is missing |
 | Extension popup one-tap | PASS | `popup.js` `#send` click collects page URLs and POSTs `/v1/jobs` with no `nativeCommand` |
-| Complete-client Mac relay | PASS | iPhone/iPad/visionOS heavy submit, history, and queue controls use a saved private/loopback Mac URL plus pairing; Mac `WebMediaDLMacRelayServer` listens on private/loopback HTTP, `forwardToLoopback` rewrites to `127.0.0.1`, and public peers / `nativeCommand` are refused. GitHub `macos-15` run `32554146657` on `873141b` executed Core `swift test` 18 tests, 0 failures, including queue status and per-job App Intents on every Apple client. Physical device radio remains BLOCKED |
+| Complete-client Mac relay | PASS | iPhone/iPad/visionOS heavy submit, history, and queue controls use a saved private/loopback Mac URL plus pairing; Mac `WebMediaDLMacRelayServer` listens on private/loopback HTTP, `forwardToLoopback` rewrites to `127.0.0.1`, and public peers / `nativeCommand` are refused. GitHub `macos-15` run `32554393786` on `b6e3755` executed Core `swift test` 18 tests, 0 failures, including queue status and per-job App Intents on every Apple client. Physical device radio remains BLOCKED |
 | Publication skip | PASS | preview-only produced sets and `include_original=false` leave no publishable artifacts; a restored preview plus source skips the preview at validation and publishes the source; validation failures fail the job |
 | Worker API errors | PASS | unknown pairing confirm/submit/plan/envelope fail closed; companion envelope non-objects are 400; pair `personal-full`/unknown profiles are 400; companion unknown job ids are 404; sealed companion `nativeCommand` is 400 then nonce-replay fails; loopback `serve` reaches uvicorn; `serve_worker` refuses `0.0.0.0`; `GET /v1/jobs` lists history; plan uses pairing id from auth headers; empty `run-next` returns `job: null`; `/v1/plan` DRM locators are 400 with no provider execution or job creation; `/v1/jobs` destinations outside `approved_roots` fail the job with `job.failed` |
 | Cancel during acquire | PASS | mixed-media HTTP cancel during the first kind raises closed to `cancelled` without publishing |
@@ -75,9 +75,9 @@
 | Acquired remote skip | PASS | resume at `stage=acquired` does not refetch remote media |
 | ImageMagick convert alias | PASS | health and argv resolve IM6 `convert` when `magick` is missing |
 | Job-detail / run-next helpers | PASS | unrelated history rows are skipped; empty queue returns `job: null`; a queued job returns events |
-| Swift Core CI job | PASS | GitHub Actions `ci` run `32554146657` on `873141b`: `IdentityTests` executed 6 tests, 0 failures on `macos-15` |
-| Swift Core contract tests | PASS | `ContractTests.swift` executed 12 tests, 0 failures with IdentityTests (6) on GitHub `macos-15` run `32554146657` (`873141b`) |
-| Apple package compile CI | PASS | GitHub Actions `ci` run `32554146657` on `873141b`: Core `swift test` 18 tests, 0 failures (`ContractTests` 12 + `IdentityTests` 6); Safari handler `swiftc -typecheck`; 8× `BUILD SUCCEEDED`. Device runtime stays BLOCKED |
+| Swift Core CI job | PASS | GitHub Actions `ci` run `32554393786` on `b6e3755`: `IdentityTests` executed 6 tests, 0 failures on `macos-15` |
+| Swift Core contract tests | PASS | `ContractTests.swift` executed 12 tests, 0 failures with IdentityTests (6) on GitHub `macos-15` run `32554393786` (`b6e3755`) |
+| Apple package compile CI | PASS | GitHub Actions `ci` run `32554393786` on `b6e3755`: Core `swift test` 18 tests, 0 failures (`ContractTests` 12 + `IdentityTests` 6); Safari handler `swiftc -typecheck`; 8× `BUILD SUCCEEDED`. Device runtime stays BLOCKED |
 | OpenSpec scenarios | PASS | every capability spec scenario has WHEN/THEN; each scenario title maps to a named Python or Swift test in a pinned source file; popup markup is parsed; drop records `local_path`; local submit does not upload; job submit forbids native argv |
 | Builtin manifests / profiles | PASS | every shipped provider sets `install_automatic` false and `accepts_user_argv` false; every shipped profile forbids telemetry, DRM circumvention, and delegation |
 | Graph relation schema | PASS | Swift `WebMediaDLGraphRelation` raw values match `GraphEdge.relation` |
@@ -94,7 +94,7 @@
 | Publication I/O | PASS | `publish_artifacts` `OSError` becomes `PublicationError`; the durable job is `failed` with `job.failed` |
 | CLI unknown controls | PASS | unknown `job`/`cancel`/`pause`/`resume`/companion ids and DRM `plan` exit 1 with user-facing text |
 | Unconfirmed pairing | PASS | iOS jobs with an unconfirmed pairing id raise `DelegationDenied` and do not execute yt-dlp |
-| Confirmed pairing Mac execution | PASS | confirmed pairing keeps `policy_profile_id=personal-restricted`, sets `worker_id` to the Mac host, and runs yt-dlp; `require_pass` demands executed hash-match and size-match; hop-by-hop fetch refuses `file:`/`http:` redirects; pair/control JSON forbids extras and `nativeCommand`. Proven on GitHub Actions `ci` run `32554146657` (`873141b`) |
+| Confirmed pairing Mac execution | PASS | confirmed pairing keeps `policy_profile_id=personal-restricted`, sets `worker_id` to the Mac host, and runs yt-dlp; `require_pass` demands executed hash-match and size-match; hop-by-hop fetch refuses `file:`/`http:` redirects; pair/control JSON forbids extras and `nativeCommand`. Proven on GitHub Actions `ci` run `32554393786` (`b6e3755`) |
 | Mixed-media containment | PASS | one kind failure still publishes the other; `job.completed` records `partial`/`failed_kinds` |
 | Job-scoped cancel and atomic claim | PASS | canceling one job does not poison the next; `claim_next` is compare-and-set |
 | Packaged runtime assets | PASS | presets/policies/ImageMagick policy load from `webmedia_dl.runtime` without a git checkout |
@@ -116,7 +116,7 @@
 | App Group + pairing clients | PASS | `group.local.webmedia-dl` on apps and share extensions; unauthenticated loopback `POST /v1/pair` bootstrap; Mac-only confirm parses `session_key`; iPhone/iPad/vision derive SHA256(`nonce:mac-confirm`) locally and restore Files bookmarks; watch/tv `lastJobId` comes from companion history/response |
 | Original planning-pack ZIP byte compare | BLOCKED | zip not in this workspace; 159 overlay files reconstructed |
 | Real WatchConnectivity radio | BLOCKED | WCSession scaffolding + queued fallback; no Apple radio on Linux |
-| Safari wrapping / signed NSExtension | BLOCKED | `swiftc -typecheck` of `SafariWebExtensionHandler.swift` executed on GitHub `macos-15` run `32554146657`; signed Xcode NSExtension wrapping is not executed |
+| Safari wrapping / signed NSExtension | BLOCKED | `swiftc -typecheck` of `SafariWebExtensionHandler.swift` executed on GitHub `macos-15` run `32554393786`; signed Xcode NSExtension wrapping is not executed |
 
 Planning overlay files reconstructed from the 2026-08-18 pack inventory except
 `START_HERE.md`, `product-brief.md`, and `system-architecture.md`, which were

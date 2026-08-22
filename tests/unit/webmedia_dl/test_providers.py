@@ -219,3 +219,23 @@ def test_staging_regular_files_skips_directory_symlink_escape(tmp_path: Path) ->
     found = _staging_regular_files(staging)
     assert leaked.resolve() not in {path.resolve() for path in found}
     assert all(path.name != "leak.jpg" for path in found)
+
+
+def test_staging_regular_files_skips_resolved_path_outside_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    staging = tmp_path / "stage"
+    staging.mkdir()
+    inside = staging / "clip.jpg"
+    inside.write_bytes(b"ok")
+    original = Path.relative_to
+
+    def relative_to(self: Path, other: Path, *_args: object, **_kwargs: object) -> Path:
+        if self.name == "clip.jpg":
+            msg = f"{self} is not in the staging root"
+            raise ValueError(msg)
+        return original(self, other)
+
+    monkeypatch.setattr(Path, "relative_to", relative_to)
+    found = _staging_regular_files(staging)
+    assert all(path.name != "clip.jpg" for path in found)

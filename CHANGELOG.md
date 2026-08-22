@@ -2,13 +2,19 @@
 
 ## 0.1.0
 
+- A clear acquire probe that later reports encryption fails closed at
+  `_record_probe`. Lossy transcode skips semantic-parity. HLS byte-range
+  clocks always advance after a parsed `#EXT-X-BYTERANGE` length. Staging
+  skips resolved paths outside the job root. GitHub Actions run
+  `32554393786` on `b6e3755` passed Python (546 pytest, 99.80%) and Swift
+  (18 tests, 0 failures; 8× BUILD SUCCEEDED).
 - Envelope nonce ledger prunes rows older than 24h on open and consume so
   `nonces.sqlite` cannot grow without bound. OpenSpec scenario titles map to
   `(path, test)` evidence. Unreachable URL-as-path and DASH timeline branches
   are removed; publication refuses unknown destination kinds. Restored preview
   artifacts are skipped at validation; acquired-kinds without sources fail closed.
-  GitHub Actions run `32554146657` on `873141b` passed Python (542 pytest,
-  99.67%) and Swift (18 tests, 0 failures).
+  GitHub Actions run `32554393786` on `b6e3755` passed Python (546 pytest,
+  99.80%) and Swift (18 tests, 0 failures).
 - Companion cancel/pause_job/resume_job require a job UUID (sealed
   envelopes included). `/v1/companion` forbids extra JSON fields such as
   `providerArgv`. `doctor` records an executed httpx probe for
