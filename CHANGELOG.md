@@ -2,6 +2,14 @@
 
 ## 0.1.0
 
+- Collect `a[href]` locators that name `.m2ts` objects as VIDEO in HTML
+  discovery, browser capture, and HTTP-direct so MPEG-2 transport files are
+  treated as direct media instead of ignored page anchors. Trailing slashes
+  and `video/mp2t` keep `.m2ts`. `.ts` stays out (TypeScript false positives)
+  and `.m4s` stays out (DASH/HLS fragments). GitHub Actions `32597258149` on
+  `ac4d572` passed Python (626 pytest, 100%), doctor provider probes, and
+  Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after advancing HLS
+  `#EXT-X-SKIP` occurrence and skipping `#EXT-X-GAP` media segments.
 - Advance HLS `#EXT-X-SKIP` `SKIPPED-SEGMENTS` onto media-sequence occurrence
   so delta playlists poll newly advertised segments instead of colliding with
   already-recorded URIs, and skip `#EXT-X-GAP` media segments the same way as

@@ -1545,6 +1545,30 @@ final class ContractTests: XCTestCase {
         )
         XCTAssertEqual(
             WebMediaDLHttpDirect.suffix(
+                url: URL(string: "https://cdn.example.com/clip.m2ts")!,
+                headers: [:],
+                body: Data()
+            ),
+            ".m2ts"
+        )
+        XCTAssertEqual(
+            WebMediaDLHttpDirect.suffix(
+                url: URL(string: "https://cdn.example.com/clip.m2ts/")!,
+                headers: [:],
+                body: Data()
+            ),
+            ".m2ts"
+        )
+        XCTAssertEqual(
+            WebMediaDLHttpDirect.suffix(
+                url: URL(string: "https://cdn.example.com/blob")!,
+                headers: ["Content-Type": "video/mp2t; charset=binary"],
+                body: Data()
+            ),
+            ".m2ts"
+        )
+        XCTAssertEqual(
+            WebMediaDLHttpDirect.suffix(
                 url: URL(string: "https://cdn.example.com/clip.mp4/")!,
                 headers: [:],
                 body: Data()

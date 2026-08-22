@@ -402,6 +402,15 @@ def test_http_suffix_content_type_is_case_insensitive() -> None:
         == ".svg"
     )
     assert _http_suffix("https://cdn.example.com/icon.svg/", {}, b"") == ".svg"
+    assert _http_suffix("https://cdn.example.com/clip.m2ts/", {}, b"") == ".m2ts"
+    assert (
+        _http_suffix(
+            "https://cdn.example.com/x",
+            {"Content-Type": "Video/MP2T; charset=binary"},
+            b"",
+        )
+        == ".m2ts"
+    )
 
 
 def test_hls_map_then_follow_on_byterange(tmp_path: Path) -> None:

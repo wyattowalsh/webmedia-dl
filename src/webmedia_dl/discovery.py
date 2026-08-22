@@ -29,6 +29,7 @@ DIRECT_EXTENSIONS = {
     ".mkv": MediaKind.VIDEO,
     ".mov": MediaKind.VIDEO,
     ".m4v": MediaKind.VIDEO,
+    ".m2ts": MediaKind.VIDEO,
     ".mp3": MediaKind.AUDIO,
     ".m4a": MediaKind.AUDIO,
     ".aac": MediaKind.AUDIO,

@@ -243,6 +243,7 @@ def test_http_suffix_jpeg_magic_and_fallback() -> None:
     assert _http_suffix("https://cdn.example.com/a", {}, b"\xff\xd8xxxx") == ".jpg"
     assert _http_suffix("https://cdn.example.com/a", {}, b"nope") == ".bin"
     assert _http_suffix("https://cdn.example.com/icon.svg", {}, b"") == ".svg"
+    assert _http_suffix("https://cdn.example.com/clip.m2ts", {}, b"") == ".m2ts"
 
 
 def test_ytdlp_ext_template_without_created_files(tmp_path: Path) -> None:

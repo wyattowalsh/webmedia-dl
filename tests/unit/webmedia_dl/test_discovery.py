@@ -177,6 +177,8 @@ def test_html_discovery_extracts_track_and_media_anchors() -> None:
       <a href="https://cdn.example.com/notes.pdf">PDF</a>
       <a href="https://cdn.example.com/icon.svg">SVG</a>
       <a href="https://cdn.example.com/slash.svg/">SVG slash</a>
+      <a href="https://cdn.example.com/clip.m2ts">M2TS</a>
+      <a href="https://cdn.example.com/slash.m2ts/">M2TS slash</a>
       <a href="/about">About</a>
     </body></html>
     """
@@ -191,6 +193,8 @@ def test_html_discovery_extracts_track_and_media_anchors() -> None:
     assert "https://cdn.example.com/notes.pdf" in urls
     assert "https://cdn.example.com/icon.svg" in urls
     assert "https://cdn.example.com/slash.svg/" in urls
+    assert "https://cdn.example.com/clip.m2ts" in urls
+    assert "https://cdn.example.com/slash.m2ts/" in urls
     assert all(
         item.media_kind is MediaKind.IMAGE
         for item in candidates
@@ -199,6 +203,16 @@ def test_html_discovery_extracts_track_and_media_anchors() -> None:
         in {
             "https://cdn.example.com/icon.svg",
             "https://cdn.example.com/slash.svg/",
+        }
+    )
+    assert all(
+        item.media_kind is MediaKind.VIDEO
+        for item in candidates
+        if item.retrieval_urls
+        and item.retrieval_urls[0]
+        in {
+            "https://cdn.example.com/clip.m2ts",
+            "https://cdn.example.com/slash.m2ts/",
         }
     )
     assert not any(item.endswith("/about") for item in urls)
