@@ -172,6 +172,24 @@ def test_dash_adaptationset_binds_self_closing_representation() -> None:
         ManifestPart("https://cdn.example.com/bundle.mp4", 0, 4, 0),
         ManifestPart("https://cdn.example.com/bundle.mp4", 4, 4, 0),
     ]
+    as_open_range = """
+    <MPD>
+      <Period>
+        <AdaptationSet mimeType="video/mp4">
+          <BaseURL>bundle.mp4</BaseURL>
+          <SegmentList>
+            <Initialization range="0-3"/>
+            <SegmentURL mediaRange="4-"/>
+          </SegmentList>
+          <Representation id="v1" bandwidth="800000"/>
+        </AdaptationSet>
+      </Period>
+    </MPD>
+    """
+    assert recordable_parts(as_open_range, "https://cdn.example.com/manifest.mpd") == [
+        ManifestPart("https://cdn.example.com/bundle.mp4", 0, 4, 0),
+        ManifestPart("https://cdn.example.com/bundle.mp4", 4, None, 0),
+    ]
     as_named_list = """
     <MPD>
       <Period>
@@ -899,6 +917,23 @@ def test_dash_segmentbase_keeps_representation_file() -> None:
     assert [(part.url, part.start, part.length) for part in parts] == [
         ("https://cdn.example.com/video.mp4", 0, 10),
         ("https://cdn.example.com/video.mp4", 10, 6),
+    ]
+    open_media = """
+    <MPD><Period>
+      <Representation id="v1" bandwidth="800000" mimeType="video/mp4">
+        <BaseURL>video.mp4</BaseURL>
+        <SegmentBase mediaRange="10-">
+          <Initialization range="0-9"/>
+        </SegmentBase>
+      </Representation>
+    </Period></MPD>
+    """
+    assert [
+        (part.url, part.start, part.length)
+        for part in recordable_parts(open_media, "https://cdn.example.com/")
+    ] == [
+        ("https://cdn.example.com/video.mp4", 0, 10),
+        ("https://cdn.example.com/video.mp4", 10, None),
     ]
 
 

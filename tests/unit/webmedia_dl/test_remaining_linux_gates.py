@@ -497,6 +497,8 @@ def test_segment_timeline_t_override_and_inverted_range() -> None:
     assert recordable_parts(inverted, "https://cdn.example.com/") == []
     assert _parse_dash_range("0 - 9") == (0, 10)
     assert _parse_dash_range("4 - 7") == (4, 4)
+    assert _parse_dash_range("4-") == (4, None)
+    assert _parse_dash_range("4 - ") == (4, None)
     assert _parse_dash_range(None) == (None, None)
     assert _parse_dash_range("nope") == (None, None)
     assert _parse_dash_range("9-3") == (None, None)

@@ -2,6 +2,13 @@
 
 ## 0.1.0
 
+- Slice open-ended DASH `range` / `mediaRange` values (`start-`, RFC 2616
+  byte-range-spec) from that offset through the end of the object instead of
+  concatenating the whole file or dropping the part. GitHub Actions
+  `32594460090` on `5fca2b8` passed Python (626 pytest, 100%), doctor provider
+  probes, and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after binding
+  AdaptationSet/Period/MPD SegmentList and SegmentBase onto self-closing
+  Representations.
 - Bind AdaptationSet, Period, and MPD `SegmentList` / `SegmentBase` (and MPD
   `SegmentTemplate`) onto self-closing Representations so DASH multiple-segment
   addressing records init/media ranges instead of an empty source. A child

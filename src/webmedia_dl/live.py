@@ -222,14 +222,21 @@ def _join(base: str, href: str) -> str:
 
 
 def _parse_dash_range(text: str | None) -> tuple[int | None, int | None]:
-    """Parse inclusive DASH `range` / `mediaRange` (`start-end`) into offset+length."""
+    """Parse DASH `range` / `mediaRange` into offset+length.
+
+    Closed `start-end` is inclusive. Open `start-` (RFC 2616 byte-range-spec)
+    means from that offset through the end of the fetched object.
+    """
     if not text:
         return None, None
-    match = re.fullmatch(r"(\d+)\s*-\s*(\d+)", text.strip())
+    match = re.fullmatch(r"(\d+)\s*-\s*(\d+)?", text.strip())
     if match is None:
         return None, None
     start = int(match.group(1))
-    end = int(match.group(2))
+    end_raw = match.group(2)
+    if end_raw is None:
+        return start, None
+    end = int(end_raw)
     if end < start:
         return None, None
     return start, end - start + 1

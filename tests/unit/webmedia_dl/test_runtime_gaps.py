@@ -328,6 +328,29 @@ def test_dash_segment_timeline(tmp_path: Path) -> None:
         ranged_alias, "https://cdn.example.com/r/manifest.mpd", alias_out, fetch_bundle
     )
     assert alias_out.read_bytes() == b"INITSEGASEGB"
+    open_end = """
+    <MPD><Period><SegmentList>
+      <Initialization sourceURL="bundle.mp4" range="0-3"/>
+      <SegmentURL media="bundle.mp4" mediaRange="4-"/>
+    </SegmentList></Period></MPD>
+    """
+    assert recordable_parts(open_end, "https://cdn.example.com/r/") == [
+        ManifestPart("https://cdn.example.com/r/bundle.mp4", 0, 4),
+        ManifestPart("https://cdn.example.com/r/bundle.mp4", 4, None),
+    ]
+    open_out = tmp_path / "dash-open.bin"
+    record_clear_stream(open_end, "https://cdn.example.com/r/manifest.mpd", open_out, fetch_bundle)
+    assert open_out.read_bytes() == b"INITSEGASEGBXXXX"
+    spaced_open = """
+    <MPD><Period><SegmentList>
+      <Initialization sourceURL="bundle.mp4" range="0-3"/>
+      <SegmentURL media="bundle.mp4" mediaRange="4 - "/>
+    </SegmentList></Period></MPD>
+    """
+    assert recordable_parts(spaced_open, "https://cdn.example.com/r/") == [
+        ManifestPart("https://cdn.example.com/r/bundle.mp4", 0, 4),
+        ManifestPart("https://cdn.example.com/r/bundle.mp4", 4, None),
+    ]
 
 
 def test_live_empty_and_nested_failure(tmp_path: Path) -> None:
