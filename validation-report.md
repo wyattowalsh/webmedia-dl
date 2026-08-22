@@ -34,7 +34,7 @@
 | Source artifact identity | PASS | SOURCE `artifact_id` must be `sha256:<digest>`; titles and `plan:source` sentinels are rejected |
 | Capability health probe | PASS | present binaries whose version probe fails are `unhealthy`; missing binaries stay `missing`; `/bin/false` is not `healthy` |
 | Extension popup one-tap | PASS | `popup.js` `#send` click collects page URLs and POSTs `/v1/jobs` with no `nativeCommand` |
-| Complete-client Mac relay | PASS | iPhone/iPad/visionOS heavy submit, history, and queue controls use a saved private/loopback Mac URL plus pairing; Mac `WebMediaDLMacRelayServer` listens on private/loopback HTTP, `forwardToLoopback` rewrites to `127.0.0.1`, and public peers / `nativeCommand` are refused. GitHub `macos-15` run `32550050185` on `fa1dee6` executed Core `swift test` 18 tests, 0 failures, including watch/tv control App Intents. Physical device radio remains BLOCKED |
+| Complete-client Mac relay | PASS | iPhone/iPad/visionOS heavy submit, history, and queue controls use a saved private/loopback Mac URL plus pairing; Mac `WebMediaDLMacRelayServer` listens on private/loopback HTTP, `forwardToLoopback` rewrites to `127.0.0.1`, and public peers / `nativeCommand` are refused. GitHub `macos-15` run `32550239808` on `24aeb5c` executed Core `swift test` 18 tests, 0 failures, including Mac/iPhone/iPad/visionOS queue App Intents. Physical device radio remains BLOCKED |
 | Publication skip | PASS | preview-only produced sets and `include_original=false` leave no publishable artifacts; validation failures fail the job |
 | Worker API errors | PASS | unknown pairing confirm/submit/plan/envelope fail closed; companion envelope non-objects are 400; pair `personal-full`/unknown profiles are 400; companion unknown job ids are 404; sealed companion `nativeCommand` is 400 then nonce-replay fails; loopback `serve` reaches uvicorn; `serve_worker` refuses `0.0.0.0`; `GET /v1/jobs` lists history; plan uses pairing id from auth headers; empty `run-next` returns `job: null`; `/v1/plan` DRM locators are 400 with no provider execution or job creation; `/v1/jobs` destinations outside `approved_roots` fail the job with `job.failed` |
 | Cancel during acquire | PASS | mixed-media HTTP cancel during the first kind raises closed to `cancelled` without publishing |
@@ -74,9 +74,9 @@
 | Acquired remote skip | PASS | resume at `stage=acquired` does not refetch remote media |
 | ImageMagick convert alias | PASS | health and argv resolve IM6 `convert` when `magick` is missing |
 | Job-detail / run-next helpers | PASS | unrelated history rows are skipped; empty queue returns `job: null`; a queued job returns events |
-| Swift Core CI job | PASS | GitHub Actions `ci` run `32549874958` on `b0d10de`: `IdentityTests` executed 6 tests, 0 failures on `macos-15` |
-| Swift Core contract tests | PASS | `ContractTests.swift` executed 12 tests, 0 failures with IdentityTests (6) on GitHub `macos-15` run `32549874958` (`b0d10de`) |
-| Apple package compile CI | PASS | GitHub Actions `ci` run `32549874958` on `b0d10de`: Core `swift test` 18 tests, 0 failures (`ContractTests` 12 + `IdentityTests` 6); Safari handler `swiftc -typecheck`; 8× `BUILD SUCCEEDED`. Device runtime stays BLOCKED |
+| Swift Core CI job | PASS | GitHub Actions `ci` run `32550239808` on `24aeb5c`: `IdentityTests` executed 6 tests, 0 failures on `macos-15` |
+| Swift Core contract tests | PASS | `ContractTests.swift` executed 12 tests, 0 failures with IdentityTests (6) on GitHub `macos-15` run `32550239808` (`24aeb5c`) |
+| Apple package compile CI | PASS | GitHub Actions `ci` run `32550239808` on `24aeb5c`: Core `swift test` 18 tests, 0 failures (`ContractTests` 12 + `IdentityTests` 6); Safari handler `swiftc -typecheck`; 8× `BUILD SUCCEEDED`. Device runtime stays BLOCKED |
 | OpenSpec scenarios | PASS | every capability spec scenario has WHEN/THEN; each scenario title maps to a named Python or Swift test; popup markup is parsed; drop records `local_path`; local submit does not upload; job submit forbids native argv |
 | Builtin manifests / profiles | PASS | every shipped provider sets `install_automatic` false and `accepts_user_argv` false; every shipped profile forbids telemetry, DRM circumvention, and delegation |
 | Graph relation schema | PASS | Swift `WebMediaDLGraphRelation` raw values match `GraphEdge.relation` |
@@ -114,7 +114,7 @@
 | App Group + pairing clients | PASS | `group.local.webmedia-dl` on apps and share extensions; unauthenticated loopback `POST /v1/pair` bootstrap; Mac-only confirm parses `session_key`; iPhone/iPad/vision derive SHA256(`nonce:mac-confirm`) locally and restore Files bookmarks; watch/tv `lastJobId` comes from companion history/response |
 | Original planning-pack ZIP byte compare | BLOCKED | zip not in this workspace; 159 overlay files reconstructed |
 | Real WatchConnectivity radio | BLOCKED | WCSession scaffolding + queued fallback; no Apple radio on Linux |
-| Safari wrapping / signed NSExtension | BLOCKED | `swiftc -typecheck` of `SafariWebExtensionHandler.swift` executed on GitHub `macos-15` run `32549874958`; signed Xcode NSExtension wrapping is not executed |
+| Safari wrapping / signed NSExtension | BLOCKED | `swiftc -typecheck` of `SafariWebExtensionHandler.swift` executed on GitHub `macos-15` run `32550239808`; signed Xcode NSExtension wrapping is not executed |
 
 Planning overlay files reconstructed from the 2026-08-18 pack inventory except
 `START_HERE.md`, `product-brief.md`, and `system-architecture.md`, which were
