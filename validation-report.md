@@ -2,7 +2,7 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 496 tests |
+| `uv run pytest` | PASS | 497 tests |
 | `uv run pytest --cov` | PASS | 99.65% (`fail_under` 99) |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
@@ -66,9 +66,9 @@
 | ImageMagick convert alias | PASS | health and argv resolve IM6 `convert` when `magick` is missing |
 | Job-detail / run-next helpers | PASS | unrelated history rows are skipped; empty queue returns `job: null`; a queued job returns events |
 | Swift Core CI job | PASS | GitHub Actions `ci` run `32538904545` on `94e423b`: `IdentityTests` executed 6 tests, 0 failures on `macos-15` |
-| Swift Core contract tests | PASS | `ContractTests.swift` executed 10 tests, 0 failures with IdentityTests (6) on GitHub `macos-15` run `32539374548` (`5f85fe3`) |
-| Apple package compile CI | PASS | GitHub Actions `ci` run `32543202699` on `b19e44d`: Core `swift test` 18 tests, 0 failures; 8× `BUILD SUCCEEDED` (iOS, iOS share parent scheme, iPad, iPad share, vision, vision share, watchOS, tvOS). Device runtime stays BLOCKED |
-| Swift schema parity | PASS | every exported JSON Schema property appears in the matching Swift `CodingKeys`; enum raw values match schema `$defs` |
+| Swift Core contract tests | PASS | `ContractTests.swift` executed 12 tests, 0 failures with IdentityTests (6) on GitHub `macos-15` run `32543981785` (`691114e`) |
+| Apple package compile CI | PASS | GitHub Actions `ci` run `32543981785` on `691114e`: Core `swift test` 18 tests, 0 failures (`ContractTests` 12 + `IdentityTests` 6); 8× `BUILD SUCCEEDED` (iOS, iOS share parent scheme, iPad, iPad share, vision, vision share, watchOS, tvOS). Device runtime stays BLOCKED |
+| OpenSpec scenarios | PASS | every capability spec scenario has WHEN/THEN; duplicate scenario titles removed |
 | WatchConnectivity class headers | PASS | WCSessionDelegate is an extension; class signatures are not split across `#else` |
 | URL never a path | PASS | URL intake with `local_path` or `file:` normalized_url raises; extra provider argv is refused |
 | Live aggregate bound + kinds | PASS | cumulative byte budget; separate VIDEO/AUDIO artifacts; audio-only DASH uses the highest-bandwidth audio Representation; SegmentBase ranges including mediaRange; multi-period occurrences; empty recordings and HTTP 400 playlists fail closed; nested/audio `should_stop` aborts before further fetches |

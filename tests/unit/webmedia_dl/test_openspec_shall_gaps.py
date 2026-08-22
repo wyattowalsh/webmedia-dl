@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import ast
 import importlib.util
+import re
 import zipfile
+from collections import Counter
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -291,3 +293,20 @@ def test_doctor_version_probe_oserror_is_fail(monkeypatch: pytest.MonkeyPatch) -
     assert ffmpeg["status"] == "FAIL"
     assert ffmpeg["executed"] is True
     assert "did not report a version" in ffmpeg["reason"]
+
+
+def test_every_openspec_scenario_has_when_then() -> None:
+    root = repo_root() / "openspec/changes/build-webmedia-dl-v1/specs"
+    titles: list[str] = []
+    for spec in sorted(root.glob("*/spec.md")):
+        text = spec.read_text(encoding="utf-8")
+        chunks = re.split(r"(?m)^#### Scenario:", text)
+        assert "SHALL" in text, spec.parent.name
+        for chunk in chunks[1:]:
+            title = chunk.splitlines()[0].strip()
+            assert "**WHEN**" in chunk, f"{spec.parent.name}: {title}"
+            assert "**THEN**" in chunk, f"{spec.parent.name}: {title}"
+            titles.append(title)
+    assert len(titles) >= 40
+    dupes = [name for name, count in Counter(titles).items() if count > 1]
+    assert dupes == [], dupes

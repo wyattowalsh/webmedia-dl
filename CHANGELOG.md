@@ -104,5 +104,6 @@
   `keep-original` at `LossClass.NONE` with no transcode. Shared Swift Core
   types now carry the same JSON keys as the exported Pydantic schemas
   (`WebMediaDLPipelineJob`, operations, policy fetch bounds, history timestamps).
-  GitHub `macos-15` CI run `32543202699` compiled Core tests (18/0) and every
-  Apple package including tvOS.
+  GitHub `macos-15` CI run `32543981785` on `691114e` compiled Core tests (18/0,
+  including schema-aligned domain assertions) and every Apple package including
+  tvOS.

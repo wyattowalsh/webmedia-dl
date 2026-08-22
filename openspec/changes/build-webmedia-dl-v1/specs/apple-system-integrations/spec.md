@@ -26,11 +26,6 @@ closed until a signed Apple Photos API is available.
 - **WHEN** clipboard text contains `https://cdn.example.com/a.mp4`
 - **THEN** intake kind is `paste` and `local_path` is unset
 
-#### Scenario: publication requires approved roots
-
-- **WHEN** `destination_kind` is `user_approved_path` without `approved_roots`
-- **THEN** the export intent fails validation
-
 ### Requirement: Share and intents adapters
 
 macOS and iOS SHALL expose share-sheet and App Intent adapters that forward locators
