@@ -435,6 +435,8 @@ def _template_urls(
     bandwidth: str | None = None,
     period_seconds: float | None = None,
     inherited_timescale: str | None = None,
+    include_initialization: bool = True,
+    include_media: bool = True,
 ) -> list[str]:
     attrs = _attrs(attr_blob)
     if inherited_timescale and not attrs.get("timescale"):
@@ -461,7 +463,10 @@ def _template_urls(
             return
         urls.append(_join(base, resolved))
 
-    add(attrs.get("initialization"), number=start)
+    if include_initialization:
+        add(attrs.get("initialization"), number=start)
+    if not include_media:
+        return urls
     media = attrs.get("media")
     samples = list(_DASH_S.finditer(body or ""))
     if samples and media:
@@ -599,18 +604,49 @@ def _collect_segments(
     current = _expand_locator_tokens(current, representation=representation, bandwidth=bandwidth)
     if include_templates:
         for match in _DASH_TEMPLATE.finditer(text):
+            attr_blob = match.group(1)
+            body = match.group(2) or ""
             for url in _template_urls(
-                match.group(1),
-                match.group(2) or "",
+                attr_blob,
+                body,
                 current,
                 representation=representation,
                 bandwidth=bandwidth,
                 period_seconds=period_seconds,
                 inherited_timescale=inherited_timescale,
+                include_media=False,
+            ):
+                add(ManifestPart(url))
+            start_number = _int_attr(_attrs(attr_blob), "startnumber", 1)
+            for init in _INIT_TAG.finditer(body):
+                iattrs = _attrs(init.group(1))
+                href = iattrs.get("sourceurl")
+                start, length = _parse_dash_range(iattrs.get("range"))
+                if not href:
+                    continue
+                resolved = _expand_dash_template(
+                    href.strip(),
+                    number=start_number,
+                    representation=representation or "1",
+                    bandwidth=bandwidth or "1",
+                )
+                if _UNEXPANDED_DASH.search(resolved):
+                    continue
+                add(ManifestPart(_join(current, resolved), start, length))
+            for url in _template_urls(
+                attr_blob,
+                body,
+                current,
+                representation=representation,
+                bandwidth=bandwidth,
+                period_seconds=period_seconds,
+                inherited_timescale=inherited_timescale,
+                include_initialization=False,
             ):
                 add(ManifestPart(url))
     file_url = _file_baseurl(text, current, representation=representation, bandwidth=bandwidth)
-    for match in _INIT_TAG.finditer(text):
+    outside_templates = _strip_blocks(text, _DASH_TEMPLATE)
+    for match in _INIT_TAG.finditer(outside_templates):
         attrs = _attrs(match.group(1))
         href = attrs.get("sourceurl")
         start, length = _parse_dash_range(attrs.get("range"))

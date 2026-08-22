@@ -208,6 +208,51 @@ def test_dash_segment_timeline(tmp_path: Path) -> None:
     assert urls[0] == "https://cdn.example.com/dash/init.mp4"
     assert "https://cdn.example.com/dash/chunk_1.m4s" in urls
     assert "https://cdn.example.com/dash/chunk_3.m4s" in urls
+    child_init = """
+    <MPD mediaPresentationDuration="PT4S"><Period>
+      <SegmentTemplate media="s$Number$.m4s" startNumber="1" duration="2" timescale="1">
+        <Initialization sourceURL="init.mp4"/>
+      </SegmentTemplate>
+    </Period></MPD>
+    """
+    assert recordable_segment_urls(child_init, "https://cdn.example.com/") == [
+        "https://cdn.example.com/init.mp4",
+        "https://cdn.example.com/s1.m4s",
+        "https://cdn.example.com/s2.m4s",
+    ]
+    child_init_range = """
+    <MPD mediaPresentationDuration="PT4S"><Period>
+      <SegmentTemplate media="s$Number$.m4s" startNumber="1" duration="2" timescale="1">
+        <Initialization sourceURL="bundle.mp4" range="0-3"/>
+      </SegmentTemplate>
+    </Period></MPD>
+    """
+    ranged_init = recordable_parts(child_init_range, "https://cdn.example.com/")
+    assert ranged_init[0] == ManifestPart("https://cdn.example.com/bundle.mp4", 0, 4)
+    assert [part.url for part in ranged_init[1:]] == [
+        "https://cdn.example.com/s1.m4s",
+        "https://cdn.example.com/s2.m4s",
+    ]
+    skipped_init = """
+    <MPD><Period>
+      <SegmentTemplate media="s$Number$.m4s" startNumber="1">
+        <Initialization sourceURL="$Time$.mp4"/>
+      </SegmentTemplate>
+    </Period></MPD>
+    """
+    assert recordable_segment_urls(skipped_init, "https://cdn.example.com/") == [
+        "https://cdn.example.com/s1.m4s",
+    ]
+    missing_href = """
+    <MPD><Period>
+      <SegmentTemplate media="s$Number$.m4s" startNumber="1">
+        <Initialization range="0-3"/>
+      </SegmentTemplate>
+    </Period></MPD>
+    """
+    assert recordable_segment_urls(missing_href, "https://cdn.example.com/") == [
+        "https://cdn.example.com/s1.m4s",
+    ]
     timed = """
     <MPD><SegmentTemplate media="t_$Time$.m4s" startNumber="0">
       <SegmentTimeline><S t="100" d="50" r="1"/></SegmentTimeline>

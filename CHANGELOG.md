@@ -2,6 +2,12 @@
 
 ## 0.1.0
 
+- Record DASH `SegmentTemplate` child `Initialization` (including `range`)
+  before `$Number$` media so concatenated fMP4 sources start with the init
+  segment instead of appending it after media. GitHub Actions `32593797449`
+  on `d656a55` passed Python (626 pytest, 100%), doctor provider probes, and
+  Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after binding Period
+  SegmentTemplate values onto self-closing Representations.
 - Bind Period-level DASH `SegmentTemplate` values onto self-closing
   Representation children so `$RepresentationID$` / `$Number$` locators are
   recorded instead of an empty source. An AdaptationSet template still
