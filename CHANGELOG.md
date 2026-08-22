@@ -2,6 +2,12 @@
 
 ## 0.1.0
 
+- Keep page-level `cenc`/`cbcs` DRM signals on HTML/JSON-LD candidates
+  instead of re-scanning regex pattern strings (which dropped those
+  hits). Parse namespace-prefixed DASH (`dash:MPD`) the same as bare
+  `MPD` so ContentProtection still refuses and SegmentList ranges still
+  slice. Restore the Swift `hlsKeyIsProtected` loop binding so Core
+  compiles.
 - Parse HLS `#EXT-X-KEY` / `#EXT-X-SESSION-KEY` `METHOD` from tag attributes
   so a `METHOD=` token inside a quoted `URI` cannot masquerade as `NONE`
   and fetch encrypted segments. Duplicate `METHOD` attributes and

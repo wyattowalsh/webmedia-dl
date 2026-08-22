@@ -42,7 +42,13 @@ from webmedia_dl.domain.models import (
 from webmedia_dl.errors import CapabilityDenied, DrmRefused, IntakeError, ProviderPolicyError
 from webmedia_dl.export import plan_export
 from webmedia_dl.identity import SAFE_CONTAINER_PATTERN, is_safe_container, is_safe_format_id
-from webmedia_dl.live import ManifestPart, inspect_manifest, record_clear_stream, recordable_parts
+from webmedia_dl.live import (
+    ManifestPart,
+    inspect_manifest,
+    manifest_is_live,
+    record_clear_stream,
+    recordable_parts,
+)
 from webmedia_dl.paths import repo_root
 from webmedia_dl.pipeline import Pipeline
 from webmedia_dl.policy.profiles import assert_worker_capability, get_profile
@@ -266,6 +272,67 @@ def test_detect_drm_signals_covers_cenc_and_system_uuids() -> None:
     assert detect_drm_signals('value="cbcs"')
     with pytest.raises(DrmRefused):
         refuse_drm(detect_drm_signals("urn:mpeg:dash:mp4protection:2011"))
+
+
+def test_html_cenc_page_drm_signals_stay_on_candidates() -> None:
+    html = """
+    <html><body>
+      <p>schemeIdUri="cenc" value="cbcs"</p>
+      <img src="https://cdn.example.com/hero.png">
+    </body></html>
+    """
+    found = discover(_page_source(), get_profile("personal-full"), html=html)
+    images = [item for item in found if item.media_kind is MediaKind.IMAGE]
+    assert images
+    assert any(item.drm_signals for item in images)
+    jsonld = """
+    <html><body>
+      <p>schemeIdUri="cenc"</p>
+      <script type="application/ld+json">
+        {"@type": "VideoObject", "contentUrl": "https://cdn.example.com/clip.mp4"}
+      </script>
+    </body></html>
+    """
+    found = discover(_page_source(), get_profile("personal-full"), html=jsonld)
+    videos = [item for item in found if item.media_kind is MediaKind.VIDEO]
+    assert videos
+    assert any(item.drm_signals for item in videos)
+
+
+def test_namespaced_dash_content_protection_and_segmentlist() -> None:
+    protected = (
+        '<?xml version="1.0"?>'
+        '<dash:MPD xmlns:dash="urn:mpeg:dash:schema:mpd:2011">'
+        '<dash:Period><dash:ContentProtection schemeIdUri="urn:mpeg:cenc:2013"/>'
+        "</dash:Period></dash:MPD>"
+    )
+    with pytest.raises(DrmRefused):
+        inspect_manifest(protected)
+    listed = """
+    <?xml version="1.0"?>
+    <dash:MPD xmlns:dash="urn:mpeg:dash:schema:mpd:2011">
+      <dash:Period>
+        <dash:AdaptationSet>
+          <dash:Representation id="1" bandwidth="1000" mimeType="video/mp4">
+            <dash:BaseURL>bundle.mp4</dash:BaseURL>
+            <dash:SegmentList>
+              <dash:Initialization range="0-3"/>
+              <dash:SegmentURL mediaRange="4-7"/>
+            </dash:SegmentList>
+          </dash:Representation>
+        </dash:AdaptationSet>
+      </dash:Period>
+    </dash:MPD>
+    """
+    assert recordable_parts(listed, "https://cdn.example.com/r/") == [
+        ManifestPart("https://cdn.example.com/r/bundle.mp4", 0, 4),
+        ManifestPart("https://cdn.example.com/r/bundle.mp4", 4, 4),
+    ]
+    dynamic = (
+        '<dash:MPD xmlns:dash="urn:mpeg:dash:schema:mpd:2011" type="dynamic">'
+        "<dash:Period/></dash:MPD>"
+    )
+    assert manifest_is_live(dynamic)
 
 
 def test_candidate_graph_records_duplicates_drm_and_grouping() -> None:

@@ -446,7 +446,7 @@ def discover(
                 item_kind,
                 title=title,
                 evidence=["discover:html"],
-                drm=detect_drm_signals(absolute, *drm),
+                drm=sorted(set(detect_drm_signals(absolute)) | set(drm)),
             )
         )
     ld_hits = re.findall(
@@ -478,7 +478,7 @@ def discover(
                             _kind_from_jsonld(item, absolute),
                             title=title,
                             evidence=["discover:jsonld"],
-                            drm=detect_drm_signals(absolute, *drm),
+                            drm=sorted(set(detect_drm_signals(absolute)) | set(drm)),
                         )
                     )
     if not found:

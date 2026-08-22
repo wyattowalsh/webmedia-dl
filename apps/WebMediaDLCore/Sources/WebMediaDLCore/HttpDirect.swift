@@ -278,7 +278,7 @@ public enum WebMediaDLHttpDirect {
 
     public static func hlsKeyIsProtected(_ text: String) -> Bool {
         for raw in text.split(whereSeparator: \.isNewline) {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            let trimmed = String(raw).trimmingCharacters(in: .whitespaces)
             let upper   = trimmed.uppercased()
             guard upper.hasPrefix("#EXT-X-KEY:") || upper.hasPrefix("#EXT-X-SESSION-KEY:") else {
                 continue

@@ -15,24 +15,25 @@ from webmedia_dl.domain.enums import MediaKind
 from webmedia_dl.errors import DiscoveryError, DrmRefused, NetworkPolicyError
 from webmedia_dl.security import DRM_PATTERNS, detect_drm_signals, refuse_drm
 
+_XML_NS = r"(?:[A-Za-z_][\w.-]*:)?"
 _HLS_BYTERANGE = re.compile(r"#EXT-X-BYTERANGE:(\d+)(?:@(\d+))?", re.I)
 _DASH_CONTENT_PROTECTION = re.compile(r"ContentProtection", re.I)
-_DASH_BASE_URL = re.compile(r"<BaseURL>\s*([^<\s]+)\s*</BaseURL>", re.I)
+_DASH_BASE_URL = re.compile(rf"<{_XML_NS}BaseURL>\s*([^<\s]+)\s*</{_XML_NS}BaseURL>", re.I)
 _DASH_MEDIA = re.compile(
     r"""\b(?:media|initialization|sourceURL)=(?:"([^"]+)"|'([^']+)')""",
     re.I,
 )
 _DASH_TEMPLATE = re.compile(
-    r"<SegmentTemplate\b([^>]*)(?:/>|>(.*?)</SegmentTemplate>)",
+    rf"<{_XML_NS}SegmentTemplate\b([^>]*)(?:/>|>(.*?)</{_XML_NS}SegmentTemplate>)",
     re.I | re.S,
 )
-_DASH_S = re.compile(r"<S\b([^>]*)/?>", re.I)
+_DASH_S = re.compile(rf"<{_XML_NS}S\b([^>]*)/?>", re.I)
 _DASH_SEGMENT_BASE = re.compile(
-    r"<SegmentBase\b([^>]*)(?:/>|>(.*?)</SegmentBase>)",
+    rf"<{_XML_NS}SegmentBase\b([^>]*)(?:/>|>(.*?)</{_XML_NS}SegmentBase>)",
     re.I | re.S,
 )
 _DASH_SEGMENT_LIST = re.compile(
-    r"<SegmentList\b([^>]*)(?:/>|>(.*?)</SegmentList>)",
+    rf"<{_XML_NS}SegmentList\b([^>]*)(?:/>|>(.*?)</{_XML_NS}SegmentList>)",
     re.I | re.S,
 )
 _DASH_ATTR = re.compile(r"([A-Za-z_:][\w:.-]*)=(?:\"([^\"]*)\"|'([^']*)')")
@@ -40,18 +41,21 @@ _NUMBER_TOKEN = re.compile(r"\$Number(%[^$]+)?\$")
 _TIME_TOKEN = re.compile(r"\$Time(%[^$]+)?\$")
 _UNEXPANDED_DASH = re.compile(r"\$(?:Number|Time|RepresentationID|Bandwidth)(?:%[^$]+)?\$")
 _REPRESENTATION = re.compile(
-    r"<Representation\b([^>]*)(?:/>|>(.*?)</Representation>)",
+    rf"<{_XML_NS}Representation\b([^>]*)(?:/>|>(.*?)</{_XML_NS}Representation>)",
     re.I | re.S,
 )
 _ADAPTATION_SET = re.compile(
-    r"<AdaptationSet\b([^>]*)(?:/>|>(.*?)</AdaptationSet>)",
+    rf"<{_XML_NS}AdaptationSet\b([^>]*)(?:/>|>(.*?)</{_XML_NS}AdaptationSet>)",
     re.I | re.S,
 )
 _PERIOD = re.compile(
-    r"<Period\b([^>]*)(?:/>|>(.*?)</Period>)",
+    rf"<{_XML_NS}Period\b([^>]*)(?:/>|>(.*?)</{_XML_NS}Period>)",
     re.I | re.S,
 )
-_MPD_OPEN = re.compile(r"<MPD\b([^>]*)>", re.I)
+_MPD_ROOT = re.compile(rf"<{_XML_NS}MPD\b", re.I)
+_MPD_OPEN = re.compile(rf"<{_XML_NS}MPD\b([^>]*)>", re.I)
+_INIT_TAG = re.compile(rf"<{_XML_NS}Initialization\b([^>]*)/?>", re.I)
+_SEGMENT_URL_TAG = re.compile(rf"<{_XML_NS}SegmentURL\b([^>]*)/?>", re.I)
 _ISO_DURATION = re.compile(
     r"^P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)D)?"
     r"(?:T(?:(\d+(?:\.\d+)?)H)?(?:(\d+(?:\.\d+)?)M)?(?:(\d+(?:\.\d+)?)S)?)?$",
@@ -62,6 +66,10 @@ MAX_LIVE_POLLS = 8
 
 FetchFn = Callable[[str], tuple[int, str, bytes]]
 StopFn = Callable[[], None]
+
+
+def _is_dash_manifest(text: str) -> bool:
+    return _MPD_ROOT.search(text) is not None
 
 
 class ManifestPart(NamedTuple):
@@ -157,7 +165,7 @@ def _refuse_hls_playlist_drm(text: str) -> None:
 
 
 def inspect_manifest(text: str) -> None:
-    dash = "<MPD" in text or "<mpd" in text
+    dash = _is_dash_manifest(text)
     if dash:
         refuse_drm(detect_drm_signals(text))
         if _DASH_CONTENT_PROTECTION.search(text):
@@ -175,7 +183,7 @@ def recordable_segment_urls(text: str, base: str) -> list[str]:
 
 
 def recordable_parts(text: str, base: str) -> list[ManifestPart]:
-    dash = "<MPD" in text or "<mpd" in text
+    dash = _is_dash_manifest(text)
     if dash:
         refuse_drm(detect_drm_signals(text))
         if _DASH_CONTENT_PROTECTION.search(text):
@@ -465,7 +473,7 @@ def _collect_segment_base(text: str, file_url: str, add: AddPart) -> None:
     for match in _DASH_SEGMENT_BASE.finditer(text):
         attrs = _attrs(match.group(1))
         body = match.group(2) or ""
-        for init in re.finditer(r"<Initialization\b([^>]*)/?>", body, flags=re.I):
+        for init in _INIT_TAG.finditer(body):
             iattrs = _attrs(init.group(1))
             href = iattrs.get("sourceurl")
             url = _join(file_url, href.strip()) if href else file_url
@@ -502,7 +510,7 @@ def _collect_segments(
             ):
                 add(ManifestPart(url))
     file_url = _file_baseurl(text, current)
-    for match in re.finditer(r"<Initialization\b([^>]*)/?>", text, flags=re.I):
+    for match in _INIT_TAG.finditer(text):
         attrs = _attrs(match.group(1))
         href = attrs.get("sourceurl")
         start, length = _parse_dash_range(attrs.get("range"))
@@ -510,7 +518,7 @@ def _collect_segments(
             add(ManifestPart(_join(current, href.strip()), start, length))
         elif file_url is not None and (start is not None or length is not None):
             add(ManifestPart(file_url, start, length))
-    for match in re.finditer(r"<SegmentURL\b([^>]*)/?>", text, flags=re.I):
+    for match in _SEGMENT_URL_TAG.finditer(text):
         attrs = _attrs(match.group(1))
         href = attrs.get("media")
         start, length = _parse_dash_range(attrs.get("mediarange"))
@@ -843,7 +851,7 @@ def _dash_kind_parts(text: str, base: str) -> dict[str, list[ManifestPart]]:
 
 
 def manifest_is_live(text: str) -> bool:
-    if "<MPD" in text or "<mpd" in text:
+    if _is_dash_manifest(text):
         match = _MPD_OPEN.search(text)
         if match is None:
             return False
@@ -1012,7 +1020,7 @@ def record_clear_stream(
     while True:
         try:
             inspect_manifest(playlist)
-            if rendition_kind and ("<MPD" in playlist or "<mpd" in playlist):
+            if rendition_kind and _is_dash_manifest(playlist):
                 current_parts = _dash_kind_parts(playlist, playlist_url).get(rendition_kind, [])
             elif parts is not None and round_index == 0:
                 current_parts = parts
@@ -1065,7 +1073,7 @@ def record_kind_streams(
     """Record the primary stream plus a separate audio rendition when present."""
     inspect_manifest(playlist_text)
     bound = ByteBudget(max_bytes)
-    dash = "<MPD" in playlist_text or "<mpd" in playlist_text
+    dash = _is_dash_manifest(playlist_text)
     if dash:
         kinds = _dash_kind_parts(playlist_text, playlist_url)
         mapping: list[tuple[MediaKind, str]] = []
