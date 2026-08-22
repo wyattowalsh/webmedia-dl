@@ -385,13 +385,28 @@ def _candidates_from_evidence(
     return seeded
 
 
+def _kind_from_url_or_guess(url: str, guessed: MediaKind) -> MediaKind | None:
+    """Resolve kind from the locator, keeping subtitle hints on HLS WebVTT playlists.
+
+    `track[src]` and `as=track` are subtitles even when the locator is `.m3u8`
+    / `.m3u` / `.mpd`. A suffix-based live kind would steal `live_stream` from
+    the actual media playlist on mixed pages.
+    """
+    if guessed is MediaKind.SUBTITLE:
+        return MediaKind.SUBTITLE
+    item_kind = _kind_from_url(url)
+    if item_kind == MediaKind.PAGE:
+        if guessed in {MediaKind.UNKNOWN, MediaKind.PAGE}:
+            return None
+        return guessed
+    return item_kind
+
+
 def _kind_from_evidence(url: str, hinted: MediaKind) -> MediaKind:
-    url_kind = _kind_from_url(url)
-    if url_kind not in {MediaKind.PAGE, MediaKind.UNKNOWN}:
-        return url_kind
-    if hinted not in {MediaKind.UNKNOWN, MediaKind.PAGE}:
-        return hinted
-    return url_kind
+    resolved = _kind_from_url_or_guess(url, hinted)
+    if resolved is not None:
+        return resolved
+    return _kind_from_url(url)
 
 
 def _kind_from_jsonld(item: dict, url: str) -> MediaKind:
@@ -619,11 +634,9 @@ def discover(
             continue
         if _locator_has_script_asset_suffix(absolute):
             continue
-        item_kind = _kind_from_url(absolute)
-        if item_kind == MediaKind.PAGE:
-            if guessed in {MediaKind.UNKNOWN, MediaKind.PAGE}:
-                continue
-            item_kind = guessed
+        item_kind = _kind_from_url_or_guess(absolute, guessed)
+        if item_kind is None:
+            continue
         seen.add(absolute)
         found.append(
             _candidate(

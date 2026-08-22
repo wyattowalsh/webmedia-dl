@@ -161,11 +161,16 @@ def test_html_discovery_resolves_relative_locators_against_base_href() -> None:
     mixed = discover(
         direct,
         profile,
-        evidence=[BrowserEvidence(url="sidecar.jpg", kind=MediaKind.IMAGE)],
+        evidence=[
+            BrowserEvidence(url="sidecar.jpg", kind=MediaKind.IMAGE),
+            BrowserEvidence(url="subs.m3u8", kind=MediaKind.SUBTITLE),
+        ],
     )
     mixed_urls = [item.retrieval_urls[0] for item in mixed if item.retrieval_urls]
+    mixed_kinds = {item.retrieval_urls[0]: item.media_kind for item in mixed if item.retrieval_urls}
     assert "https://cdn.example.com/direct.mp4" in mixed_urls
     assert "https://cdn.example.com/sidecar.jpg" in mixed_urls
+    assert mixed_kinds["https://cdn.example.com/subs.m3u8"] is MediaKind.SUBTITLE
 
 
 def test_html_discovery_extracts_track_and_media_anchors() -> None:
@@ -173,7 +178,9 @@ def test_html_discovery_extracts_track_and_media_anchors() -> None:
     <html><body>
       <video src="https://cdn.example.com/clip.mp4">
         <track src="https://cdn.example.com/clip.vtt" kind="subtitles">
+        <track src="https://cdn.example.com/subs.m3u8" kind="subtitles">
       </video>
+      <video src="https://cdn.example.com/live.m3u8"></video>
       <a href="https://cdn.example.com/notes.pdf">PDF</a>
       <a href="https://cdn.example.com/icon.svg">SVG</a>
       <a href="https://cdn.example.com/slash.svg/">SVG slash</a>
@@ -189,6 +196,14 @@ def test_html_discovery_extracts_track_and_media_anchors() -> None:
     assert MediaKind.SUBTITLE in kinds
     assert MediaKind.DOCUMENT in kinds
     assert MediaKind.IMAGE in kinds
+    assert MediaKind.LIVE_STREAM in kinds
+    by_url = {item.retrieval_urls[0]: item.media_kind for item in candidates if item.retrieval_urls}
+    assert by_url["https://cdn.example.com/subs.m3u8"] is MediaKind.SUBTITLE
+    assert by_url["https://cdn.example.com/live.m3u8"] is MediaKind.LIVE_STREAM
+    preferred = preferred_by_kind(build_graph(uuid4(), candidates))
+    preferred_live = [item for item in preferred if item.media_kind is MediaKind.LIVE_STREAM]
+    assert len(preferred_live) == 1
+    assert preferred_live[0].retrieval_urls[0] == "https://cdn.example.com/live.m3u8"
     assert "https://cdn.example.com/clip.vtt" in urls
     assert "https://cdn.example.com/notes.pdf" in urls
     assert "https://cdn.example.com/icon.svg" in urls
@@ -457,6 +472,7 @@ def test_html_link_audio_image_track_and_jsonld_kinds() -> None:
         <link rel="preload" as="audio" href="https://cdn.example.com/a.mp3">
         <link rel="preload" as="image" href="https://cdn.example.com/i.png">
         <link rel="preload" as="track" href="https://cdn.example.com/t.vtt">
+        <link rel="preload" as="track" href="https://cdn.example.com/t.m3u8">
         <script type="application/ld+json">
           [
             {"@type": "AudioObject", "contentUrl": "https://example.com/listen"},
@@ -474,6 +490,7 @@ def test_html_link_audio_image_track_and_jsonld_kinds() -> None:
     assert kinds["https://cdn.example.com/a.mp3"] is MediaKind.AUDIO
     assert kinds["https://cdn.example.com/i.png"] is MediaKind.IMAGE
     assert kinds["https://cdn.example.com/t.vtt"] is MediaKind.SUBTITLE
+    assert kinds["https://cdn.example.com/t.m3u8"] is MediaKind.SUBTITLE
     assert kinds["https://example.com/listen"] is MediaKind.AUDIO
     assert kinds["https://example.com/photo"] is MediaKind.IMAGE
 

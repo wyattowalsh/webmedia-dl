@@ -2,6 +2,14 @@
 
 ## 0.1.0
 
+- Keep `track[src]` / `as=track` / subtitle browser evidence as SUBTITLE when
+  the locator is an HLS/DASH playlist (`.m3u8` / `.m3u` / `.mpd`), so a WebVTT
+  media playlist cannot steal preferred `live_stream` from the actual media
+  playlist. GitHub Actions `32598853313` on `2dd033d` passed Python (626
+  pytest, 100%), doctor provider probes, and Swift (18 tests, 0 failures; 12×
+  BUILD SUCCEEDED) after preferring the HLS `AUDIO` group of the highest-
+  `BANDWIDTH` variant with `DEFAULT=YES` first.
+
 - Prefer the HLS `AUDIO` group of the highest-`BANDWIDTH` `EXT-X-STREAM-INF`
   variant, with `DEFAULT=YES` first, so `record_kind_streams` fetches the
   referenced rendition instead of the first `#EXT-X-MEDIA` URI (commentary

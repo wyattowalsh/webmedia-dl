@@ -53,6 +53,7 @@ def test_srcset_poster_and_browser_evidence() -> None:
     """
     evidence = [
         BrowserEvidence(url="https://cdn.example.com/captured.mp4", kind=MediaKind.VIDEO),
+        BrowserEvidence(url="https://cdn.example.com/subs.m3u8", kind=MediaKind.SUBTITLE),
         BrowserEvidence(url="https://cdn.example.com/mislabelled.mp4", kind=MediaKind.IMAGE),
         BrowserEvidence(url="https://example.com/watch?v=hinted", kind=MediaKind.VIDEO),
         BrowserEvidence(url="https://example.com/bare-page", kind=MediaKind.UNKNOWN),
@@ -71,6 +72,7 @@ def test_srcset_poster_and_browser_evidence() -> None:
     assert "https://cdn.example.com/captured.mp4" in urls
     assert "https://cdn.example.com/clip.mp4" in urls
     assert kinds["https://cdn.example.com/mislabelled.mp4"] is MediaKind.VIDEO
+    assert kinds["https://cdn.example.com/subs.m3u8"] is MediaKind.SUBTITLE
     assert kinds["https://example.com/watch?v=hinted"] is MediaKind.VIDEO
     assert kinds["https://example.com/bare-page"] is MediaKind.PAGE
     assert any(item.endswith("poster.jpg") for item in urls)
