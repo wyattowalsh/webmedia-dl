@@ -175,10 +175,7 @@ public struct WebMediaDLCapability: Codable, Sendable {
         self.description  = description
         self.health       = health
     }
-}
 
-/// Capability intersection used by complete clients. yt-dlp stays Mac/CLI.
-public enum WebMediaDLCapabilityRegistry {
     public static let acquireHTTP = WebMediaDLCapability(
         capabilityId: "acquire.http",
         providerId: "http-direct",
@@ -197,6 +194,13 @@ public enum WebMediaDLCapabilityRegistry {
         platforms: [.macos, .cli],
         description: "live record clear manifest"
     )
+}
+
+/// Capability intersection used by complete clients. yt-dlp stays Mac/CLI.
+public enum WebMediaDLCapabilityRegistry {
+    public static let acquireHTTP  = WebMediaDLCapability.acquireHTTP
+    public static let acquireYtdlp = WebMediaDLCapability.acquireYtdlp
+    public static let liveRecord   = WebMediaDLCapability.liveRecord
 
     public static func allows(_ capability: WebMediaDLCapability, on surface: WebMediaDLSurface) -> Bool {
         capability.platforms.contains(surface)

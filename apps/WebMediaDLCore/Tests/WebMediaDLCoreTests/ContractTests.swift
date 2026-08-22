@@ -364,8 +364,8 @@ final class ContractTests: XCTestCase {
                 fetch: { _ in (200, [:], Data("#EXT-X-KEY:METHOD=AES-128".utf8)) }
             )
             XCTFail("encrypted body must refuse before write")
-        } catch WebMediaDLHttpDirect.TransferError.drmRefused {
-            ()
+        } catch let WebMediaDLHttpDirect.TransferError.drmRefused(joined) {
+            XCTAssertFalse(joined.isEmpty)
         }
         do {
             _ = try await WebMediaDLHttpDirect.transfer(
