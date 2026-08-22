@@ -439,6 +439,27 @@ def _expand_dash_template(
     return text.replace("\x00", "$")
 
 
+def _resolved_dash_href(
+    href: str,
+    *,
+    representation: str | None = None,
+    bandwidth: str | None = None,
+    number: int | None = None,
+    time_value: int | None = None,
+) -> str | None:
+    """Expand DASH identifier tokens; return None when `$Number$` / `$Time$` remain."""
+    resolved = _expand_dash_template(
+        href.strip(),
+        number=number,
+        time_value=time_value,
+        representation=representation or "1",
+        bandwidth=bandwidth or "1",
+    )
+    if _UNEXPANDED_DASH.search(resolved):
+        return None
+    return resolved
+
+
 def _expand_locator_tokens(
     value: str,
     *,
@@ -673,13 +694,13 @@ def _collect_segments(
                 start, length = _parse_dash_range(iattrs.get("range"))
                 if not href:
                     continue
-                resolved = _expand_dash_template(
-                    href.strip(),
+                resolved = _resolved_dash_href(
+                    href,
                     number=start_number,
-                    representation=representation or "1",
-                    bandwidth=bandwidth or "1",
+                    representation=representation,
+                    bandwidth=bandwidth,
                 )
-                if _UNEXPANDED_DASH.search(resolved):
+                if resolved is None:
                     continue
                 add(ManifestPart(_join(current, resolved), start, length))
             for url in _template_urls(
@@ -700,7 +721,10 @@ def _collect_segments(
         href = attrs.get("sourceurl")
         start, length = _parse_dash_range(attrs.get("range"))
         if href:
-            add(ManifestPart(_join(current, href.strip()), start, length))
+            resolved = _resolved_dash_href(href, representation=representation, bandwidth=bandwidth)
+            if resolved is None:
+                continue
+            add(ManifestPart(_join(current, resolved), start, length))
         elif file_url is not None and (start is not None or length is not None):
             add(ManifestPart(file_url, start, length))
     for match in _SEGMENT_URL_TAG.finditer(text):
@@ -708,21 +732,24 @@ def _collect_segments(
         href = attrs.get("media")
         start, length = _parse_dash_range(attrs.get("mediarange") or attrs.get("range"))
         if href:
-            add(ManifestPart(_join(current, href.strip()), start, length))
+            resolved = _resolved_dash_href(href, representation=representation, bandwidth=bandwidth)
+            if resolved is None:
+                continue
+            add(ManifestPart(_join(current, resolved), start, length))
         elif file_url is not None and (start is not None or length is not None):
             add(ManifestPart(file_url, start, length))
     if not include_templates or _DASH_TEMPLATE.search(text) or _has_indexed_segments(text):
         return
     for double, single in _DASH_MEDIA.findall(text):
         media = _dash_href(double or single)
-        resolved = _expand_dash_template(
+        resolved = _resolved_dash_href(
             media,
             number=1,
             time_value=0,
-            representation=representation or "1",
-            bandwidth=bandwidth or "1",
+            representation=representation,
+            bandwidth=bandwidth,
         )
-        if _UNEXPANDED_DASH.search(resolved):
+        if resolved is None:
             continue
         url = _join(current, resolved)
         if url in seen_urls:

@@ -280,6 +280,42 @@ def test_dash_adaptationset_binds_self_closing_representation() -> None:
         "https://cdn.example.com/a.m4s",
         "https://cdn.example.com/b.m4s",
     ]
+    as_token_list = """
+    <MPD>
+      <Period>
+        <AdaptationSet mimeType="video/mp4">
+          <SegmentList>
+            <Initialization sourceURL="$RepresentationID$/init.mp4"/>
+            <SegmentURL media="$RepresentationID$/seg.m4s"/>
+            <SegmentURL media="$Bandwidth%06d$/alt.m4s"/>
+            <SegmentURL media="$Number$.m4s"/>
+          </SegmentList>
+          <Representation id="v1" bandwidth="800"/>
+        </AdaptationSet>
+      </Period>
+    </MPD>
+    """
+    assert recordable_segment_urls(as_token_list, "https://cdn.example.com/manifest.mpd") == [
+        "https://cdn.example.com/v1/init.mp4",
+        "https://cdn.example.com/v1/seg.m4s",
+        "https://cdn.example.com/000800/alt.m4s",
+    ]
+    unexpanded_init = """
+    <MPD>
+      <Period>
+        <AdaptationSet mimeType="video/mp4">
+          <SegmentList>
+            <Initialization sourceURL="$Number$/init.mp4"/>
+            <SegmentURL media="seg.m4s"/>
+          </SegmentList>
+          <Representation id="v1" bandwidth="800"/>
+        </AdaptationSet>
+      </Period>
+    </MPD>
+    """
+    assert recordable_segment_urls(unexpanded_init, "https://cdn.example.com/manifest.mpd") == [
+        "https://cdn.example.com/seg.m4s",
+    ]
     as_segment_base = """
     <MPD>
       <Period>

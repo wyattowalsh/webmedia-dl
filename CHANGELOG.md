@@ -2,6 +2,12 @@
 
 ## 0.1.0
 
+- Expand DASH `$RepresentationID$` / `$Bandwidth%0Nd$` in SegmentList
+  `Initialization` `sourceURL` and `SegmentURL` `media` the same way as
+  SegmentTemplate, and skip leftover `$Number$` tokens instead of recording a
+  literal path. GitHub Actions `32595593960` on `7caa179` passed Python (626
+  pytest, 100%), doctor provider probes, and Swift (18 tests, 0 failures; 12×
+  BUILD SUCCEEDED) after expanding `$Bandwidth%0Nd$` in BaseURL and templates.
 - Expand DASH `$Bandwidth%0Nd$` identifiers in AdaptationSet BaseURL and
   SegmentTemplate media the same way as `$Number%0Nd$`, so padded bandwidth
   locators are recorded instead of an empty source. Invalid format specs fall
