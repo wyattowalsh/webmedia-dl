@@ -10,6 +10,7 @@ from uuid import UUID
 
 import typer
 from loguru import logger
+from pydantic import ValidationError
 
 from webmedia_dl.compat import migrate_legacy, scan_legacy
 from webmedia_dl.destinations import extract_clipboard_locator
@@ -42,6 +43,13 @@ def _fail_cli(exc: BaseException) -> NoReturn:
     message = "Unknown job" if isinstance(exc, KeyError) else str(exc)
     typer.echo(message)
     raise typer.Exit(code=1) from exc
+
+
+def _export_intent(payload: dict[str, object]) -> ExportIntent:
+    try:
+        return ExportIntent.model_validate(payload)
+    except ValidationError as exc:
+        _fail_cli(exc)
 
 
 def _reject_unknown_preset(preset: str) -> None:
@@ -117,22 +125,27 @@ def submit(
 ) -> None:
     """Share, paste, or select a source. Runs the typed job pipeline."""
     _reject_unknown_preset(preset)
-    intent = ExportIntent(preset_id=preset)
     if dest is not None:
-        intent = ExportIntent(
-            preset_id=preset,
-            destination_kind=DestinationKind.USER_APPROVED_PATH,
-            destination_path=str(dest.resolve()),
-            approved_roots=[str(dest.resolve())],
-            allow_lossy=allow_lossy,
-            container_preference=container,
+        intent = _export_intent(
+            {
+                "preset_id": preset,
+                "destination_kind": DestinationKind.USER_APPROVED_PATH,
+                "destination_path": str(dest.resolve()),
+                "approved_roots": [str(dest.resolve())],
+                "allow_lossy": allow_lossy,
+                "container_preference": container,
+            }
         )
     elif container or allow_lossy:
-        intent = ExportIntent(
-            preset_id=preset,
-            allow_lossy=allow_lossy,
-            container_preference=container,
+        intent = _export_intent(
+            {
+                "preset_id": preset,
+                "allow_lossy": allow_lossy,
+                "container_preference": container,
+            }
         )
+    else:
+        intent = _export_intent({"preset_id": preset})
     pipeline = _pipeline(data_dir)
     html_text = html.read_text(encoding="utf-8") if html else None
     cookie_path = str(cookies.expanduser().resolve()) if cookies else None
@@ -321,10 +334,12 @@ def plan_cmd(
             locator,
             surface=surface,
             html=html_text,
-            intent=ExportIntent(
-                preset_id=preset,
-                allow_lossy=allow_lossy,
-                container_preference=container,
+            intent=_export_intent(
+                {
+                    "preset_id": preset,
+                    "allow_lossy": allow_lossy,
+                    "container_preference": container,
+                }
             ),
             local_user_confirmed=True,
         )

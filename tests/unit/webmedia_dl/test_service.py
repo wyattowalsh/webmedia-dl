@@ -274,6 +274,24 @@ def test_share_and_intent_loopback_payloads_reject_native_command(
         json={"locator": str(media), "providerArgv": ["--format"]},
     )
     assert extra.status_code == 422
+    hostile = client.post(
+        "/v1/jobs",
+        headers=headers,
+        json={
+            "locator": str(media),
+            "intent": {"container_preference": "../../../../tmp/escape"},
+        },
+    )
+    assert hostile.status_code == 422
+    hostile_plan = client.post(
+        "/v1/plan",
+        headers=headers,
+        json={
+            "locator": str(media),
+            "intent": {"container_preference": "mkv; rm -rf /"},
+        },
+    )
+    assert hostile_plan.status_code == 422
     companion = client.post(
         "/v1/companion",
         headers=headers,

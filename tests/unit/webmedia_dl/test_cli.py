@@ -221,6 +221,37 @@ def test_plan_command_local_file(tmp_path: Path, png_bytes: bytes) -> None:
     assert "remux" in ids
 
 
+def test_cli_refuses_hostile_container_preference(tmp_path: Path, png_bytes: bytes) -> None:
+    media = tmp_path / "hero.png"
+    media.write_bytes(png_bytes)
+    submitted = runner.invoke(
+        app,
+        [
+            "submit",
+            str(media),
+            "--container",
+            "../../../../tmp/escape",
+            "--data-dir",
+            str(tmp_path / "data"),
+        ],
+    )
+    assert submitted.exit_code == 1
+    assert "allowed extension" in submitted.output
+    planned = runner.invoke(
+        app,
+        [
+            "plan",
+            str(media),
+            "--container",
+            "mkv; rm -rf /",
+            "--data-dir",
+            str(tmp_path / "plan"),
+        ],
+    )
+    assert planned.exit_code == 1
+    assert "allowed extension" in planned.output
+
+
 def test_cancel_command(tmp_path: Path, png_bytes: bytes) -> None:
     from webmedia_dl.domain.enums import Surface
     from webmedia_dl.domain.models import Job

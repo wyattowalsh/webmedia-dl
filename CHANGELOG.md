@@ -2,6 +2,12 @@
 
 ## 0.1.0
 
+- CLI `--container` and `POST /v1/jobs` / `/v1/plan` refuse hostile
+  `container_preference` values with exit 1 / HTTP 422.
+- GitHub Actions `32574304361` on `c255db7` passed Python (602 pytest, 100%),
+  doctor provider probes, and Swift (18 tests, 0 failures; 12× BUILD
+  SUCCEEDED), including PATH-isolated wheel doctor BLOCKED status from
+  `fa17c6a`.
 - Isolated wheel installs report yt-dlp / gallery-dl `BLOCKED` and do not
   download them. Linux CI doctor JSON also asserts telemetry off and Apple /
   signing / store / legal / original-pack `BLOCKED`.
