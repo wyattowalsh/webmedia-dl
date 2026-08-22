@@ -96,7 +96,7 @@
 | Vision share + Files destinations | PASS | share Info.plist principals; `fileImporter` + `bookmarkData`; PhotoKit write stays closed |
 | Typed event payloads | PASS | `EventRecord` rejects stdout/stderr/argv/nativeCommand/cookie paths |
 | Files/clipboard/PhotoKit contracts | PASS | security-scoped bookmark boundary; complete clients persist and submit `security_scoped_bookmark`; clipboard URL is never `local_path`; PhotoKit write stays closed |
-| Complete-client on-device HTTP | PASS | iPhone/iPad/visionOS `WebMediaDLHttpDirect` downloads direct media into a Files bookmark; page/live locators require pairing; DRM signals refuse before write; watchOS/tvOS stay capture-only |
+| Complete-client on-device HTTP | PASS | iPhone/iPad/visionOS `WebMediaDLHttpDirect` downloads direct media into a Files bookmark; page/live locators require pairing; DRM signals refuse before write; byte overflow refuses before write; `.`/`..` stems become `source`; URLSession.bytes stops at `maxBytes`; watchOS/tvOS stay capture-only |
 | Share sheet extractors | PASS | HTTPS locators stay URL intake; `file://` paths use drop intake; awaited `NSItemProvider` load |
 | Companion Mac relay | PASS | watchOS/tvOS `WCSessionDelegate` activate + `transferUserInfo`; Mac `autoForward` drains sealed/plain companion messages with pairing session key; `nativeCommand` null |
 | HTTP stream stop | PASS | `bound_fetch(..., should_stop=)` aborts mid-stream; cancel discards completed HTTP fetch; pause commits |

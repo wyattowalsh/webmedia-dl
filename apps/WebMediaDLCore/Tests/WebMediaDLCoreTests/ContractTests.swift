@@ -525,5 +525,49 @@ final class ContractTests: XCTestCase {
             bookmarkData: nil
         )
         XCTAssertNil(skipped)
+
+        XCTAssertEqual(
+            WebMediaDLHttpDirect.outputStem(from: URL(string: "https://cdn.example.com/a.mp4")!),
+            "a"
+        )
+        XCTAssertEqual(
+            WebMediaDLHttpDirect.outputStem(from: URL(string: "https://cdn.example.com/..")!),
+            "source"
+        )
+        do {
+            _ = try await WebMediaDLHttpDirect.transfer(
+                locator: "file:///tmp/a.mp4",
+                bookmark: bookmark,
+                fetch: { _ in XCTFail("invalid locators must not fetch"); return (200, [:], Data()) }
+            )
+            XCTFail("file URLs must not transfer on-device")
+        } catch WebMediaDLHttpDirect.TransferError.invalidLocator {
+            ()
+        }
+        do {
+            _ = try await WebMediaDLHttpDirect.transfer(
+                locator: "https://cdn.example.com/clip.mp4",
+                bookmark: bookmark,
+                maxBytes: 4,
+                fetch: { _ in (200, [:], Data("oversized".utf8)) }
+            )
+            XCTFail("oversized bodies must not write")
+        } catch WebMediaDLHttpDirect.TransferError.overflow {
+            ()
+        }
+        let escaped = FileManager.default.temporaryDirectory
+            .appendingPathComponent("wmdl-deny-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: escaped, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: escaped) }
+        do {
+            _ = try await WebMediaDLHttpDirect.transfer(
+                locator: "https://cdn.example.com/a.mp4",
+                bookmark: WebMediaDLSecurityScopedBookmark(path: escaped.path, stale: true),
+                fetch: { _ in (200, [:], Data(png)) }
+            )
+            XCTFail("stale Files bookmarks must not write")
+        } catch WebMediaDLHttpDirect.TransferError.filesDestinationRequired {
+            ()
+        }
     }
 }

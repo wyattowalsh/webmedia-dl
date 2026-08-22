@@ -2,6 +2,8 @@
 
 ## 0.1.0
 
+- Complete-client `http-direct` streams under the byte bound, sanitizes Files
+  output stems, and refuses stale bookmarks before write.
 - Implement `build-webmedia-dl-v1` Python worker, CLI, schemas, tests, and overlay.
 - Cooperative per-job pause checkpoints, mixed-media failure containment, and
   Mac-forwarded watchOS/tvOS companion messages.

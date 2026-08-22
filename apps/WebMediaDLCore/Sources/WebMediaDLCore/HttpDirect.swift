@@ -197,6 +197,19 @@ public enum WebMediaDLHttpDirect {
         return false
     }
 
+    /// Filename stem under the Files bookmark. `.` / `..` / empty names become `source`.
+    public static func outputStem(from url: URL) -> String {
+        let raw = url.deletingPathExtension().lastPathComponent
+        let safe = raw
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "\\", with: "_")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if safe.isEmpty || safe == "." || safe == ".." || safe == "/" {
+            return "source"
+        }
+        return safe
+    }
+
     public static func suffix(url: URL, headers: [String: String], body: Data) -> String {
         for (key, value) in headers where key.lowercased() == "content-type" {
             let type = value.split(separator: ";").first.map(String.init)?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
@@ -257,12 +270,7 @@ public enum WebMediaDLHttpDirect {
         let destRoot = URL(fileURLWithPath: root, isDirectory: true)
         try FileManager.default.createDirectory(at: destRoot, withIntermediateDirectories: true)
         let ext = suffix(url: url, headers: headers, body: body)
-        var name = url.deletingPathExtension().lastPathComponent
-        if name.isEmpty || name == "/" {
-            name = "source"
-        }
-        let safe = name.replacingOccurrences(of: "/", with: "_")
-        let final = destRoot.appendingPathComponent(safe + ext)
+        let final = destRoot.appendingPathComponent(outputStem(from: url) + ext)
         if !resolved.allows(final.path) {
             throw TransferError.destinationDenied
         }
@@ -367,7 +375,7 @@ public enum WebMediaDLHttpDirect {
         { url in
             var request = URLRequest(url: url)
             request.httpMethod = "GET"
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (bytes, response) = try await URLSession.shared.bytes(for: request)
             guard let http = response as? HTTPURLResponse else {
                 throw TransferError.httpStatus(0)
             }
@@ -381,6 +389,14 @@ public enum WebMediaDLHttpDirect {
                 if let name = key as? String, let text = value as? String {
                     headers[name] = text
                 }
+            }
+            var data = Data()
+            data.reserveCapacity(min(maxBytes, 1_048_576))
+            for try await byte in bytes {
+                if data.count >= maxBytes {
+                    throw TransferError.overflow
+                }
+                data.append(byte)
             }
             return (http.statusCode, headers, data)
         }

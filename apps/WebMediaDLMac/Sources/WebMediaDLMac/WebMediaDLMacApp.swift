@@ -89,7 +89,7 @@ struct MacRootView: View {
                             }
                         }
                     }
-                    .accessibilityLabel("Job events")
+                    .accessibilityLabel("Show artifacts")
                 }
                 Section("Queue") {
                     Button("Pause queue") {

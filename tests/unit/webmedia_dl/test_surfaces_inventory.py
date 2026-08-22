@@ -691,6 +691,8 @@ def test_github_ci_compiles_apple_packages() -> None:
             assert f'.library(name: "{share}"' in text
             assert f'"{share}"' in text
     assert "testHttpDirectSavesClearMediaAndRefusesDrm" in contracts
+    assert "TransferError.overflow" in contracts
+    assert "invalidLocator" in contracts
     assert "testDomainInvariantsFailClosed" in contracts
     assert "WebMediaDLPipelineJob" in contracts
     assert "container_only" in contracts
@@ -727,6 +729,10 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert "pairingRequired" in http_direct
     assert "drmRefused" in http_direct
     assert "saveIfDirect" in http_direct
+    assert "outputStem" in http_direct
+    assert "URLSession.shared.bytes" in http_direct
+    assert "data.count >= maxBytes" in http_direct
+    assert "TransferError.overflow" in http_direct
     ios = (root / ROOT_VIEWS["ios"]).read_text(encoding="utf-8")
     ipad = (root / ROOT_VIEWS["ipados"]).read_text(encoding="utf-8")
     vision = (root / ROOT_VIEWS["visionos"]).read_text(encoding="utf-8")

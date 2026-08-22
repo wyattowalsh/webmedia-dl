@@ -24,3 +24,21 @@ bundle:
 
 extensions:
     node --test tests/unit/extensions/*.mjs
+
+schemas:
+    {{python}} python -m webmedia_dl.schema_export
+
+sync-extensions:
+    {{python}} python scripts/sync_browser_extensions.py
+
+package-extensions:
+    {{python}} python scripts/package_extensions.py
+
+pack:
+    {{python}} python scripts/package_bundle.py
+
+apple:
+    bash scripts/build_apple_packages.sh
+
+cov:
+    {{python}} pytest --cov
