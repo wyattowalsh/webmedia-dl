@@ -548,7 +548,7 @@ def test_page_discovery_http_error_non_html_and_jsonld_podcast() -> None:
         fetch=lambda url: (
             200,
             "application/octet-stream",
-            b" \n\xef\xbb\xbf<MPD xmlns=\"urn:mpeg:dash:schema:mpd:2011\"><Period/></MPD>",
+            b' \n\xef\xbb\xbf<MPD xmlns="urn:mpeg:dash:schema:mpd:2011"><Period/></MPD>',
         ),
     )
     assert padded_dash[0].media_kind is MediaKind.LIVE_STREAM
