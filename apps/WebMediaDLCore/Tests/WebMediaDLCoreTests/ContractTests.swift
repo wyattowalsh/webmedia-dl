@@ -51,6 +51,8 @@ final class ContractTests: XCTestCase {
         XCTAssertEqual(wrapped.first?.state, "completed")
         let raw = try WebMediaDLHistoryEntry.decodeCompanionHistory(from: listData)
         XCTAssertEqual(raw.first?.workerId, "mac")
+        XCTAssertThrowsError(try WebMediaDLHistoryEntry.decodeCompanionHistory(from: Data("nope".utf8)))
+        XCTAssertThrowsError(try WebMediaDLHistoryEntry.decodeList(from: Data("{}".utf8)))
         let pairingId = UUID()
         let challenge = try JSONDecoder().decode(
             WebMediaDLPairingChallenge.self,
@@ -270,6 +272,40 @@ final class ContractTests: XCTestCase {
         )
         XCTAssertNil(WebMediaDLLoopbackClient.jobId(from: "HTTP 200 nope"))
         XCTAssertNil(WebMediaDLLoopbackClient.jsonObject(from: "no-brace"))
+        XCTAssertEqual(
+            try WebMediaDLLoopbackClient.requireHTTPSuccess(status: 200, body: Data("ok".utf8)),
+            "HTTP 200 ok"
+        )
+        do {
+            _ = try WebMediaDLLoopbackClient.requireHTTPSuccess(status: 401, body: Data("nope".utf8))
+            XCTFail("non-2xx loopback responses must fail closed")
+        } catch let error as WebMediaDLDomainError {
+            XCTAssertTrue(error.message.contains("HTTP 401"))
+        }
+        XCTAssertEqual(
+            try WebMediaDLLoopbackClient.requireHistoryEntries(status: 200, body: Data("[]".utf8)).count,
+            0
+        )
+        do {
+            _ = try WebMediaDLLoopbackClient.requireHistoryEntries(status: 401, body: Data("[]".utf8))
+            XCTFail("history HTTP errors must fail closed")
+        } catch let error as WebMediaDLDomainError {
+            XCTAssertTrue(error.message.contains("HTTP 401"))
+        }
+        do {
+            _ = try WebMediaDLLoopbackClient.requireHistoryEntries(status: 200, body: Data("nope".utf8))
+            XCTFail("malformed history JSON must fail closed")
+        } catch let error as WebMediaDLDomainError {
+            XCTAssertTrue(error.message.contains("history JSON"))
+        }
+        let shown = await WebMediaDLLoopbackClient.displayedResponse {
+            throw WebMediaDLDomainError("HTTP 401 nope")
+        }
+        XCTAssertEqual(shown, "HTTP 401 nope")
+        let okBody = await WebMediaDLLoopbackClient.displayedResponse {
+            try WebMediaDLLoopbackClient.requireHTTPSuccess(status: 200, body: Data("ok".utf8))
+        }
+        XCTAssertEqual(okBody, "HTTP 200 ok")
         XCTAssertFalse(
             WebMediaDLPairedMacEndpoint.isAllowedRelay(URL(string: "http://example.com:8765")!)
         )
@@ -916,9 +952,11 @@ final class ContractTests: XCTestCase {
 
     func testHttpDirectSavesClearMediaAndRefusesDrm() async throws {
         XCTAssertTrue(WebMediaDLHttpDirect.isOnDeviceTransfer("https://cdn.example.com/a.mp4"))
+        XCTAssertFalse(WebMediaDLHttpDirect.isOnDeviceTransfer("http://cdn.example.com/a.mp4"))
         XCTAssertFalse(WebMediaDLHttpDirect.isOnDeviceTransfer("https://www.youtube.com/watch?v=1"))
         XCTAssertFalse(WebMediaDLHttpDirect.isOnDeviceTransfer("https://cdn.example.com/live.m3u8"))
         XCTAssertTrue(WebMediaDLHttpDirect.isDirectMediaURL("https://cdn.example.com/live.m3u8"))
+        XCTAssertFalse(WebMediaDLHttpDirect.isDirectMediaURL("http://cdn.example.com/a.mp4"))
         XCTAssertFalse(WebMediaDLHttpDirect.isOnDeviceTransfer("file:///tmp/a.mp4"))
         XCTAssertFalse(WebMediaDLHttpDirect.isDirectMediaURL("javascript:foo.mp4"))
         XCTAssertFalse(WebMediaDLHttpDirect.isOnDeviceTransfer("https:///a.mp4"))
@@ -927,6 +965,59 @@ final class ContractTests: XCTestCase {
         XCTAssertNil(WebMediaDLHttpDirect.mediaURL(from: "data:text/plain,x"))
         XCTAssertNil(WebMediaDLHttpDirect.mediaURL(from: "file:///tmp/a.mp4"))
         XCTAssertNotNil(WebMediaDLHttpDirect.mediaURL(from: "https://cdn.example.com/a.mp4"))
+        XCTAssertNotNil(WebMediaDLHttpDirect.mediaURL(from: "http://cdn.example.com/a.mp4"))
+        XCTAssertNil(
+            WebMediaDLHttpDirect.mediaURL(
+                from: "http://cdn.example.com/a.mp4",
+                schemes: WebMediaDLHttpDirect.transferSchemes
+            )
+        )
+        XCTAssertEqual(WebMediaDLHttpDirect.transferSchemes, Set(["https"]))
+        XCTAssertFalse(WebMediaDLHttpDirect.transferSessionConfiguration().httpShouldSetCookies)
+        XCTAssertEqual(
+            WebMediaDLHttpDirect.transferSessionConfiguration().httpCookieAcceptPolicy,
+            .never
+        )
+        XCTAssertNil(WebMediaDLHttpDirect.transferSessionConfiguration().httpCookieStorage)
+        let httpsMedia = URL(string: "https://cdn.example.com/a.mp4")!
+        XCTAssertEqual(
+            try WebMediaDLHttpDirect.redirectURL(
+                from: httpsMedia,
+                location: "https://cdn.example.com/b.mp4",
+                hops: 1
+            ).absoluteString,
+            "https://cdn.example.com/b.mp4"
+        )
+        do {
+            _ = try WebMediaDLHttpDirect.redirectURL(
+                from: httpsMedia,
+                location: "http://cdn.example.com/b.mp4",
+                hops: 1
+            )
+            XCTFail("http redirects must not continue an on-device transfer")
+        } catch WebMediaDLHttpDirect.TransferError.invalidLocator {
+            ()
+        }
+        do {
+            _ = try WebMediaDLHttpDirect.redirectURL(
+                from: httpsMedia,
+                location: "file:///tmp/a.mp4",
+                hops: 1
+            )
+            XCTFail("file redirects must not continue an on-device transfer")
+        } catch WebMediaDLHttpDirect.TransferError.invalidLocator {
+            ()
+        }
+        do {
+            _ = try WebMediaDLHttpDirect.redirectURL(
+                from: httpsMedia,
+                location: "https://cdn.example.com/b.mp4",
+                hops: WebMediaDLHttpDirect.maxRedirects + 1
+            )
+            XCTFail("redirect hop overflow must fail closed")
+        } catch WebMediaDLHttpDirect.TransferError.httpStatus(let code) {
+            XCTAssertEqual(code, 310)
+        }
         XCTAssertTrue(WebMediaDLHttpDirect.hlsKeyIsProtected("#EXT-X-KEY:METHOD=AES-128,URI=\"https://cdn.example.com/key\""))
         XCTAssertFalse(WebMediaDLHttpDirect.hlsKeyIsProtected("#EXT-X-KEY:METHOD=NONE"))
         XCTAssertFalse(WebMediaDLHttpDirect.drmSignals(in: "#EXT-X-KEY:METHOD=NONE").contains("ext-x-key"))
@@ -1054,6 +1145,26 @@ final class ContractTests: XCTestCase {
             XCTFail("HTTP errors must not publish")
         } catch WebMediaDLHttpDirect.TransferError.httpStatus(let code) {
             XCTAssertEqual(code, 403)
+        }
+        do {
+            _ = try await WebMediaDLHttpDirect.transfer(
+                locator: "https://cdn.example.com/clip.mp4",
+                bookmark: bookmark,
+                fetch: { _ in (302, ["Location": "http://cdn.example.com/a.mp4"], Data("<html>".utf8)) }
+            )
+            XCTFail("redirect statuses must not publish HTML")
+        } catch WebMediaDLHttpDirect.TransferError.httpStatus(let code) {
+            XCTAssertEqual(code, 302)
+        }
+        do {
+            _ = try await WebMediaDLHttpDirect.transfer(
+                locator: "http://cdn.example.com/a.mp4",
+                bookmark: bookmark,
+                fetch: { _ in XCTFail("http locators must not fetch on-device"); return (200, [:], Data()) }
+            )
+            XCTFail("cleartext http must not transfer on-device")
+        } catch WebMediaDLHttpDirect.TransferError.invalidLocator {
+            ()
         }
         let skipped = try await WebMediaDLHttpDirect.saveIfDirect(
             locator: "https://www.youtube.com/watch?v=1",

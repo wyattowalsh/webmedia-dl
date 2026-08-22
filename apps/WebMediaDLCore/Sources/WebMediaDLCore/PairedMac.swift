@@ -208,9 +208,11 @@ public struct WebMediaDLPairedMacEndpoint: Sendable {
     }
 
     public func historyEntries() async throws -> [WebMediaDLHistoryEntry] {
-        let (data, _) = try await URLSession.shared.data(for: historyRequest())
-        return (try? WebMediaDLHistoryEntry.decodeCompanionHistory(from: data))
-            ?? ((try? JSONDecoder().decode([WebMediaDLHistoryEntry].self, from: data)) ?? [])
+        let (data, response) = try await URLSession.shared.data(for: historyRequest())
+        return try WebMediaDLLoopbackClient.requireHistoryEntries(
+            status: (response as? HTTPURLResponse)?.statusCode ?? 0,
+            body: data
+        )
     }
 
     public func pauseQueue() async throws -> String { try await send(pauseQueueRequest()) }
@@ -369,10 +371,8 @@ public struct WebMediaDLPairedMacEndpoint: Sendable {
 
     public func send(_ request: URLRequest) async throws -> String {
         let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse else {
-            return String(data: data, encoding: .utf8) ?? "no response"
-        }
-        return "HTTP \(http.statusCode) \(String(data: data, encoding: .utf8) ?? "")"
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        return try WebMediaDLLoopbackClient.requireHTTPSuccess(status: status, body: data)
     }
 
     public static func startPairing(
@@ -388,7 +388,11 @@ public struct WebMediaDLPairedMacEndpoint: Sendable {
         request.httpBody = try JSONSerialization.data(
             withJSONObject: ["client_profile_id": clientProfileId]
         )
-        let (data, _) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        _ = try WebMediaDLLoopbackClient.requireHTTPSuccess(
+            status: (response as? HTTPURLResponse)?.statusCode ?? 0,
+            body: data
+        )
         return try JSONDecoder().decode(WebMediaDLPairingChallenge.self, from: data)
     }
 }

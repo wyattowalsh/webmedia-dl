@@ -97,17 +97,23 @@ public struct WebMediaDLiPadOSRootView: View {
                             ? nil
                             : WebMediaDLFilesDestination(bookmark: filesBookmark)
                         let clip = WebMediaDLClipboardIntake(text: locator)
-                        let response = (try? await WebMediaDLPairedMacSubmit.submit(
-                            locator: locator,
-                            surface: .ipados,
-                            credentials: pairedClient,
-                            pairingId: UUID(uuidString: pairingId),
-                            sessionKey: sessionKey.isEmpty ? nil : sessionKey,
-                            intakeKind: fromClipboard ? clip.intakeKind : nil,
-                            destinationKind: files == nil ? nil : "staging_only"
-                        )) ?? "Pairing required"
-                        status = response
-                        lastJobId = WebMediaDLLoopbackClient.jobId(from: response)
+                        do {
+                            let response = try await WebMediaDLPairedMacSubmit.submit(
+                                locator: locator,
+                                surface: .ipados,
+                                credentials: pairedClient,
+                                pairingId: UUID(uuidString: pairingId),
+                                sessionKey: sessionKey.isEmpty ? nil : sessionKey,
+                                intakeKind: fromClipboard ? clip.intakeKind : nil,
+                                destinationKind: files == nil ? nil : "staging_only"
+                            )
+                            status = response
+                            if let id = WebMediaDLLoopbackClient.jobId(from: response) {
+                                lastJobId = id
+                            }
+                        } catch {
+                            status = error.localizedDescription
+                        }
                     }
                 }
                 .accessibilityLabel("Send to paired Mac")
@@ -188,31 +194,37 @@ public struct WebMediaDLiPadOSRootView: View {
                 .accessibilityLabel("Save published files here")
                 Button("Pause queue") {
                     Task {
-                        status = (try? await WebMediaDLPairedMacSubmit.pauseQueue(
-                            credentials: pairedClient,
-                            pairingId: UUID(uuidString: pairingId),
-                            sessionKey: sessionKey.isEmpty ? nil : sessionKey
-                        )) ?? "Pairing required"
+                        status = await WebMediaDLLoopbackClient.displayedResponse {
+                            try await WebMediaDLPairedMacSubmit.pauseQueue(
+                                credentials: pairedClient,
+                                pairingId: UUID(uuidString: pairingId),
+                                sessionKey: sessionKey.isEmpty ? nil : sessionKey
+                            )
+                        }
                     }
                 }
                 .accessibilityLabel("Pause queue")
                 Button("Resume queue") {
                     Task {
-                        status = (try? await WebMediaDLPairedMacSubmit.resumeQueue(
-                            credentials: pairedClient,
-                            pairingId: UUID(uuidString: pairingId),
-                            sessionKey: sessionKey.isEmpty ? nil : sessionKey
-                        )) ?? "Pairing required"
+                        status = await WebMediaDLLoopbackClient.displayedResponse {
+                            try await WebMediaDLPairedMacSubmit.resumeQueue(
+                                credentials: pairedClient,
+                                pairingId: UUID(uuidString: pairingId),
+                                sessionKey: sessionKey.isEmpty ? nil : sessionKey
+                            )
+                        }
                     }
                 }
                 .accessibilityLabel("Resume queue")
                 Button("Queue status") {
                     Task {
-                        status = (try? await WebMediaDLPairedMacSubmit.queueStatus(
-                            credentials: pairedClient,
-                            pairingId: UUID(uuidString: pairingId),
-                            sessionKey: sessionKey.isEmpty ? nil : sessionKey
-                        )) ?? "Pairing required"
+                        status = await WebMediaDLLoopbackClient.displayedResponse {
+                            try await WebMediaDLPairedMacSubmit.queueStatus(
+                                credentials: pairedClient,
+                                pairingId: UUID(uuidString: pairingId),
+                                sessionKey: sessionKey.isEmpty ? nil : sessionKey
+                            )
+                        }
                     }
                 }
                 .accessibilityLabel("Queue status")
@@ -222,12 +234,14 @@ public struct WebMediaDLiPadOSRootView: View {
                             status = "No job to cancel"
                             return
                         }
-                        status = (try? await WebMediaDLPairedMacSubmit.cancel(
-                            jobId: lastJobId,
-                            credentials: pairedClient,
-                            pairingId: UUID(uuidString: pairingId),
-                            sessionKey: sessionKey.isEmpty ? nil : sessionKey
-                        )) ?? "Pairing required"
+                        status = await WebMediaDLLoopbackClient.displayedResponse {
+                            try await WebMediaDLPairedMacSubmit.cancel(
+                                jobId: lastJobId,
+                                credentials: pairedClient,
+                                pairingId: UUID(uuidString: pairingId),
+                                sessionKey: sessionKey.isEmpty ? nil : sessionKey
+                            )
+                        }
                     }
                 }
                 .accessibilityLabel("Cancel last job")
@@ -237,12 +251,14 @@ public struct WebMediaDLiPadOSRootView: View {
                             status = "No job to pause"
                             return
                         }
-                        status = (try? await WebMediaDLPairedMacSubmit.pauseJob(
-                            jobId: lastJobId,
-                            credentials: pairedClient,
-                            pairingId: UUID(uuidString: pairingId),
-                            sessionKey: sessionKey.isEmpty ? nil : sessionKey
-                        )) ?? "Pairing required"
+                        status = await WebMediaDLLoopbackClient.displayedResponse {
+                            try await WebMediaDLPairedMacSubmit.pauseJob(
+                                jobId: lastJobId,
+                                credentials: pairedClient,
+                                pairingId: UUID(uuidString: pairingId),
+                                sessionKey: sessionKey.isEmpty ? nil : sessionKey
+                            )
+                        }
                     }
                 }
                 .accessibilityLabel("Pause last job")
@@ -252,12 +268,14 @@ public struct WebMediaDLiPadOSRootView: View {
                             status = "No job to resume"
                             return
                         }
-                        status = (try? await WebMediaDLPairedMacSubmit.resumeJob(
-                            jobId: lastJobId,
-                            credentials: pairedClient,
-                            pairingId: UUID(uuidString: pairingId),
-                            sessionKey: sessionKey.isEmpty ? nil : sessionKey
-                        )) ?? "Pairing required"
+                        status = await WebMediaDLLoopbackClient.displayedResponse {
+                            try await WebMediaDLPairedMacSubmit.resumeJob(
+                                jobId: lastJobId,
+                                credentials: pairedClient,
+                                pairingId: UUID(uuidString: pairingId),
+                                sessionKey: sessionKey.isEmpty ? nil : sessionKey
+                            )
+                        }
                     }
                 }
                 .accessibilityLabel("Resume last job")

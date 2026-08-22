@@ -4,6 +4,7 @@ import WebMediaDLCore
 /// visionOS share-sheet adapter. Heavy work waits for Mac pairing confirmation.
 public struct WebMediaDLVisionShareView: View {
     public var intake: WebMediaDLShareIntake
+    @State private var status = ""
 
     public init(intake: WebMediaDLShareIntake) {
         self.intake = intake
@@ -19,16 +20,22 @@ public struct WebMediaDLVisionShareView: View {
                 Task {
                     let intake = self.intake.resolvedForSubmit()
                     let files = intake.filesDestination
-                    _ = try? await WebMediaDLPairedMacSubmit.submit(
-                        locator: intake.locator,
-                        surface: .visionos,
-                        credentials: WebMediaDLWorkerCredentials.loadClient(),
-                        intakeKind: "share_sheet",
-                        destinationKind: files == nil ? nil : "staging_only"
-                    )
+                    status = await WebMediaDLLoopbackClient.displayedResponse {
+                        try await WebMediaDLPairedMacSubmit.submit(
+                            locator: intake.locator,
+                            surface: .visionos,
+                            credentials: WebMediaDLWorkerCredentials.loadClient(),
+                            intakeKind: "share_sheet",
+                            destinationKind: files == nil ? nil : "staging_only"
+                        )
+                    }
                 }
             }
             .accessibilityLabel("Send to paired Mac")
+            if !status.isEmpty {
+                Text(status)
+                    .accessibilityLabel("Job status")
+            }
         }
     }
 }

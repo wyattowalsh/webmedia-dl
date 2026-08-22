@@ -65,6 +65,8 @@ public enum WebMediaDLHttpDirect {
         "chrome-extension",
     ]
     public static let allowedSchemes: Set<String> = ["http", "https"]
+    public static let transferSchemes: Set<String> = ["https"]
+    public static let maxRedirects = 5
 
     public enum TransferError: Error, LocalizedError, Equatable {
         case invalidLocator
@@ -137,7 +139,7 @@ public enum WebMediaDLHttpDirect {
 
     public typealias Fetch = @Sendable (URL) async throws -> (Int, [String: String], Data)
 
-    public static func mediaURL(from locator: String) -> URL? {
+    public static func mediaURL(from locator: String, schemes: Set<String> = allowedSchemes) -> URL? {
         let trimmed = locator.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let url = URL(string: trimmed),
               let scheme = url.scheme?.lowercased()
@@ -147,7 +149,7 @@ public enum WebMediaDLHttpDirect {
         if blockedSchemes.contains(scheme) {
             return nil
         }
-        guard allowedSchemes.contains(scheme) else {
+        guard schemes.contains(scheme) else {
             return nil
         }
         let host = (url.host ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
@@ -155,6 +157,33 @@ public enum WebMediaDLHttpDirect {
             return nil
         }
         return url
+    }
+
+    public static func transferSessionConfiguration() -> URLSessionConfiguration {
+        let config = URLSessionConfiguration.ephemeral
+        config.httpShouldSetCookies    = false
+        config.httpCookieAcceptPolicy  = .never
+        config.httpCookieStorage       = nil
+        config.urlCache                = nil
+        return config
+    }
+
+    public static func redirectURL(
+        from current: URL,
+        location: String,
+        hops: Int,
+        maxRedirects: Int = maxRedirects
+    ) throws -> URL {
+        if hops > maxRedirects {
+            throw TransferError.httpStatus(310)
+        }
+        let next = URL(string: location, relativeTo: current)?.absoluteURL
+        guard let next,
+              let authorized = mediaURL(from: next.absoluteString, schemes: transferSchemes)
+        else {
+            throw TransferError.invalidLocator
+        }
+        return authorized
     }
 
     public static func kind(for locator: String) -> WebMediaDLMediaKind {
@@ -166,13 +195,13 @@ public enum WebMediaDLHttpDirect {
     }
 
     public static func isDirectMediaURL(_ locator: String) -> Bool {
-        guard mediaURL(from: locator) != nil else { return false }
+        guard mediaURL(from: locator, schemes: transferSchemes) != nil else { return false }
         let kind = kind(for: locator)
         return kind != .page && kind != .unknown
     }
 
     public static func isOnDeviceTransfer(_ locator: String) -> Bool {
-        guard mediaURL(from: locator) != nil else { return false }
+        guard mediaURL(from: locator, schemes: transferSchemes) != nil else { return false }
         let kind = kind(for: locator)
         return kind != .page && kind != .unknown && kind != .liveStream
     }
@@ -322,7 +351,7 @@ public enum WebMediaDLHttpDirect {
             throw TransferError.unsupportedSurface
         }
         let trimmed = locator.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let url = mediaURL(from: trimmed) else {
+        guard let url = mediaURL(from: trimmed, schemes: transferSchemes) else {
             throw TransferError.invalidLocator
         }
         let kind = kind(for: trimmed)
@@ -349,7 +378,7 @@ public enum WebMediaDLHttpDirect {
         if body.count > maxBytes {
             throw TransferError.overflow
         }
-        if status >= 400 {
+        if !(200 ..< 300).contains(status) {
             throw TransferError.httpStatus(status)
         }
         let bodySignals = drmSignals(in: String(decoding: body, as: UTF8.self))
@@ -448,9 +477,17 @@ public enum WebMediaDLHttpDirect {
 
     private static func defaultFetch(maxBytes: Int) -> Fetch {
         { url in
+            let gate = WebMediaDLHttpDirectRedirectGate(maxRedirects: maxRedirects)
+            let session = URLSession(
+                configuration: transferSessionConfiguration(),
+                delegate: gate,
+                delegateQueue: nil
+            )
+            defer { session.finishTasksAndInvalidate() }
             var request = URLRequest(url: url)
             request.httpMethod = "GET"
-            let (bytes, response) = try await URLSession.shared.bytes(for: request)
+            request.httpShouldHandleCookies = false
+            let (bytes, response) = try await session.bytes(for: request)
             guard let http = response as? HTTPURLResponse else {
                 throw TransferError.httpStatus(0)
             }
@@ -487,6 +524,42 @@ public enum WebMediaDLHttpDirect {
                 }
             }
             return (http.statusCode, headers, data)
+        }
+    }
+}
+
+final class WebMediaDLHttpDirectRedirectGate: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+    let maxRedirects: Int
+    private var hops = 0
+
+    init(maxRedirects: Int) {
+        self.maxRedirects = maxRedirects
+    }
+
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping (URLRequest?) -> Void
+    ) {
+        hops += 1
+        let current = response.url ?? request.url
+        let location = request.url?.absoluteString ?? ""
+        guard let current else {
+            completionHandler(nil)
+            return
+        }
+        do {
+            _ = try WebMediaDLHttpDirect.redirectURL(
+                from: current,
+                location: location,
+                hops: hops,
+                maxRedirects: maxRedirects
+            )
+            completionHandler(request)
+        } catch {
+            completionHandler(nil)
         }
     }
 }

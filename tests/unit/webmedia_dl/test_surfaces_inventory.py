@@ -413,7 +413,11 @@ def test_companion_transport_and_typed_history() -> None:
     assert "WebMediaDLMacCompanionForwarder" in mac
     assert "receiveWatchConnectivityUserInfo" in mac
     assert "forwarder.forward" in mac
-    assert "activateSession()" in mac
+    assert "activateSession()" not in mac
+    assert "sendResponse(" not in mac
+    assert "bindWatchDelegate" not in mac
+    assert "WebMediaDLMacWatchConnectivityDelegate" not in mac
+    assert "autoForward = true" not in mac
     assert "loadBookmark()" in mac
     assert "sessionKey: token" not in mac
     assert 'nonce: "wrap"' not in mac
@@ -422,7 +426,6 @@ def test_companion_transport_and_typed_history() -> None:
     assert "companionRelay = WebMediaDLCompanionRelay()" in mac
     assert "&companionRelay" not in mac
     assert "sessionKey: sessionKey" in mac
-    assert "sendResponse(" in mac
     assert "sessionKey(from:" in mac
     assert mac.count("@State private var historyText") == 1
     assert mac.count("@State private var companionLocator") == 1
@@ -430,6 +433,11 @@ def test_companion_transport_and_typed_history() -> None:
         encoding="utf-8"
     )
     assert "func historyEntries() async throws -> [WebMediaDLHistoryEntry]" in loopback
+    assert "func requireHTTPSuccess(status:" in loopback
+    assert "func requireHistoryEntries(status:" in loopback
+    assert "func displayedResponse(" in loopback
+    assert "(200 ..< 300).contains(status)" in loopback
+    assert "history JSON is not a job list" in loopback
     assert "func pairRequest(" in loopback
     assert "WebMediaDLPairingChallenge" in loopback or "startPairing" in loopback
     assert "does not require a stored worker token" in loopback
@@ -582,6 +590,7 @@ def test_companion_transport_and_typed_history() -> None:
             "JSONDecoder()" in text
             or "decodeCompanionHistory" in text
             or "WebMediaDLPairedMacSubmit.history" in text
+            or "historyEntries()" in text
         )
 
 
@@ -789,6 +798,10 @@ def test_github_ci_compiles_apple_packages() -> None:
     assert "TransferError.destinationDenied" in contracts
     assert "TransferError.overflow" in contracts
     assert "invalidLocator" in contracts
+    assert "requireHTTPSuccess" in contracts
+    assert "requireHistoryEntries" in contracts
+    assert "http://cdn.example.com/a.mp4" in contracts
+    assert "redirect statuses must not publish HTML" in contracts
     assert "testDomainInvariantsFailClosed" in contracts
     assert "WebMediaDLPipelineJob" in contracts
     assert "container_only" in contracts
@@ -807,6 +820,8 @@ def test_github_ci_compiles_apple_packages() -> None:
         repo_root() / "apps/WebMediaDLCore/Sources/WebMediaDLCore/MacRelayServer.swift"
     ).read_text(encoding="utf-8")
     assert "func submitDrop(" in paired_mac
+    assert "requireHTTPSuccess" in paired_mac
+    assert "requireHistoryEntries" in paired_mac
     assert 'appendingPathComponent("v1/staging")' in paired_mac
     assert 'destinationKind: "staging_only"' in paired_mac
     assert "func pullToFiles(" in paired_mac
@@ -861,7 +876,7 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert '"javascript"' in http_direct
     assert '"chrome-extension"' in http_direct
     assert "host.isEmpty" in http_direct
-    assert "guard let url = mediaURL(from: trimmed)" in http_direct
+    assert "guard let url = mediaURL(from: trimmed, schemes: transferSchemes)" in http_direct
     for scheme in BLOCKED_SCHEMES:
         assert f'"{scheme}"' in http_direct, scheme
     assert "liveRequiresMac" in http_direct
@@ -872,7 +887,14 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert "saveIfDirect" in http_direct
     assert "func write(" in http_direct
     assert "outputStem" in http_direct
-    assert "URLSession.shared.bytes" in http_direct
+    assert "URLSession.shared.bytes" not in http_direct
+    assert "session.bytes(for: request)" in http_direct
+    assert 'public static let transferSchemes: Set<String> = ["https"]' in http_direct
+    assert "httpShouldSetCookies" in http_direct
+    assert "httpCookieAcceptPolicy" in http_direct
+    assert "func redirectURL(" in http_direct
+    assert "(200 ..< 300).contains(status)" in http_direct
+    assert "WebMediaDLHttpDirectRedirectGate" in http_direct
     assert "data.count >= maxBytes" in http_direct
     assert "TransferError.overflow" in http_direct
     assert "unsupportedSurface" in http_direct
@@ -907,6 +929,8 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
         assert "Paired Mac URL" in text
         assert "Save Mac address" in text
         assert "WebMediaDLPairedMacEndpoint.startPairing" in text
+        assert "try? await WebMediaDLPairedMacSubmit" not in text
+        assert "displayedResponse" in text
     assert "Save on this device" not in watch
     assert "Save on this device" not in tv
     assert "WebMediaDLHttpDirect" not in watch
@@ -916,8 +940,11 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert "onReceivedMessage" in ios
     assert "WebMediaDLPairedMacSubmit.companion" in ios
     assert "WebMediaDLLocalNetworkCompanionTransport" in tv
-    assert "autoForward = true" in mac
-    assert "bindWatchDelegate" in mac
+    assert "autoForward = true" not in mac
+    assert "bindWatchDelegate" not in mac
+    assert "WebMediaDLMacWatchConnectivityDelegate" not in mac
+    assert "activateSession()" not in mac
+    assert "sendResponse(" not in mac
     assert "WebMediaDLMacRelayServer.start" in mac
     assert "WebMediaDLMacWorkerProcess.start" in mac
     assert "startMacWorker" in mac
@@ -1010,6 +1037,8 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     ).read_text(encoding="utf-8")
     assert "resolvedForSubmit" in mac_share_view
     assert 'destinationKind: files == nil ? nil : "files_app"' in mac_share_view
+    assert "try? await" not in mac_share_view
+    assert "displayedResponse" in mac_share_view
     for rel in (
         "apps/WebMediaDLiOS/Sources/WebMediaDLiOS/WebMediaDLiOSShareView.swift",
         "apps/WebMediaDLiPadOS/Sources/WebMediaDLiPadOS/WebMediaDLiPadOSShareView.swift",
@@ -1018,6 +1047,8 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
         text = (root / rel).read_text(encoding="utf-8")
         assert "resolvedForSubmit" in text
         assert 'destinationKind: files == nil ? nil : "staging_only"' in text
+        assert "try? await" not in text
+        assert "displayedResponse" in text
 
 
 def test_privacy_manifests_declare_user_defaults() -> None:
@@ -1060,6 +1091,8 @@ def test_macos_app_supervises_the_loopback_worker() -> None:
     assert "error.localizedDescription" in mac
     assert "status = message" in mac
     assert "loopbackToken: token" in mac
+    assert "bindWatchDelegate" not in mac
+    assert "historyEntries()" in mac
     loopback = (root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/LoopbackClient.swift").read_text(
         encoding="utf-8"
     )
@@ -1127,6 +1160,13 @@ def test_iphone_forwards_watch_companion_messages() -> None:
     assert "watchRelay.activateSession()" in ios
     assert "onReceivedMessage" in ios
     assert "WebMediaDLPairedMacSubmit.companion" in ios
+    assert "try? await WebMediaDLPairedMacSubmit.companion" not in ios
+    assert "displayedResponse" in ios
+    mac = (root / ROOT_VIEWS["macos"]).read_text(encoding="utf-8")
+    assert "bindWatchDelegate" not in mac
+    assert "WebMediaDLMacWatchConnectivityDelegate" not in mac
+    assert "activateSession()" not in mac
+    assert "autoForward = true" not in mac
     assert "WebMediaDLWatchConnectivityTransport" not in tv
     assert "WebMediaDLLocalNetworkCompanionTransport" in tv
 

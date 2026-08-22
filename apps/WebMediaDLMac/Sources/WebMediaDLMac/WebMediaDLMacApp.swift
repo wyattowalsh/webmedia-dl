@@ -26,7 +26,6 @@ struct MacRootView: View {
     @State private var approvedRoot = ""
     @State private var filesBookmark = WebMediaDLSecurityScopedBookmark(path: "")
     @State private var fromClipboard = false
-    @State private var watchDelegate: WebMediaDLMacWatchConnectivityDelegate?
     @State private var advertisedAddresses = "Mac relay is starting…"
     @State private var relayServer: WebMediaDLMacRelayServer?
     @State private var workerProcess: AnyObject?
@@ -222,17 +221,12 @@ struct MacRootView: View {
                                         pairingId: id,
                                         sessionKey: sessionKey
                                     )
-                                    if let body = bodies.last {
-                                        watchDelegate?.sendResponse(["kind": "response", "body": body])
-                                    }
+                                    status = bodies.last ?? "Forwarded companion capture"
                                 } else {
                                     let bodies = try await forwarder.forward(relay)
-                                    if let body = bodies.last {
-                                        watchDelegate?.sendResponse(["kind": "response", "body": body])
-                                    }
+                                    status = bodies.last ?? "Forwarded companion capture"
                                 }
                                 companionRelay = WebMediaDLCompanionRelay()
-                                status = "Forwarded companion capture"
                             } catch {
                                 status = error.localizedDescription
                             }
@@ -262,7 +256,6 @@ struct MacRootView: View {
                     filesBookmark = WebMediaDLSecurityScopedBookmark(path: "", bookmarkData: data).resolve()
                     approvedRoot = filesBookmark.path
                 }
-                bindWatchDelegate()
                 startMacWorker()
                 Task { await startMacRelay() }
             }
@@ -273,15 +266,12 @@ struct MacRootView: View {
             .onChange(of: token) { _, value in
                 WebMediaDLWorkerCredentials.defaults().set(value, forKey: WebMediaDLWorkerCredentials.tokenDefaultsKey)
                 relayServer?.loopbackToken = value
-                bindWatchDelegate()
             }
             .onChange(of: pairingId) { _, value in
                 WebMediaDLWorkerCredentials.defaults().set(value, forKey: WebMediaDLWorkerCredentials.pairingDefaultsKey)
-                bindWatchDelegate()
             }
             .onChange(of: sessionKey) { _, value in
                 WebMediaDLWorkerCredentials.defaults().set(value, forKey: WebMediaDLWorkerCredentials.sessionDefaultsKey)
-                bindWatchDelegate()
             }
         }
         .frame(minWidth: 480, minHeight: 320)
@@ -326,26 +316,6 @@ struct MacRootView: View {
         } catch {
             advertisedAddresses = "Mac relay failed: \(error.localizedDescription)"
         }
-    }
-
-    @MainActor
-    private func bindWatchDelegate() {
-        let client = WebMediaDLLoopbackClient(
-            token: token,
-            pairingId: UUID(uuidString: pairingId),
-            sessionKey: sessionKey.isEmpty ? nil : sessionKey
-        )
-        if let existing = watchDelegate {
-            existing.forwarder = WebMediaDLMacCompanionForwarder(client: client)
-            existing.autoForward = true
-            return
-        }
-        let delegate = WebMediaDLMacWatchConnectivityDelegate(
-            forwarder: WebMediaDLMacCompanionForwarder(client: client)
-        )
-        delegate.autoForward = true
-        delegate.activateSession()
-        watchDelegate = delegate
     }
 
     @MainActor
@@ -424,9 +394,7 @@ struct MacRootView: View {
     private func refreshHistory() async {
         let client = WebMediaDLLoopbackClient(token: token)
         do {
-            let (data, _) = try await URLSession.shared.data(for: client.historyRequest())
-            history = (try? WebMediaDLHistoryEntry.decodeCompanionHistory(from: data))
-                ?? ((try? JSONDecoder().decode([WebMediaDLHistoryEntry].self, from: data)) ?? [])
+            history = try await client.historyEntries()
             historyText = history.isEmpty
                 ? "No jobs yet."
                 : history.map { "\($0.jobId.uuidString.prefix(8)) \($0.state)" }.joined(separator: "\n")

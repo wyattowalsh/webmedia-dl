@@ -271,12 +271,36 @@ public struct WebMediaDLLoopbackClient: Sendable {
         return request
     }
 
+    public static func requireHTTPSuccess(status: Int, body: Data) throws -> String {
+        let text = String(data: body, encoding: .utf8) ?? ""
+        let summary = "HTTP \(status) \(text)"
+        guard (200 ..< 300).contains(status) else {
+            throw WebMediaDLDomainError(summary)
+        }
+        return summary
+    }
+
+    public static func requireHistoryEntries(status: Int, body: Data) throws -> [WebMediaDLHistoryEntry] {
+        _ = try requireHTTPSuccess(status: status, body: body)
+        do {
+            return try WebMediaDLHistoryEntry.decodeCompanionHistory(from: body)
+        } catch {
+            throw WebMediaDLDomainError("history JSON is not a job list")
+        }
+    }
+
+    public static func displayedResponse(_ work: () async throws -> String) async -> String {
+        do {
+            return try await work()
+        } catch {
+            return error.localizedDescription
+        }
+    }
+
     public func send(_ request: URLRequest) async throws -> String {
         let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse else {
-            return String(data: data, encoding: .utf8) ?? "no response"
-        }
-        return "HTTP \(http.statusCode) \(String(data: data, encoding: .utf8) ?? "")"
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        return try Self.requireHTTPSuccess(status: status, body: data)
     }
 
     public func submit(
@@ -310,9 +334,11 @@ public struct WebMediaDLLoopbackClient: Sendable {
     }
 
     public func historyEntries() async throws -> [WebMediaDLHistoryEntry] {
-        let (data, _) = try await URLSession.shared.data(for: historyRequest())
-        return (try? JSONDecoder().decode([WebMediaDLHistoryEntry].self, from: data))
-            ?? ((try? WebMediaDLHistoryEntry.decodeCompanionHistory(from: data)) ?? [])
+        let (data, response) = try await URLSession.shared.data(for: historyRequest())
+        return try Self.requireHistoryEntries(
+            status: (response as? HTTPURLResponse)?.statusCode ?? 0,
+            body: data
+        )
     }
 
     public func historySummary() async throws -> String {
@@ -337,7 +363,11 @@ public struct WebMediaDLLoopbackClient: Sendable {
 
     public func startPairing(clientProfileId: String = "personal-restricted") async throws -> WebMediaDLPairingChallenge {
         // Loopback pairing start does not require a stored worker token.
-        let (data, _) = try await URLSession.shared.data(for: pairRequest(clientProfileId: clientProfileId))
+        let (data, response) = try await URLSession.shared.data(for: pairRequest(clientProfileId: clientProfileId))
+        _ = try Self.requireHTTPSuccess(
+            status: (response as? HTTPURLResponse)?.statusCode ?? 0,
+            body: data
+        )
         return try JSONDecoder().decode(WebMediaDLPairingChallenge.self, from: data)
     }
 
