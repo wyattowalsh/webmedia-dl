@@ -129,6 +129,63 @@ public struct WebMediaDLiOSCancelIntent: AppIntent {
     }
 }
 
+public struct WebMediaDLiOSStatusIntent: AppIntent {
+    public static let title: LocalizedStringResource = "WebMedia DL status"
+
+    public init() {}
+
+    public func perform() async throws -> some IntentResult {
+        _ = try await WebMediaDLPairedMacSubmit.queueStatus(
+            credentials: WebMediaDLWorkerCredentials.loadClient()
+        )
+        return .result()
+    }
+}
+
+public struct WebMediaDLiOSPauseJobIntent: AppIntent {
+    public static let title: LocalizedStringResource = "Pause a WebMedia DL job"
+
+    @Parameter(title: "Job ID")
+    public var jobId: String
+
+    public init() {}
+
+    public init(jobId: String) {
+        self.jobId = jobId
+    }
+
+    public func perform() async throws -> some IntentResult {
+        guard let id = UUID(uuidString: jobId) else { return .result() }
+        _ = try await WebMediaDLPairedMacSubmit.pauseJob(
+            jobId: id,
+            credentials: WebMediaDLWorkerCredentials.loadClient()
+        )
+        return .result()
+    }
+}
+
+public struct WebMediaDLiOSResumeJobIntent: AppIntent {
+    public static let title: LocalizedStringResource = "Resume a WebMedia DL job"
+
+    @Parameter(title: "Job ID")
+    public var jobId: String
+
+    public init() {}
+
+    public init(jobId: String) {
+        self.jobId = jobId
+    }
+
+    public func perform() async throws -> some IntentResult {
+        guard let id = UUID(uuidString: jobId) else { return .result() }
+        _ = try await WebMediaDLPairedMacSubmit.resumeJob(
+            jobId: id,
+            credentials: WebMediaDLWorkerCredentials.loadClient()
+        )
+        return .result()
+    }
+}
+
 public struct WebMediaDLiOSShortcuts: AppShortcutsProvider {
     public static var appShortcuts: [AppShortcut] {
         AppShortcut(
@@ -172,12 +229,36 @@ public struct WebMediaDLiOSShortcuts: AppShortcutsProvider {
             systemImageName: "clock"
         )
         AppShortcut(
+            intent: WebMediaDLiOSStatusIntent(),
+            phrases: [
+                "WebMedia DL status",
+            ],
+            shortTitle: "WebMedia DL status",
+            systemImageName: "info.circle"
+        )
+        AppShortcut(
             intent: WebMediaDLiOSCancelIntent(),
             phrases: [
                 "Cancel \(.applicationName)",
             ],
             shortTitle: "Cancel WebMedia DL",
             systemImageName: "xmark.circle"
+        )
+        AppShortcut(
+            intent: WebMediaDLiOSPauseJobIntent(),
+            phrases: [
+                "Pause a \(.applicationName) job",
+            ],
+            shortTitle: "Pause a WebMedia DL job",
+            systemImageName: "pause.circle"
+        )
+        AppShortcut(
+            intent: WebMediaDLiOSResumeJobIntent(),
+            phrases: [
+                "Resume a \(.applicationName) job",
+            ],
+            shortTitle: "Resume a WebMedia DL job",
+            systemImageName: "play.circle"
         )
     }
 }

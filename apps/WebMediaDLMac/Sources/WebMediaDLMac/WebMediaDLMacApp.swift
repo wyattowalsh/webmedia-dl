@@ -114,6 +114,16 @@ struct MacRootView: View {
                         }
                     }
                     .accessibilityLabel("Resume queue")
+                    Button("Queue status") {
+                        Task {
+                            do {
+                                status = try await WebMediaDLLoopbackClient(token: token).queueStatus()
+                            } catch {
+                                status = error.localizedDescription
+                            }
+                        }
+                    }
+                    .accessibilityLabel("Queue status")
                     Button("Cancel last job") {
                         Task {
                             guard let lastJobId else {

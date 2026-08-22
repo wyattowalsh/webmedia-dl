@@ -134,6 +134,10 @@ public struct WebMediaDLPairedMacEndpoint: Sendable {
         authorized(relayURL.appendingPathComponent("v1/queue/resume"), method: "POST")
     }
 
+    public func queueStatusRequest() -> URLRequest {
+        authorized(relayURL.appendingPathComponent("v1/queue"))
+    }
+
     public func cancelRequest(jobId: UUID) -> URLRequest {
         authorized(
             relayURL
@@ -172,6 +176,7 @@ public struct WebMediaDLPairedMacEndpoint: Sendable {
 
     public func pauseQueue() async throws -> String { try await send(pauseQueueRequest()) }
     public func resumeQueue() async throws -> String { try await send(resumeQueueRequest()) }
+    public func queueStatus() async throws -> String { try await send(queueStatusRequest()) }
     public func cancel(jobId: UUID) async throws -> String { try await send(cancelRequest(jobId: jobId)) }
     public func pauseJob(jobId: UUID) async throws -> String { try await send(pauseJobRequest(jobId: jobId)) }
     public func resumeJob(jobId: UUID) async throws -> String { try await send(resumeJobRequest(jobId: jobId)) }
@@ -349,6 +354,20 @@ public enum WebMediaDLPairedMacSubmit {
             sessionKey: sessionKey,
             defaults: defaults
         ).resumeQueue()
+    }
+
+    public static func queueStatus(
+        credentials: WebMediaDLLoopbackClient = WebMediaDLWorkerCredentials.loadClient(),
+        pairingId: UUID? = nil,
+        sessionKey: String? = nil,
+        defaults: UserDefaults = WebMediaDLWorkerCredentials.defaults()
+    ) async throws -> String {
+        try await loadEndpoint(
+            credentials: credentials,
+            pairingId: pairingId,
+            sessionKey: sessionKey,
+            defaults: defaults
+        ).queueStatus()
     }
 
     public static func cancel(

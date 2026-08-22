@@ -112,6 +112,55 @@ public struct WebMediaDLMacCancelIntent: AppIntent {
     }
 }
 
+public struct WebMediaDLMacStatusIntent: AppIntent {
+    public static let title: LocalizedStringResource = "WebMedia DL status"
+
+    public init() {}
+
+    public func perform() async throws -> some IntentResult {
+        _ = try await WebMediaDLWorkerCredentials.loadClient().queueStatus()
+        return .result()
+    }
+}
+
+public struct WebMediaDLMacPauseJobIntent: AppIntent {
+    public static let title: LocalizedStringResource = "Pause a WebMedia DL job"
+
+    @Parameter(title: "Job ID")
+    public var jobId: String
+
+    public init() {}
+
+    public init(jobId: String) {
+        self.jobId = jobId
+    }
+
+    public func perform() async throws -> some IntentResult {
+        guard let id = UUID(uuidString: jobId) else { return .result() }
+        _ = try await WebMediaDLWorkerCredentials.loadClient().pauseJob(jobId: id)
+        return .result()
+    }
+}
+
+public struct WebMediaDLMacResumeJobIntent: AppIntent {
+    public static let title: LocalizedStringResource = "Resume a WebMedia DL job"
+
+    @Parameter(title: "Job ID")
+    public var jobId: String
+
+    public init() {}
+
+    public init(jobId: String) {
+        self.jobId = jobId
+    }
+
+    public func perform() async throws -> some IntentResult {
+        guard let id = UUID(uuidString: jobId) else { return .result() }
+        _ = try await WebMediaDLWorkerCredentials.loadClient().resumeJob(jobId: id)
+        return .result()
+    }
+}
+
 public struct WebMediaDLMacShortcuts: AppShortcutsProvider {
     public static var appShortcuts: [AppShortcut] {
         AppShortcut(
@@ -156,12 +205,36 @@ public struct WebMediaDLMacShortcuts: AppShortcutsProvider {
             systemImageName: "clock"
         )
         AppShortcut(
+            intent: WebMediaDLMacStatusIntent(),
+            phrases: [
+                "WebMedia DL status",
+            ],
+            shortTitle: "WebMedia DL status",
+            systemImageName: "info.circle"
+        )
+        AppShortcut(
             intent: WebMediaDLMacCancelIntent(),
             phrases: [
                 "Cancel \(.applicationName)",
             ],
             shortTitle: "Cancel WebMedia DL",
             systemImageName: "xmark.circle"
+        )
+        AppShortcut(
+            intent: WebMediaDLMacPauseJobIntent(),
+            phrases: [
+                "Pause a \(.applicationName) job",
+            ],
+            shortTitle: "Pause a WebMedia DL job",
+            systemImageName: "pause.circle"
+        )
+        AppShortcut(
+            intent: WebMediaDLMacResumeJobIntent(),
+            phrases: [
+                "Resume a \(.applicationName) job",
+            ],
+            shortTitle: "Resume a WebMedia DL job",
+            systemImageName: "play.circle"
         )
     }
 }

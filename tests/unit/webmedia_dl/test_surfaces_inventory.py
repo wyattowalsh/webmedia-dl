@@ -594,12 +594,16 @@ def test_intents_and_share_adapters_load_credentials() -> None:
         assert "kind: .resume" in text
         assert "kind: .history" in text
         assert "kind: .status" in text
-        assert "kind: .cancel" in text
+        assert "kind: .cancel, jobId:" in text
+        assert "kind: .pauseJob" in text
+        assert "kind: .resumeJob" in text
         assert "Pause WebMedia DL" in text
         assert "Resume WebMedia DL" in text
         assert "WebMedia DL history" in text
         assert "WebMedia DL status" in text
         assert "Cancel WebMedia DL" in text
+        assert "Pause a WebMedia DL job" in text
+        assert "Resume a WebMedia DL job" in text
     loopback = (root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/LoopbackClient.swift").read_text(
         encoding="utf-8"
     )
@@ -786,10 +790,13 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
         assert "WebMediaDLPairedMacSubmit.submit" in text
         assert "WebMediaDLPairedMacSubmit.history" in text
         assert "WebMediaDLPairedMacSubmit.pauseQueue" in text
+        assert "WebMediaDLPairedMacSubmit.queueStatus" in text
         assert "client.historyRequest()" not in text
         assert "pairedClient.historyRequest()" not in text
         assert "client.pauseQueue()" not in text
         assert "pairedClient.pauseQueue()" not in text
+        assert "client.queueStatus()" not in text
+        assert "pairedClient.queueStatus()" not in text
         assert "Paired Mac URL" in text
         assert "Save Mac address" in text
         assert "WebMediaDLPairedMacEndpoint.startPairing" in text
@@ -804,6 +811,8 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert "This Mac's address" in mac
     assert "localOnly: false" in mac
     assert "WebMediaDLPairedMacSubmit.history" not in mac
+    assert "WebMediaDLPairedMacSubmit.queueStatus" not in mac
+    assert ".queueStatus()" in mac
     continuity = (
         root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/ContinuityBridge.swift"
     ).read_text(encoding="utf-8")
@@ -824,6 +833,9 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
         assert "WebMediaDLPairedMacSubmit.resumeQueue" in text
         assert "WebMediaDLPairedMacSubmit.history" in text
         assert "WebMediaDLPairedMacSubmit.cancel" in text
+        assert "WebMediaDLPairedMacSubmit.queueStatus" in text
+        assert "WebMediaDLPairedMacSubmit.pauseJob" in text
+        assert "WebMediaDLPairedMacSubmit.resumeJob" in text
     mac_intent = (
         root / "apps/WebMediaDLMac/Sources/WebMediaDLMac/WebMediaDLMacSubmitURLIntent.swift"
     ).read_text(encoding="utf-8")
@@ -834,6 +846,9 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert ".resumeQueue()" in mac_intent
     assert ".history()" in mac_intent
     assert ".cancel(jobId:" in mac_intent
+    assert ".queueStatus()" in mac_intent
+    assert ".pauseJob(jobId:" in mac_intent
+    assert ".resumeJob(jobId:" in mac_intent
     for rel, surface in (
         ("apps/WebMediaDLiOS/ShareExtension/WebMediaDLiOSShareExtension.swift", ".ios"),
         ("apps/WebMediaDLiPadOS/ShareExtension/WebMediaDLiPadOSShareExtension.swift", ".ipados"),

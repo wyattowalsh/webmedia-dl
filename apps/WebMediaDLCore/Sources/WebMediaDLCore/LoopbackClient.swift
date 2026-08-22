@@ -113,6 +113,10 @@ public struct WebMediaDLLoopbackClient: Sendable {
         authorized(baseURL.appendingPathComponent("v1/queue/resume"), method: "POST")
     }
 
+    public func queueStatusRequest() -> URLRequest {
+        authorized(baseURL.appendingPathComponent("v1/queue"))
+    }
+
     public func pauseJobRequest(jobId: UUID) -> URLRequest {
         let url = baseURL
             .appendingPathComponent("v1/jobs")
@@ -273,6 +277,10 @@ public struct WebMediaDLLoopbackClient: Sendable {
 
     public func resumeQueue() async throws -> String {
         try await send(resumeQueueRequest())
+    }
+
+    public func queueStatus() async throws -> String {
+        try await send(queueStatusRequest())
     }
 
     public func startPairing(clientProfileId: String = "personal-restricted") async throws -> WebMediaDLPairingChallenge {

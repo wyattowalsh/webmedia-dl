@@ -11,7 +11,7 @@ last_reviewed: 2026-08-18
 |---|---|---|
 | macOS | Full local worker + app, share sheet, App Intent | Runs yt-dlp/ffmpeg/gallery-dl when the profile allows |
 | iPhone / iPad / visionOS | Complete clients | Lightweight HTTP locally; yt-dlp only after Mac pairing confirmation |
-| watchOS / tvOS | Capture, status, history, pause/resume controls | Never subprocess workers |
+| watchOS / tvOS | Capture, status, history, pause/resume/cancel controls | Never subprocess workers |
 
 Loopback worker: `http://127.0.0.1:8765`. The Mac app also listens on a private
 LAN/loopback HTTP relay (`http://127.0.0.1:8766` plus private interface URLs) that

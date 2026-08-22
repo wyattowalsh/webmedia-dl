@@ -79,12 +79,62 @@ public struct WebMediaDLTVStatusIntent: AppIntent {
 public struct WebMediaDLTVCancelIntent: AppIntent {
     public static let title: LocalizedStringResource = "Cancel WebMedia DL"
 
+    @Parameter(title: "Job ID")
+    public var jobId: String
+
     public init() {}
 
+    public init(jobId: String) {
+        self.jobId = jobId
+    }
+
     public func perform() async throws -> some IntentResult {
+        guard UUID(uuidString: jobId) != nil else { return .result() }
         let bridge = WebMediaDLContinuityBridge()
         let transport = WebMediaDLWatchConnectivityTransport()
-        try await transport.send(bridge.message(kind: .cancel, surface: .tvos))
+        try await transport.send(bridge.message(kind: .cancel, jobId: jobId, surface: .tvos))
+        return .result()
+    }
+}
+
+public struct WebMediaDLTVPauseJobIntent: AppIntent {
+    public static let title: LocalizedStringResource = "Pause a WebMedia DL job"
+
+    @Parameter(title: "Job ID")
+    public var jobId: String
+
+    public init() {}
+
+    public init(jobId: String) {
+        self.jobId = jobId
+    }
+
+    public func perform() async throws -> some IntentResult {
+        guard UUID(uuidString: jobId) != nil else { return .result() }
+        let bridge = WebMediaDLContinuityBridge()
+        let transport = WebMediaDLWatchConnectivityTransport()
+        try await transport.send(bridge.message(kind: .pauseJob, jobId: jobId, surface: .tvos))
+        return .result()
+    }
+}
+
+public struct WebMediaDLTVResumeJobIntent: AppIntent {
+    public static let title: LocalizedStringResource = "Resume a WebMedia DL job"
+
+    @Parameter(title: "Job ID")
+    public var jobId: String
+
+    public init() {}
+
+    public init(jobId: String) {
+        self.jobId = jobId
+    }
+
+    public func perform() async throws -> some IntentResult {
+        guard UUID(uuidString: jobId) != nil else { return .result() }
+        let bridge = WebMediaDLContinuityBridge()
+        let transport = WebMediaDLWatchConnectivityTransport()
+        try await transport.send(bridge.message(kind: .resumeJob, jobId: jobId, surface: .tvos))
         return .result()
     }
 }
@@ -138,6 +188,22 @@ public struct WebMediaDLTVShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "Cancel WebMedia DL",
             systemImageName: "xmark.circle"
+        )
+        AppShortcut(
+            intent: WebMediaDLTVPauseJobIntent(),
+            phrases: [
+                "Pause a \(.applicationName) job",
+            ],
+            shortTitle: "Pause a WebMedia DL job",
+            systemImageName: "pause.circle"
+        )
+        AppShortcut(
+            intent: WebMediaDLTVResumeJobIntent(),
+            phrases: [
+                "Resume a \(.applicationName) job",
+            ],
+            shortTitle: "Resume a WebMedia DL job",
+            systemImageName: "play.circle"
         )
     }
 }

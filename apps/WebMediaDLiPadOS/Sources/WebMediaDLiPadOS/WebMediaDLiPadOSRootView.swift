@@ -188,6 +188,16 @@ public struct WebMediaDLiPadOSRootView: View {
                     }
                 }
                 .accessibilityLabel("Resume queue")
+                Button("Queue status") {
+                    Task {
+                        status = (try? await WebMediaDLPairedMacSubmit.queueStatus(
+                            credentials: pairedClient,
+                            pairingId: UUID(uuidString: pairingId),
+                            sessionKey: sessionKey.isEmpty ? nil : sessionKey
+                        )) ?? "Pairing required"
+                    }
+                }
+                .accessibilityLabel("Queue status")
                 Button("Cancel last job") {
                     Task {
                         guard let lastJobId else {

@@ -2,10 +2,11 @@
 
 ## 0.1.0
 
-- Mac, iPhone, iPad, and visionOS App Intents pause, resume, history, and
-  cancel through the same worker/relay paths as the in-app queue controls.
-  GitHub `macos-15` run `32550239808` executed Core `swift test` (18 tests,
-  0 failures) on `24aeb5c`.
+- Mac, iPhone, iPad, and visionOS App Intents pause, resume, history, status,
+  cancel, and per-job pause/resume through the same worker/relay paths as the
+  in-app queue controls. watchOS and tvOS cancel, pause_job, and resume_job
+  App Intents include a job UUID. Prior queue App Intents compiled on GitHub
+  `macos-15` run `32550239808` (`24aeb5c`, 18 tests, 0 failures).
 - watchOS and tvOS App Intents queue pause, resume, history, status, and
   cancel companion kinds in addition to capture. GitHub `macos-15` run
   `32550050185` executed Core `swift test` (18 tests, 0 failures) on

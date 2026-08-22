@@ -18,6 +18,7 @@ final class IdentityTests: XCTestCase {
         XCTAssertTrue(client.isLoopback)
         XCTAssertEqual(client.baseURL.host, "127.0.0.1")
         XCTAssertTrue(client.pauseQueueRequest().url?.absoluteString.contains("queue/pause") ?? false)
+        XCTAssertTrue(client.queueStatusRequest().url?.absoluteString.contains("/v1/queue") ?? false)
         XCTAssertTrue(client.companionRequest(kind: "status").url?.absoluteString.contains("companion") ?? false)
         XCTAssertTrue(
             client.sealedCompanionRequest(

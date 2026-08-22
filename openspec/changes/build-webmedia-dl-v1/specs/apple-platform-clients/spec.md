@@ -7,8 +7,10 @@
 macOS SHALL host the full local worker. iPhone, iPad, and visionOS SHALL be complete
 clients that may perform lightweight transfers and MUST pair for heavy work.
 watchOS and tvOS SHALL send typed companion messages (`capture`, `pause`,
-`resume`, `history`, `status`, `cancel`) to the Mac. Those messages SHALL set
-`nativeCommand` to null and SHALL NOT carry provider argv. The Mac worker
+`resume`, `history`, `status`, `cancel`, `pause_job`, `resume_job`) to the Mac.
+Those messages SHALL set
+`nativeCommand` to null and SHALL NOT carry provider argv. Cancel, pause_job,
+and resume_job SHALL include a job UUID. The Mac worker
 `POST /v1/companion` SHALL accept them only from the Mac actor and MAY mark the
 job host-owned so heavy work runs on the Mac without granting the watch a
 subprocess runtime.
@@ -31,8 +33,10 @@ subprocess runtime.
 
 #### Scenario: watch control intents queue companion kinds
 
-- **WHEN** watchOS or tvOS Siri/Shortcuts pause, resume, history, status, or cancel
-- **THEN** each action queues the matching companion kind with `nativeCommand` null
+- **WHEN** watchOS or tvOS Siri/Shortcuts pause, resume, history, status, cancel,
+  or pause/resume a job
+- **THEN** each action queues the matching companion kind with `nativeCommand`
+  null, and cancel/pause_job/resume_job include a UUID `job_id`
 
 #### Scenario: sealed companion envelope
 
@@ -72,5 +76,6 @@ the phone's own `127.0.0.1`.
 
 #### Scenario: complete-client control intents use mac relay
 
-- **WHEN** iPhone, iPad, or visionOS Siri/Shortcuts pause, resume, history, or cancel
+- **WHEN** iPhone, iPad, or visionOS Siri/Shortcuts pause, resume, history, status,
+  cancel, or pause/resume a job
 - **THEN** those App Intents call `WebMediaDLPairedMacSubmit` against the saved Mac URL
