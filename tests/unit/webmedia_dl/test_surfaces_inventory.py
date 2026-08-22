@@ -966,6 +966,9 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert "WebMediaDLOperation" in domain
     assert "WebMediaDLSecurityScopedBookmark(path: root).allows(scoped)" in domain
     assert "scoped.hasPrefix(prefix)" not in domain
+    assert 'let safeContainerPattern = "^[A-Za-z0-9]{1,12}$"' in domain
+    assert "func isSafeContainer(_ value: String)" in domain
+    assert "container preference is not an allowed extension" in domain
     assert "never launches yt-dlp, ffmpeg, or gallery-dl" in http_direct
     assert "Process(" not in http_direct
     assert 'providerId = "http-direct"' in http_direct

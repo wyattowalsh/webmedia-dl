@@ -594,6 +594,16 @@ public struct WebMediaDLExportIntent: Codable, Sendable {
     public var securityScopedPath: String?
     public var securityScopedBookmark: String?
 
+    public static let safeContainerPattern = "^[A-Za-z0-9]{1,12}$"
+
+    public static func isSafeContainer(_ value: String) -> Bool {
+        let bytes = value.utf8
+        guard (1...12).contains(bytes.count) else { return false }
+        return bytes.allSatisfy { byte in
+            (48...57).contains(byte) || (65...90).contains(byte) || (97...122).contains(byte)
+        }
+    }
+
     enum CodingKeys: String, CodingKey {
         case presetId                = "preset_id"
         case destinationKind         = "destination_kind"
@@ -643,6 +653,9 @@ public struct WebMediaDLExportIntent: Codable, Sendable {
             if !allowed {
                 throw WebMediaDLDomainError("Files security-scoped path must stay inside approved roots.")
             }
+        }
+        if let preferred = containerPreference, !Self.isSafeContainer(preferred) {
+            throw WebMediaDLDomainError("container preference is not an allowed extension")
         }
         self.presetId               = presetId
         self.destinationKind        = destinationKind

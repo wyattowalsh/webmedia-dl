@@ -1170,6 +1170,30 @@ final class ContractTests: XCTestCase {
         XCTAssertEqual(nestedFiles.securityScopedPath, "/tmp/movies/inside")
         XCTAssertThrowsError(
             try JSONDecoder().decode(
+                WebMediaDLExportIntent.self,
+                from: JSONSerialization.data(withJSONObject: [
+                    "container_preference": "../../../../tmp/escape",
+                ])
+            )
+        )
+        XCTAssertThrowsError(
+            try JSONDecoder().decode(
+                WebMediaDLExportIntent.self,
+                from: JSONSerialization.data(withJSONObject: [
+                    "container_preference": "mkv; rm -rf /",
+                ])
+            )
+        )
+        let allowlistedContainer = try JSONDecoder().decode(
+            WebMediaDLExportIntent.self,
+            from: JSONSerialization.data(withJSONObject: [
+                "container_preference": "mkv",
+            ])
+        )
+        XCTAssertEqual(allowlistedContainer.containerPreference, "mkv")
+        XCTAssertEqual(WebMediaDLExportIntent.safeContainerPattern, "^[A-Za-z0-9]{1,12}$")
+        XCTAssertThrowsError(
+            try JSONDecoder().decode(
                 WebMediaDLMediaSource.self,
                 from: JSONSerialization.data(withJSONObject: [
                     "kind": "url",

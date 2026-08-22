@@ -2,6 +2,8 @@
 
 ## 0.1.0
 
+- Swift `WebMediaDLExportIntent` shares the Python alphanumeric
+  `container_preference` allowlist (1–12) and refuses hostile JSON decode.
 - CLI `--container` and `POST /v1/jobs` / `/v1/plan` refuse hostile
   `container_preference` values with exit 1 / HTTP 422.
 - GitHub Actions `32574304361` on `c255db7` passed Python (602 pytest, 100%),

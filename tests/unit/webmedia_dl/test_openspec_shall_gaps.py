@@ -129,6 +129,25 @@ def test_export_intent_refuses_hostile_container_preference(container: str) -> N
         ExportIntent(container_preference=container)
 
 
+def test_swift_export_intent_shares_container_allowlist() -> None:
+    domain = (repo_root() / "apps/WebMediaDLCore/Sources/WebMediaDLCore/Domain.swift").read_text(
+        encoding="utf-8"
+    )
+    identity = (
+        repo_root() / "apps/WebMediaDLCore/Tests/WebMediaDLCoreTests/IdentityTests.swift"
+    ).read_text(encoding="utf-8")
+    contracts = (
+        repo_root() / "apps/WebMediaDLCore/Tests/WebMediaDLCoreTests/ContractTests.swift"
+    ).read_text(encoding="utf-8")
+    assert f'let safeContainerPattern = "{SAFE_CONTAINER_PATTERN}"' in domain
+    assert "container preference is not an allowed extension" in domain
+    assert "func isSafeContainer(_ value: String)" in domain
+    assert 'containerPreference: "../../../../tmp/escape"' in identity
+    assert 'containerPreference: "mkv; rm -rf /"' in identity
+    assert '"container_preference": "../../../../tmp/escape"' in contracts
+    assert '"container_preference": "mkv; rm -rf /"' in contracts
+
+
 def test_export_intent_accepts_allowlisted_containers() -> None:
     for container in ("mkv", "mp4", "png", "jpg", "jpeg", "webp", "gif", "tif", "tiff", "avif"):
         assert is_safe_container(container)

@@ -121,6 +121,21 @@ final class IdentityTests: XCTestCase {
                 securityScopedBookmark: "ZmFrZQ=="
             )
         )
+        XCTAssertThrowsError(
+            try WebMediaDLExportIntent(containerPreference: "../../../../tmp/escape")
+        )
+        XCTAssertThrowsError(
+            try WebMediaDLExportIntent(containerPreference: "mkv; rm -rf /")
+        )
+        XCTAssertThrowsError(
+            try WebMediaDLExportIntent(containerPreference: "")
+        )
+        XCTAssertFalse(WebMediaDLExportIntent.isSafeContainer("verylongcontainer"))
+        XCTAssertTrue(WebMediaDLExportIntent.isSafeContainer("mkv"))
+        XCTAssertEqual(
+            try WebMediaDLExportIntent(containerPreference: "mkv").containerPreference,
+            "mkv"
+        )
         XCTAssertFalse(WebMediaDLSecurityScopedBookmark(path: "Movies").allows("Movies/clip.mp4"))
         XCTAssertFalse(WebMediaDLPhotoKitDestination(approvedRoot: "/Users/me/Movies").canPublish)
         let clip = WebMediaDLClipboardIntake(text: "see https://cdn.example.com/a.mp4 please")
