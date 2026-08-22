@@ -9,7 +9,10 @@
   loopback bearer solely for `/v1/companion` after pairing, and refuses
   `/v1/pair/confirm`. Swift events decode JSON values the way Python
   `EventRecord.payload` does, including nested provider-console keys.
-  Local `uv run pytest --cov` is 574 tests at 99.99%.
+  GitHub Actions `32561499120` on `6d90ce4` passed Python (574 pytest, 99.97%)
+  and Swift (18 tests, 0 failures; 8× BUILD SUCCEEDED). Local
+  `uv run pytest --cov` is 574 tests at 99.99%. GitHub Actions `32561025265`
+  on `882169a` failed Swift (`homeDirectoryForCurrentUser` unavailable on iOS).
 - Complete-client URL jobs with a Files bookmark submit `staging_only` to the Mac
   worker. A phone sandbox `files_app` path is refused. Published artifacts are
   pulled with `GET /v1/artifacts/{id}/content` into the local Files bookmark.
