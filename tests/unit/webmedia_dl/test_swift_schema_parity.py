@@ -178,6 +178,26 @@ def test_nested_schema_defs_match_swift_coding_keys() -> None:
         assert properties <= keys, f"{type_name} missing {sorted(properties - keys)}"
 
 
+def test_swift_graph_relation_matches_schema() -> None:
+    schema = _schema("candidate-graph")
+    edge = schema["$defs"]["GraphEdge"]
+    assert isinstance(edge, dict)
+    relation = edge["properties"]["relation"]
+    assert isinstance(relation, dict)
+    expected = {str(item) for item in relation["enum"]}
+    actual = _enum_values(_type_body(_swift_sources(), "WebMediaDLGraphRelation"))
+    assert (
+        actual
+        == expected
+        == {
+            "alternative_of",
+            "grouped_with",
+            "derived_from",
+            "conflicts_with",
+        }
+    )
+
+
 def test_swift_enum_raw_values_match_schema() -> None:
     text = _swift_sources()
     seen: set[str] = set()

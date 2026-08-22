@@ -288,6 +288,11 @@ def test_files_destinations_use_bookmarks_not_typed_paths() -> None:
     assert "fromPickedURL" in destinations
     assert ".withSecurityScope" in destinations
     assert ".minimalBookmark" in destinations
+    assert "HTTPS stays a URL; file paths use drop intake" in destinations
+    assert "static func locators(fromShared" in destinations
+    assert "static func dropPaths(fromShared" in destinations
+    assert 'hasPrefix("file://")' in destinations
+    assert 'hasPrefix("https://")' in destinations
     mac = (root / "apps/WebMediaDLMac/Sources/WebMediaDLMac/WebMediaDLMacApp.swift").read_text(
         encoding="utf-8"
     )

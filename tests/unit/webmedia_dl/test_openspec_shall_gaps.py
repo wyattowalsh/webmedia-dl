@@ -275,6 +275,16 @@ def test_inspect_dash_content_protection_without_named_drm_still_refuses() -> No
         inspect_manifest("<MPD><ContentProtection /></MPD>")
 
 
+def test_recordable_parts_refuses_dash_system_uuid_without_protection_tag() -> None:
+    text = (
+        "<MPD><Period><AdaptationSet>"
+        "<Representation id='v1'>urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED</Representation>"
+        "</AdaptationSet></Period></MPD>"
+    )
+    with pytest.raises(DrmRefused):
+        recordable_parts(text, "https://cdn.example.com/manifest.mpd")
+
+
 def test_doctor_version_probe_oserror_is_fail(monkeypatch: pytest.MonkeyPatch) -> None:
     from webmedia_dl import diagnostics as diagnostics_mod
 
@@ -295,7 +305,69 @@ def test_doctor_version_probe_oserror_is_fail(monkeypatch: pytest.MonkeyPatch) -
     assert "did not report a version" in ffmpeg["reason"]
 
 
-def test_every_openspec_scenario_has_when_then() -> None:
+SCENARIO_EVIDENCE = {
+    "publication requires approved roots": "test_user_approved_path_omits_approved_roots",
+    "files bookmark path boundary": "test_files_bookmark_and_photokit",
+    "clipboard url is not a path": "test_clipboard_locator_extracts_url",
+    "photos without approval": "testPhotosDestinationRequiresApprovedRoot",
+    "share sheet url versus file": "testContinuityIsNotASubprocessWorker",
+    "complete clients carry files destinations": "test_files_destinations_use_bookmarks_not_typed_paths",
+    "AES-128 playlist": "test_aes128_playlist_refused_before_any_segment_fetch",
+    "two clear transport segments": "test_record_clear_stream_concatenates_segments",
+    "DASH SegmentList byte ranges": "test_dash_segment_timeline",
+    "AdaptationSet binds Representation identifiers": (
+        "test_dash_adaptationset_binds_self_closing_representation"
+    ),
+    "highest-bandwidth video representation": "test_dash_prefers_highest_video_representation",
+    "HLS master highest bandwidth": "test_hls_master_prefers_highest_bandwidth",
+    "multi-period DASH concatenates each period": "test_multi_period_same_uri_is_appended_twice",
+    "dynamic MPD polls new segments": "test_dynamic_mpd_polls_new_segments",
+    "companion capture has no native command": "testContinuityIsNotASubprocessWorker",
+    "watch worker cannot run yt-dlp": "test_watch_is_not_a_subprocess_worker",
+    "watch queues for Mac relay": "test_watch_tv_capture_queues_without_ytdlp",
+    "sealed companion envelope": "test_companion_accepts_sealed_pairing_envelope",
+    "unconfirmed pairing": "test_unconfirmed_pairing_does_not_escalate",
+    "HTML extracts media without using the title as identity": (
+        "test_html_discovery_extracts_media_without_using_title_as_id"
+    ),
+    "track and media anchors": "test_html_discovery_extracts_track_and_media_anchors",
+    "iframe, preload link, and JSON-LD type": "test_html_discovery_extracts_iframe_link_and_jsonld_type",
+    "amp-img and twitter player": "test_html_discovery_amp_img_and_twitter_player",
+    "Graph records DRM conflicts": "test_candidate_graph_records_duplicates_drm_and_grouping",
+    "completed job has events": "test_submit_history_job_roundtrip",
+    "event payload is not a provider console": "test_event_payload_rejects_every_forbidden_key",
+    "Queue is paused": "test_queue_pause_leaves_job_accepted",
+    "Per-job pause is distinct from queue pause": "test_paused_job_is_not_auto_started",
+    "Pause mid-acquire keeps registered sources": (
+        "test_pause_during_acquire_checkpoints_and_resume_skips_done_kind"
+    ),
+    "doctor JSON": "test_doctor_json",
+    "support bundle is local-only": "test_support_bundle_is_local_and_strips_console",
+    "HTTPS paste": "test_paste_kind_stays_a_url",
+    "file scheme rejected": "test_file_scheme_rejected",
+    "URL plus path is invalid": "test_source_url_cannot_become_path",
+    "drop of an existing file": "test_drop_intake_kind",
+    "restricted cannot delegate yt-dlp": "test_restricted_cannot_delegate_ytdlp",
+    "simulated PASS forbidden": "test_simulated_check_cannot_pass",
+    "outside approved root": "test_jobs_export_outside_approved_roots_fails_closed",
+    "extra_args rejected": "test_extra_args_rejected",
+    "yt-dlp format token": "test_ytdlp_argv_is_allowlisted",
+    "doctor does not install yt-dlp": "test_doctor_fail_and_warn_and_missing_skip_install",
+    "YouTube watch page is not fetched as HTTP bytes": "test_lossy_plan_and_gallery_acquisition",
+    "remux argv": "test_remux_argv_uses_stream_copy",
+    "ImageMagick policy directory": "test_magick_configure_path_is_set",
+    "collector returns no native command": "test_extension_collector_returns_no_native_command",
+    "each engine has a capture tree": "test_browser_extension_trees",
+    "default plan keeps original": "test_original_sacred_keeps_original_with_no_loss",
+    "repo cookie rejected": "test_cookie_requires_absolute_existing_file_outside_repo",
+    "mutate source fails": "test_source_artifact_cannot_be_mutated",
+    "original archive preserved": "test_legacy_scan_is_non_destructive",
+    "capture popup markup": "test_capture_popup_has_accessible_markup",
+    "CLI help uses canonical name": "test_help",
+}
+
+
+def _openspec_scenario_titles() -> list[str]:
     root = repo_root() / "openspec/changes/build-webmedia-dl-v1/specs"
     titles: list[str] = []
     for spec in sorted(root.glob("*/spec.md")):
@@ -307,6 +379,73 @@ def test_every_openspec_scenario_has_when_then() -> None:
             assert "**WHEN**" in chunk, f"{spec.parent.name}: {title}"
             assert "**THEN**" in chunk, f"{spec.parent.name}: {title}"
             titles.append(title)
+    return titles
+
+
+def _named_tests() -> set[str]:
+    names: set[str] = set()
+    tests_root = repo_root() / "tests"
+    for path in tests_root.rglob("test_*.py"):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name.startswith("test_"):
+                names.add(node.name)
+    apps = repo_root() / "apps"
+    for path in apps.rglob("*Tests.swift"):
+        for match in re.finditer(
+            r"\bfunc (test[A-Za-z0-9_]+)\s*\(", path.read_text(encoding="utf-8")
+        ):
+            names.add(match.group(1))
+    return names
+
+
+def test_every_openspec_scenario_has_when_then() -> None:
+    titles = _openspec_scenario_titles()
     assert len(titles) >= 40
     dupes = [name for name, count in Counter(titles).items() if count > 1]
     assert dupes == [], dupes
+
+
+def test_every_openspec_scenario_has_named_test() -> None:
+    titles = _openspec_scenario_titles()
+    named = _named_tests()
+    missing_map = sorted(set(titles) - set(SCENARIO_EVIDENCE))
+    extra_map = sorted(set(SCENARIO_EVIDENCE) - set(titles))
+    assert missing_map == [], missing_map
+    assert extra_map == [], extra_map
+    missing_tests = [
+        f"{title} -> {evidence}"
+        for title, evidence in SCENARIO_EVIDENCE.items()
+        if evidence not in named
+    ]
+    assert missing_tests == [], missing_tests
+
+
+def test_extension_collector_returns_no_native_command() -> None:
+    text = (repo_root() / "extensions/shared/capture.js").read_text(encoding="utf-8")
+    assert "Never becomes a generic native command runner" in text
+    assert "nativeCommand: null" in text
+    assert '!value.toLowerCase().startsWith("javascript:")' in text
+
+
+def test_builtin_manifests_never_auto_install_or_accept_argv() -> None:
+    for manifest in builtin_manifests().values():
+        assert manifest.install_automatic is False, manifest.provider_id
+        assert manifest.accepts_user_argv is False, manifest.provider_id
+
+
+def test_shipped_profiles_forbid_telemetry_drm_and_auto_delegate() -> None:
+    from webmedia_dl.policy.profiles import builtin_profiles
+
+    profiles = builtin_profiles()
+    assert set(profiles) >= {
+        "personal-full",
+        "personal-restricted",
+        "browser-capture",
+        "watch-capture",
+        "tv-control",
+    }
+    for profile in profiles.values():
+        assert profile.telemetry_default is False, profile.profile_id
+        assert profile.drm_circumvention is False, profile.profile_id
+        assert profile.can_delegate is False, profile.profile_id

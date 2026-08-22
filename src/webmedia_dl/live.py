@@ -127,17 +127,15 @@ def recordable_segment_urls(text: str, base: str) -> list[str]:
     return [part.url for part in recordable_parts(text, base)]
 
 
-def recordable_parts(text: str, base: str, *, inspect: bool = True) -> list[ManifestPart]:
+def recordable_parts(text: str, base: str) -> list[ManifestPart]:
     dash = "<MPD" in text or "<mpd" in text
-    if inspect and dash:
-        refuse_drm(detect_drm_signals(text))
-    if inspect:
-        _refuse_encrypted_session_key(text)
     if dash:
+        refuse_drm(detect_drm_signals(text))
         if _DASH_CONTENT_PROTECTION.search(text):
             msg = "DASH ContentProtection is refused."
             raise DrmRefused(msg)
         return _dash_parts(text, base)
+    _refuse_encrypted_session_key(text)
     parts = _clear_hls_parts(text, base)
     if not parts:
         match = _ENCRYPTED_HLS.search(text)

@@ -31,7 +31,7 @@ Original pack SHALL text remains unverified until the 2026-08-18 ZIP is re-attac
 | Extension capture only | `tests/unit/extensions/capture.test.mjs` |
 | Apple shells | `tests/unit/webmedia_dl/test_surfaces_inventory.py` |
 | Swift schema keys | `tests/unit/webmedia_dl/test_swift_schema_parity.py` |
-| CLI plan / submit events | `tests/unit/webmedia_dl/test_cli.py`, `tests/e2e/test_cli_e2e.py` |
+| OpenSpec scenarios | `openspec/.../specs/*/spec.md` | `test_openspec_shall_gaps.py` WHEN/THEN + named-test map |
 
 | Capability | Spec | Tests |
 |---|---|---|
