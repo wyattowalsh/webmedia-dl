@@ -2,6 +2,9 @@
 
 ## 0.1.0
 
+- Pick HLS master variants from the `BANDWIDTH` attribute map, not a greedy
+  `\bBANDWIDTH=` regex. `AVERAGE-BANDWIDTH` (and duplicate / non-numeric
+  `BANDWIDTH`) must not steal the highest-peak media playlist.
 - Collect JSON-LD `contentUrl` / `embedUrl` objects that carry `@id` or
   `url`, in the worker and in browser capture, so typed JSON-LD locators
   are not dropped as a page-without-direct-media candidate.

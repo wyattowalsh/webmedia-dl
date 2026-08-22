@@ -560,9 +560,14 @@ def _preferred_hls_variant(text: str, base: str) -> str | None:
     pending: int | None = None
     for line in text.splitlines():
         stripped = line.strip()
-        match = re.search(r"#EXT-X-STREAM-INF:.*\bBANDWIDTH=(\d+)", stripped, flags=re.I)
-        if match:
-            pending = int(match.group(1))
+        if stripped.startswith("#EXT-X-STREAM-INF:"):
+            attrs, duplicates = _hls_attr_map(stripped.split(":", 1)[1])
+            raw = attrs.get("BANDWIDTH")
+            pending = (
+                int(raw)
+                if raw is not None and raw.isdigit() and "BANDWIDTH" not in duplicates
+                else None
+            )
             continue
         if pending is not None and stripped and not stripped.startswith("#"):
             variants.append((pending, _join(base, stripped)))

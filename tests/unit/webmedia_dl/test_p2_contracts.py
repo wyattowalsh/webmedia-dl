@@ -512,16 +512,19 @@ def test_dash_prefers_highest_video_representation() -> None:
 def test_hls_master_prefers_highest_bandwidth(tmp_path: Path) -> None:
     master = (
         "#EXTM3U\n"
-        "#EXT-X-STREAM-INF:BANDWIDTH=800000\nlow.m3u8\n"
-        "#EXT-X-STREAM-INF:BANDWIDTH=1600000\nhigh.m3u8\n"
+        "#EXT-X-STREAM-INF:AVERAGE-BANDWIDTH=9999999\nskip-no-bw.m3u8\n"
+        "#EXT-X-STREAM-INF:BANDWIDTH=not-a-number\nskip-bad.m3u8\n"
+        "#EXT-X-STREAM-INF:BANDWIDTH=1,BANDWIDTH=9999999\nskip-dup.m3u8\n"
+        "#EXT-X-STREAM-INF:BANDWIDTH=800000,AVERAGE-BANDWIDTH=2000000\nlow.m3u8\n"
+        "#EXT-X-STREAM-INF:AVERAGE-BANDWIDTH=400000,BANDWIDTH=1600000\nhigh.m3u8\n"
     )
     high = "#EXTM3U\n#EXTINF:1,\nhi.ts\n"
 
     def fetch(url: str) -> tuple[int, str, bytes]:
         if url.endswith("high.m3u8"):
             return 200, "application/vnd.apple.mpegurl", high.encode()
-        if url.endswith("low.m3u8"):
-            raise AssertionError("must not fetch lower-bandwidth variant")
+        if url.endswith(("low.m3u8", "skip-no-bw.m3u8", "skip-bad.m3u8", "skip-dup.m3u8")):
+            raise AssertionError("must not fetch lower-bandwidth or malformed variants")
         if url.endswith("hi.ts"):
             return 200, "video/MP2T", b"HI"
         raise AssertionError(url)
