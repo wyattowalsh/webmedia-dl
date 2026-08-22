@@ -2,6 +2,13 @@
 
 ## 0.1.0
 
+- Prefer HLS `AUTOSELECT=YES` audio renditions when a master has no
+  `DEFAULT=YES` in the selected variant's `AUDIO` group, so commentary listed
+  first is not recorded instead of the autoselect English playlist.
+  GitHub Actions `32599350330` on `5ab65f0` passed Python (626 pytest, 100%),
+  doctor provider probes, and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED)
+  after keeping `track[src]` HLS/DASH playlist locators as SUBTITLE.
+
 - Keep `track[src]` / `as=track` / subtitle browser evidence as SUBTITLE when
   the locator is an HLS/DASH playlist (`.m3u8` / `.m3u` / `.mpd`), so a WebVTT
   media playlist cannot steal preferred `live_stream` from the actual media

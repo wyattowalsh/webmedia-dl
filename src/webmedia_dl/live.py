@@ -1305,13 +1305,14 @@ def hls_audio_playlist_urls(text: str, base: str) -> list[str]:
     """Audio rendition playlists referenced by the preferred STREAM-INF group.
 
     When the highest-bandwidth variant names an `AUDIO` group, only that group's
-    URIs are returned, with `DEFAULT=YES` first. Masters without an audio group
-    keep every unique AUDIO URI in playlist order.
+    URIs are returned, with `DEFAULT=YES` first and `AUTOSELECT=YES` next when
+    no default is advertised. Masters without an audio group keep every unique
+    AUDIO URI in playlist order.
     """
     chosen = _preferred_hls_stream(text, base)
     group = chosen[1].get("AUDIO") if chosen is not None else None
     group = group or None
-    renditions: list[tuple[bool, str]] = []
+    renditions: list[tuple[bool, bool, str]] = []
     seen: set[str] = set()
     for line in text.splitlines():
         stripped = _hls_line(line)
@@ -1330,11 +1331,14 @@ def hls_audio_playlist_urls(text: str, base: str) -> list[str]:
             continue
         seen.add(resolved)
         default = attrs.get("DEFAULT", "").upper() == "YES"
-        renditions.append((default, resolved))
+        autoselect = attrs.get("AUTOSELECT", "").upper() == "YES"
+        renditions.append((default, autoselect, resolved))
     if not renditions:
         return []
-    preferred = next((url for default, url in renditions if default), renditions[0][1])
-    rest = [url for _default, url in renditions if url != preferred]
+    preferred = next((url for default, _auto, url in renditions if default), None)
+    if preferred is None:
+        preferred = next((url for _default, auto, url in renditions if auto), renditions[0][2])
+    rest = [url for _default, _auto, url in renditions if url != preferred]
     return [preferred, *rest]
 
 

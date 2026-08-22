@@ -911,6 +911,17 @@ def test_hls_audio_media_skips_non_audio_and_duplicates() -> None:
         "https://cdn.example.com/eng.m3u8",
         "https://cdn.example.com/comment.m3u8",
     ]
+    autoselect = (
+        "#EXTM3U\n"
+        '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="commentary",URI="comment.m3u8"\n'
+        '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="eng",AUTOSELECT=YES,URI="eng.m3u8"\n'
+        '#EXT-X-STREAM-INF:BANDWIDTH=800000,AUDIO="aac"\n'
+        "video.m3u8\n"
+    )
+    assert hls_audio_playlist_urls(autoselect, "https://cdn.example.com/") == [
+        "https://cdn.example.com/eng.m3u8",
+        "https://cdn.example.com/comment.m3u8",
+    ]
     missing_group = (
         "#EXTM3U\n"
         '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",URI="aac.m3u8"\n'

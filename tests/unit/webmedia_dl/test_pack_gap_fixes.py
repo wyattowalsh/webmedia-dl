@@ -271,6 +271,21 @@ def test_hls_and_dash_keep_alternate_audio(tmp_path: Path) -> None:
     )
     default_payloads = {kind: path.read_bytes() for kind, path in defaulted}
     assert default_payloads[MediaKind.AUDIO] == b"AUDIO"
+    autoselect_first = (
+        "#EXTM3U\n"
+        '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="commentary",URI="comment.m3u8"\n'
+        '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="eng",AUTOSELECT=YES,URI="audio.m3u8"\n'
+        '#EXT-X-STREAM-INF:BANDWIDTH=800000,AUDIO="aac"\n'
+        "video.m3u8\n"
+    )
+    autoselected = record_kind_streams(
+        autoselect_first,
+        "https://cdn.example.com/master.m3u8",
+        tmp_path / "autoselect.bin",
+        fetch_default,
+    )
+    autoselect_payloads = {kind: path.read_bytes() for kind, path in autoselected}
+    assert autoselect_payloads[MediaKind.AUDIO] == b"AUDIO"
     dash = """
     <MPD><Period>
       <AdaptationSet contentType="audio">
