@@ -67,7 +67,7 @@
 | Job-detail / run-next helpers | PASS | unrelated history rows are skipped; empty queue returns `job: null`; a queued job returns events |
 | Swift Core CI job | PASS | GitHub Actions `ci` run `32538904545` on `94e423b`: `IdentityTests` executed 6 tests, 0 failures on `macos-15` |
 | Swift Core contract tests | PASS | `ContractTests.swift` executed 10 tests, 0 failures with IdentityTests (6) on GitHub `macos-15` run `32539374548` (`5f85fe3`) |
-| Apple package compile CI | PENDING | `1bbf9c5` failed Mac `swift build` on AppIntent `static var title`, `appShortcuts` comma syntax, and `inout` companion relay capture. This revision uses `static let title`, AppShortcut arrays, and by-value `forward`/`forwardSealed`. Device runtime stays BLOCKED |
+| Apple package compile CI | PENDING | `26f2937` Mac `swift build` passed Core tests (16/0) and share extension; AppShortcutsProvider rejected an `[AppShortcut]` array because the getter is an `AppShortcutsBuilder`. This revision lists `AppShortcut` statements without commas or array wrappers. Device runtime stays BLOCKED |
 | WatchConnectivity class headers | PASS | WCSessionDelegate is an extension; class signatures are not split across `#else` |
 | URL never a path | PASS | URL intake with `local_path` or `file:` normalized_url raises; extra provider argv is refused |
 | Live aggregate bound + kinds | PASS | cumulative byte budget; separate VIDEO/AUDIO artifacts; audio-only DASH uses the highest-bandwidth audio Representation; SegmentBase ranges including mediaRange; multi-period occurrences; empty recordings and HTTP 400 playlists fail closed; nested/audio `should_stop` aborts before further fetches |

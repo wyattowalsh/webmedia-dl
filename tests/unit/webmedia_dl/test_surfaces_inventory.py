@@ -494,7 +494,10 @@ def test_companion_transport_and_typed_history() -> None:
         assert "public static let title" in text
         assert "public static var title" not in text
         assert "public static var appShortcuts: [AppShortcut]" in text
-        assert "[\n            AppShortcut(" in text or "[\n        AppShortcut(" in text
+        assert "AppShortcut(" in text
+        assert "[\n            AppShortcut(" not in text
+        assert "[\n        AppShortcut(" not in text
+        assert "),\n            AppShortcut(" not in text
     for rel in SHARE_PRINCIPALS:
         sources = list((root / rel).glob("*ShareExtension.swift"))
         assert sources, rel

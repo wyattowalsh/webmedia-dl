@@ -42,23 +42,21 @@ public struct WebMediaDLiPadOSSpeakURLIntent: AppIntent {
 
 public struct WebMediaDLiPadOSShortcuts: AppShortcutsProvider {
     public static var appShortcuts: [AppShortcut] {
-        [
-            AppShortcut(
-                intent: WebMediaDLiPadOSSubmitURLIntent(),
-                phrases: [
-                    "Send this URL to \(.applicationName)",
-                ],
-                shortTitle: "Send to WebMedia DL",
-                systemImageName: "arrow.down.circle"
-            ),
-            AppShortcut(
-                intent: WebMediaDLiPadOSSpeakURLIntent(),
-                phrases: [
-                    "Speak a media URL to \(.applicationName)",
-                ],
-                shortTitle: "Send to WebMedia DL",
-                systemImageName: "arrow.down.circle"
-            ),
-        ]
+        AppShortcut(
+            intent: WebMediaDLiPadOSSubmitURLIntent(),
+            phrases: [
+                "Send this URL to \(.applicationName)",
+            ],
+            shortTitle: "Send to WebMedia DL",
+            systemImageName: "arrow.down.circle"
+        )
+        AppShortcut(
+            intent: WebMediaDLiPadOSSpeakURLIntent(),
+            phrases: [
+                "Speak a media URL to \(.applicationName)",
+            ],
+            shortTitle: "Send to WebMedia DL",
+            systemImageName: "arrow.down.circle"
+        )
     }
 }

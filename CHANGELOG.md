@@ -92,4 +92,5 @@
   fallback). Publication `OSError` fails the durable job. CLI unknown
   job/cancel/pause/resume/companion and DRM `plan` exit 1. AppIntent titles
   are `static let`; companion `forward`/`forwardSealed` take the relay by
-  value for Swift 6.
+  value for Swift 6. `AppShortcutsProvider` lists `AppShortcut` statements
+  via the result builder (no array literal, no commas between shortcuts).

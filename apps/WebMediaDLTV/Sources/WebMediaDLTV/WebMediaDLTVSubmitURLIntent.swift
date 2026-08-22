@@ -26,15 +26,13 @@ public struct WebMediaDLTVSubmitURLIntent: AppIntent {
 
 public struct WebMediaDLTVShortcuts: AppShortcutsProvider {
     public static var appShortcuts: [AppShortcut] {
-        [
-            AppShortcut(
-                intent: WebMediaDLTVSubmitURLIntent(),
-                phrases: [
-                    "Speak a media URL to \(.applicationName)",
-                ],
-                shortTitle: "Send to WebMedia DL",
-                systemImageName: "arrow.down.circle"
-            ),
-        ]
+        AppShortcut(
+            intent: WebMediaDLTVSubmitURLIntent(),
+            phrases: [
+                "Speak a media URL to \(.applicationName)",
+            ],
+            shortTitle: "Send to WebMedia DL",
+            systemImageName: "arrow.down.circle"
+        )
     }
 }

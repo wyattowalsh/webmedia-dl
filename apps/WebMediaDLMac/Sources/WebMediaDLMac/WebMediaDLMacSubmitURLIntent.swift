@@ -42,24 +42,22 @@ public struct WebMediaDLMacSpeakURLIntent: AppIntent {
 
 public struct WebMediaDLMacShortcuts: AppShortcutsProvider {
     public static var appShortcuts: [AppShortcut] {
-        [
-            AppShortcut(
-                intent: WebMediaDLMacSubmitURLIntent(),
-                phrases: [
-                    "Send this URL to \(.applicationName)",
-                    "Download with \(.applicationName)",
-                ],
-                shortTitle: "Send to WebMedia DL",
-                systemImageName: "arrow.down.circle"
-            ),
-            AppShortcut(
-                intent: WebMediaDLMacSpeakURLIntent(),
-                phrases: [
-                    "Speak a media URL to \(.applicationName)",
-                ],
-                shortTitle: "Send to WebMedia DL",
-                systemImageName: "arrow.down.circle"
-            ),
-        ]
+        AppShortcut(
+            intent: WebMediaDLMacSubmitURLIntent(),
+            phrases: [
+                "Send this URL to \(.applicationName)",
+                "Download with \(.applicationName)",
+            ],
+            shortTitle: "Send to WebMedia DL",
+            systemImageName: "arrow.down.circle"
+        )
+        AppShortcut(
+            intent: WebMediaDLMacSpeakURLIntent(),
+            phrases: [
+                "Speak a media URL to \(.applicationName)",
+            ],
+            shortTitle: "Send to WebMedia DL",
+            systemImageName: "arrow.down.circle"
+        )
     }
 }
