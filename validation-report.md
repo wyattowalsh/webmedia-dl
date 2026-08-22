@@ -2,8 +2,8 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 583 tests locally; GitHub Actions `ci` run `32572904900` (`7981aaa`) passed Python (583 pytest, 100%) and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED). `32572653043` (`0f40550`) recorded `32572254327` compile evidence; `32572254327` (`2e5cd5b`) kept publishable history and job inspect ids; `32571904208` (`d5fee40`) merged provenance and publishable job-detail ids; `32569815075` (`91eeb25`) decoded plan JSON objects; `32569700666` (`ae33eda`) passed Python and failed Swift plan-body slash escaping; `32569147243` (`5932ebc`) passed Python and Swift after speaking App Intent results. `32568400311` (`b2839e6`) hopped complete-client queue buttons onto Core; `32568126057` (`f474719`) boxed Mac worker spawn; `32567922144` (`6516591`) passed Python and failed Swift 6 non-Sendable start closures; `32567533760` (`6aad227`) passed Python and failed Swift 6 Mac `WebMediaDLMacWorkerLaunch` Sendable |
-| `uv run pytest --cov` | PASS | 583 tests at 100% locally (`fail_under` 100); GitHub `32572904900` (`7981aaa`) was 583 tests at 100% |
+| `uv run pytest` | PASS | 600 tests locally; GitHub Actions `ci` run `32572904900` (`7981aaa`) passed Python (583 pytest, 100%) and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED). `32572653043` (`0f40550`) recorded `32572254327` compile evidence; `32572254327` (`2e5cd5b`) kept publishable history and job inspect ids; `32571904208` (`d5fee40`) merged provenance and publishable job-detail ids; `32569815075` (`91eeb25`) decoded plan JSON objects; `32569700666` (`ae33eda`) passed Python and failed Swift plan-body slash escaping; `32569147243` (`5932ebc`) passed Python and Swift after speaking App Intent results. `32568400311` (`b2839e6`) hopped complete-client queue buttons onto Core; `32568126057` (`f474719`) boxed Mac worker spawn; `32567922144` (`6516591`) passed Python and failed Swift 6 non-Sendable start closures; `32567533760` (`6aad227`) passed Python and failed Swift 6 Mac `WebMediaDLMacWorkerLaunch` Sendable |
+| `uv run pytest --cov` | PASS | 600 tests at 100% locally (`fail_under` 100); GitHub `32572904900` (`7981aaa`) was 583 tests at 100% |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
 | `uv run ty check` | PASS | |
@@ -18,7 +18,7 @@
 | Complete-client share http-direct | PASS | iPhone/iPad/visionOS share adapters and App Intents call `saveIfDirect` then restore the App Group Files bookmark via `WebMediaDLShareIntake.fromSavedBookmark`; Mac share/intents stay worker-only; watch/tv still lack `WebMediaDLHttpDirect` |
 | Queue pause durability | PASS | a second `Pipeline` on the same data dir observes the SQL pause flag and does not `run_next` until resume |
 | Extension collector under pytest | PASS | `test_extension_collector_returns_no_native_command` runs `node --test tests/unit/extensions/capture.test.mjs` |
-| `uv run webmedia-dl doctor` yt-dlp / gallery-dl | PASS when present | version probe executed; Linux CI without those binaries stays BLOCKED |
+| `uv run webmedia-dl doctor` yt-dlp / gallery-dl | PASS | version probes execute; `yt-dlp` and `gallery-dl` are in the `dev` dependency group so Linux CI `uv sync --locked --group dev` installs them. The application still never auto-installs providers at runtime |
 | Apple device runtime / Xcode | BLOCKED | Device UI, PhotoKit writes, signing, and store submission stay BLOCKED; GitHub `macos-15` compiles Apple packages |
 | Signing / notarization / App Review / legal | BLOCKED | `webmedia-dl doctor` |
 | Browser store submission | BLOCKED | `webmedia-dl doctor` |

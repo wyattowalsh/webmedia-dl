@@ -13,13 +13,14 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
+from pydantic import ValidationError
 
 from webmedia_dl.candidates import build_graph
 from webmedia_dl.diagnostics import doctor
 from webmedia_dl.domain.enums import DestinationKind, EventType, MediaKind, Surface
 from webmedia_dl.domain.models import ExportIntent, MediaCandidate
 from webmedia_dl.errors import CapabilityDenied, DrmRefused, IntakeError, ProviderPolicyError
-from webmedia_dl.identity import is_safe_format_id
+from webmedia_dl.identity import is_safe_container, is_safe_format_id
 from webmedia_dl.live import inspect_manifest, record_clear_stream, recordable_parts
 from webmedia_dl.paths import repo_root
 from webmedia_dl.pipeline import Pipeline
@@ -109,6 +110,30 @@ def test_queue_events_use_zero_uuid(tmp_data: Path) -> None:
     assert EventType.QUEUE_PAUSED in types
     assert EventType.QUEUE_RESUMED in types
     assert all(event.job_id == QUEUE_EVENT_JOB_ID for event in events)
+
+
+@pytest.mark.parametrize(
+    "container",
+    [
+        "../../../../tmp/wmprobe3/ESC.mkv",
+        "/tmp/escape",
+        "mkv; rm -rf /",
+        "mkv\nbad",
+        "",
+        "verylongcontainer",
+    ],
+)
+def test_export_intent_refuses_hostile_container_preference(container: str) -> None:
+    assert not is_safe_container(container)
+    with pytest.raises(ValidationError, match="allowed extension"):
+        ExportIntent(container_preference=container)
+
+
+def test_export_intent_accepts_allowlisted_containers() -> None:
+    for container in ("mkv", "mp4", "png", "jpg", "jpeg", "webp", "gif", "tif", "tiff", "avif"):
+        assert is_safe_container(container)
+        assert ExportIntent(container_preference=container).container_preference == container
+    assert ExportIntent().container_preference is None
 
 
 def test_format_id_cannot_be_a_leading_dash_flag(tmp_path: Path) -> None:

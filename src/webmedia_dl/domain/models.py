@@ -31,6 +31,7 @@ from webmedia_dl.domain.enums import (
     Surface,
 )
 from webmedia_dl.errors import SimulatedPassError
+from webmedia_dl.identity import is_safe_container
 
 
 def utcnow() -> datetime:
@@ -202,6 +203,11 @@ class ExportIntent(StrictModel):
             if not allowed:
                 msg = "Files security-scoped path must stay inside approved roots."
                 raise ValueError(msg)
+        if self.container_preference is not None and not is_safe_container(
+            self.container_preference
+        ):
+            msg = "container preference is not an allowed extension"
+            raise ValueError(msg)
         return self
 
 

@@ -9,7 +9,7 @@ from uuid import UUID
 
 from webmedia_dl.artifacts import ArtifactStore
 from webmedia_dl.domain.enums import ArtifactRole, EventType, JobState, LossClass
-from webmedia_dl.domain.models import Artifact, ExportPlan, Operation
+from webmedia_dl.domain.models import Artifact, ExportPlan, Operation, path_is_under
 from webmedia_dl.errors import (
     CancelledError,
     PauseRequested,
@@ -17,6 +17,7 @@ from webmedia_dl.errors import (
     RequiredOperationFailed,
     WebMediaError,
 )
+from webmedia_dl.identity import is_safe_container
 from webmedia_dl.probe import probe_media
 from webmedia_dl.providers import ProviderRequest, ProviderRuntime
 from webmedia_dl.queue import QueueStore
@@ -37,6 +38,18 @@ def provider_for_operation(operation: Operation) -> str:
         return "imagemagick"
     msg = f"No provider is mapped for operation {operation.op_type!r}."
     raise ProviderPolicyError(msg)
+
+
+def bounded_staging_output(staging: Path, operation_id: str, container: str) -> Path:
+    if not is_safe_container(container):
+        msg = "container preference is not an allowed extension"
+        raise ProviderPolicyError(msg)
+    staging_root = staging.resolve()
+    output = (staging / f"{operation_id}.{container}").resolve()
+    if not path_is_under(output, staging_root):
+        msg = "output path escaped staging"
+        raise ProviderPolicyError(msg)
+    return output
 
 
 def ordered_operations(plan: ExportPlan) -> list[Operation]:
@@ -129,7 +142,7 @@ def execute_export_plan(
             current, current_path = _resolve_input(operation, artifacts, source, source_path)
             authorize(operation.capability_id)
             container = str(operation.typed_inputs.get("container") or "bin")
-            output = staging / f"{operation.operation_id}.{container}"
+            output = bounded_staging_output(staging, operation.operation_id, container)
             provider = provider_for_operation(operation)
             request = ProviderRequest(
                 provider_id=provider,

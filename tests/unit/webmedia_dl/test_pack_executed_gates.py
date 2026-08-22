@@ -221,13 +221,30 @@ def test_week_evidence_files_declare_scope() -> None:
 
 
 def test_openspec_capabilities_match_bundle_inventory() -> None:
+    root = repo_root()
     specs = sorted(
         path.name
-        for path in (repo_root() / "openspec/changes/build-webmedia-dl-v1/specs").iterdir()
+        for path in (root / "openspec/changes/build-webmedia-dl-v1/specs").iterdir()
         if path.is_dir()
     )
+    yaml_text = (root / "openspec/changes/build-webmedia-dl-v1/.openspec.yaml").read_text(
+        encoding="utf-8"
+    )
+    declared: list[str] = []
+    collecting = False
+    for line in yaml_text.splitlines():
+        if line.startswith("capabilities:"):
+            collecting = True
+            continue
+        if collecting:
+            if line.startswith("  - "):
+                declared.append(line[4:].strip())
+            elif line.strip() and not line.startswith(" "):
+                break
     mod = _load("validate_bundle", "scripts/validate_bundle.py")
-    assert specs == sorted(mod.CAPABILITIES)
+    expected = sorted(mod.CAPABILITIES)
+    assert specs == expected
+    assert sorted(declared) == expected
 
 
 def test_validate_bundle_refuses_to_extract_unsafe_members(

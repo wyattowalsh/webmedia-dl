@@ -2,6 +2,12 @@
 
 ## 0.1.0
 
+- Fail-close `container_preference` to an alphanumeric extension (1–12) and
+  keep remux/convert outputs inside staging. Add `yt-dlp` and `gallery-dl` to
+  the developer/CI toolchain so `webmedia-dl doctor` can PASS those version
+  probes on Linux. Bind OpenSpec capability names across `.openspec.yaml`,
+  `scripts/validate_bundle.py`, and spec directories, and bind the platform
+  matrix keys to every `Surface` except CLI.
 - GitHub Actions `32572904900` on `7981aaa` passed Python (583 pytest, 100%)
   and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after recording
   `32572653043` compile evidence for the `0f40550` evidence-cite revision.

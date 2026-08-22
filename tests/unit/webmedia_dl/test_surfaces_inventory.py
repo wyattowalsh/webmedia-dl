@@ -8,7 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from webmedia_dl.capabilities import registry
+from webmedia_dl.capabilities import load_platform_matrix, registry
+from webmedia_dl.domain.enums import Surface
 from webmedia_dl.network_policy import BLOCKED_SCHEMES
 from webmedia_dl.paths import repo_root
 from webmedia_dl.providers import imagemagick_configure_path
@@ -619,6 +620,10 @@ def test_companion_transport_and_typed_history() -> None:
             or "WebMediaDLPairedMacSubmit.history" in text
             or "historyEntries()" in text
         )
+
+
+def test_platform_matrix_keys_match_non_cli_surfaces() -> None:
+    assert set(load_platform_matrix()) == {item.value for item in Surface} - {Surface.CLI.value}
 
 
 def test_runtime_assets_match_authored_trees() -> None:

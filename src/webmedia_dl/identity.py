@@ -7,6 +7,7 @@ import re
 from urllib.parse import urlparse
 
 _SAFE_FORMAT_ID = re.compile(r"^[A-Za-z0-9+._][A-Za-z0-9+._-]*$")
+_SAFE_CONTAINER = re.compile(r"^[A-Za-z0-9]{1,12}$")
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -40,3 +41,7 @@ def host_of(url: str) -> str:
 
 def is_safe_format_id(format_id: str) -> bool:
     return bool(_SAFE_FORMAT_ID.fullmatch(format_id))
+
+
+def is_safe_container(container: str) -> bool:
+    return bool(_SAFE_CONTAINER.fullmatch(container))

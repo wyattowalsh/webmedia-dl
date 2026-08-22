@@ -4,10 +4,14 @@ from pathlib import Path
 
 import pytest
 
-from webmedia_dl.domain.enums import JobState
-from webmedia_dl.domain.models import ExportIntent
+from webmedia_dl.artifacts import ArtifactStore
+from webmedia_dl.domain.enums import ArtifactRole, IntakeKind, JobState, MediaKind
+from webmedia_dl.domain.models import ExportIntent, ExportPlan, Job, MediaSource, Operation
+from webmedia_dl.errors import ProviderPolicyError, RequiredOperationFailed
 from webmedia_dl.pipeline import Pipeline
+from webmedia_dl.processing import bounded_staging_output, execute_export_plan
 from webmedia_dl.providers import ProviderRequest, ProviderRuntime, default_subprocess_run
+from webmedia_dl.queue import QueueStore
 
 
 def test_magick_configure_path_is_set(tmp_path: Path) -> None:
@@ -77,3 +81,87 @@ def test_pipeline_executes_ffmpeg_remux(tmp_path: Path) -> None:
         event.payload.get("operation_id") == "remux"
         for event in pipeline.queue.events_for(job.job_id)
     )
+
+
+def test_bounded_staging_output_stays_under_staging(tmp_path: Path) -> None:
+    staging = tmp_path / "stage"
+    staging.mkdir()
+    output = bounded_staging_output(staging, "remux", "mkv")
+    assert output == (staging / "remux.mkv").resolve()
+    assert output.is_relative_to(staging.resolve())
+
+
+@pytest.mark.parametrize(
+    "container",
+    [
+        "../../../../tmp/wmprobe3/ESC.mkv",
+        "/tmp/escape",
+        "mkv; rm -rf /",
+        "mkv\nbad",
+        "",
+        "verylongcontainer",
+    ],
+)
+def test_bounded_staging_output_refuses_hostile_container(tmp_path: Path, container: str) -> None:
+    staging = tmp_path / "stage"
+    staging.mkdir()
+    with pytest.raises(ProviderPolicyError, match="allowed extension"):
+        bounded_staging_output(staging, "remux", container)
+
+
+def test_bounded_staging_output_refuses_operation_id_escape(tmp_path: Path) -> None:
+    staging = tmp_path / "stage"
+    staging.mkdir()
+    with pytest.raises(ProviderPolicyError, match="escaped staging"):
+        bounded_staging_output(staging, "../escape", "mkv")
+
+
+def test_execute_export_plan_refuses_hostile_container_before_provider(tmp_path: Path) -> None:
+    src = tmp_path / "clip.bin"
+    src.write_bytes(b"bytes")
+    store = ArtifactStore(tmp_path / "data")
+    source = store.register(
+        src, role=ArtifactRole.SOURCE, media_kind=MediaKind.VIDEO, container="mp4"
+    )
+    queue = QueueStore(tmp_path / "data" / "queue")
+    job = Job(
+        source=MediaSource(
+            kind=IntakeKind.FILE,
+            locator=str(src),
+            local_path=str(src),
+            surface="cli",
+            policy_profile_id="personal-full",
+        ),
+        policy_profile_id="personal-full",
+        worker_id="local-macos",
+    )
+    queue.put_job(job)
+    calls: list[list[str]] = []
+
+    def run(argv: list[str], _cwd: Path) -> tuple[int, bytes, bytes]:
+        calls.append(argv)
+        return 0, b"", b""
+
+    remux = Operation(
+        operation_id="remux",
+        op_type="ffmpeg.remux",
+        capability_id="process.ffmpeg.remux",
+        input_artifact_ids=[source.artifact_id],
+        output_role=ArtifactRole.DERIVATIVE,
+        loss_class="container_only",
+        validator_ids=[],
+        typed_inputs={"container": "../../../../tmp/escape"},
+    )
+    with pytest.raises(RequiredOperationFailed, match="allowed extension"):
+        execute_export_plan(
+            ExportPlan(job_id=job.job_id, operations=[remux]),
+            job_id=job.job_id,
+            source=source,
+            source_path=store.resolve(source),
+            store=store,
+            runtime=ProviderRuntime(which=lambda name: f"/usr/bin/{name}", run=run),
+            staging=tmp_path / "stage",
+            queue=queue,
+            authorize=lambda _cap: None,
+        )
+    assert calls == []
