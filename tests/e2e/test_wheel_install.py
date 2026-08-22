@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import zipfile
@@ -76,6 +77,29 @@ def test_wheel_contains_runtime_and_cli(tmp_path: Path) -> None:
     assert "webmedia-dl" in help_out.stdout
     assert "wmdl" not in help_out.stdout.split("Usage")[0]
     assert not (venv / "bin" / "wmdl").exists()
+    isolated_env = {
+        **os.environ,
+        "PYTHONPATH": "",
+        "PATH": os.pathsep.join([str(venv / "bin"), "/usr/local/bin", "/usr/bin", "/bin"]),
+    }
+    doctor = subprocess.run(
+        [str(venv / "bin" / "webmedia-dl"), "doctor"],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=isolated_env,
+    )
+    assert doctor.returncode == 0, doctor.stderr
+    payload = json.loads(doctor.stdout)
+    assert payload["telemetry_default"] is False
+    assert payload["drm_circumvention"] is False
+    assert payload["apple_devices"]["macos"]["status"] == "BLOCKED"
+    assert payload["signing_notarization"]["status"] == "BLOCKED"
+    assert payload["providers"]["ytdlp"]["status"] == "BLOCKED"
+    assert payload["providers"]["gallery-dl"]["status"] == "BLOCKED"
+    assert "not installed" in payload["providers"]["ytdlp"]["reason"]
+    assert not (venv / "bin" / "yt-dlp").exists()
+    assert not (venv / "bin" / "gallery-dl").exists()
     packaged = tmp_path / "extensions"
     packaged_out = subprocess.run(
         [

@@ -23,6 +23,9 @@ jobs:
           uv run python -c '
           import json
           payload = json.loads(open("/tmp/webmedia-dl-doctor.json", encoding="utf-8").read())
+          assert payload["telemetry_default"] is False
+          assert payload["drm_circumvention"] is False
+          assert payload["apple_devices"]["macos"]["status"] == "BLOCKED"
           for name in ("ytdlp", "gallery-dl", "ffmpeg"):
               item = payload["providers"][name]
               assert item["status"] == "PASS", (name, item)
