@@ -17,17 +17,24 @@ describe("collectMediaEvidence", () => {
         if (selector.includes("iframe") || selector.includes("link[href]")) {
           return [];
         }
-        if (selector.includes("ld+json")) {
+        if (selector.includes('type^="application/ld+json"')) {
           return [
             {
               textContent: JSON.stringify({
                 "@graph": [
                   { contentUrl: "https://cdn.example.com/ld.mp4" },
                   { contentUrl: { "@id": "https://cdn.example.com/oid.mp4" } },
+                  {
+                    contentUrl: "https://cdn.example.com/charset.mp4",
+                    "@type": "VideoObject",
+                  },
                 ],
               }),
             },
           ];
+        }
+        if (selector.includes("ld+json")) {
+          return [];
         }
         if (selector === "meta") {
           return [
@@ -51,6 +58,7 @@ describe("collectMediaEvidence", () => {
     assert.ok(urls.includes("https://cdn.example.com/og.png"));
     assert.ok(urls.includes("https://cdn.example.com/ld.mp4"));
     assert.ok(urls.includes("https://cdn.example.com/oid.mp4"));
+    assert.ok(urls.includes("https://cdn.example.com/charset.mp4"));
     assert.ok(!urls.some((item) => item.startsWith("javascript:")));
   });
 

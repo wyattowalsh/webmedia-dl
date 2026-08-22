@@ -116,10 +116,15 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
     assert "https://cdn.example.com/a.m4a" in object_urls
     both = """
     <html><body>
+      <script>ignored()</script>
+      <script type="text/javascript">ignored()</script>
       <script type="application/ld+json">
         {"@type": "VideoObject",
          "contentUrl": "https://example.com/watch?v=1",
          "embedUrl": "https://cdn.example.com/direct.mp4"}
+      </script>
+      <script type="application/ld+json;charset=utf-8">
+        {"@type": "VideoObject", "contentUrl": "https://cdn.example.com/charset.mp4"}
       </script>
     </body></html>
     """
@@ -127,6 +132,7 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
     both_urls = [item.retrieval_urls[0] for item in both_found if item.retrieval_urls]
     assert "https://example.com/watch?v=1" in both_urls
     assert "https://cdn.example.com/direct.mp4" in both_urls
+    assert "https://cdn.example.com/charset.mp4" in both_urls
 
 
 def test_direct_png_skips_html() -> None:

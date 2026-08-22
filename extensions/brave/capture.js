@@ -125,7 +125,7 @@ export function pageCollector(doc) {
       push(el.getAttribute?.("content"), kind);
     }
   });
-  root.querySelectorAll?.('script[type="application/ld+json"]').forEach((el) => {
+  root.querySelectorAll?.('script[type^="application/ld+json"]').forEach((el) => {
     const raw = el.textContent || el.innerText || "";
     try {
       walkJsonLd(JSON.parse(raw));

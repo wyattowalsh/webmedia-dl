@@ -2,6 +2,13 @@
 
 ## 0.1.0
 
+- Collect JSON-LD from `application/ld+json` scripts that carry a charset
+  (or other type parameter). The old quoted-type regex required the quote
+  immediately after `json` and dropped those locators.
+- GitHub Actions `32581097802` on `203338e` passed Python (624 pytest, 100%),
+  doctor provider probes, and Swift (18 tests, 0 failures; 12× BUILD
+  SUCCEEDED) after picking HLS master variants from `BANDWIDTH` rather than
+  `AVERAGE-BANDWIDTH`.
 - Prefer URL-derived kinds over browser-evidence hints so a `<video><source>`
   capture labelled `image` cannot hide the mp4. Keep both JSON-LD `contentUrl`
   and `embedUrl`. HTML `<source>` inside `video`/`audio` keeps that kind even

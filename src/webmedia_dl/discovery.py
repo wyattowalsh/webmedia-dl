@@ -52,6 +52,12 @@ DIRECT_EXTENSIONS = {
 FetchFn = Callable[[str], tuple[int, str, bytes]]
 
 
+def _is_jsonld_script_type(value: str | None) -> bool:
+    if not value:
+        return False
+    return value.split(";", 1)[0].strip().lower() == "application/ld+json"
+
+
 class _MediaHTMLParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__()
@@ -63,6 +69,8 @@ class _MediaHTMLParser(HTMLParser):
         self._in_picture = False
         self._in_video = False
         self._in_audio = False
+        self._in_json_ld = False
+        self._json_ld_parts: list[str] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         mapping = dict(attrs)
@@ -153,10 +161,16 @@ class _MediaHTMLParser(HTMLParser):
             content = mapping.get("content")
             if key and content:
                 self.meta[key] = content
-        if tag == "script" and mapping.get("type") == "application/ld+json":
+        if tag == "script" and _is_jsonld_script_type(mapping.get("type")):
+            self._in_json_ld = True
+            self._json_ld_parts = []
             return
 
     def handle_endtag(self, tag: str) -> None:
+        if tag == "script" and self._in_json_ld:
+            self.json_ld.append("".join(self._json_ld_parts))
+            self._in_json_ld = False
+            self._json_ld_parts = []
         if tag == "title":
             self._in_title = False
         if tag == "picture":
@@ -167,6 +181,8 @@ class _MediaHTMLParser(HTMLParser):
             self._in_audio = False
 
     def handle_data(self, data: str) -> None:
+        if self._in_json_ld:
+            self._json_ld_parts.append(data)
         if self._in_title:
             text = data.strip()
             if text:
@@ -488,10 +504,17 @@ def discover(
                 drm=sorted(set(detect_drm_signals(absolute)) | set(drm)),
             )
         )
-    ld_hits = re.findall(
-        r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',
-        body,
-        flags=re.I | re.S,
+    ld_hits = list(
+        dict.fromkeys(
+            [
+                *parser.json_ld,
+                *re.findall(
+                    r'<script[^>]+type=["\']application/ld\+json[^"\']*["\'][^>]*>(.*?)</script>',
+                    body,
+                    flags=re.I | re.S,
+                ),
+            ]
+        )
     )
     for block in ld_hits:
         try:
