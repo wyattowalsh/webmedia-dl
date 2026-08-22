@@ -1,15 +1,43 @@
 import Foundation
 
 /// User-granted Files/Share root. Paths outside the bookmark are denied.
-public struct WebMediaDLSecurityScopedBookmark: Sendable, Equatable {
+public struct WebMediaDLSecurityScopedBookmark: Codable, Sendable, Equatable {
+    public var bookmarkId: UUID
     public var path: String
     public var stale: Bool
     public var bookmarkData: Data?
 
-    public init(path: String, stale: Bool = false, bookmarkData: Data? = nil) {
-        self.path = path
-        self.stale = stale
+    enum CodingKeys: String, CodingKey {
+        case bookmarkId = "bookmark_id"
+        case path       = "resolved_path"
+        case stale
+    }
+
+    public init(
+        path: String,
+        stale: Bool = false,
+        bookmarkData: Data? = nil,
+        bookmarkId: UUID = UUID()
+    ) {
+        self.bookmarkId   = bookmarkId
+        self.path         = path
+        self.stale        = stale
         self.bookmarkData = bookmarkData
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        bookmarkId   = try container.decodeIfPresent(UUID.self, forKey: .bookmarkId) ?? UUID()
+        path         = try container.decode(String.self, forKey: .path)
+        stale        = try container.decodeIfPresent(Bool.self, forKey: .stale) ?? false
+        bookmarkData = nil
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(bookmarkId, forKey: .bookmarkId)
+        try container.encode(path, forKey: .path)
+        try container.encode(stale, forKey: .stale)
     }
 
     public static func fromPickedURL(_ url: URL) -> WebMediaDLSecurityScopedBookmark {
@@ -71,12 +99,27 @@ public struct WebMediaDLSecurityScopedBookmark: Sendable, Equatable {
             )
             #endif
         } catch {
-            return WebMediaDLSecurityScopedBookmark(path: path, stale: true, bookmarkData: bookmarkData)
+            return WebMediaDLSecurityScopedBookmark(
+                path: path,
+                stale: true,
+                bookmarkData: bookmarkData,
+                bookmarkId: bookmarkId
+            )
         }
         guard let resolved else {
-            return WebMediaDLSecurityScopedBookmark(path: path, stale: true, bookmarkData: bookmarkData)
+            return WebMediaDLSecurityScopedBookmark(
+                path: path,
+                stale: true,
+                bookmarkData: bookmarkData,
+                bookmarkId: bookmarkId
+            )
         }
-        return WebMediaDLSecurityScopedBookmark(path: resolved.path, stale: isStale, bookmarkData: bookmarkData)
+        return WebMediaDLSecurityScopedBookmark(
+            path: resolved.path,
+            stale: isStale,
+            bookmarkData: bookmarkData,
+            bookmarkId: bookmarkId
+        )
     }
 }
 
@@ -180,8 +223,12 @@ public enum WebMediaDLShareExtensionLoader {
     }
 }
 
-public struct WebMediaDLClipboardIntake: Sendable {
+public struct WebMediaDLClipboardIntake: Codable, Sendable {
     public var text: String
+
+    enum CodingKeys: String, CodingKey {
+        case text
+    }
 
     public init(text: String) {
         self.text = text
@@ -212,6 +259,7 @@ public struct WebMediaDLEvent: Codable, Sendable, Identifiable {
     public var jobId: UUID
     public var type: String
     public var sequence: Int
+    public var ts: String?
     public var payload: [String: String]
 
     public init(
@@ -219,12 +267,14 @@ public struct WebMediaDLEvent: Codable, Sendable, Identifiable {
         jobId: UUID,
         type: String,
         sequence: Int,
+        ts: String? = nil,
         payload: [String: String] = [:]
     ) {
         self.id = id
         self.jobId = jobId
         self.type = type
         self.sequence = sequence
+        self.ts = ts
         self.payload = payload
     }
 
@@ -237,6 +287,17 @@ public struct WebMediaDLEvent: Codable, Sendable, Identifiable {
         case jobId = "job_id"
         case type
         case sequence
+        case ts
         case payload
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        jobId = try container.decode(UUID.self, forKey: .jobId)
+        type = try container.decode(String.self, forKey: .type)
+        sequence = try container.decode(Int.self, forKey: .sequence)
+        ts = try container.decodeIfPresent(String.self, forKey: .ts)
+        payload = try container.decodeIfPresent([String: String].self, forKey: .payload) ?? [:]
     }
 }

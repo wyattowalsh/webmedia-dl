@@ -560,6 +560,8 @@ def test_intents_and_share_adapters_load_credentials() -> None:
     for rel in COMPANION_INTENTS:
         text = (root / rel).read_text(encoding="utf-8")
         assert "WebMediaDLWatchConnectivityTransport" in text
+        assert "let transport" in text
+        assert "var transport" not in text
         assert "transport.send" in text
         assert "loadClient()" not in text
         assert 'intakeKind: "speak"' in text
@@ -671,6 +673,8 @@ def test_github_ci_compiles_apple_packages() -> None:
             assert f'"{share}"' in text
     assert "testHttpDirectSavesClearMediaAndRefusesDrm" in contracts
     assert "testDomainInvariantsFailClosed" in contracts
+    assert "WebMediaDLPipelineJob" in contracts
+    assert "container_only" in contracts
 
 
 def test_complete_clients_http_direct_and_shared_domain() -> None:
@@ -690,6 +694,12 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert 'providerId: "http-direct"' in domain
     assert 'capabilityId: "acquire.ytdlp"' in domain
     assert "WebMediaDLCapabilityRegistry" in domain
+    assert "required_entitlements" in domain
+    assert "network_schemes" in domain
+    assert "include_original" in domain
+    assert "parent_ids" in domain
+    assert "WebMediaDLPipelineJob" in domain
+    assert "WebMediaDLOperation" in domain
     assert "never launches yt-dlp, ffmpeg, or gallery-dl" in http_direct
     assert "Process(" not in http_direct
     assert 'providerId = "http-direct"' in http_direct

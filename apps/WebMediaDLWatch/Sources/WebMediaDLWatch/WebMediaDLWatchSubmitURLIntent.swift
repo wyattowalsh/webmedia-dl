@@ -17,7 +17,7 @@ public struct WebMediaDLWatchSubmitURLIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let bridge = WebMediaDLContinuityBridge()
-        var transport = WebMediaDLWatchConnectivityTransport()
+        let transport = WebMediaDLWatchConnectivityTransport()
         let message = bridge.message(kind: .capture, locator: locator, surface: .watchos)
         try await transport.send(message)
         return .result()

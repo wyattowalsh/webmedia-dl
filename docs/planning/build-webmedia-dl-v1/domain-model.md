@@ -8,6 +8,7 @@ last_reviewed: 2026-08-18
 # Domain model
 
 Canonical types live in `src/webmedia_dl/domain/models.py` and are exported to `schemas/`.
+Swift Core mirrors the same JSON keys in `apps/WebMediaDLCore/Sources/WebMediaDLCore/Domain.swift`.
 
 | Type | Role |
 |---|---|

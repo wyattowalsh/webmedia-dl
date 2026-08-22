@@ -22,6 +22,8 @@
     "apps/WebMediaDLCore/Package.swift",
     "apps/WebMediaDLCore/Sources/WebMediaDLCore/ContinuityBridge.swift",
     "apps/WebMediaDLCore/Sources/WebMediaDLCore/Destinations.swift",
+    "apps/WebMediaDLCore/Sources/WebMediaDLCore/Domain.swift",
+    "apps/WebMediaDLCore/Sources/WebMediaDLCore/HttpDirect.swift",
     "apps/WebMediaDLCore/Sources/WebMediaDLCore/LoopbackClient.swift",
     "apps/WebMediaDLCore/Sources/WebMediaDLCore/Models.swift",
     "apps/WebMediaDLCore/Sources/WebMediaDLCore/ShareIntake.swift",
@@ -385,6 +387,7 @@
     "tests/unit/webmedia_dl/test_security.py",
     "tests/unit/webmedia_dl/test_service.py",
     "tests/unit/webmedia_dl/test_surfaces_inventory.py",
+    "tests/unit/webmedia_dl/test_swift_schema_parity.py",
     "tests/unit/webmedia_dl/test_validation_publish.py",
     "uv.lock",
     "validation-report.md"

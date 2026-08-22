@@ -329,6 +329,120 @@ final class ContractTests: XCTestCase {
                 approvedRoots: ["/tmp"]
             )
         )
+        XCTAssertThrowsError(
+            try WebMediaDLExportIntent(
+                destinationKind: .photos,
+                approvedRoots: []
+            )
+        )
+        let files = try WebMediaDLExportIntent(
+            destinationKind: .filesApp,
+            destinationPath: "/tmp/movies",
+            includeOriginal: false,
+            approvedRoots: ["/tmp/movies"],
+            securityScopedBookmark: "ZmFrZQ=="
+        )
+        XCTAssertFalse(files.includeOriginal)
+        XCTAssertEqual(files.securityScopedPath, "/tmp/movies")
+        XCTAssertThrowsError(
+            try WebMediaDLMediaCandidate(
+                sourceId: UUID(),
+                mediaKind: .video,
+                identityKey: "Clip",
+                titleDisplay: "Clip"
+            )
+        )
+        XCTAssertThrowsError(
+            try WebMediaDLProviderManifest(
+                providerId: "ytdlp",
+                displayName: "yt-dlp",
+                capabilities: ["acquire.ytdlp"],
+                license: "Unlicense",
+                sourceUrl: "https://example.com",
+                acceptsUserArgv: true
+            )
+        )
+        let profile = try WebMediaDLPolicyProfile(
+            profileId: "personal-restricted",
+            displayName: "Restricted",
+            allowedCapabilities: ["acquire.http"]
+        )
+        XCTAssertEqual(profile.networkSchemes, ["https"])
+        XCTAssertEqual(profile.maxHtmlBytes, 2_000_000)
+        XCTAssertEqual(WebMediaDLCapability.acquireHTTP.requiredEntitlements, [])
+        let artifact = try WebMediaDLArtifact(
+            artifactId: "sha256:def",
+            role: .derivative,
+            sha256: "def",
+            byteSize: 2,
+            mediaKind: .audio,
+            storageRelpath: "a.m4a",
+            container: "m4a",
+            parentIds: ["sha256:abc"]
+        )
+        XCTAssertEqual(artifact.parentIds, ["sha256:abc"])
+        XCTAssertEqual(artifact.container, "m4a")
+        XCTAssertEqual(WebMediaDLLossClass.containerOnly.rawValue, "container_only")
+        XCTAssertEqual(WebMediaDLArtifactRole.evidence.rawValue, "evidence")
+        XCTAssertEqual(WebMediaDLJobState.accepted.rawValue, "accepted")
+        let historyData = try JSONSerialization.data(withJSONObject: [[
+            "job_id": UUID().uuidString,
+            "state": "completed",
+            "policy_profile_id": "personal-full",
+            "worker_id": "mac",
+            "created_at": "2026-08-18T00:00:00Z",
+            "updated_at": "2026-08-18T00:00:00Z",
+            "artifact_ids": [],
+            "last_events": [],
+            "partial": false,
+            "failed_kinds": [],
+        ]])
+        let history = try WebMediaDLHistoryEntry.decodeList(from: historyData)
+        XCTAssertEqual(history.first?.createdAt, "2026-08-18T00:00:00Z")
+        XCTAssertNil(history.first?.source)
+        let bookmarkJSON = try JSONSerialization.data(withJSONObject: [
+            "resolved_path": "/tmp/movies",
+            "stale": false,
+        ])
+        let decodedBookmark = try JSONDecoder().decode(
+            WebMediaDLSecurityScopedBookmark.self,
+            from: bookmarkJSON
+        )
+        XCTAssertEqual(decodedBookmark.path, "/tmp/movies")
+        let clipboard = try JSONDecoder().decode(
+            WebMediaDLClipboardIntake.self,
+            from: Data("{\"text\":\"https://cdn.example.com/a.mp4\"}".utf8)
+        )
+        XCTAssertEqual(clipboard.locator, "https://cdn.example.com/a.mp4")
+        let jobJSON: [String: Any] = [
+            "source": [
+                "kind": "url",
+                "locator": "https://cdn.example.com/a.mp4",
+                "surface": "ios",
+                "policy_profile_id": "personal-restricted",
+            ],
+            "policy_profile_id": "personal-restricted",
+            "worker_id": "iphone",
+        ]
+        let pipeline = try JSONDecoder().decode(
+            WebMediaDLPipelineJob.self,
+            from: JSONSerialization.data(withJSONObject: jobJSON)
+        )
+        XCTAssertEqual(pipeline.state, .accepted)
+        XCTAssertEqual(pipeline.source.kind, .url)
+        XCTAssertEqual(pipeline.intent.presetId, "original-sacred")
+        let op = WebMediaDLOperation(
+            operationId: "keep-original",
+            opType: "copy",
+            capabilityId: "process.copy",
+            inputArtifactIds: ["sha256:abc"],
+            outputRole: .source,
+            lossClass: .none,
+            validatorIds: ["validate.hash"]
+        )
+        let plan = WebMediaDLExportPlan(jobId: UUID(), operations: [op])
+        XCTAssertEqual(plan.operations.count, 1)
+        XCTAssertEqual(plan.operations.first?.operationId, "keep-original")
     }
 
     func testHttpDirectSavesClearMediaAndRefusesDrm() async throws {

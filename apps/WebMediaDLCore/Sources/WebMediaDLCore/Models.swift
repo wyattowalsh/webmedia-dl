@@ -55,6 +55,10 @@ public struct WebMediaDLHistoryEntry: Codable, Sendable, Identifiable {
     public var partial: Bool
     public var failedKinds: [String]
     public var error: String?
+    public var createdAt: String?
+    public var updatedAt: String?
+    public var source: WebMediaDLMediaSource?
+    public var intent: WebMediaDLExportIntent?
 
     enum CodingKeys: String, CodingKey {
         case jobId = "job_id"
@@ -66,6 +70,10 @@ public struct WebMediaDLHistoryEntry: Codable, Sendable, Identifiable {
         case partial
         case failedKinds = "failed_kinds"
         case error
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+        case source
+        case intent
     }
 
     public init(
@@ -77,7 +85,11 @@ public struct WebMediaDLHistoryEntry: Codable, Sendable, Identifiable {
         lastEvents: [String] = [],
         partial: Bool = false,
         failedKinds: [String] = [],
-        error: String? = nil
+        error: String? = nil,
+        createdAt: String? = nil,
+        updatedAt: String? = nil,
+        source: WebMediaDLMediaSource? = nil,
+        intent: WebMediaDLExportIntent? = nil
     ) {
         self.jobId           = jobId
         self.state           = state
@@ -88,6 +100,10 @@ public struct WebMediaDLHistoryEntry: Codable, Sendable, Identifiable {
         self.partial         = partial
         self.failedKinds     = failedKinds
         self.error           = error
+        self.createdAt       = createdAt
+        self.updatedAt       = updatedAt
+        self.source          = source
+        self.intent          = intent
     }
 
     public static func decodeList(from data: Data) throws -> [WebMediaDLHistoryEntry] {

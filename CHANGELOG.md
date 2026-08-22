@@ -101,4 +101,8 @@
   visionOS WatchConnectivity implements `sessionDidBecomeInactive` /
   `sessionDidDeactivate`. `serve_worker` refuses non-loopback hosts. Sealed
   companion envelopes still refuse `nativeCommand`. `original-sacred` keeps
-  `keep-original` at `LossClass.NONE` with no transcode.
+  `keep-original` at `LossClass.NONE` with no transcode. Shared Swift Core
+  types now carry the same JSON keys as the exported Pydantic schemas
+  (`WebMediaDLPipelineJob`, operations, policy fetch bounds, history timestamps).
+  GitHub `macos-15` CI run `32543202699` compiled Core tests (18/0) and every
+  Apple package including tvOS.
