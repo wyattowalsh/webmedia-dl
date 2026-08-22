@@ -201,7 +201,8 @@ public struct WebMediaDLiOSRootView: View {
                     Button("Pause queue") {
                         Task {
                             do {
-                                status = try await WebMediaDLPairedMacSubmit.pauseQueue(
+                                status = try await WebMediaDLCompleteClientControl.perform(
+                                    .pauseQueue,
                                     credentials: client,
                                     pairingId: UUID(uuidString: pairingId),
                                     sessionKey: sessionKey.isEmpty ? nil : sessionKey
@@ -215,7 +216,8 @@ public struct WebMediaDLiOSRootView: View {
                     Button("Resume queue") {
                         Task {
                             do {
-                                status = try await WebMediaDLPairedMacSubmit.resumeQueue(
+                                status = try await WebMediaDLCompleteClientControl.perform(
+                                    .resumeQueue,
                                     credentials: client,
                                     pairingId: UUID(uuidString: pairingId),
                                     sessionKey: sessionKey.isEmpty ? nil : sessionKey
@@ -229,7 +231,8 @@ public struct WebMediaDLiOSRootView: View {
                     Button("Queue status") {
                         Task {
                             do {
-                                status = try await WebMediaDLPairedMacSubmit.queueStatus(
+                                status = try await WebMediaDLCompleteClientControl.perform(
+                                    .queueStatus,
                                     credentials: client,
                                     pairingId: UUID(uuidString: pairingId),
                                     sessionKey: sessionKey.isEmpty ? nil : sessionKey
@@ -247,8 +250,9 @@ public struct WebMediaDLiOSRootView: View {
                                 return
                             }
                             do {
-                                status = try await WebMediaDLPairedMacSubmit.cancel(
-                                    jobId: lastJobId,
+                                status = try await WebMediaDLCompleteClientControl.perform(
+                                    .cancel,
+                                    jobId: lastJobId.uuidString,
                                     credentials: client,
                                     pairingId: UUID(uuidString: pairingId),
                                     sessionKey: sessionKey.isEmpty ? nil : sessionKey
@@ -266,8 +270,9 @@ public struct WebMediaDLiOSRootView: View {
                                 return
                             }
                             do {
-                                status = try await WebMediaDLPairedMacSubmit.pauseJob(
-                                    jobId: lastJobId,
+                                status = try await WebMediaDLCompleteClientControl.perform(
+                                    .pauseJob,
+                                    jobId: lastJobId.uuidString,
                                     credentials: client,
                                     pairingId: UUID(uuidString: pairingId),
                                     sessionKey: sessionKey.isEmpty ? nil : sessionKey
@@ -285,8 +290,9 @@ public struct WebMediaDLiOSRootView: View {
                                 return
                             }
                             do {
-                                status = try await WebMediaDLPairedMacSubmit.resumeJob(
-                                    jobId: lastJobId,
+                                status = try await WebMediaDLCompleteClientControl.perform(
+                                    .resumeJob,
+                                    jobId: lastJobId.uuidString,
                                     credentials: client,
                                     pairingId: UUID(uuidString: pairingId),
                                     sessionKey: sessionKey.isEmpty ? nil : sessionKey

@@ -2,6 +2,11 @@
 
 ## 0.1.0
 
+- GitHub Actions `32568126057` on `f474719` passed Python (583 pytest, 100%)
+  and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after boxing Mac
+  worker spawn as `@Sendable` `WebMediaDLUncheckedBox`. Complete-client queue
+  buttons share `WebMediaDLCompleteClientControl` with Siri/Shortcuts so pause
+  without a saved Mac relay fails closed before any POST.
 - GitHub Actions `32567922144` on `6516591` passed Python (583 pytest, 100%)
   and failed Swift 6: `startOrClaimExisting` still took a non-Sendable
   `() throws -> AnyObject` start closure. Spawn now returns

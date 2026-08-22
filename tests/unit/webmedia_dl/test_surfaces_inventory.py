@@ -973,8 +973,11 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
         assert "Send to paired Mac" in text
         assert "WebMediaDLPairedMacSubmit.submit" in text
         assert "WebMediaDLPairedMacSubmit.history" in text
-        assert "WebMediaDLPairedMacSubmit.pauseQueue" in text
-        assert "WebMediaDLPairedMacSubmit.queueStatus" in text
+        assert "WebMediaDLCompleteClientControl.perform" in text
+        assert ".pauseQueue" in text
+        assert ".queueStatus" in text
+        assert ".cancel" in text
+        assert "WebMediaDLPairedMacSubmit.pauseQueue" not in text
         assert "WebMediaDLPairedMacSubmit.pullToFiles" in text
         assert "Save published files here" in text
         assert 'destinationKind: files == nil ? nil : "staging_only"' in text

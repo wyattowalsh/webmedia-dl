@@ -195,7 +195,8 @@ public struct WebMediaDLiPadOSRootView: View {
                 Button("Pause queue") {
                     Task {
                         do {
-                            status = try await WebMediaDLPairedMacSubmit.pauseQueue(
+                            status = try await WebMediaDLCompleteClientControl.perform(
+                                .pauseQueue,
                                 credentials: pairedClient,
                                 pairingId: UUID(uuidString: pairingId),
                                 sessionKey: sessionKey.isEmpty ? nil : sessionKey
@@ -209,7 +210,8 @@ public struct WebMediaDLiPadOSRootView: View {
                 Button("Resume queue") {
                     Task {
                         do {
-                            status = try await WebMediaDLPairedMacSubmit.resumeQueue(
+                            status = try await WebMediaDLCompleteClientControl.perform(
+                                .resumeQueue,
                                 credentials: pairedClient,
                                 pairingId: UUID(uuidString: pairingId),
                                 sessionKey: sessionKey.isEmpty ? nil : sessionKey
@@ -223,7 +225,8 @@ public struct WebMediaDLiPadOSRootView: View {
                 Button("Queue status") {
                     Task {
                         do {
-                            status = try await WebMediaDLPairedMacSubmit.queueStatus(
+                            status = try await WebMediaDLCompleteClientControl.perform(
+                                .queueStatus,
                                 credentials: pairedClient,
                                 pairingId: UUID(uuidString: pairingId),
                                 sessionKey: sessionKey.isEmpty ? nil : sessionKey
@@ -241,8 +244,9 @@ public struct WebMediaDLiPadOSRootView: View {
                             return
                         }
                         do {
-                            status = try await WebMediaDLPairedMacSubmit.cancel(
-                                jobId: lastJobId,
+                            status = try await WebMediaDLCompleteClientControl.perform(
+                                .cancel,
+                                jobId: lastJobId.uuidString,
                                 credentials: pairedClient,
                                 pairingId: UUID(uuidString: pairingId),
                                 sessionKey: sessionKey.isEmpty ? nil : sessionKey
@@ -260,8 +264,9 @@ public struct WebMediaDLiPadOSRootView: View {
                             return
                         }
                         do {
-                            status = try await WebMediaDLPairedMacSubmit.pauseJob(
-                                jobId: lastJobId,
+                            status = try await WebMediaDLCompleteClientControl.perform(
+                                .pauseJob,
+                                jobId: lastJobId.uuidString,
                                 credentials: pairedClient,
                                 pairingId: UUID(uuidString: pairingId),
                                 sessionKey: sessionKey.isEmpty ? nil : sessionKey
@@ -279,8 +284,9 @@ public struct WebMediaDLiPadOSRootView: View {
                             return
                         }
                         do {
-                            status = try await WebMediaDLPairedMacSubmit.resumeJob(
-                                jobId: lastJobId,
+                            status = try await WebMediaDLCompleteClientControl.perform(
+                                .resumeJob,
+                                jobId: lastJobId.uuidString,
                                 credentials: pairedClient,
                                 pairingId: UUID(uuidString: pairingId),
                                 sessionKey: sessionKey.isEmpty ? nil : sessionKey
