@@ -17,7 +17,7 @@ from webmedia_dl.errors import DiscoveryError, DrmRefused, NetworkPolicyError
 from webmedia_dl.security import DRM_PATTERNS, detect_drm_signals, refuse_drm
 
 _XML_NS = r"(?:[A-Za-z_][\w.-]*:)?"
-_HLS_BYTERANGE = re.compile(r"#EXT-X-BYTERANGE:(\d+)(?:@(\d+))?", re.I)
+_HLS_BYTERANGE = re.compile(r"#EXT-X-BYTERANGE:\s*(\d+)\s*(?:@\s*(\d+))?", re.I)
 _DASH_CONTENT_PROTECTION = re.compile(r"ContentProtection", re.I)
 _DASH_BASE_URL = re.compile(
     rf"<{_XML_NS}BaseURL>\s*(?:<!\[CDATA\[(.*?)\]\]>|([^<\s]+))\s*</{_XML_NS}BaseURL>",
@@ -224,7 +224,7 @@ def _parse_byterange(
 ) -> tuple[int | None, int | None]:
     if not text:
         return default_offset, None
-    match = re.fullmatch(r"(\d+)(?:@(\d+))?", text.strip())
+    match = re.fullmatch(r"(\d+)\s*(?:@\s*(\d+))?", text.strip())
     if match is None:
         return default_offset, None
     length = int(match.group(1))

@@ -236,6 +236,28 @@ describe("collectMediaEvidence", () => {
             },
             {
               getAttribute: (name) => {
+                if (name === "href") return "https://cdn.example.com/bare.mp4";
+                if (name === "rel") return "preload";
+                return null;
+              },
+            },
+            {
+              getAttribute: (name) => {
+                if (name === "href") return "https://cdn.example.com/app.js";
+                if (name === "rel") return "modulepreload";
+                return null;
+              },
+            },
+            {
+              getAttribute: (name) => {
+                if (name === "href") return "https://cdn.example.com/boot.js";
+                if (name === "as") return "script";
+                if (name === "rel") return "preload";
+                return null;
+              },
+            },
+            {
+              getAttribute: (name) => {
                 if (name === "href") return "https://cdn.example.com/still.png";
                 if (name === "as") return "image";
                 if (name === "rel") return "preload";
@@ -266,6 +288,9 @@ describe("collectMediaEvidence", () => {
     const byUrl = Object.fromEntries(result.evidence.map((item) => [item.url, item.kind]));
     assert.ok(urls.includes("https://cdn.example.com/live.m3u8"));
     assert.ok(urls.includes("https://cdn.example.com/pre.mp4"));
+    assert.ok(urls.includes("https://cdn.example.com/bare.mp4"));
+    assert.ok(!urls.includes("https://cdn.example.com/app.js"));
+    assert.ok(!urls.includes("https://cdn.example.com/boot.js"));
     assert.ok(urls.includes("https://cdn.example.com/still.png"));
     assert.ok(urls.includes("https://cdn.example.com/alt.mpd"));
     assert.ok(urls.includes("https://cdn.example.com/plain-live"));

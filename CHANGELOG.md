@@ -2,6 +2,13 @@
 
 ## 0.1.0
 
+- Keep `link` collection to preload **media**: `modulepreload` and
+  `preload as=script` no longer steal the preferred VIDEO candidate from
+  `video[src]`. Slice HLS `#EXT-X-BYTERANGE` / MAP `BYTERANGE` values that
+  include spaces so `#EXT-X-BYTERANGE: 4@0` does not concatenate the whole
+  file. GitHub Actions `32585750566` on `c92c794` passed Python (626
+  pytest, 100%), doctor provider probes, and Swift (18 tests, 0 failures;
+  12× BUILD SUCCEEDED) after slicing spaced DASH `mediaRange` values.
 - Slice DASH `range` / `mediaRange` values that include spaces
   (`0 - 9`) instead of treating them as unparsed and concatenating the
   whole media object. GitHub Actions `32585544230` on `0433acb` passed

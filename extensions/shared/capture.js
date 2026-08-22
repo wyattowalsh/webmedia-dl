@@ -14,6 +14,8 @@ export function pageCollector(doc) {
   const seen = new Set();
   const blockedScheme =
     /^(javascript|data|blob|file|about|chrome|chrome-extension):/i;
+  const directMediaHref =
+    /\.(mp4|webm|mkv|mov|m4v|mp3|m4a|aac|flac|wav|ogg|opus|jpg|jpeg|png|gif|webp|avif|pdf|vtt|srt|m3u8|mpd)(\?|#|$)/i;
   const locatorBase = () => {
     const owner = root.ownerDocument || root;
     if (typeof owner.baseURI === "string" && owner.baseURI) {
@@ -192,15 +194,20 @@ export function pageCollector(doc) {
     push(el.getAttribute?.("src") || el.getAttribute?.("data"), "video");
   });
   root.querySelectorAll?.("link[href]").forEach((el) => {
+    const href = el.getAttribute?.("href");
     const asAttr = (el.getAttribute?.("as") || "").toLowerCase();
     const rel = (el.getAttribute?.("rel") || "").toLowerCase();
     const mime = (el.getAttribute?.("type") || "").toLowerCase();
+    const preloadMedia =
+      rel.split(/\s+/).includes("preload") &&
+      typeof href === "string" &&
+      directMediaHref.test(href);
     if (
       asAttr === "video" ||
       asAttr === "audio" ||
       asAttr === "image" ||
       asAttr === "track" ||
-      rel.includes("preload") ||
+      preloadMedia ||
       mime.startsWith("video/") ||
       mime.startsWith("audio/") ||
       mime.startsWith("image/") ||
@@ -217,17 +224,12 @@ export function pageCollector(doc) {
       } else if (asAttr === "track") {
         kind = "subtitle";
       }
-      push(el.getAttribute?.("href"), kind);
+      push(href, kind);
     }
   });
   root.querySelectorAll?.("a[href]").forEach((el) => {
     const href = el.getAttribute?.("href");
-    if (
-      typeof href === "string" &&
-      /\.(mp4|webm|mkv|mov|m4v|mp3|m4a|aac|flac|wav|ogg|opus|jpg|jpeg|png|gif|webp|avif|pdf|vtt|srt|m3u8|mpd)(\?|#|$)/i.test(
-        href,
-      )
-    ) {
+    if (typeof href === "string" && directMediaHref.test(href)) {
       push(href, "unknown");
     }
   });

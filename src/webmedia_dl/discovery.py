@@ -152,8 +152,8 @@ class _MediaHTMLParser(HTMLParser):
             mime_kind = _kind_from_mime(mapping.get("type"))
             if href and (
                 as_attr in {"video", "audio", "image", "track"}
-                or "preload" in rel
                 or mime_kind is not None
+                or ("preload" in rel.split() and is_direct_media_url(href))
             ):
                 kind = mime_kind or MediaKind.VIDEO
                 if as_attr == "audio" or mime.startswith("audio/"):

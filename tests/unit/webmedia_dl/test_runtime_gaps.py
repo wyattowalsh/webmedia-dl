@@ -178,6 +178,17 @@ def test_hls_map_and_byterange(tmp_path: Path) -> None:
     output = tmp_path / "live.bin"
     record_clear_stream(playlist, "https://cdn.example.com/live/index.m3u8", output, fetch)
     assert output.read_bytes() == b"INITABCDEF"
+    spaced = (
+        "#EXTM3U\n"
+        '#EXT-X-MAP:URI="init.mp4",BYTERANGE="4 @ 0"\n'
+        "#EXT-X-BYTERANGE: 3@0\n"
+        "seg.ts\n"
+        "#EXT-X-BYTERANGE:3 @ 3\n"
+        "seg.ts\n"
+    )
+    spaced_out = tmp_path / "live-spaces.bin"
+    record_clear_stream(spaced, "https://cdn.example.com/live/index.m3u8", spaced_out, fetch)
+    assert spaced_out.read_bytes() == b"INITABCDEF"
 
 
 def test_dash_segment_timeline(tmp_path: Path) -> None:

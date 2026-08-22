@@ -479,6 +479,8 @@ def test_segment_timeline_t_override_and_inverted_range() -> None:
     assert _parse_dash_range("9-3") == (None, None)
     assert _parse_byterange(None, default_offset=4) == (4, None)
     assert _parse_byterange("abc", default_offset=4) == (4, None)
+    assert _parse_byterange("4@0", default_offset=0) == (0, 4)
+    assert _parse_byterange("4 @ 0", default_offset=0) == (0, 4)
 
 
 def test_period_parts_prefers_video_then_audio() -> None:

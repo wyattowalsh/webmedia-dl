@@ -2,7 +2,7 @@ from uuid import uuid4
 
 import pytest
 
-from webmedia_dl.candidates import build_graph
+from webmedia_dl.candidates import build_graph, preferred_by_kind
 from webmedia_dl.discovery import candidates_from_manifest_json, discover
 from webmedia_dl.domain.enums import IntakeKind, MediaKind, Surface
 from webmedia_dl.domain.models import BrowserEvidence, MediaSource
@@ -172,6 +172,9 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
       <head>
         <meta property="og:video:secure_url" content="https://cdn.example.com/secure.mp4">
         <link rel="preload" as="video" href="https://cdn.example.com/pre.mp4">
+        <link rel="preload" href="https://cdn.example.com/bare.mp4">
+        <link rel="modulepreload" href="https://cdn.example.com/app.js">
+        <link rel="preload" as="script" href="https://cdn.example.com/boot.js">
         <link type="application/dash+xml;charset=utf-8" href="https://cdn.example.com/alt.mpd">
         <link type="application/vnd.apple.mpegurl" href="https://cdn.example.com/alt.m3u8">
         <script type="application/ld+json">
@@ -189,6 +192,25 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
     kinds = {item.retrieval_urls[0]: item.media_kind for item in candidates if item.retrieval_urls}
     assert "https://cdn.example.com/secure.mp4" in urls
     assert "https://cdn.example.com/pre.mp4" in urls
+    assert "https://cdn.example.com/bare.mp4" in urls
+    assert "https://cdn.example.com/app.js" not in urls
+    assert "https://cdn.example.com/boot.js" not in urls
+    stolen = """
+    <html>
+      <head>
+        <link rel="modulepreload" href="https://cdn.example.com/app.js">
+        <link rel="preload" as="script" href="https://cdn.example.com/boot.js">
+      </head>
+      <body>
+        <video src="https://cdn.example.com/clip.mp4"></video>
+      </body>
+    </html>
+    """
+    mixed = discover(_source(), profile, html=stolen)
+    preferred = preferred_by_kind(build_graph(uuid4(), mixed))
+    videos = [item for item in preferred if item.media_kind is MediaKind.VIDEO]
+    assert videos
+    assert videos[0].retrieval_urls[0] == "https://cdn.example.com/clip.mp4"
     assert "https://cdn.example.com/player.m3u8" in urls
     assert kinds["https://example.com/watch?v=1"] is MediaKind.VIDEO
     assert kinds["https://cdn.example.com/player.m3u8"] is MediaKind.LIVE_STREAM
