@@ -7,7 +7,8 @@
   hits). Parse namespace-prefixed DASH (`dash:MPD`) the same as bare
   `MPD` so ContentProtection still refuses and SegmentList ranges still
   slice. Restore the Swift `hlsKeyIsProtected` loop binding so Core
-  compiles.
+  compiles. Swift `METHOD=NONE` with a `URI` (including a quoted
+  `METHOD=` query) refuses the same as Python `UNKNOWN`.
 - Parse HLS `#EXT-X-KEY` / `#EXT-X-SESSION-KEY` `METHOD` from tag attributes
   so a `METHOD=` token inside a quoted `URI` cannot masquerade as `NONE`
   and fetch encrypted segments. Duplicate `METHOD` attributes and

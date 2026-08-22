@@ -1450,10 +1450,16 @@ final class ContractTests: XCTestCase {
                 "#EXT-X-KEY:URI=\"https://k.invalid/key?id=7&METHOD=NONE\",METHOD=AES-128"
             )
         )
-        XCTAssertFalse(
+        XCTAssertTrue(
             WebMediaDLHttpDirect.hlsKeyIsProtected(
                 "#EXT-X-KEY:URI=\"https://k.invalid/key?METHOD=AES-128\",METHOD=NONE"
             )
+        )
+        XCTAssertEqual(
+            WebMediaDLHttpDirect.hlsAttributeMap(
+                "URI=\"https://k.invalid/key?METHOD=AES-128\",METHOD=NONE"
+            )["METHOD"],
+            "NONE"
         )
         XCTAssertEqual(
             WebMediaDLHttpDirect.hlsAttributeMap(
