@@ -372,6 +372,7 @@ SCENARIO_EVIDENCE = {
     "unconfirmed pairing": "test_unconfirmed_pairing_does_not_escalate",
     "mac lan relay rewrites to loopback": "testLoopbackRequestBuildersStayOnLoopback",
     "complete-client history uses mac relay": "testLoopbackRequestBuildersStayOnLoopback",
+    "complete-client control intents use mac relay": "test_complete_clients_http_direct_and_shared_domain",
     "HTML extracts media without using the title as identity": (
         "test_html_discovery_extracts_media_without_using_title_as_id"
     ),

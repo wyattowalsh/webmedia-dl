@@ -820,12 +820,20 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
         assert "WebMediaDLPairedMacSubmit.submit" in text
         assert "WebMediaDLShareIntake.fromSavedBookmark" in text
         assert 'destinationKind: files == nil ? nil : "files_app"' in text
+        assert "WebMediaDLPairedMacSubmit.pauseQueue" in text
+        assert "WebMediaDLPairedMacSubmit.resumeQueue" in text
+        assert "WebMediaDLPairedMacSubmit.history" in text
+        assert "WebMediaDLPairedMacSubmit.cancel" in text
     mac_intent = (
         root / "apps/WebMediaDLMac/Sources/WebMediaDLMac/WebMediaDLMacSubmitURLIntent.swift"
     ).read_text(encoding="utf-8")
     assert "WebMediaDLHttpDirect" not in mac_intent
     assert "WebMediaDLShareIntake.fromSavedBookmark" in mac_intent
     assert 'destinationKind: files == nil ? nil : "files_app"' in mac_intent
+    assert ".pauseQueue()" in mac_intent
+    assert ".resumeQueue()" in mac_intent
+    assert ".history()" in mac_intent
+    assert ".cancel(jobId:" in mac_intent
     for rel, surface in (
         ("apps/WebMediaDLiOS/ShareExtension/WebMediaDLiOSShareExtension.swift", ".ios"),
         ("apps/WebMediaDLiPadOS/ShareExtension/WebMediaDLiPadOSShareExtension.swift", ".ipados"),

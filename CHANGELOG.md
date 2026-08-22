@@ -2,6 +2,10 @@
 
 ## 0.1.0
 
+- Mac, iPhone, iPad, and visionOS App Intents pause, resume, history, and
+  cancel through the same worker/relay paths as the in-app queue controls.
+  GitHub `macos-15` run `32550050185` executed Core `swift test` (18 tests,
+  0 failures) on `fa1dee6`.
 - watchOS and tvOS App Intents queue pause, resume, history, status, and
   cancel companion kinds in addition to capture. GitHub `macos-15` run
   `32549874958` executed Core `swift test` (18 tests, 0 failures) on

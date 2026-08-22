@@ -69,3 +69,8 @@ the phone's own `127.0.0.1`.
 - **WHEN** iPhone, iPad, or visionOS refreshes history or pauses the queue
 - **THEN** those requests target the saved private Mac URL, not the phone's
   loopback
+
+#### Scenario: complete-client control intents use mac relay
+
+- **WHEN** iPhone, iPad, or visionOS Siri/Shortcuts pause, resume, history, or cancel
+- **THEN** those App Intents call `WebMediaDLPairedMacSubmit` against the saved Mac URL
