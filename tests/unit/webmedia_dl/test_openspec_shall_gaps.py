@@ -127,13 +127,15 @@ def test_hls_key_method_is_not_read_from_quoted_uri(tmp_path: Path) -> None:
     with pytest.raises(DrmRefused, match="UNKNOWN"):
         inspect_manifest(missing)
 
-    none_spoof = (
+    none_with_uri = (
         '#EXTM3U\n#EXT-X-KEY:URI="https://k.invalid/key?METHOD=AES-128",METHOD=NONE\nseg.ts\n'
     )
-    inspect_manifest(none_spoof)
-    assert recordable_parts(none_spoof, "https://cdn.example.com/index.m3u8")[0].url.endswith(
-        "/seg.ts"
-    )
+    with pytest.raises(DrmRefused, match="UNKNOWN"):
+        inspect_manifest(none_with_uri)
+
+    clear = "#EXTM3U\n#EXT-X-KEY:METHOD=NONE\nseg.ts\n"
+    inspect_manifest(clear)
+    assert recordable_parts(clear, "https://cdn.example.com/index.m3u8")[0].url.endswith("/seg.ts")
 
 
 def test_hls_widevine_session_data_is_refused_before_fetch(tmp_path: Path) -> None:
@@ -185,6 +187,75 @@ def test_hls_clear_prefix_still_records_before_later_aes128(tmp_path: Path) -> N
     record_clear_stream(playlist, "https://cdn.example.com/live/index.m3u8", output, fetch)
     assert output.read_bytes() == b"CLEAR"
     assert fetched == ["https://cdn.example.com/live/seg1.ts"]
+
+
+def test_hls_duplicate_method_and_none_with_extra_attrs_refuse(tmp_path: Path) -> None:
+    fetched: list[str] = []
+
+    def fetch(url: str) -> tuple[int, str, bytes]:
+        fetched.append(url)
+        raise AssertionError(url)
+
+    playlists = [
+        '#EXTM3U\n#EXT-X-KEY:METHOD=AES-128,URI="k",METHOD=NONE\nseg1.ts\n#EXT-X-ENDLIST\n',
+        "#EXTM3U\n#EXT-X-KEY:METHOD=NONE,METHOD=AES-128\nseg1.ts\n",
+        "#EXTM3U\n#EXT-X-SESSION-KEY:METHOD=SAMPLE-AES,METHOD=NONE\nseg1.ts\n",
+        '#EXTM3U\n#EXT-X-KEY:METHOD=NONE,KEYFORMAT="com.apple.fps"\nseg1.ts\n',
+        '#EXTM3U\n#EXT-X-KEY:METHOD=NONE,URI="https://lic.invalid/k"\nseg1.ts\n',
+    ]
+    for playlist in playlists:
+        fetched.clear()
+        with pytest.raises(DrmRefused):
+            inspect_manifest(playlist)
+        with pytest.raises(DrmRefused):
+            recordable_parts(playlist, "https://b.invalid/index.m3u8")
+        with pytest.raises(DrmRefused):
+            record_clear_stream(
+                playlist, "https://b.invalid/index.m3u8", tmp_path / "out.ts", fetch
+            )
+        assert fetched == []
+
+
+def test_hls_map_is_only_the_tag_and_uses_attribute_uri(tmp_path: Path) -> None:
+    hijack = (
+        "#EXTM3U\n"
+        '#EXT-X-SESSION-DATA:DATA-ID="x",VALUE="#EXT-X-MAP:URI=\'https://evil.invalid/init.mp4\'"\n'
+        '#EXT-X-KEY:METHOD=AES-128,URI="k"\n'
+        "seg1.ts\n"
+    )
+    with pytest.raises(DrmRefused):
+        inspect_manifest(hijack)
+    with pytest.raises(DrmRefused):
+        recordable_parts(hijack, "https://b.invalid/index.m3u8")
+
+    nested = (
+        '#EXTM3U\n#EXT-X-MAP:URI="init.mp4",FOO="a URI=\'https://evil.invalid/x.bin\'"\nseg1.ts\n'
+    )
+    assert [part.url for part in recordable_parts(nested, "https://b.invalid/index.m3u8")] == [
+        "https://b.invalid/init.mp4",
+        "https://b.invalid/seg1.ts",
+    ]
+    first_uri = '#EXTM3U\n#EXT-X-MAP:URI="init.mp4",URI="https://evil.invalid/x.bin"\nseg1.ts\n'
+    assert [part.url for part in recordable_parts(first_uri, "https://b.invalid/index.m3u8")] == [
+        "https://b.invalid/init.mp4",
+        "https://b.invalid/seg1.ts",
+    ]
+    bodies = {
+        "https://b.invalid/init.mp4": b"INIT",
+        "https://b.invalid/seg1.ts": b"SEG",
+    }
+
+    def fetch(url: str) -> tuple[int, str, bytes]:
+        assert "evil" not in url
+        return 200, "video/mp4", bodies[url]
+
+    output = tmp_path / "live.bin"
+    record_clear_stream(nested, "https://b.invalid/index.m3u8", output, fetch)
+    assert output.read_bytes() == b"INITSEG"
+    missing_uri = '#EXTM3U\n#EXT-X-MAP:BYTERANGE="4@0"\nseg.ts\n'
+    assert [part.url for part in recordable_parts(missing_uri, "https://b.invalid/i.m3u8")] == [
+        "https://b.invalid/seg.ts"
+    ]
 
 
 def test_detect_drm_signals_covers_cenc_and_system_uuids() -> None:

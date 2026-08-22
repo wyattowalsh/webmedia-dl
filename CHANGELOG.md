@@ -4,9 +4,12 @@
 
 - Parse HLS `#EXT-X-KEY` / `#EXT-X-SESSION-KEY` `METHOD` from tag attributes
   so a `METHOD=` token inside a quoted `URI` cannot masquerade as `NONE`
-  and fetch encrypted segments. HLS playlists that carry Widevine /
-  FairPlay / `skd://` signals refuse closed even without a key line.
-  Mixed clear-then-AES-128 still records the clear prefix only.
+  and fetch encrypted segments. Duplicate `METHOD` attributes and
+  `METHOD=NONE` combined with `URI`/`KEYFORMAT` refuse closed. `#EXT-X-MAP`
+  is parsed only as a tag (not a substring) using the same attribute map.
+  HLS playlists that carry Widevine / FairPlay / `skd://` signals refuse
+  closed even without a key line. Mixed clear-then-AES-128 still records
+  the clear prefix only.
 - Close remaining Linux-provable OpenSpec gaps: DASH `SegmentList` ranges
   against a Representation `BaseURL` are sliced instead of emitting the
   whole object; live HLS polls record a reused segment URI when

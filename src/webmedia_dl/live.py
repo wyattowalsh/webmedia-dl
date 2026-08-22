@@ -15,11 +15,6 @@ from webmedia_dl.domain.enums import MediaKind
 from webmedia_dl.errors import DiscoveryError, DrmRefused, NetworkPolicyError
 from webmedia_dl.security import DRM_PATTERNS, detect_drm_signals, refuse_drm
 
-_HLS_MAP = re.compile(
-    r"#EXT-X-MAP:.*URI=(?P<q>['\"])(?P<uri>.*?)(?P=q)"
-    r"(?:.*BYTERANGE=(?P<bq>['\"])(?P<byterange>.*?)(?P=bq))?",
-    re.I,
-)
 _HLS_BYTERANGE = re.compile(r"#EXT-X-BYTERANGE:(\d+)(?:@(\d+))?", re.I)
 _DASH_CONTENT_PROTECTION = re.compile(r"ContentProtection", re.I)
 _DASH_BASE_URL = re.compile(r"<BaseURL>\s*([^<\s]+)\s*</BaseURL>", re.I)
@@ -94,18 +89,29 @@ class ByteBudget:
 AddPart = Callable[[ManifestPart], None]
 
 
-def _hls_attr_map(blob: str) -> dict[str, str]:
+def _hls_attr_map(blob: str) -> tuple[dict[str, str], set[str]]:
     parsed: dict[str, str] = {}
+    duplicates: set[str] = set()
     for match in re.finditer(r"([A-Z0-9-]+)=(\"[^\"]*\"|'[^']*'|[^\",]+)", blob, flags=re.I):
-        parsed[match.group(1).upper()] = match.group(2).strip().strip("\"'")
-    return parsed
+        key = match.group(1).upper()
+        value = match.group(2).strip().strip("\"'")
+        if key in parsed:
+            duplicates.add(key)
+            continue
+        parsed[key] = value
+    return parsed, duplicates
 
 
 def _hls_tag_method(stripped: str, tag: str) -> str | None:
     if not stripped.upper().startswith(tag):
         return None
-    method = _hls_attr_map(stripped.split(":", 1)[-1]).get("METHOD", "").upper()
-    return method or "UNKNOWN"
+    attrs, duplicates = _hls_attr_map(stripped.split(":", 1)[-1])
+    if "METHOD" in duplicates:
+        return "UNKNOWN"
+    method = attrs.get("METHOD", "").upper() or "UNKNOWN"
+    if method == "NONE" and set(attrs) - {"METHOD"}:
+        return "UNKNOWN"
+    return method
 
 
 def _first_encrypted_method(text: str, tag: str) -> str | None:
@@ -237,10 +243,13 @@ def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
             if method != "NONE":
                 break
             continue
-        mapped = _HLS_MAP.search(stripped)
-        if mapped:
-            uri = _join(base, mapped.group("uri"))
-            offset, length = _parse_byterange(mapped.group("byterange"), default_offset=0)
+        if stripped.upper().startswith("#EXT-X-MAP:"):
+            attrs, _duplicates = _hls_attr_map(stripped.split(":", 1)[-1])
+            href = attrs.get("URI")
+            if not href:
+                continue
+            uri = _join(base, href)
+            offset, length = _parse_byterange(attrs.get("BYTERANGE"), default_offset=0)
             parts.append(ManifestPart(uri, offset, length, media_sequence + index))
             index += 1
             if offset is not None and length is not None:
@@ -851,7 +860,7 @@ def hls_audio_playlist_urls(text: str, base: str) -> list[str]:
         stripped = line.strip()
         if not stripped.startswith("#EXT-X-MEDIA:"):
             continue
-        attrs = _hls_attr_map(stripped.split(":", 1)[1])
+        attrs, _duplicates = _hls_attr_map(stripped.split(":", 1)[1])
         if attrs.get("TYPE", "").upper() != "AUDIO":
             continue
         uri = attrs.get("URI")

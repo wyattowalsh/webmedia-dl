@@ -249,8 +249,11 @@ public enum WebMediaDLHttpDirect {
         return Array(Set(hits)).sorted()
     }
 
-    public static func hlsAttributeMap(_ blob: String) -> [String: String] {
+    public static func parseHLSAttributes(_ blob: String) -> (
+        values: [String: String], duplicateKeys: Set<String>
+    ) {
         var parsed: [String: String] = [:]
+        var duplicates: Set<String> = []
         let pattern = /([A-Za-z0-9-]+)=("[^"]*"|'[^']*'|[^",]+)/
         for match in blob.matches(of: pattern) {
             let key   = String(match.1).uppercased()
@@ -260,22 +263,36 @@ public enum WebMediaDLHttpDirect {
             {
                 value = String(value.dropFirst().dropLast())
             }
+            if parsed[key] != nil {
+                duplicates.insert(key)
+                continue
+            }
             parsed[key] = value
         }
-        return parsed
+        return (parsed, duplicates)
+    }
+
+    public static func hlsAttributeMap(_ blob: String) -> [String: String] {
+        parseHLSAttributes(blob).values
     }
 
     public static func hlsKeyIsProtected(_ text: String) -> Bool {
         for raw in text.split(whereSeparator: \.isNewline) {
-            let line = String(raw)
-            let upper = line.uppercased()
-            guard upper.contains("EXT-X-KEY:") || upper.contains("EXT-X-SESSION-KEY:") else {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            let upper   = trimmed.uppercased()
+            guard upper.hasPrefix("#EXT-X-KEY:") || upper.hasPrefix("#EXT-X-SESSION-KEY:") else {
                 continue
             }
-            guard let colon = line.firstIndex(of: ":") else { continue }
-            let attrs  = hlsAttributeMap(String(line[line.index(after: colon)...]))
-            let method = (attrs["METHOD"] ?? "").uppercased()
+            guard let colon = trimmed.firstIndex(of: ":") else { continue }
+            let parsed = parseHLSAttributes(String(trimmed[trimmed.index(after: colon)...]))
+            if parsed.duplicateKeys.contains("METHOD") {
+                return true
+            }
+            let method = (parsed.values["METHOD"] ?? "").uppercased()
             if method != "NONE" {
+                return true
+            }
+            if parsed.values.count > 1 {
                 return true
             }
         }

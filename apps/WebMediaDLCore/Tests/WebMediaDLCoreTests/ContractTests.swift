@@ -1462,6 +1462,34 @@ final class ContractTests: XCTestCase {
             "AES-128"
         )
         XCTAssertEqual(
+            WebMediaDLHttpDirect.hlsAttributeMap("METHOD=AES-128,URI=\"k\",METHOD=NONE")["METHOD"],
+            "AES-128"
+        )
+        XCTAssertTrue(
+            WebMediaDLHttpDirect.parseHLSAttributes("METHOD=NONE,URI=\"k\",METHOD=AES-128")
+                .duplicateKeys.contains("METHOD")
+        )
+        XCTAssertTrue(
+            WebMediaDLHttpDirect.hlsKeyIsProtected(
+                "#EXT-X-KEY:METHOD=AES-128,URI=\"k\",METHOD=NONE"
+            )
+        )
+        XCTAssertTrue(
+            WebMediaDLHttpDirect.hlsKeyIsProtected(
+                "#EXT-X-KEY:METHOD=NONE,METHOD=AES-128"
+            )
+        )
+        XCTAssertTrue(
+            WebMediaDLHttpDirect.hlsKeyIsProtected(
+                "#EXT-X-KEY:METHOD=NONE,KEYFORMAT=\"com.apple.fps\""
+            )
+        )
+        XCTAssertTrue(
+            WebMediaDLHttpDirect.hlsKeyIsProtected(
+                "#EXT-X-KEY:METHOD=NONE,URI=\"https://lic.invalid/k\""
+            )
+        )
+        XCTAssertEqual(
             WebMediaDLHttpDirect.suffix(
                 url: URL(string: "https://cdn.example.com/photo.jpeg")!,
                 headers: [:],
