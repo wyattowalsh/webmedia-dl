@@ -8,4 +8,5 @@ last_reviewed: 2026-08-18
 # UX journeys
 
 1. Paste URL in CLI. 2. Browser capture to worker. 3. iPhone share to paired Mac.
-4. watchOS status. Expert inspectability via `job` events JSON.
+4. watchOS status. 5. Explain plan / worker doctor on Mac and complete clients.
+Expert inspectability via `job` events JSON.

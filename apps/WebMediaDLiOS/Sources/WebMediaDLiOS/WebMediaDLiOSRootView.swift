@@ -111,6 +111,22 @@ public struct WebMediaDLiOSRootView: View {
                         }
                     }
                     .accessibilityLabel("Send to paired Mac")
+                    Button("Explain plan") {
+                        Task {
+                            do {
+                                status = try await WebMediaDLPairedMacSubmit.plan(
+                                    locator: locator,
+                                    surface: .ios,
+                                    credentials: client,
+                                    pairingId: UUID(uuidString: pairingId),
+                                    sessionKey: sessionKey.isEmpty ? nil : sessionKey
+                                )
+                            } catch {
+                                status = error.localizedDescription
+                            }
+                        }
+                    }
+                    .accessibilityLabel("Explain plan")
                 }
                 Section("Pairing") {
                     TextField("Paired Mac URL", text: $macRelay)
@@ -149,6 +165,20 @@ public struct WebMediaDLiOSRootView: View {
                     Text(status)
                         .accessibilityLabel("Job status")
                     Text("Role \(role.rawValue). Mac \(WebMediaDLPairedMacEndpoint.advertisedRelay()?.absoluteString ?? "not saved")")
+                    Button("Worker doctor") {
+                        Task {
+                            do {
+                                status = try await WebMediaDLPairedMacSubmit.doctor(
+                                    credentials: client,
+                                    pairingId: UUID(uuidString: pairingId),
+                                    sessionKey: sessionKey.isEmpty ? nil : sessionKey
+                                )
+                            } catch {
+                                status = error.localizedDescription
+                            }
+                        }
+                    }
+                    .accessibilityLabel("Worker doctor")
                 }
                 Section("History") {
                     Text(historyText)

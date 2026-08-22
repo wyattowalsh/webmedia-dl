@@ -46,6 +46,10 @@ struct MacRootView: View {
                     }
                     .accessibilityLabel("Submit to local worker")
                     .keyboardShortcut(.defaultAction)
+                    Button("Explain plan") {
+                        Task { await explainPlan() }
+                    }
+                    .accessibilityLabel("Explain plan")
                     Button("Paste from clipboard") {
                         #if os(macOS)
                         if let text = NSPasteboard.general.string(forType: .string) {
@@ -70,6 +74,16 @@ struct MacRootView: View {
                         .accessibilityElement()
                         .accessibilityLabel("Job status")
                     Text("Worker: \(role.rawValue) at \(WebMediaDLLoopbackClient.defaultBaseURL.absoluteString)")
+                    Button("Worker doctor") {
+                        Task {
+                            do {
+                                status = try await WebMediaDLLoopbackClient(token: token).doctor()
+                            } catch {
+                                status = error.localizedDescription
+                            }
+                        }
+                    }
+                    .accessibilityLabel("Worker doctor")
                 }
                 Section("History") {
                     Text(historyText)
@@ -358,6 +372,20 @@ struct MacRootView: View {
             )
             lastJobId = WebMediaDLLoopbackClient.jobId(from: status)
             await refreshHistory()
+        } catch {
+            status = error.localizedDescription
+        }
+    }
+
+    @MainActor
+    private func explainPlan() async {
+        let client = WebMediaDLLoopbackClient(token: token)
+        let clip = WebMediaDLClipboardIntake(text: locator)
+        do {
+            status = try await client.plan(
+                locator: clip.locator ?? locator,
+                surface: .macos
+            )
         } catch {
             status = error.localizedDescription
         }

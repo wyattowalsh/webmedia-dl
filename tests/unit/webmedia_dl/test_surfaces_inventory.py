@@ -692,6 +692,8 @@ def test_intents_and_share_adapters_load_credentials() -> None:
         assert "Cancel WebMedia DL" in text
         assert "Pause a WebMedia DL job" in text
         assert "Resume a WebMedia DL job" in text
+        assert "Explain this URL" not in text
+        assert "WebMediaDLPairedMacSubmit.plan" not in text
     loopback = (root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/LoopbackClient.swift").read_text(
         encoding="utf-8"
     )
@@ -701,6 +703,21 @@ def test_intents_and_share_adapters_load_credentials() -> None:
     assert "nativeCommand" not in submit
     assert "providerArgv" not in submit
     assert 'appendingPathComponent("v1/jobs")' in submit
+    assert "func planRequest(" in loopback
+    assert "func doctorRequest(" in loopback
+    plan = loopback.split("public func planRequest(", 1)[1].split("public func doctorRequest(", 1)[
+        0
+    ]
+    assert "nativeCommand" not in plan
+    assert '"wait"' not in plan
+    assert "intake_kind" not in plan
+    assert 'appendingPathComponent("v1/plan")' in plan
+    assert (
+        'appendingPathComponent("v1/doctor")'
+        in loopback.split("public func doctorRequest(", 1)[1].split(
+            "public func cancelRequest(", 1
+        )[0]
+    )
 
 
 def test_browser_extension_trees() -> None:
@@ -854,6 +871,8 @@ def test_github_ci_compiles_apple_packages() -> None:
     assert "WebMediaDLHistoryEntry.summary" in contracts
     assert "complete-client history without pairing must fail closed" in contracts
     assert "complete-client job detail without pairing must fail closed" in contracts
+    assert "complete-client plan without pairing must fail closed" in contracts
+    assert "complete-client doctor without pairing must fail closed" in contracts
     assert "http://cdn.example.com/a.mp4" in contracts
     assert "redirect statuses must not publish HTML" in contracts
     assert "testDomainInvariantsFailClosed" in contracts
@@ -902,6 +921,10 @@ def test_github_ci_compiles_apple_packages() -> None:
     assert "WebMediaDLPairedMacSubmit.queueStatus" in paired_mac
     assert "WebMediaDLPairedMacSubmit.pauseJob" in paired_mac
     assert "WebMediaDLPairedMacSubmit.resumeJob" in paired_mac
+    assert "public static func plan(" in paired_mac
+    assert "public static func doctor(" in paired_mac
+    assert "func planRequest(" in paired_mac
+    assert "func doctorRequest(" in paired_mac
     assert "maxStagingBytes" in relay_http
     assert "func maxBytes(for target: String)" in relay_http
     assert "func requestByteLimit(buffer: Data)" in relay_http
@@ -994,6 +1017,10 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
         assert ".cancel" in text
         assert ".jobDetail" in text
         assert "Show last job" in text
+        assert "Explain plan" in text
+        assert "Worker doctor" in text
+        assert "WebMediaDLPairedMacSubmit.plan" in text
+        assert "WebMediaDLPairedMacSubmit.doctor" in text
         assert "WebMediaDLPairedMacSubmit.pauseQueue" not in text
         assert "WebMediaDLPairedMacSubmit.pullToFiles" in text
         assert "Save published files here" in text
@@ -1055,12 +1082,18 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert worker_launch.index("#if os(macOS)") < worker_launch.index("homeDirectoryForCurrentUser")
     assert "Show artifacts" in mac
     assert "Show last job" in mac
+    assert "Explain plan" in mac
+    assert "Worker doctor" in mac
     assert "jobDetail(jobId:" in mac
     assert "WebMediaDLHistoryEntry.summary" in mac
     assert "This Mac's address" in mac
     assert "localOnly: false" in mac
     assert "WebMediaDLPairedMacSubmit.history" not in mac
     assert "WebMediaDLPairedMacSubmit.queueStatus" not in mac
+    assert "WebMediaDLPairedMacSubmit.plan" not in mac
+    assert "WebMediaDLPairedMacSubmit.doctor" not in mac
+    assert ".plan(" in mac
+    assert ".doctor()" in mac
     assert ".queueStatus()" in mac
     continuity = (
         root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/ContinuityBridge.swift"
@@ -1090,6 +1123,13 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
         assert ".result(dialog:" in text
         assert "IntentDialog(stringLiteral:" in text
         assert "else { return .result() }" not in text
+        assert "WebMediaDLPairedMacSubmit.plan" in text
+        assert "Explain a WebMedia DL plan" in text
+        assert "Explain this URL with" in text
+        plan = text.split("PlanURLIntent", 1)[1].split("PauseQueueIntent", 1)[0]
+        assert "saveIfDirect" not in plan
+        assert "WebMediaDLPairedMacSubmit.plan" in plan
+        assert "WebMediaDLHttpDirect" not in plan
     mac_intent = (
         root / "apps/WebMediaDLMac/Sources/WebMediaDLMac/WebMediaDLMacSubmitURLIntent.swift"
     ).read_text(encoding="utf-8")
@@ -1103,6 +1143,11 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert ".queueStatus()" in mac_intent
     assert ".pauseJob(jobId:" in mac_intent
     assert ".resumeJob(jobId:" in mac_intent
+    assert ".plan(" in mac_intent
+    assert "WebMediaDLPairedMacSubmit.plan" not in mac_intent
+    assert "WebMediaDLPairedMacSubmit.history" not in mac_intent
+    assert "Explain this URL with" in mac_intent
+    assert "Explain a WebMedia DL plan" in mac_intent
     assert "WebMediaDLCompanionJobControl.requireJobId" in mac_intent
     assert ".result(dialog:" in mac_intent
     assert "IntentDialog(stringLiteral:" in mac_intent
@@ -1198,7 +1243,13 @@ def test_macos_app_supervises_the_loopback_worker() -> None:
     assert "historyEntries()" in mac
     assert "WebMediaDLHistoryEntry.summary" in mac
     assert "Show last job" in mac
+    assert "Explain plan" in mac
+    assert "Worker doctor" in mac
     assert "jobDetail(jobId:" in mac
+    assert "WebMediaDLPairedMacSubmit.plan" not in mac
+    assert "WebMediaDLPairedMacSubmit.doctor" not in mac
+    assert ".plan(" in mac
+    assert ".doctor()" in mac
     loopback = (root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/LoopbackClient.swift").read_text(
         encoding="utf-8"
     )
@@ -1254,6 +1305,9 @@ def test_watch_control_intents_queue_companion_kinds() -> None:
         assert "message.queuedStatus" in text
         assert ".result(dialog:" in text
         assert "IntentDialog(stringLiteral:" in text
+        assert "Explain plan" not in text
+        assert "WebMediaDLPairedMacSubmit.plan" not in text
+        assert "Explain this URL" not in text
     assert "WebMediaDLWatchConnectivityTransport" in watch_intents
     assert "WebMediaDLLocalNetworkCompanionTransport" in tv_intents
     assert "WebMediaDLWatchConnectivityTransport" not in tv_intents
@@ -1267,6 +1321,10 @@ def test_watch_control_intents_queue_companion_kinds() -> None:
         assert 'kind: "resume_job"' in text
         assert 'kind: "cancel"' in text
         assert "message.queuedStatus" in text
+        assert "Explain plan" not in text
+        assert "Worker doctor" not in text
+        assert "WebMediaDLPairedMacSubmit.plan" not in text
+        assert "WebMediaDLPairedMacSubmit.doctor" not in text
 
 
 def test_iphone_forwards_watch_companion_messages() -> None:
@@ -1311,6 +1369,13 @@ def test_complete_client_control_intents_use_mac_relay() -> None:
         assert ".result(dialog:" in text
         assert "IntentDialog(stringLiteral:" in text
         assert "else { return .result() }" not in text
+        assert "WebMediaDLPairedMacSubmit.plan" in text
+        assert "Explain a WebMedia DL plan" in text
+        assert "Explain this URL with" in text
+        plan = text.split("PlanURLIntent", 1)[1].split("PauseQueueIntent", 1)[0]
+        assert "saveIfDirect" not in plan
+        assert "WebMediaDLPairedMacSubmit.plan" in plan
+        assert "WebMediaDLHttpDirect" not in plan
 
 
 def _load_assemble_unsigned_appex():

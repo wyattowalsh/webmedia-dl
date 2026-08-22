@@ -100,6 +100,18 @@ the phone's own `127.0.0.1`.
 - **THEN** those requests target the saved private Mac URL, not the phone's
   loopback
 
+#### Scenario: complete-client plan uses mac relay
+
+- **WHEN** iPhone, iPad, or visionOS asks the Mac to explain a plan
+- **THEN** the request targets the saved private Mac URL `/v1/plan`, not the
+  phone's loopback
+
+#### Scenario: complete-client doctor uses mac relay
+
+- **WHEN** iPhone, iPad, or visionOS asks for worker doctor
+- **THEN** the request targets the saved private Mac URL `/v1/doctor`, not the
+  phone's loopback
+
 #### Scenario: complete-client control intents use mac relay
 
 - **WHEN** iPhone, iPad, or visionOS Siri/Shortcuts pause, resume, history, status,

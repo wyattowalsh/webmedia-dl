@@ -62,6 +62,29 @@ public struct WebMediaDLiOSSpeakURLIntent: AppIntent {
     }
 }
 
+public struct WebMediaDLiOSPlanURLIntent: AppIntent {
+    public static let title: LocalizedStringResource = "Explain a WebMedia DL plan"
+
+    @Parameter(title: "Media URL")
+    public var locator: String
+
+    public init() {}
+
+    public init(locator: String) {
+        self.locator = locator
+    }
+
+    public func perform() async throws -> some IntentResult {
+        let client = WebMediaDLWorkerCredentials.loadClient()
+        let status = try await WebMediaDLPairedMacSubmit.plan(
+            locator: locator,
+            surface: .ios,
+            credentials: client
+        )
+        return .result(dialog: IntentDialog(stringLiteral: status))
+    }
+}
+
 public struct WebMediaDLiOSPauseQueueIntent: AppIntent {
     public static let title: LocalizedStringResource = "Pause WebMedia DL"
 
@@ -177,6 +200,14 @@ public struct WebMediaDLiOSShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "Send to WebMedia DL",
             systemImageName: "arrow.down.circle"
+        )
+        AppShortcut(
+            intent: WebMediaDLiOSPlanURLIntent(),
+            phrases: [
+                "Explain this URL with \(.applicationName)",
+            ],
+            shortTitle: "Explain WebMedia DL plan",
+            systemImageName: "list.bullet"
         )
         AppShortcut(
             intent: WebMediaDLiOSPauseQueueIntent(),

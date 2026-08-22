@@ -148,6 +148,23 @@ public struct WebMediaDLPairedMacEndpoint: Sendable {
         authorized(relayURL.appendingPathComponent("v1/jobs"))
     }
 
+    public func planRequest(locator: String, surface: WebMediaDLSurface) throws -> URLRequest {
+        var request = authorized(relayURL.appendingPathComponent("v1/plan"), method: "POST")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try WebMediaDLLoopbackClient.jsonBody([
+            "locator": locator,
+            "surface": surface.rawValue,
+            "local_user_confirmed": true,
+            "pairing_id": pairingId.uuidString,
+            "session_key": sessionKey,
+        ])
+        return request
+    }
+
+    public func doctorRequest() -> URLRequest {
+        authorized(relayURL.appendingPathComponent("v1/doctor"))
+    }
+
     public func jobDetailRequest(jobId: UUID) -> URLRequest {
         authorized(
             relayURL
@@ -222,6 +239,10 @@ public struct WebMediaDLPairedMacEndpoint: Sendable {
     public func pauseJob(jobId: UUID) async throws -> String { try await send(pauseJobRequest(jobId: jobId)) }
     public func resumeJob(jobId: UUID) async throws -> String { try await send(resumeJobRequest(jobId: jobId)) }
     public func jobDetail(jobId: UUID) async throws -> String { try await send(jobDetailRequest(jobId: jobId)) }
+    public func plan(locator: String, surface: WebMediaDLSurface) async throws -> String {
+        try await send(try planRequest(locator: locator, surface: surface))
+    }
+    public func doctor() async throws -> String { try await send(doctorRequest()) }
 
     public func companionRequest(_ message: WebMediaDLCompanionMessage) throws -> URLRequest {
         var request = authorized(relayURL.appendingPathComponent("v1/companion"), method: "POST")
@@ -498,6 +519,36 @@ public enum WebMediaDLPairedMacSubmit {
             approvedRoots: approvedRoots,
             bookmarkData: bookmarkData
         )
+    }
+
+    public static func plan(
+        locator: String,
+        surface: WebMediaDLSurface,
+        credentials: WebMediaDLLoopbackClient = WebMediaDLWorkerCredentials.loadClient(),
+        pairingId: UUID? = nil,
+        sessionKey: String? = nil,
+        defaults: UserDefaults = WebMediaDLWorkerCredentials.defaults()
+    ) async throws -> String {
+        try await loadEndpoint(
+            credentials: credentials,
+            pairingId: pairingId,
+            sessionKey: sessionKey,
+            defaults: defaults
+        ).plan(locator: locator, surface: surface)
+    }
+
+    public static func doctor(
+        credentials: WebMediaDLLoopbackClient = WebMediaDLWorkerCredentials.loadClient(),
+        pairingId: UUID? = nil,
+        sessionKey: String? = nil,
+        defaults: UserDefaults = WebMediaDLWorkerCredentials.defaults()
+    ) async throws -> String {
+        try await loadEndpoint(
+            credentials: credentials,
+            pairingId: pairingId,
+            sessionKey: sessionKey,
+            defaults: defaults
+        ).doctor()
     }
 
     public static func submitDrop(

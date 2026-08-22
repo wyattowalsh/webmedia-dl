@@ -26,7 +26,10 @@ the Mac job publishes, complete clients pull artifact bytes from
 `GET /v1/artifacts/{id}/content` into that same Files bookmark and inspect
 `GET /v1/jobs/{id}` JSON through `WebMediaDLCompleteClientControl` without copying
 the Mac worker bearer. Siri/Shortcuts speak the worker or relay response instead of
-an empty result. Page locators,
+an empty result. Complete clients and the Mac app also expose **Explain plan**
+(`POST /v1/plan`) and **Worker doctor** (`GET /v1/doctor`): iPhone, iPad, and
+visionOS send those to the saved private Mac URL; macOS talks to the loopback
+worker. Missing pairing fails closed. Page locators,
 encrypted HLS/DASH, and live manifests fail closed locally and require a paired Mac.
 Watch companion messages travel watch → iPhone `WCSession` → Mac LAN HTTP; the Mac
 app does not activate `WCSession`. The iPhone companion hops those `userInfo`

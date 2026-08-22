@@ -269,6 +269,27 @@ final class ContractTests: XCTestCase {
         XCTAssertTrue(
             client.artifactContentRequest(artifactId: "sha256:abc").url?.path.hasSuffix("/content") ?? false
         )
+        let planned = try client.planRequest(locator: "https://example.com/a.mp4", surface: .macos)
+        XCTAssertTrue(planned.url?.path.hasSuffix("/v1/plan") ?? false)
+        XCTAssertEqual(planned.httpMethod, "POST")
+        let planBody = String(data: planned.httpBody ?? Data(), encoding: .utf8) ?? ""
+        XCTAssertTrue(planBody.contains("https://example.com/a.mp4"))
+        XCTAssertFalse(planBody.contains("nativeCommand"))
+        XCTAssertFalse(planBody.contains("\"wait\""))
+        XCTAssertFalse(planBody.contains("intake_kind"))
+        XCTAssertTrue(client.doctorRequest().url?.path.hasSuffix("/v1/doctor") ?? false)
+        let authed = WebMediaDLLoopbackClient(token: "loopback-token")
+        let doctorRequest = authed.doctorRequest()
+        XCTAssertEqual(doctorRequest.url?.path, "/v1/doctor")
+        XCTAssertEqual(doctorRequest.httpMethod, "GET")
+        XCTAssertEqual(doctorRequest.value(forHTTPHeaderField: "Authorization"), "Bearer loopback-token")
+        XCTAssertNil(doctorRequest.value(forHTTPHeaderField: "X-WebMedia-Pairing"))
+        XCTAssertNil(doctorRequest.value(forHTTPHeaderField: "X-WebMedia-Session"))
+        let authedPlan = try authed.planRequest(locator: "https://example.com/a.mp4", surface: .macos)
+        XCTAssertEqual(authedPlan.url?.path, "/v1/plan")
+        XCTAssertEqual(authedPlan.httpMethod, "POST")
+        XCTAssertEqual(authedPlan.value(forHTTPHeaderField: "Authorization"), "Bearer loopback-token")
+        XCTAssertNil(authedPlan.value(forHTTPHeaderField: "X-WebMedia-Pairing"))
         let pairBody = String(data: try client.pairRequest().httpBody ?? Data(), encoding: .utf8) ?? ""
         XCTAssertTrue(pairBody.contains("personal-restricted"))
         let wrap = try client.envelopeWrapRequest(
@@ -393,6 +414,29 @@ final class ContractTests: XCTestCase {
         XCTAssertTrue(
             endpoint!.artifactContentRequest(artifactId: "sha256:abc").url?.path.hasSuffix("/content") ?? false
         )
+        let endpointPlan = try endpoint!.planRequest(
+            locator: "https://example.com/a.mp4",
+            surface: .ios
+        )
+        XCTAssertEqual(endpointPlan.url?.host, "10.0.0.2")
+        XCTAssertEqual(endpointPlan.url?.path, "/v1/plan")
+        XCTAssertEqual(endpointPlan.httpMethod, "POST")
+        XCTAssertEqual(endpointPlan.value(forHTTPHeaderField: "X-WebMedia-Pairing"), pairing.uuidString)
+        XCTAssertEqual(endpointPlan.value(forHTTPHeaderField: "X-WebMedia-Session"), "sess")
+        XCTAssertEqual(endpointPlan.value(forHTTPHeaderField: "Authorization"), "Bearer tok")
+        let endpointPlanBody = String(data: endpointPlan.httpBody ?? Data(), encoding: .utf8) ?? ""
+        XCTAssertTrue(endpointPlanBody.contains("https://example.com/a.mp4"))
+        XCTAssertTrue(endpointPlanBody.contains("local_user_confirmed"))
+        XCTAssertFalse(endpointPlanBody.contains("nativeCommand"))
+        XCTAssertFalse(endpointPlanBody.contains("\"wait\""))
+        XCTAssertFalse(endpointPlanBody.contains("intake_kind"))
+        let endpointDoctor = endpoint!.doctorRequest()
+        XCTAssertEqual(endpointDoctor.url?.host, "10.0.0.2")
+        XCTAssertEqual(endpointDoctor.url?.path, "/v1/doctor")
+        XCTAssertEqual(endpointDoctor.httpMethod, "GET")
+        XCTAssertEqual(endpointDoctor.value(forHTTPHeaderField: "X-WebMedia-Pairing"), pairing.uuidString)
+        XCTAssertEqual(endpointDoctor.value(forHTTPHeaderField: "X-WebMedia-Session"), "sess")
+        XCTAssertEqual(endpointDoctor.value(forHTTPHeaderField: "Authorization"), "Bearer tok")
         let remapped = try endpoint!.submitRequest(
             locator: "https://example.com/a.mp4",
             surface: .ios,
@@ -468,6 +512,24 @@ final class ContractTests: XCTestCase {
                 defaults: UserDefaults(suiteName: UUID().uuidString)!
             )
             XCTFail("complete-client history without pairing must fail closed")
+        } catch WebMediaDLHttpDirect.TransferError.pairingRequired {
+            ()
+        }
+        do {
+            _ = try await WebMediaDLPairedMacSubmit.plan(
+                locator: "https://example.com/a.mp4",
+                surface: .ios,
+                defaults: UserDefaults(suiteName: UUID().uuidString)!
+            )
+            XCTFail("complete-client plan without pairing must fail closed")
+        } catch WebMediaDLHttpDirect.TransferError.pairingRequired {
+            ()
+        }
+        do {
+            _ = try await WebMediaDLPairedMacSubmit.doctor(
+                defaults: UserDefaults(suiteName: UUID().uuidString)!
+            )
+            XCTFail("complete-client doctor without pairing must fail closed")
         } catch WebMediaDLHttpDirect.TransferError.pairingRequired {
             ()
         }
@@ -783,6 +845,12 @@ final class ContractTests: XCTestCase {
         XCTAssertEqual(endpoint.token, "")
         XCTAssertNil(try endpoint.submitRequest(locator: "https://example.com/a.mp4", surface: .ios)
             .value(forHTTPHeaderField: "Authorization"))
+        XCTAssertNil(try endpoint.planRequest(locator: "https://example.com/a.mp4", surface: .ios)
+            .value(forHTTPHeaderField: "Authorization"))
+        XCTAssertNil(endpoint.doctorRequest().value(forHTTPHeaderField: "Authorization"))
+        XCTAssertEqual(try endpoint.planRequest(locator: "https://example.com/a.mp4", surface: .ios)
+            .url?.path, "/v1/plan")
+        XCTAssertEqual(endpoint.doctorRequest().url?.path, "/v1/doctor")
         XCTAssertEqual(
             try endpoint.submitRequest(locator: "https://example.com/a.mp4", surface: .ios)
                 .value(forHTTPHeaderField: "X-WebMedia-Session"),

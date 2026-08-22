@@ -132,6 +132,33 @@ public struct WebMediaDLLoopbackClient: Sendable {
         authorized(baseURL.appendingPathComponent("v1/jobs"))
     }
 
+    public func planRequest(
+        locator: String,
+        surface: WebMediaDLSurface,
+        pairingId: UUID? = nil,
+        sessionKey: String? = nil
+    ) throws -> URLRequest {
+        var request = authorized(baseURL.appendingPathComponent("v1/plan"), method: "POST")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        var body: [String: Any] = [
+            "locator": locator,
+            "surface": surface.rawValue,
+            "local_user_confirmed": true,
+        ]
+        if let pairingId {
+            body["pairing_id"] = pairingId.uuidString
+        }
+        if let sessionKey {
+            body["session_key"] = sessionKey
+        }
+        request.httpBody = try Self.jsonBody(body)
+        return request
+    }
+
+    public func doctorRequest() -> URLRequest {
+        authorized(baseURL.appendingPathComponent("v1/doctor"))
+    }
+
     public func cancelRequest(jobId: UUID) -> URLRequest {
         let url = baseURL
             .appendingPathComponent("v1/jobs")
@@ -340,6 +367,26 @@ public struct WebMediaDLLoopbackClient: Sendable {
                 bookmarkData: bookmarkData
             )
         )
+    }
+
+    public func plan(
+        locator: String,
+        surface: WebMediaDLSurface,
+        pairingId: UUID? = nil,
+        sessionKey: String? = nil
+    ) async throws -> String {
+        try await send(
+            planRequest(
+                locator: locator,
+                surface: surface,
+                pairingId: pairingId ?? self.pairingId,
+                sessionKey: sessionKey ?? self.sessionKey
+            )
+        )
+    }
+
+    public func doctor() async throws -> String {
+        try await send(doctorRequest())
     }
 
     public func history() async throws -> String {

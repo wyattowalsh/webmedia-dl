@@ -117,6 +117,22 @@ public struct WebMediaDLiPadOSRootView: View {
                     }
                 }
                 .accessibilityLabel("Send to paired Mac")
+                Button("Explain plan") {
+                    Task {
+                        do {
+                            status = try await WebMediaDLPairedMacSubmit.plan(
+                                locator: locator,
+                                surface: .ipados,
+                                credentials: pairedClient,
+                                pairingId: UUID(uuidString: pairingId),
+                                sessionKey: sessionKey.isEmpty ? nil : sessionKey
+                            )
+                        } catch {
+                            status = error.localizedDescription
+                        }
+                    }
+                }
+                .accessibilityLabel("Explain plan")
                 TextField("Paired Mac URL", text: $macRelay)
                     .accessibilityLabel("Paired Mac URL")
                 Button("Save Mac address") {
@@ -316,6 +332,20 @@ public struct WebMediaDLiPadOSRootView: View {
                 }
                 .accessibilityLabel("Show last job")
                 Text("Role \(role.rawValue) at \(WebMediaDLPairedMacEndpoint.advertisedRelay()?.absoluteString ?? "not saved")")
+                Button("Worker doctor") {
+                    Task {
+                        do {
+                            status = try await WebMediaDLPairedMacSubmit.doctor(
+                                credentials: pairedClient,
+                                pairingId: UUID(uuidString: pairingId),
+                                sessionKey: sessionKey.isEmpty ? nil : sessionKey
+                            )
+                        } catch {
+                            status = error.localizedDescription
+                        }
+                    }
+                }
+                .accessibilityLabel("Worker doctor")
                 Spacer()
             }
             .padding()

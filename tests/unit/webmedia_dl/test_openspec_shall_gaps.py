@@ -518,6 +518,14 @@ SCENARIO_EVIDENCE: dict[str, tuple[str, str]] = {
         "apps/WebMediaDLCore/Tests/WebMediaDLCoreTests/ContractTests.swift",
         "testLoopbackRequestBuildersStayOnLoopback",
     ),
+    "complete-client plan uses mac relay": (
+        "apps/WebMediaDLCore/Tests/WebMediaDLCoreTests/ContractTests.swift",
+        "testLoopbackRequestBuildersStayOnLoopback",
+    ),
+    "complete-client doctor uses mac relay": (
+        "apps/WebMediaDLCore/Tests/WebMediaDLCoreTests/ContractTests.swift",
+        "testLoopbackRequestBuildersStayOnLoopback",
+    ),
     "complete-client control intents use mac relay": (
         "apps/WebMediaDLCore/Tests/WebMediaDLCoreTests/ContractTests.swift",
         "testLoopbackRequestBuildersStayOnLoopback",

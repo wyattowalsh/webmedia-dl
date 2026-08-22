@@ -2,6 +2,12 @@
 
 ## 0.1.0
 
+- GitHub Actions `32569147243` on `5932ebc` passed Python (583 pytest, 100%)
+  and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after speaking every
+  App Intent result. Complete clients now explain the safest best-quality plan
+  (`POST /v1/plan`) and run worker doctor (`GET /v1/doctor`) on the saved
+  private Mac URL; macOS uses the loopback worker. Missing pairing fails closed.
+  Watch/tv stay companion-only and do not call `/v1/plan`.
 - GitHub Actions `32568400311` on `b2839e6` passed Python (583 pytest, 100%)
   and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after hopping
   complete-client queue buttons onto `WebMediaDLCompleteClientControl`.
