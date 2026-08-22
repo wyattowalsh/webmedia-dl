@@ -16,6 +16,7 @@ export function pageCollector(doc) {
     /^(javascript|data|blob|file|about|chrome|chrome-extension):/i;
   const directMediaHref =
     /\.(mp4|webm|mkv|mov|m4v|mp3|m4a|aac|flac|wav|ogg|opus|jpg|jpeg|png|gif|webp|avif|pdf|vtt|srt|m3u8|mpd)(\?|#|$)/i;
+  const nonMediaHref = /\.(js|mjs|cjs|css|html|htm|json|wasm|map)(\?|#|$)/i;
   const locatorBase = () => {
     const owner = root.ownerDocument || root;
     if (typeof owner.baseURI === "string" && owner.baseURI) {
@@ -202,17 +203,24 @@ export function pageCollector(doc) {
       rel.split(/\s+/).includes("preload") &&
       typeof href === "string" &&
       directMediaHref.test(href);
-    if (
+    const mediaAs =
       asAttr === "video" ||
       asAttr === "audio" ||
       asAttr === "image" ||
-      asAttr === "track" ||
-      preloadMedia ||
+      asAttr === "track";
+    const typedMedia =
       mime.startsWith("video/") ||
       mime.startsWith("audio/") ||
-      mime.startsWith("image/") ||
+      mime.startsWith("image/");
+    const liveMime =
       mime.includes("mpegurl") ||
-      mime.includes("dash+xml")
+      mime.includes("dash+xml");
+    if (
+      ((mediaAs || typedMedia) &&
+        typeof href === "string" &&
+        !nonMediaHref.test(href)) ||
+      preloadMedia ||
+      liveMime
     ) {
       let kind = "video";
       if (mime.includes("mpegurl") || mime.includes("dash+xml")) {

@@ -258,6 +258,22 @@ describe("collectMediaEvidence", () => {
             },
             {
               getAttribute: (name) => {
+                if (name === "href") return "https://cdn.example.com/player.js";
+                if (name === "as") return "video";
+                if (name === "rel") return "preload";
+                if (name === "type") return "video/mp4";
+                return null;
+              },
+            },
+            {
+              getAttribute: (name) => {
+                if (name === "href") return "https://cdn.example.com/playlist.json";
+                if (name === "type") return "application/vnd.apple.mpegurl";
+                return null;
+              },
+            },
+            {
+              getAttribute: (name) => {
                 if (name === "href") return "https://cdn.example.com/still.png";
                 if (name === "as") return "image";
                 if (name === "rel") return "preload";
@@ -291,6 +307,9 @@ describe("collectMediaEvidence", () => {
     assert.ok(urls.includes("https://cdn.example.com/bare.mp4"));
     assert.ok(!urls.includes("https://cdn.example.com/app.js"));
     assert.ok(!urls.includes("https://cdn.example.com/boot.js"));
+    assert.ok(!urls.includes("https://cdn.example.com/player.js"));
+    assert.ok(urls.includes("https://cdn.example.com/playlist.json"));
+    assert.equal(byUrl["https://cdn.example.com/playlist.json"], "live_stream");
     assert.ok(urls.includes("https://cdn.example.com/still.png"));
     assert.ok(urls.includes("https://cdn.example.com/alt.mpd"));
     assert.ok(urls.includes("https://cdn.example.com/plain-live"));

@@ -177,6 +177,7 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
         <link rel="preload" as="script" href="https://cdn.example.com/boot.js">
         <link type="application/dash+xml;charset=utf-8" href="https://cdn.example.com/alt.mpd">
         <link type="application/vnd.apple.mpegurl" href="https://cdn.example.com/alt.m3u8">
+        <link type="application/vnd.apple.mpegurl" href="https://cdn.example.com/playlist.json">
         <script type="application/ld+json">
           {"@type": "VideoObject", "embedUrl": "https://example.com/watch?v=1"}
         </script>
@@ -195,11 +196,13 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
     assert "https://cdn.example.com/bare.mp4" in urls
     assert "https://cdn.example.com/app.js" not in urls
     assert "https://cdn.example.com/boot.js" not in urls
+    assert "https://cdn.example.com/playlist.json" in urls
     stolen = """
     <html>
       <head>
         <link rel="modulepreload" href="https://cdn.example.com/app.js">
         <link rel="preload" as="script" href="https://cdn.example.com/boot.js">
+        <link rel="preload" as="video" type="video/mp4" href="https://cdn.example.com/player.js">
       </head>
       <body>
         <video src="https://cdn.example.com/clip.mp4"></video>
@@ -207,15 +210,18 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
     </html>
     """
     mixed = discover(_source(), profile, html=stolen)
+    mixed_urls = [item.retrieval_urls[0] for item in mixed if item.retrieval_urls]
     preferred = preferred_by_kind(build_graph(uuid4(), mixed))
     videos = [item for item in preferred if item.media_kind is MediaKind.VIDEO]
     assert videos
     assert videos[0].retrieval_urls[0] == "https://cdn.example.com/clip.mp4"
+    assert "https://cdn.example.com/player.js" not in mixed_urls
     assert "https://cdn.example.com/player.m3u8" in urls
     assert kinds["https://example.com/watch?v=1"] is MediaKind.VIDEO
     assert kinds["https://cdn.example.com/player.m3u8"] is MediaKind.LIVE_STREAM
     assert kinds["https://cdn.example.com/alt.mpd"] is MediaKind.LIVE_STREAM
     assert kinds["https://cdn.example.com/alt.m3u8"] is MediaKind.LIVE_STREAM
+    assert kinds["https://cdn.example.com/playlist.json"] is MediaKind.LIVE_STREAM
     object_id = """
     <html><body>
       <script type="application/ld+json">

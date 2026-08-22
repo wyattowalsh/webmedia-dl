@@ -50,6 +50,24 @@ DIRECT_EXTENSIONS = {
     ".mpd": MediaKind.LIVE_STREAM,
 }
 
+_NON_MEDIA_PATH_SUFFIXES = (
+    ".js",
+    ".mjs",
+    ".cjs",
+    ".css",
+    ".html",
+    ".htm",
+    ".json",
+    ".wasm",
+    ".map",
+)
+
+
+def _locator_has_non_media_suffix(url: str) -> bool:
+    path = urlparse(url).path.lower()
+    return any(path.endswith(ext) for ext in _NON_MEDIA_PATH_SUFFIXES)
+
+
 FetchFn = Callable[[str], tuple[int, str, bytes]]
 
 
@@ -150,9 +168,11 @@ class _MediaHTMLParser(HTMLParser):
             as_attr = (mapping.get("as") or "").lower()
             mime = (mapping.get("type") or "").lower()
             mime_kind = _kind_from_mime(mapping.get("type"))
+            media_as = as_attr in {"video", "audio", "image", "track"}
+            typed_media = mime_kind not in {None, MediaKind.LIVE_STREAM}
             if href and (
-                as_attr in {"video", "audio", "image", "track"}
-                or mime_kind is not None
+                mime_kind is MediaKind.LIVE_STREAM
+                or ((media_as or typed_media) and not _locator_has_non_media_suffix(href))
                 or ("preload" in rel.split() and is_direct_media_url(href))
             ):
                 kind = mime_kind or MediaKind.VIDEO

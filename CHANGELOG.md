@@ -2,6 +2,15 @@
 
 ## 0.1.0
 
+- Ignore `link` locators whose `as` is video/audio/image/track or whose MIME
+  is `video/` / `audio/` / `image/` when the href ends in a non-media suffix
+  such as `.js`. A head `preload as=video type=video/mp4` of `player.js`
+  can no longer steal preferred VIDEO from `video[src]`. Live `mpegurl` /
+  `dash+xml` locators, including `.json` playlists, stay collected.
+  GitHub Actions `32586051589` on `3eeac05` passed Python (626 pytest,
+  100%), doctor provider probes, and Swift (18 tests, 0 failures; 12×
+  BUILD SUCCEEDED) after keeping `link` collection to preload media and
+  slicing spaced HLS byte ranges.
 - Keep `link` collection to preload **media**: `modulepreload` and
   `preload as=script` no longer steal the preferred VIDEO candidate from
   `video[src]`. Slice HLS `#EXT-X-BYTERANGE` / MAP `BYTERANGE` values that
