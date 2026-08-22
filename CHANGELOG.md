@@ -2,13 +2,19 @@
 
 ## 0.1.0
 
+- Provider `_tracked_run` clips stdout/stderr to 8 MiB on every return.
+  OpenSpec binds remux-before-transcode, sibling publication isolation,
+  cookie-grant restore, unsafe format ids, and doctor BLOCKED release
+  gates. GitHub Actions run `32554995796` on `b6a1cc6` passed Python
+  (550 pytest, 99.98%) and Swift (18 tests, 0 failures; 8× BUILD
+  SUCCEEDED).
 - Exit 0 with no source files fails closed as "produced no source files"
   instead of "exited 0". Existing `output_paths` still register when the
   primary `output_path` is missing. Live recording polls with a `while`
   bound. OpenSpec binds queue zero-UUID events and `wmdl` not being the
-  console script. GitHub Actions run `32554681071` on `fc10e4d` passed
-  Python (549 pytest, 99.89%) and Swift (18 tests, 0 failures; 8× BUILD
-  SUCCEEDED). Local follow-up is 550 pytest at 100% line/branch coverage.
+  console script. GitHub Actions run `32554995796` on `b6a1cc6` passed
+  Python (550 pytest, 99.98%) and Swift (18 tests, 0 failures; 8× BUILD
+  SUCCEEDED).
 - A clear acquire probe that later reports encryption fails closed at
   `_record_probe`. Lossy transcode skips semantic-parity. HLS byte-range
   clocks always advance after a parsed `#EXT-X-BYTERANGE` length. Staging
@@ -20,8 +26,8 @@
   `(path, test)` evidence. Unreachable URL-as-path and DASH timeline branches
   are removed; publication refuses unknown destination kinds. Restored preview
   artifacts are skipped at validation; acquired-kinds without sources fail closed.
-  GitHub Actions run `32554681071` on `fc10e4d` passed Python (549 pytest,
-  99.89%) and Swift (18 tests, 0 failures).
+  GitHub Actions run `32554995796` on `b6a1cc6` passed Python (550 pytest,
+  99.98%) and Swift (18 tests, 0 failures).
 - Companion cancel/pause_job/resume_job require a job UUID (sealed
   envelopes included). `/v1/companion` forbids extra JSON fields such as
   `providerArgv`. `doctor` records an executed httpx probe for

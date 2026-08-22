@@ -333,17 +333,29 @@ class ProviderRuntime:
             while True:
                 try:
                     stdout, stderr = proc.communicate(timeout=0.2)
-                    return proc.returncode or 0, stdout, stderr
+                    return (
+                        proc.returncode or 0,
+                        _clip_stdio(stdout or b""),
+                        _clip_stdio(stderr or b""),
+                    )
                 except subprocess.TimeoutExpired:
                     waited += 0.2
                     if self._cancel_event(key).is_set() or self._pause_event(key).is_set():
                         _terminate_process(proc)
                         stdout, stderr = proc.communicate()
-                        return proc.returncode or 130, stdout, stderr
+                        return (
+                            proc.returncode or 130,
+                            _clip_stdio(stdout or b""),
+                            _clip_stdio(stderr or b""),
+                        )
                     if waited >= deadline:
                         _terminate_process(proc)
                         stdout, stderr = proc.communicate()
-                        return proc.returncode or 124, stdout, stderr
+                        return (
+                            proc.returncode or 124,
+                            _clip_stdio(stdout or b""),
+                            _clip_stdio(stderr or b""),
+                        )
         finally:
             with self._lock:
                 if proc in self._procs.get(key, []):

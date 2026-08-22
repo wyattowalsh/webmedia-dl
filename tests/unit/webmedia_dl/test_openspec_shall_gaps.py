@@ -499,6 +499,10 @@ SCENARIO_EVIDENCE: dict[str, tuple[str, str]] = {
         "tests/unit/webmedia_dl/test_openspec_shall_gaps.py",
         "test_queue_events_use_zero_uuid",
     ),
+    "run_next restores cookie grants": (
+        "tests/unit/webmedia_dl/test_fail_closed_followups.py",
+        "test_run_next_restores_cookie_grant",
+    ),
     "doctor JSON": ("tests/unit/webmedia_dl/test_cli.py", "test_doctor_json"),
     "support bundle is local-only": (
         "tests/unit/webmedia_dl/test_cli.py",
@@ -527,10 +531,18 @@ SCENARIO_EVIDENCE: dict[str, tuple[str, str]] = {
         "tests/unit/webmedia_dl/test_fail_closed_followups.py",
         "test_jobs_export_outside_approved_roots_fails_closed",
     ),
+    "failed derivative does not block siblings": (
+        "tests/unit/webmedia_dl/test_pack_gap_fixes.py",
+        "test_publish_skips_failed_sibling",
+    ),
     "extra_args rejected": ("tests/unit/webmedia_dl/test_providers.py", "test_extra_args_rejected"),
     "yt-dlp format token": (
         "tests/unit/webmedia_dl/test_providers.py",
         "test_ytdlp_argv_is_allowlisted",
+    ),
+    "unsafe format id is rejected": (
+        "tests/unit/webmedia_dl/test_openspec_shall_gaps.py",
+        "test_format_id_cannot_be_a_leading_dash_flag",
     ),
     "doctor does not install yt-dlp": (
         "tests/unit/webmedia_dl/test_openspec_shall_gaps.py",
@@ -556,6 +568,10 @@ SCENARIO_EVIDENCE: dict[str, tuple[str, str]] = {
     "default plan keeps original": (
         "tests/unit/webmedia_dl/test_fail_closed_followups.py",
         "test_original_sacred_keeps_original_with_no_loss",
+    ),
+    "remux is planned before transcode": (
+        "tests/unit/webmedia_dl/test_remaining_contract_gates.py",
+        "test_export_preset_override_and_lossy_without_container",
     ),
     "repo cookie rejected": (
         "tests/unit/webmedia_dl/test_security.py",

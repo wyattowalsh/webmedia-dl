@@ -50,3 +50,8 @@ registered sources, and `resume_job` SHALL skip kinds already acquired.
 
 - **WHEN** the operator pauses and resumes the queue
 - **THEN** those events use job id `00000000-0000-0000-0000-000000000000`
+
+#### Scenario: run_next restores cookie grants
+
+- **WHEN** a queued job has a cookie grant in context
+- **THEN** `run_next` attaches `--cookies` from that grant

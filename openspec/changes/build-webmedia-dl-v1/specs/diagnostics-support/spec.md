@@ -12,7 +12,8 @@ and legal review SHALL be `BLOCKED`, never `PASS`.
 
 - **WHEN** doctor runs on Linux CI
 - **THEN** `telemetry_default` is false, `drm_circumvention` is false, and
-  `apple_devices.macos.status` is `BLOCKED`
+  `apple_devices.macos`, `signing_notarization`, `browser_stores`, `app_review`,
+  `legal_review`, and `original_planning_pack` are `BLOCKED`
 
 ### Requirement: Local support bundle
 

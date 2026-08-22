@@ -24,3 +24,8 @@ job. Optional preview operations MAY fail independently.
 
 - **WHEN** destination is not under `approved_roots`
 - **THEN** publication fails closed
+
+#### Scenario: failed derivative does not block siblings
+
+- **WHEN** one artifact fails hash-match and a sibling has executed PASS
+- **THEN** publication writes the sibling and still fails closed if only the failed artifact is published

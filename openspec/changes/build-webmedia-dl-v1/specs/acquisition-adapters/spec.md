@@ -18,6 +18,11 @@ Arbitrary `extra_args` SHALL be rejected. Format ids SHALL match
 - **WHEN** `format_id` is `137+140`
 - **THEN** argv contains `--format 137+140` and does not contain `--exec`
 
+#### Scenario: unsafe format id is rejected
+
+- **WHEN** `format_id` is `--cookies` or `-best`
+- **THEN** the format id is refused and yt-dlp is not executed
+
 ### Requirement: No automatic install
 
 Provider manifests SHALL set `install_automatic` false. Missing binaries SHALL be

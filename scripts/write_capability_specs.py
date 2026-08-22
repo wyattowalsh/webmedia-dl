@@ -83,6 +83,11 @@ Arbitrary `extra_args` SHALL be rejected. Format ids SHALL match `^[A-Za-z0-9+._
 - **WHEN** `format_id` is `137+140`
 - **THEN** argv contains `--format 137+140` and does not contain `--exec`
 
+#### Scenario: unsafe format id is rejected
+
+- **WHEN** `format_id` is `--cookies` or `-best`
+- **THEN** the format id is refused and yt-dlp is not executed
+
 ### Requirement: No automatic install
 
 Provider manifests SHALL set `install_automatic` false. Missing binaries SHALL be
@@ -123,6 +128,11 @@ require `allow_lossy`.
 
 - **WHEN** intent uses preset `original-sacred`
 - **THEN** the plan contains `keep-original` with no loss
+
+#### Scenario: remux is planned before transcode
+
+- **WHEN** intent sets `allow_lossy` and a remux container
+- **THEN** the plan lists `remux` before `transcode`, and without `allow_lossy` there is no transcode
 """,
     "export-validation-publication": """
 # Delta: export-validation-publication
@@ -149,6 +159,11 @@ replace into the destination. Paths outside approved roots SHALL be denied.
 
 - **WHEN** destination is not under `approved_roots`
 - **THEN** publication fails closed
+
+#### Scenario: failed derivative does not block siblings
+
+- **WHEN** one artifact fails hash-match and a sibling has executed PASS
+- **THEN** publication writes the sibling and still fails closed if only the failed artifact is published
 """,
     "media-processing": """
 # Delta: media-processing
@@ -201,6 +216,11 @@ provider console output as its public API. Default telemetry SHALL be false.
 
 - **WHEN** the operator pauses and resumes the queue
 - **THEN** those events use job id `00000000-0000-0000-0000-000000000000`
+
+#### Scenario: run_next restores cookie grants
+
+- **WHEN** a queued job has a cookie grant in context
+- **THEN** `run_next` attaches `--cookies` from that grant
 """,
     "security-privacy-policy": """
 # Delta: security-privacy-policy
@@ -313,7 +333,8 @@ and legal review SHALL be `BLOCKED`, never `PASS`.
 
 - **WHEN** doctor runs on Linux CI
 - **THEN** `telemetry_default` is false, `drm_circumvention` is false, and
-  `apple_devices.macos.status` is `BLOCKED`
+  `apple_devices.macos`, `signing_notarization`, `browser_stores`, `app_review`,
+  `legal_review`, and `original_planning_pack` are `BLOCKED`
 """,
     "accessibility-ux": """
 # Delta: accessibility-ux

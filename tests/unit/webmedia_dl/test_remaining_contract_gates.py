@@ -201,6 +201,14 @@ def test_export_preset_override_and_lossy_without_container(tmp_path: Path) -> N
     assert any(item.operation_id == "remux" for item in remux.operations)
     lossy = plan_export(uuid4(), video, ExportIntent(allow_lossy=True))
     assert any(item.operation_id == "transcode" for item in lossy.operations)
+    assert all(item.operation_id != "remux" for item in lossy.operations)
+    remux_then = plan_export(
+        uuid4(), video, ExportIntent(allow_lossy=True, container_preference="mkv")
+    )
+    ids = [item.operation_id for item in remux_then.operations]
+    assert ids.index("remux") < ids.index("transcode")
+    sacred = plan_export(uuid4(), video, ExportIntent())
+    assert all(item.operation_id != "transcode" for item in sacred.operations)
 
 
 def test_publish_photos_staging_and_missing_path(tmp_path: Path, png_bytes: bytes) -> None:
