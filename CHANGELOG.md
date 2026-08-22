@@ -2,6 +2,14 @@
 
 ## 0.1.0
 
+- Expand DASH `$SubNumber$` from SegmentTimeline `S@k` so subsegment locators
+  are recorded instead of leftover `$SubNumber$` tokens. `$SubNumber%0Nd$`
+  pads like `$Number%0Nd$`. `k` is ignored when `r` is present; leftover
+  `$SubNumber$` without `k` is skipped. GitHub Actions `32605876307` on
+  `8f25971` passed Python (626 pytest, 100%), doctor provider probes, and
+  Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after collecting
+  `twitter:image:src` as IMAGE.
+
 - Collect `twitter:image:src` as IMAGE in HTML discovery and browser capture,
   matching `twitter:image` and `og:image:url`. GitHub Actions `32605646411` on
   `a85f83f` passed Python (626 pytest, 100%), doctor provider probes, and

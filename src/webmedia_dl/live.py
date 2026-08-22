@@ -44,7 +44,10 @@ _DASH_ATTR = re.compile(r"([A-Za-z_:][\w:.-]*)=(?:\"([^\"]*)\"|'([^']*)')")
 _NUMBER_TOKEN = re.compile(r"\$Number(%[^$]+)?\$")
 _TIME_TOKEN = re.compile(r"\$Time(%[^$]+)?\$")
 _BANDWIDTH_TOKEN = re.compile(r"\$Bandwidth(%[^$]+)?\$")
-_UNEXPANDED_DASH = re.compile(r"\$(?:Number|Time|RepresentationID|Bandwidth)(?:%[^$]+)?\$")
+_SUB_NUMBER_TOKEN = re.compile(r"\$SubNumber(%[^$]+)?\$")
+_UNEXPANDED_DASH = re.compile(
+    r"\$(?:Number|Time|RepresentationID|Bandwidth|SubNumber)(?:%[^$]+)?\$"
+)
 _REPRESENTATION = re.compile(
     rf"<{_XML_NS}Representation\b([^>]*)(?:/>|>(.*?)</{_XML_NS}Representation>)",
     re.I | re.S,
@@ -489,6 +492,7 @@ def _expand_dash_template(
     *,
     number: int | None = None,
     time_value: int | None = None,
+    sub_number: int | None = None,
     representation: str = "1",
     bandwidth: str = "1",
 ) -> str:
@@ -497,6 +501,8 @@ def _expand_dash_template(
         text = _NUMBER_TOKEN.sub(lambda match: _format_token(number, match.group(1)), text)
     if time_value is not None:
         text = _TIME_TOKEN.sub(lambda match: _format_token(time_value, match.group(1)), text)
+    if sub_number is not None:
+        text = _SUB_NUMBER_TOKEN.sub(lambda match: _format_token(sub_number, match.group(1)), text)
     text = text.replace("$RepresentationID$", representation)
     text = _expand_bandwidth(text, bandwidth)
     return text.replace("\x00", "$")
@@ -510,7 +516,7 @@ def _resolved_dash_href(
     number: int | None = None,
     time_value: int | None = None,
 ) -> str | None:
-    """Expand DASH identifier tokens; return None when `$Number$` / `$Time$` remain."""
+    """Expand DASH identifier tokens; return None when `$Number$` / `$Time$` / `$SubNumber$` remain."""
     resolved = _expand_dash_template(
         href.strip(),
         number=number,
@@ -562,7 +568,11 @@ def _template_urls(
     urls: list[str] = []
 
     def add(
-        template: str | None, *, number: int | None = None, time_value: int | None = None
+        template: str | None,
+        *,
+        number: int | None = None,
+        time_value: int | None = None,
+        sub_number: int | None = None,
     ) -> None:
         if not template:
             return
@@ -570,6 +580,7 @@ def _template_urls(
             template,
             number=number,
             time_value=time_value,
+            sub_number=sub_number,
             representation=representation,
             bandwidth=bandwidth,
         )
@@ -606,8 +617,20 @@ def _template_urls(
                     if fitted <= 0:
                         continue
                     count = min(count, fitted)
+            keyed = bool(_SUB_NUMBER_TOKEN.search(media)) and "k" in sattrs and repeats == 0
+            subsegments = max(_int_attr(sattrs, "k", 1), 1) if keyed else 1
             for _ in range(count):
-                add(media, number=number, time_value=clock)
+                remaining_slots = MAX_TIMELINE_SEGMENTS - len(urls)
+                if remaining_slots <= 0:
+                    break
+                emit = min(subsegments, remaining_slots)
+                for sub in range(1, emit + 1):
+                    add(
+                        media,
+                        number=number,
+                        time_value=clock,
+                        sub_number=sub if keyed else None,
+                    )
                 number += 1
                 clock += duration
         return urls

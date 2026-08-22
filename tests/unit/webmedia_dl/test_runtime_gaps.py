@@ -13,6 +13,7 @@ from webmedia_dl.domain.models import Artifact, ExportPlan, Job, MediaProbe, Med
 from webmedia_dl.errors import DiscoveryError, PauseRequested, ProviderPolicyError
 from webmedia_dl.intake import normalize_source
 from webmedia_dl.live import (
+    MAX_TIMELINE_SEGMENTS,
     ManifestPart,
     record_clear_stream,
     recordable_parts,
@@ -325,6 +326,96 @@ def test_dash_segment_timeline(tmp_path: Path) -> None:
         numbered, "https://cdn.example.com/dash/manifest.mpd", numbered_out, fetch_numbered
     )
     assert numbered_out.read_bytes() == b"INITAB"
+    subnumbered = """
+    <MPD>
+      <Period>
+        <SegmentTemplate timescale="90000" initialization="init.mp4"
+          media="chunk_$Number$_$SubNumber$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="0" d="90000" k="2"/>
+            <S d="90000" n="5" k="2"/>
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Period>
+    </MPD>
+    """
+    sub_urls = recordable_segment_urls(subnumbered, "https://cdn.example.com/dash/")
+    assert sub_urls == [
+        "https://cdn.example.com/dash/init.mp4",
+        "https://cdn.example.com/dash/chunk_1_1.m4s",
+        "https://cdn.example.com/dash/chunk_1_2.m4s",
+        "https://cdn.example.com/dash/chunk_5_1.m4s",
+        "https://cdn.example.com/dash/chunk_5_2.m4s",
+    ]
+    padded = """
+    <MPD>
+      <Period>
+        <SegmentTemplate initialization="init.mp4"
+          media="s$Number$_$SubNumber%02d$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="0" d="1" k="2"/>
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Period>
+    </MPD>
+    """
+    assert recordable_segment_urls(padded, "https://cdn.example.com/dash/") == [
+        "https://cdn.example.com/dash/init.mp4",
+        "https://cdn.example.com/dash/s1_01.m4s",
+        "https://cdn.example.com/dash/s1_02.m4s",
+    ]
+    leftover_sub = """
+    <MPD>
+      <Period>
+        <SegmentTemplate initialization="init.mp4"
+          media="s$Number$_$SubNumber$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="0" d="90000" r="1"/>
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Period>
+    </MPD>
+    """
+    assert recordable_segment_urls(leftover_sub, "https://cdn.example.com/dash/") == [
+        "https://cdn.example.com/dash/init.mp4",
+    ]
+    capped = """
+    <MPD>
+      <Period>
+        <SegmentTemplate initialization="init.mp4"
+          media="c$Number$_$SubNumber$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="0" d="1" k="80"/>
+            <S d="1" k="2"/>
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Period>
+    </MPD>
+    """
+    capped_urls = recordable_segment_urls(capped, "https://cdn.example.com/dash/")
+    assert capped_urls[0] == "https://cdn.example.com/dash/init.mp4"
+    assert len(capped_urls) == 1 + MAX_TIMELINE_SEGMENTS
+    assert capped_urls[-1] == "https://cdn.example.com/dash/c1_64.m4s"
+    assert all("c2_" not in url for url in capped_urls)
+    sub_blob = {
+        "init.mp4": b"INIT",
+        "chunk_1_1.m4s": b"A",
+        "chunk_1_2.m4s": b"B",
+        "chunk_5_1.m4s": b"C",
+        "chunk_5_2.m4s": b"D",
+    }
+
+    def fetch_sub(url: str) -> tuple[int, str, bytes]:
+        name = url.rsplit("/", 1)[-1]
+        if name not in sub_blob:
+            raise AssertionError(url)
+        return 200, "video/mp4", sub_blob[name]
+
+    sub_out = tmp_path / "dash-sub.bin"
+    record_clear_stream(
+        subnumbered, "https://cdn.example.com/dash/manifest.mpd", sub_out, fetch_sub
+    )
+    assert sub_out.read_bytes() == b"INITABCD"
     child_init = """
     <MPD mediaPresentationDuration="PT4S"><Period>
       <SegmentTemplate media="s$Number$.m4s" startNumber="1" duration="2" timescale="1">
