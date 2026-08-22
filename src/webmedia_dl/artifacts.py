@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import fcntl
 import json
 import shutil
 from pathlib import Path
@@ -29,12 +30,27 @@ class ArtifactStore:
         for item in payload:
             artifact = Artifact.model_validate(item)
             self._records[artifact.artifact_id] = artifact
+        self._index_path.chmod(0o600)
+
+    def _lock(self):
+        lock_path = self._index_path.with_suffix(".lock")
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        handle = lock_path.open("a+")
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        return handle
 
     def _save(self) -> None:
-        data = [item.model_dump(mode="json") for item in self._records.values()]
-        tmp = self._index_path.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
-        tmp.replace(self._index_path)
+        handle = self._lock()
+        try:
+            data = [item.model_dump(mode="json") for item in self._records.values()]
+            tmp = self._index_path.with_suffix(".json.tmp")
+            tmp.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
+            tmp.chmod(0o600)
+            tmp.replace(self._index_path)
+            self._index_path.chmod(0o600)
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+            handle.close()
 
     def register(
         self,

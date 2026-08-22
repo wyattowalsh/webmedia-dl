@@ -1,7 +1,9 @@
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
+from webmedia_dl.errors import WebMediaError
 from webmedia_dl.service import create_app, load_or_create_token
 
 
@@ -283,3 +285,51 @@ def test_share_and_intent_loopback_payloads_reject_native_command(
         },
     )
     assert companion.status_code == 400
+
+
+def test_control_and_pair_bodies_forbid_native_runner(tmp_path: Path) -> None:
+    app = create_app(tmp_path)
+    token = load_or_create_token(tmp_path)
+    client = TestClient(app)
+    headers = {"Authorization": f"Bearer {token}"}
+    extra_pair = client.post(
+        "/v1/pair",
+        headers=headers,
+        json={"client_profile_id": "personal-restricted", "nativeCommand": "yt-dlp"},
+    )
+    assert extra_pair.status_code == 422
+    native_pause = client.post(
+        "/v1/queue/pause",
+        headers=headers,
+        json={"nativeCommand": "yt-dlp"},
+    )
+    assert native_pause.status_code == 422
+    empty_native = client.post(
+        "/v1/queue/pause",
+        headers=headers,
+        json={"nativeCommand": ""},
+    )
+    assert empty_native.status_code == 200
+    assert empty_native.json()["paused"] is True
+    client.post("/v1/queue/resume", headers=headers)
+    subprocess_resume = client.post(
+        "/v1/queue/resume",
+        headers=headers,
+        json={"subprocessWorker": True},
+    )
+    assert subprocess_resume.status_code == 422
+
+
+def test_empty_worker_token_fails_closed(tmp_path: Path) -> None:
+    path = tmp_path / "worker.token"
+    path.write_text(" \n", encoding="utf-8")
+    with pytest.raises(WebMediaError, match="empty"):
+        load_or_create_token(tmp_path)
+
+
+def test_existing_worker_token_is_mode_600(tmp_path: Path) -> None:
+    path = tmp_path / "worker.token"
+    path.write_text("token-value", encoding="utf-8")
+    path.chmod(0o644)
+    assert load_or_create_token(tmp_path) == "token-value"
+    assert path.stat().st_mode & 0o777 == 0o600

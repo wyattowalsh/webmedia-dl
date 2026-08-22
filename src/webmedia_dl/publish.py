@@ -51,7 +51,7 @@ def publish_artifacts(
             if artifact.role not in PUBLISHABLE_ROLES:
                 continue
             try:
-                require_pass(results)
+                require_pass(results, artifact_id=artifact.artifact_id)
                 name = _publish_name(artifact, src, primary_stem)
                 staged = tmp_dir / name
                 staged.write_bytes(src.read_bytes())

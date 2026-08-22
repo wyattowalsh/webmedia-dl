@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hmac
 import json
 from pathlib import Path
 from uuid import UUID
@@ -30,10 +31,13 @@ class PairingStore:
     def __init__(self, root: Path) -> None:
         self.root = root
         self.root.mkdir(parents=True, exist_ok=True)
+        self.root.chmod(0o700)
         self._path = self.root / "pairing.json"
         self.ledger = NonceLedger(self.root / "nonces.sqlite")
         self._records: dict[str, PairingRecord] = {}
         self._load()
+        if self._path.is_file():
+            self._path.chmod(0o600)
 
     def _load(self) -> None:
         if not self._path.is_file():
@@ -47,7 +51,9 @@ class PairingStore:
         data = [item.model_dump(mode="json") for item in self._records.values()]
         tmp = self._path.with_suffix(".json.tmp")
         tmp.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
+        tmp.chmod(0o600)
         tmp.replace(self._path)
+        self._path.chmod(0o600)
 
     def create(self, client_profile_id: str, worker_id: str) -> PairingChallenge:
         from webmedia_dl.policy.profiles import builtin_profiles
@@ -102,7 +108,11 @@ class PairingStore:
         if not session_key:
             msg = "Pairing session key is required."
             raise DelegationDenied(msg)
-        if record.session_key != session_key:
+        left = hmac.new(
+            b"webmedia-dl-pairing", (record.session_key or "").encode(), "sha256"
+        ).digest()
+        right = hmac.new(b"webmedia-dl-pairing", session_key.encode(), "sha256").digest()
+        if not hmac.compare_digest(left, right):
             msg = "Pairing session key does not match."
             raise DelegationDenied(msg)
         return record

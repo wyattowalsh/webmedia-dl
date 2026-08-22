@@ -39,9 +39,11 @@ def runtime_file(*parts: str) -> Path:
 def worker_data_dir(override: Path | None = None) -> Path:
     if override is not None:
         override.mkdir(parents=True, exist_ok=True)
+        override.chmod(0o700)
         return override
     path = Path(user_data_dir(CLI_NAME, "WebMediaDL"))
     path.mkdir(parents=True, exist_ok=True)
+    path.chmod(0o700)
     return path
 
 

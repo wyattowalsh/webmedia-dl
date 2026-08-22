@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from typing import Literal
+from urllib.parse import urljoin
 
 import httpx
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
@@ -21,8 +22,8 @@ OverflowMode = Literal["truncate", "error"]
     wait=wait_exponential(multiplier=0.15, min=0.15, max=1.5),
     retry=retry_if_exception_type((httpx.TransportError, httpx.TimeoutException)),
 )
-def _send(client: httpx.Client, url: str) -> httpx.Response:
-    return client.get(url)
+def _stream(client: httpx.Client, url: str) -> httpx.Response:
+    return client.send(client.build_request("GET", url), stream=True, follow_redirects=False)
 
 
 def bound_fetch(
@@ -38,9 +39,10 @@ def bound_fetch(
     """Return ``(status, content_type, body)`` under profile network and size bounds."""
     authorize_url(url, profile)
     limit = max_bytes if max_bytes is not None else profile.max_download_bytes
+    stop = should_stop or (lambda: None)
     own_client = client is None
     http = client or httpx.Client(
-        follow_redirects=True,
+        follow_redirects=False,
         max_redirects=profile.max_redirects,
         timeout=timeout_s,
         headers={
@@ -48,38 +50,38 @@ def bound_fetch(
         },
     )
     try:
-        if should_stop is None:
-            response = _send(http, url)
-            content_type = response.headers.get("content-type", "")
-            body = response.content
-        else:
-            should_stop()
-            with http.stream("GET", url) as response:
+        current = url
+        hops = 0
+        while True:
+            authorize_url(current, profile)
+            stop()
+            response = _stream(http, current)
+            try:
+                if response.has_redirect_location:
+                    hops += 1
+                    if hops > profile.max_redirects:
+                        msg = f"Redirect bound exceeded for {url!r}."
+                        raise NetworkPolicyError(msg)
+                    current = urljoin(current, response.headers["location"])
+                    continue
                 content_type = response.headers.get("content-type", "")
                 chunks: list[bytes] = []
                 total = 0
                 for chunk in response.iter_bytes():
-                    should_stop()
+                    stop()
                     total += len(chunk)
                     if total > limit:
                         if on_overflow == "truncate":
                             remain = limit - (total - len(chunk))
                             if remain > 0:
                                 chunks.append(chunk[:remain])
-                            body = b"".join(chunks)
-                            return response.status_code, content_type, body
+                            return response.status_code, content_type, b"".join(chunks)
                         msg = f"Response from {url!r} exceeds the {limit} byte bound."
                         raise NetworkPolicyError(msg)
                     chunks.append(chunk)
-                body = b"".join(chunks)
-            return response.status_code, content_type, body
-        if len(body) > limit:
-            if on_overflow == "truncate":
-                body = body[:limit]
-            else:
-                msg = f"Response from {url!r} exceeds the {limit} byte bound."
-                raise NetworkPolicyError(msg)
-        return response.status_code, content_type, body
+                return response.status_code, content_type, b"".join(chunks)
+            finally:
+                response.close()
     except httpx.TooManyRedirects as exc:
         raise NetworkPolicyError(f"Redirect bound exceeded for {url!r}.") from exc
     except httpx.HTTPError as exc:

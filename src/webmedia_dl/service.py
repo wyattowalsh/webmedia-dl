@@ -10,7 +10,7 @@ from uuid import UUID
 
 from fastapi import Body, Depends, FastAPI, Header, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from webmedia_dl import __version__
 from webmedia_dl.continuity import validate_companion_message
@@ -83,25 +83,48 @@ class PlanBody(BaseModel):
 
 
 class PairStartBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     client_profile_id: str = "personal-restricted"
 
 
 class PairConfirmBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     pairing_id: UUID
 
 
 class EnvelopeBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     pairing_id: UUID
     session_key: str
     payload: dict = Field(default_factory=dict)
 
 
 class OpenEnvelopeBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     pairing_id: UUID
     session_key: str
     nonce: str
     ciphertext: str
     mac: str
+
+
+class ControlBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    nativeCommand: str | None = None
+    subprocessWorker: bool | None = None
+
+    @model_validator(mode="after")
+    def reject_native_runner(self) -> ControlBody:
+        if self.nativeCommand not in (None, ""):
+            raise ValueError("nativeCommand is not allowed.")
+        if self.subprocessWorker is True:
+            raise ValueError("subprocessWorker cannot be true.")
+        return self
 
 
 class CompanionBody(BaseModel):
@@ -126,7 +149,12 @@ def _token_file(data_dir: Path) -> Path:
 def load_or_create_token(data_dir: Path) -> str:
     path = _token_file(data_dir)
     if path.is_file():
-        return path.read_text(encoding="utf-8").strip()
+        token = path.read_text(encoding="utf-8").strip()
+        if not token:
+            msg = "Worker token file is empty."
+            raise WebMediaError(msg)
+        path.chmod(0o600)
+        return token
     token = secrets.token_urlsafe(32)
     path.write_text(token, encoding="utf-8")
     path.chmod(0o600)
@@ -281,7 +309,8 @@ def create_app(data_dir: Path | None = None, *, enable_dispatcher: bool = False)
         }
 
     @app.post("/v1/jobs/{job_id}/cancel", dependencies=[Depends(require_auth)])
-    def cancel_job(job_id: UUID) -> dict:
+    def cancel_job(job_id: UUID, body: Annotated[ControlBody | None, Body()] = None) -> dict:
+        _ = body
         try:
             job = pipeline.cancel(job_id)
         except (CancelledError, KeyError) as exc:
@@ -293,19 +322,23 @@ def create_app(data_dir: Path | None = None, *, enable_dispatcher: bool = False)
         return {"paused": pipeline.queue.is_paused()}
 
     @app.post("/v1/queue/pause", dependencies=[Depends(require_auth)])
-    def pause_queue() -> dict:
+    def pause_queue(body: Annotated[ControlBody | None, Body()] = None) -> dict:
+        _ = body
         return pipeline.pause_queue()
 
     @app.post("/v1/queue/resume", dependencies=[Depends(require_auth)])
-    def resume_queue() -> dict:
+    def resume_queue(body: Annotated[ControlBody | None, Body()] = None) -> dict:
+        _ = body
         return pipeline.resume_queue()
 
     @app.post("/v1/queue/run-next", dependencies=[Depends(require_auth)])
-    def run_next() -> dict:
+    def run_next(body: Annotated[ControlBody | None, Body()] = None) -> dict:
+        _ = body
         return run_next_payload(pipeline)
 
     @app.post("/v1/jobs/{job_id}/pause", dependencies=[Depends(require_auth)])
-    def pause_job(job_id: UUID) -> dict:
+    def pause_job(job_id: UUID, body: Annotated[ControlBody | None, Body()] = None) -> dict:
+        _ = body
         try:
             job = pipeline.pause_job(job_id)
         except (PauseRequested, KeyError) as exc:
@@ -313,7 +346,8 @@ def create_app(data_dir: Path | None = None, *, enable_dispatcher: bool = False)
         return job.model_dump(mode="json")
 
     @app.post("/v1/jobs/{job_id}/resume", dependencies=[Depends(require_auth)])
-    def resume_job(job_id: UUID) -> dict:
+    def resume_job(job_id: UUID, body: Annotated[ControlBody | None, Body()] = None) -> dict:
+        _ = body
         try:
             job = pipeline.resume_job(job_id)
         except (PauseRequested, WebMediaError, KeyError) as exc:

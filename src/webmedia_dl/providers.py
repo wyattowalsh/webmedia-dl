@@ -105,6 +105,21 @@ def imagemagick_configure_path() -> Path:
     return runtime_file("imagemagick-runtime")
 
 
+def _staging_regular_files(staging: Path) -> list[Path]:
+    root = staging.resolve()
+    found: list[Path] = []
+    for path in staging.rglob("*"):
+        if path.is_symlink() or not path.is_file():
+            continue
+        resolved = path.resolve()
+        try:
+            resolved.relative_to(root)
+        except ValueError:
+            continue
+        found.append(path)
+    return found
+
+
 def default_subprocess_run(argv: list[str], staging: Path) -> tuple[int, bytes, bytes]:
     env = os.environ.copy()
     env["MAGICK_CONFIGURE_PATH"] = str(imagemagick_configure_path())
@@ -356,16 +371,14 @@ class ProviderRuntime:
             if request.provider_id == "http-direct":
                 return self._http_direct(request, staging)
             argv = self._build_argv(manifest, request, staging)
-            before = {path.resolve() for path in staging.rglob("*") if path.is_file()}
+            before = {path.resolve() for path in _staging_regular_files(staging)}
             code, stdout, stderr = self._run(argv, staging)
             self._raise_if_stopped(key)
             output = request.typed_inputs.get("output")
             output_path = Path(output) if output else None
             extra_paths: tuple[Path, ...] = ()
             created = [
-                path
-                for path in staging.rglob("*")
-                if path.is_file() and path.resolve() not in before
+                path for path in _staging_regular_files(staging) if path.resolve() not in before
             ]
             if request.provider_id in {"gallery-dl", "ytdlp"} and created:
                 extra_paths = tuple(sorted(created, key=lambda path: str(path)))

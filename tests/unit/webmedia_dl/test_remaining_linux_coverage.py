@@ -158,14 +158,19 @@ def test_manifest_json_ndjson_skips_and_unusable_urls() -> None:
         b"null\n"
         b'{"url": 123}\n'
         b'{"url": "javascript:alert(1)"}\n'
+        b'{"url": "file:///tmp/secret.mp4"}\n'
+        b'{"url": "clip.mp4"}\n'
         b'{"webpage_url": "https://cdn.example.com/ok.mp4", "id": "ok",'
         b' "formats": [{"format_id": "18", "vcodec": "null", "acodec": "none"}]}\n'
     )
     found = candidates_from_manifest_json(_page(), raw)
-    assert len(found) == 1
-    assert found[0].retrieval_urls == ["https://cdn.example.com/ok.mp4"]
-    assert found[0].alternatives[0].vcodec is None
-    assert found[0].alternatives[0].acodec is None
+    urls = [item.retrieval_urls[0] for item in found]
+    assert "clip.mp4" in urls
+    assert "https://cdn.example.com/ok.mp4" in urls
+    assert len(found) == 2
+    ok = next(item for item in found if item.retrieval_urls[0].endswith("ok.mp4"))
+    assert ok.alternatives[0].vcodec is None
+    assert ok.alternatives[0].acodec is None
     listed = candidates_from_manifest_json(
         _page(),
         json.dumps([{"url": "https://cdn.example.com/listed.mp4"}, "skip", None]).encode(),
@@ -352,7 +357,7 @@ def test_resume_acquired_kinds_without_sources_fails_closed(
     assert result is not None
     assert result.state is JobState.FAILED
     assert result.error is not None
-    assert "produced no source artifact" in result.error.lower()
+    assert "missing source artifact" in result.error.lower()
 
 
 def test_unresolved_cookie_path_fails_closed(
@@ -888,3 +893,5 @@ def test_doctor_reports_missing_provider_binaries(monkeypatch: pytest.MonkeyPatc
     assert payload["providers"]["ffmpeg"]["status"] == "BLOCKED"
     assert payload["providers"]["imagemagick"]["status"] == "BLOCKED"
     assert payload["providers"]["ytdlp"]["binary"] is None
+    assert payload["tools"]["ffprobe"]["status"] == "BLOCKED"
+    assert payload["tools"]["ffprobe"]["binary"] is None

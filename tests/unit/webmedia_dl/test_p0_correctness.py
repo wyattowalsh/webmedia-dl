@@ -430,3 +430,4 @@ def test_worker_data_dir_uses_platformdirs(monkeypatch: pytest.MonkeyPatch, tmp_
     path = paths_mod.worker_data_dir()
     assert path == tmp_path / "xdg"
     assert path.is_dir()
+    assert path.stat().st_mode & 0o777 == 0o700

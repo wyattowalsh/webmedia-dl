@@ -21,8 +21,16 @@ SKIP_PARTS = {
     "htmlcov",
     "dist-bundle",
 }
-SKIP_NAMES = {".coverage", "CACHEDIR.TAG"}
-SKIP_SUFFIX = {".pyc", ".pyo", ".zip", ".whl", ".so"}
+SKIP_NAMES = {
+    ".coverage",
+    "CACHEDIR.TAG",
+    ".env",
+    ".env.mcphub",
+    "worker.token",
+    "cookie-grants.json",
+    "pairing.json",
+}
+SKIP_SUFFIX = {".pyc", ".pyo", ".zip", ".whl", ".so", ".pem", ".key", ".p12"}
 
 
 def archive_member_is_unsafe(name: str) -> bool:
@@ -44,7 +52,7 @@ def iter_files(root: Path) -> list[Path]:
         dirnames[:] = sorted(name for name in dirnames if name not in SKIP_PARTS)
         for name in sorted(filenames):
             path = current / name
-            if name in SKIP_NAMES or path.suffix in SKIP_SUFFIX:
+            if name in SKIP_NAMES or path.suffix in SKIP_SUFFIX or name.startswith(".env."):
                 continue
             if path.is_symlink() or not path.is_file():
                 continue

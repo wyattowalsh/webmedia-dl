@@ -96,6 +96,7 @@ def test_source_artifact_cannot_be_mutated(tmp_path: Path) -> None:
     src.write_bytes(b"hello")
     store = ArtifactStore(tmp_path)
     artifact = store.register(src, role=ArtifactRole.SOURCE, media_kind=MediaKind.UNKNOWN)
+    assert store._index_path.stat().st_mode & 0o777 == 0o600
     with pytest.raises(ArtifactImmutabilityError):
         store.mutate_source(artifact.artifact_id, b"mutated")
     assert artifact.artifact_id == f"sha256:{artifact.sha256}"

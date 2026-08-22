@@ -283,6 +283,7 @@ def require_pass(
     results: list[ValidationResult],
     *,
     identity_gates: bool = True,
+    artifact_id: str | None = None,
 ) -> None:
     if not results:
         msg = "Mandatory validation produced no executed evidence."
@@ -294,11 +295,14 @@ def require_pass(
         names = ", ".join(f"{item.gate_id}:{item.status.value}" for item in closed)
         msg = f"Mandatory validation failed: {names}."
         raise ValidationFailed(msg)
+    if artifact_id is not None:
+        mismatched = [item for item in results if item.target_artifact_id != artifact_id]
+        if mismatched:
+            msg = "Validation evidence does not match the artifact."
+            raise ValidationFailed(msg)
     if not identity_gates:
         return
     by_gate = {item.gate_id: item for item in results}
-    if not any(gate in by_gate for gate in IDENTITY_GATES):
-        return
     for gate in IDENTITY_GATES:
         item = by_gate.get(gate)
         if item is None or item.status is not EvidenceStatus.PASS or not item.executed:

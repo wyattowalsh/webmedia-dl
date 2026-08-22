@@ -163,9 +163,17 @@ def test_preview_role_and_sibling_isolation(tmp_path: Path) -> None:
 
 
 def test_gallery_registers_every_created_file(tmp_path: Path, png_bytes: bytes) -> None:
+    staging = tmp_path / "stage"
+    staging.mkdir()
+    leak_dir = tmp_path / "leak"
+    leak_dir.mkdir()
+
     def run(argv: list[str], cwd: Path) -> tuple[int, bytes, bytes]:
         (cwd / "a.jpg").write_bytes(png_bytes)
         (cwd / "b.jpg").write_bytes(png_bytes + b"2")
+        leak = leak_dir / "outside.jpg"
+        leak.write_bytes(png_bytes + b"out")
+        (cwd / "escape.jpg").symlink_to(leak)
         return 0, b"", b""
 
     runtime = ProviderRuntime(
@@ -179,10 +187,11 @@ def test_gallery_registers_every_created_file(tmp_path: Path, png_bytes: bytes) 
             capability_id="acquire.gallery_dl",
             typed_inputs={"url": "https://example.com/album"},
         ),
-        tmp_path,
+        staging,
     )
     assert result.output_path is not None
     assert {path.name for path in result.output_paths} == {"a.jpg", "b.jpg"}
+    assert "escape.jpg" not in {path.name for path in result.output_paths}
 
     html = """
     <html><body>

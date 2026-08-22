@@ -232,7 +232,7 @@ def test_pipeline_skips_missing_checkpoint_artifacts_and_preview(
     assert result is not None
     assert result.state is JobState.FAILED
     assert result.error is not None
-    assert "publishable" in result.error.lower()
+    assert "missing source artifact" in result.error.lower()
 
 
 def test_pipeline_restores_local_source_from_checkpoint(
@@ -732,6 +732,8 @@ def test_discovery_link_iframe_jsonld_and_duplicates() -> None:
       <link rel="preload" as="track" href="https://cdn.example.com/subs.vtt">
       <iframe src="https://cdn.example.com/player.mp4"></iframe>
       <a href="javascript:alert(1)">skip</a>
+      <a href="file:///tmp/secret.mp4">skip file</a>
+      <a href="http://cdn.example.com/insecure.mp4">skip http</a>
       <video src="https://cdn.example.com/clip.mp4"></video>
       <video src="https://cdn.example.com/clip.mp4"></video>
       <script type="application/ld+json">
@@ -751,6 +753,8 @@ def test_discovery_link_iframe_jsonld_and_duplicates() -> None:
     assert "https://cdn.example.com/player.mp4" in urls
     assert "https://cdn.example.com/photo.jpg" in urls
     assert not any(item.startswith("javascript:") for item in urls)
+    assert not any(item.startswith("file:") for item in urls)
+    assert not any(item.startswith("http:") for item in urls)
     photo = next(item for item in found if item.retrieval_urls[0].endswith("photo.jpg"))
     assert photo.media_kind is MediaKind.IMAGE
 

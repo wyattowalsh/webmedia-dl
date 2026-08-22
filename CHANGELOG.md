@@ -2,11 +2,20 @@
 
 ## 0.1.0
 
+- Confirmed iPhone/iPad/visionOS pairing keeps `personal-restricted` on the job
+  record while the Mac worker executes yt-dlp. Unconfirmed pairing still denies
+  delegation. Fetch follows redirects hop-by-hop under `authorize_url` (no
+  `file:`/`http:` escape). `require_pass` always demands executed hash and size
+  PASS. Pairing and worker data dirs are `0700`; pairing/token/artifact indexes
+  are `0600`. Queue control and pair bodies `extra=forbid` and reject
+  `nativeCommand`. Doctor reports `tools.ffprobe`. Bundle zips skip `.env` and
+  key material. Provider staging ignores symlinks out of the job directory.
 - Mac, iPhone, iPad, and visionOS App Intents pause, resume, history, status,
   cancel, and per-job pause/resume through the same worker/relay paths as the
   in-app queue controls. watchOS and tvOS cancel, pause_job, and resume_job
-  App Intents include a job UUID. Prior queue App Intents compiled on GitHub
-  `macos-15` run `32550239808` (`24aeb5c`, 18 tests, 0 failures).
+  App Intents include a job UUID. GitHub `macos-15` run `32550748115` (`33a7237`,
+  18 tests, 0 failures) compiled those intents. Prior queue App Intents compiled
+  on run `32550239808` (`24aeb5c`).
 - watchOS and tvOS App Intents queue pause, resume, history, status, and
   cancel companion kinds in addition to capture. GitHub `macos-15` run
   `32550050185` executed Core `swift test` (18 tests, 0 failures) on

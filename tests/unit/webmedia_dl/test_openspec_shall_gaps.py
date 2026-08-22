@@ -370,6 +370,9 @@ SCENARIO_EVIDENCE = {
     "watch control intents queue companion kinds": "test_intents_and_share_adapters_load_credentials",
     "sealed companion envelope": "test_companion_accepts_sealed_pairing_envelope",
     "unconfirmed pairing": "test_unconfirmed_pairing_does_not_escalate",
+    "confirmed pairing lets mac execute without widening": (
+        "test_pairing_confirmation_lets_mac_own_without_widening"
+    ),
     "mac lan relay rewrites to loopback": "testLoopbackRequestBuildersStayOnLoopback",
     "complete-client history uses mac relay": "testLoopbackRequestBuildersStayOnLoopback",
     "complete-client control intents use mac relay": "test_complete_clients_http_direct_and_shared_domain",

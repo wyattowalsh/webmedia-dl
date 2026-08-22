@@ -73,8 +73,8 @@ def test_pairing_confirmation_lets_mac_own_without_widening(tmp_data: Path, ytdl
     )
     assert job.worker_id == pipeline.host_worker.worker_id
     assert job.policy_profile_id == "personal-restricted"
-    assert job.state is JobState.FAILED
-    assert not any("--output" in argv for argv in captured)
+    assert job.state is JobState.COMPLETED
+    assert any("--output" in argv for argv in captured)
 
 
 def test_unconfirmed_pairing_does_not_escalate(tmp_data: Path) -> None:
@@ -161,3 +161,13 @@ def test_pairing_unknown_profile_and_expired_and_session_key(tmp_data: Path) -> 
     )
     with pytest.raises(DelegationDenied, match="expired"):
         pipeline.pairing.confirm(stale.pairing_id)
+
+
+def test_pairing_store_modes_are_owner_only(tmp_data: Path) -> None:
+    pipeline = Pipeline(data_dir=tmp_data)
+    challenge = pipeline.pairing.create("personal-restricted", pipeline.host_worker.worker_id)
+    pipeline.pairing.confirm(challenge.pairing_id)
+    pairing_dir = tmp_data / "pairing"
+    assert pairing_dir.is_dir()
+    assert pairing_dir.stat().st_mode & 0o777 == 0o700
+    assert (pairing_dir / "pairing.json").stat().st_mode & 0o777 == 0o600

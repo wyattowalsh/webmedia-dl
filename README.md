@@ -44,6 +44,7 @@ uv run webmedia-dl cancel <job-id> --data-dir /tmp/webmedia-dl-demo
 uv run webmedia-dl pair create --client-profile personal-restricted
 uv run webmedia-dl pair confirm <pairing-id>
 # confirm JSON includes session_key; iPhone/iPad/vision derive the same SHA256(nonce:mac-confirm) locally
+# confirmed pairing keeps the client profile; the Mac worker runs heavy acquisition
 uv run webmedia-dl companion capture https://example.com/a.mp4
 uv run webmedia-dl policy
 uv run webmedia-dl migrate-scan ./legacy

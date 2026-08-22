@@ -69,6 +69,18 @@ def doctor(*, data_dir: Path | None = None) -> dict[str, Any]:
         )
         for surface in APPLE_SURFACES
     }
+    ffprobe_path = resolve_provider_binary("ffprobe")
+    if ffprobe_path is None:
+        ffprobe = _status(
+            False,
+            False,
+            blocked_reason="ffprobe is not installed",
+        ) | {"binary": None}
+    else:
+        probed_ffprobe = _provider_version_ok(ffprobe_path, "ffprobe")
+        ffprobe = _status(True, probed_ffprobe) | {"binary": ffprobe_path}
+        if not probed_ffprobe:
+            ffprobe["reason"] = f"{ffprobe_path} did not report a version"
     return {
         "product": DISPLAY_NAME,
         "cli": CLI_NAME,
@@ -76,6 +88,7 @@ def doctor(*, data_dir: Path | None = None) -> dict[str, Any]:
         "python": sys.version.split()[0],
         "profiles": sorted(builtin_profiles()),
         "providers": providers,
+        "tools": {"ffprobe": ffprobe},
         "apple_devices": apple,
         "browser_stores": _status(
             False, False, blocked_reason="Browser store submission not executed"

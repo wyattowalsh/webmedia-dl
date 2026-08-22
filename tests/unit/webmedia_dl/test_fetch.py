@@ -163,3 +163,45 @@ def test_authorize_url_rejects_non_https_and_hostless() -> None:
         authorize_url("https:///nohost", profile)
     with pytest.raises(NetworkPolicyError, match="approved root"):
         authorize_destination(Path("/tmp/out"), ["relative-root", "", " "])
+
+
+def test_bound_fetch_refuses_redirect_to_blocked_or_http_scheme() -> None:
+    profile = get_profile("personal-full")
+
+    def to_file(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(302, headers={"location": "file:///etc/passwd"})
+
+    def to_http(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(302, headers={"location": "http://example.com/x"})
+
+    with pytest.raises(NetworkPolicyError, match="file"):
+        bound_fetch(
+            "https://example.com/start",
+            profile=profile,
+            client=httpx.Client(transport=httpx.MockTransport(to_file)),
+        )
+    with pytest.raises(NetworkPolicyError, match="http"):
+        bound_fetch(
+            "https://example.com/start",
+            profile=profile,
+            client=httpx.Client(transport=httpx.MockTransport(to_http)),
+        )
+
+
+def test_bound_fetch_follows_https_redirect_then_reads() -> None:
+    profile = get_profile("personal-full")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if str(request.url).endswith("/start"):
+            return httpx.Response(302, headers={"location": "https://cdn.example.com/a.mp4"})
+        return httpx.Response(200, content=b"media", headers={"content-type": "video/mp4"})
+
+    status, content_type, body = bound_fetch(
+        "https://example.com/start",
+        profile=profile,
+        max_bytes=16,
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    assert status == 200
+    assert "video" in content_type
+    assert body == b"media"

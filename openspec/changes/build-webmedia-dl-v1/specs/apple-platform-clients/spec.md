@@ -55,6 +55,11 @@ change the client profile to `personal-full`.
 - **WHEN** an iOS job supplies a pairing id that has not been confirmed
 - **THEN** `DelegationDenied` is raised and yt-dlp is not executed
 
+#### Scenario: confirmed pairing lets mac execute without widening
+- **WHEN** an iOS job supplies a confirmed pairing id and session key
+- **THEN** the recorded policy profile stays `personal-restricted`, the Mac worker
+  runs yt-dlp, and the job completes
+
 ### Requirement: Mac LAN relay
 
 The Mac app SHALL listen on a private-LAN or loopback HTTP relay and rewrite

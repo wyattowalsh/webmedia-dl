@@ -251,8 +251,9 @@ class Pipeline:
         for artifact_id in checkpoint.get("source_ids") or []:
             try:
                 sources.append(self.store.get(str(artifact_id)))
-            except KeyError:
-                continue
+            except KeyError as exc:
+                msg = "Resume checkpoint refers to a missing source artifact."
+                raise ProviderPolicyError(msg) from exc
 
         self.queue.set_state(job.job_id, JobState.DISCOVERING)
 
@@ -380,7 +381,11 @@ class Pipeline:
                 skip_ops.add(str(op_id))
             except KeyError:
                 continue
-        skip_ops.update(str(item) for item in checkpoint.get("completed_operations") or [])
+        skip_ops.update(
+            str(item)
+            for item in checkpoint.get("completed_operations") or []
+            if str(item) in existing_ops
+        )
         if stored_stage in {"exporting", "exported", "validating", "publishing"}:
             for artifact_id in checkpoint.get("produced_ids") or []:
                 try:
@@ -558,7 +563,7 @@ class Pipeline:
         plan = plan_acquisition(
             job.job_id,
             candidate,
-            self.client_profile,
+            self._capability_profile(),
             cookies=cookies,
         )
         if not plan.strategies:
@@ -722,7 +727,7 @@ class Pipeline:
         url = job.source.normalized_url
         if not url:
             return []
-        if "discover.manifest" not in self.client_profile.allowed_capabilities:
+        if "discover.manifest" not in self._capability_profile().allowed_capabilities:
             return []
         try:
             self._authorize("discover.manifest")
@@ -749,7 +754,7 @@ class Pipeline:
             return []
         if result.exit_code != 0:
             return []
-        return candidates_from_manifest_json(job.source, result.stdout)
+        return candidates_from_manifest_json(job.source, result.stdout, self._capability_profile())
 
     def _record_probe(self, job: Job, artifact, path: Path, candidate_id) -> None:
         probe = probe_media(path, candidate_id=candidate_id)
@@ -932,9 +937,20 @@ class Pipeline:
             return {"kind": kind, "job": self.pause_job(job_id).model_dump(mode="json")}
         return {"kind": kind, "job": self.resume_job(job_id).model_dump(mode="json")}
 
+    def _capability_profile(self) -> PolicyProfile:
+        """Mac confirmation owns execution. The recorded client profile is not widened."""
+        if (
+            self.worker.worker_id == self.host_worker.worker_id
+            and self.client_profile.profile_id in self.pairing.PAIRABLE_CLIENT_PROFILES
+        ):
+            return self.worker_profile
+        return self.client_profile
+
     def _authorize(self, capability_id: str) -> None:
-        assert_no_privilege_escalation(self.client_profile, self.worker_profile, capability_id)
+        profile = self._capability_profile()
         assert_worker_capability(self.worker, self.worker_profile, capability_id)
+        if profile.profile_id == self.client_profile.profile_id:
+            assert_no_privilege_escalation(self.client_profile, self.worker_profile, capability_id)
 
     def explain(
         self,
@@ -957,6 +973,10 @@ class Pipeline:
             session_key=session_key,
             host_owned=host_owned,
         )
+        self.worker = job_worker
+        self.client_profile = client_profile
+        self.worker_profile = get_profile(job_worker.profile_id)
+        capability = self._capability_profile()
         source = normalize_source(
             locator,
             surface=surface,
@@ -980,7 +1000,7 @@ class Pipeline:
         strategies: list[dict[str, Any]] = []
         mixed: list[dict[str, Any]] = []
         for candidate in chosen:
-            plan = plan_acquisition(source.source_id, candidate, client_profile)
+            plan = plan_acquisition(source.source_id, candidate, capability)
             item_strategies = [
                 {
                     "strategy_id": item.strategy_id,

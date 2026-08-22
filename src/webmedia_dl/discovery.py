@@ -17,9 +17,9 @@ from webmedia_dl.domain.models import (
     MediaSource,
     PolicyProfile,
 )
-from webmedia_dl.errors import DiscoveryError
+from webmedia_dl.errors import DiscoveryError, NetworkPolicyError
 from webmedia_dl.identity import host_of, identity_key_for_url
-from webmedia_dl.network_policy import authorize_url
+from webmedia_dl.network_policy import BLOCKED_SCHEMES, authorize_url
 from webmedia_dl.security import detect_drm_signals
 
 DIRECT_EXTENSIONS = {
@@ -210,8 +210,21 @@ def _candidate(
     )
 
 
-def _usable_url(value: str) -> bool:
-    return bool(value) and not value.lower().startswith("javascript:")
+def _usable_url(value: str, profile: PolicyProfile | None = None) -> bool:
+    if not value or value.lower().startswith("javascript:"):
+        return False
+    if "://" not in value:
+        return True
+    scheme = value.split(":", 1)[0].lower()
+    if scheme in BLOCKED_SCHEMES:
+        return False
+    if profile is None:
+        return True
+    try:
+        authorize_url(value, profile)
+    except NetworkPolicyError:
+        return False
+    return True
 
 
 def _kind_from_jsonld(item: dict, url: str) -> MediaKind:
@@ -240,7 +253,9 @@ def _walk_jsonld(node: object):
             yield from _walk_jsonld(item)
 
 
-def candidates_from_manifest_json(source: MediaSource, raw: bytes) -> list[MediaCandidate]:
+def candidates_from_manifest_json(
+    source: MediaSource, raw: bytes, profile: PolicyProfile | None = None
+) -> list[MediaCandidate]:
     text = raw.decode("utf-8", errors="replace").strip()
     if not text:
         return []
@@ -263,7 +278,7 @@ def candidates_from_manifest_json(source: MediaSource, raw: bytes) -> list[Media
         if not isinstance(item, dict):
             continue
         url = item.get("url") or item.get("webpage_url") or source.normalized_url
-        if not isinstance(url, str) or not _usable_url(url):
+        if not isinstance(url, str) or not _usable_url(url, profile):
             continue
         kind = _kind_from_url(url)
         if item.get("is_live") and kind is MediaKind.LIVE_STREAM:
@@ -346,9 +361,9 @@ def discover(
     authorize_url(url, profile)
     seeded: list[MediaCandidate] = []
     for item in evidence or []:
-        if not _usable_url(item.url):
-            continue
         absolute = urljoin(url, item.url)
+        if not _usable_url(absolute, profile):
+            continue
         item_kind = item.kind if item.kind is not MediaKind.UNKNOWN else _kind_from_url(absolute)
         seeded.append(
             _candidate(
@@ -413,9 +428,9 @@ def discover(
         seen.update(item.retrieval_urls)
     found: list[MediaCandidate] = list(seeded)
     for raw, guessed in parser.urls:
-        if not _usable_url(raw):
-            continue
         absolute = urljoin(url, raw)
+        if not _usable_url(absolute, profile):
+            continue
         if absolute in seen:
             continue
         item_kind = _kind_from_url(absolute)
@@ -449,8 +464,10 @@ def discover(
             raw = item.get("contentUrl") or item.get("embedUrl")
             locators = raw if isinstance(raw, list) else [raw]
             for content_url in locators:
-                if isinstance(content_url, str) and _usable_url(content_url):
+                if isinstance(content_url, str):
                     absolute = urljoin(url, content_url)
+                    if not _usable_url(absolute, profile):
+                        continue
                     if absolute in seen:
                         continue
                     seen.add(absolute)

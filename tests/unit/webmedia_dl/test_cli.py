@@ -75,6 +75,14 @@ def test_doctor_json() -> None:
         assert magick["binary"]
     else:
         assert magick["status"] == "BLOCKED"
+    ffprobe = payload["tools"]["ffprobe"]
+    if shutil.which("ffprobe"):
+        assert ffprobe["status"] in {"PASS", "FAIL"}
+        assert ffprobe["executed"] is True
+        assert ffprobe["binary"]
+    else:
+        assert ffprobe["status"] == "BLOCKED"
+        assert ffprobe["executed"] is False
 
 
 def _json_keys(value: object) -> set[str]:

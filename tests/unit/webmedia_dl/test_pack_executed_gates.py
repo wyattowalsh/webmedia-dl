@@ -56,6 +56,8 @@ def test_package_bundle_skips_symlinks(tmp_path: Path) -> None:
     tree.mkdir()
     keep = tree / "keep.txt"
     keep.write_text("ok", encoding="utf-8")
+    (tree / ".env").write_text("SECRET=1", encoding="utf-8")
+    (tree / "id_rsa.pem").write_text("key", encoding="utf-8")
     outside = tmp_path / "secret.txt"
     outside.write_text("nope", encoding="utf-8")
     (tree / "escape").symlink_to(outside)
@@ -63,6 +65,8 @@ def test_package_bundle_skips_symlinks(tmp_path: Path) -> None:
     assert "keep.txt" in names
     assert "escape" not in names
     assert "secret.txt" not in names
+    assert ".env" not in names
+    assert "id_rsa.pem" not in names
     assert mod.archive_member_is_unsafe("../etc/passwd")
     assert mod.archive_member_is_unsafe("/tmp/x")
     assert not mod.archive_member_is_unsafe("docs/planning/note.md")

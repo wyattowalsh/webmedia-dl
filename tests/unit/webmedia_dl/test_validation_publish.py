@@ -61,7 +61,8 @@ def test_require_pass_rejects_blocked_and_empty() -> None:
         message="streams",
     )
     require_pass([probe_only], identity_gates=False)
-    require_pass([probe_only])
+    with pytest.raises(ValidationFailed, match="hash-match"):
+        require_pass([probe_only])
     hash_only = record_result(
         job_id=uuid4(),
         artifact_id="sha256:x",
@@ -71,6 +72,25 @@ def test_require_pass_rejects_blocked_and_empty() -> None:
     )
     with pytest.raises(ValidationFailed, match="size-match"):
         require_pass([hash_only])
+    both = [
+        record_result(
+            job_id=uuid4(),
+            artifact_id="sha256:x",
+            gate_id="hash-match",
+            status=EvidenceStatus.PASS,
+            message="hash",
+        ),
+        record_result(
+            job_id=uuid4(),
+            artifact_id="sha256:x",
+            gate_id="size-match",
+            status=EvidenceStatus.PASS,
+            message="size",
+        ),
+    ]
+    require_pass(both)
+    with pytest.raises(ValidationFailed, match="does not match the artifact"):
+        require_pass(both, artifact_id="sha256:other")
 
 
 def test_blank_approved_roots_are_denied(tmp_path: Path) -> None:
