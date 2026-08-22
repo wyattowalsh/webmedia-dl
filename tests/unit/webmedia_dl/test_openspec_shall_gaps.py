@@ -20,7 +20,7 @@ from webmedia_dl.diagnostics import doctor
 from webmedia_dl.domain.enums import DestinationKind, EventType, MediaKind, Surface
 from webmedia_dl.domain.models import ExportIntent, MediaCandidate
 from webmedia_dl.errors import CapabilityDenied, DrmRefused, IntakeError, ProviderPolicyError
-from webmedia_dl.identity import is_safe_container, is_safe_format_id
+from webmedia_dl.identity import SAFE_CONTAINER_PATTERN, is_safe_container, is_safe_format_id
 from webmedia_dl.live import inspect_manifest, record_clear_stream, recordable_parts
 from webmedia_dl.paths import repo_root
 from webmedia_dl.pipeline import Pipeline
@@ -134,6 +134,31 @@ def test_export_intent_accepts_allowlisted_containers() -> None:
         assert is_safe_container(container)
         assert ExportIntent(container_preference=container).container_preference == container
     assert ExportIntent().container_preference is None
+
+
+def test_export_intent_schema_documents_container_pattern() -> None:
+    from webmedia_dl.domain.models import annotate_container_preference_schema
+
+    field = ExportIntent.model_json_schema()["properties"]["container_preference"]
+    assert "pattern" not in field
+    string_branch = next(
+        item for item in field["anyOf"] if isinstance(item, dict) and item.get("type") == "string"
+    )
+    assert string_branch["pattern"] == SAFE_CONTAINER_PATTERN
+    leftover: dict[str, object] = {
+        "pattern": "stale",
+        "anyOf": ["skip", {"type": "integer"}, {"type": "string"}],
+    }
+    annotate_container_preference_schema(leftover)
+    assert "pattern" not in leftover
+    annotated = leftover["anyOf"]
+    assert isinstance(annotated, list)
+    string_item = annotated[2]
+    assert isinstance(string_item, dict)
+    assert string_item["pattern"] == SAFE_CONTAINER_PATTERN
+    empty: dict[str, object] = {}
+    annotate_container_preference_schema(empty)
+    assert empty == {}
 
 
 def test_format_id_cannot_be_a_leading_dash_flag(tmp_path: Path) -> None:

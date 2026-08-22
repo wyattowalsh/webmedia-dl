@@ -48,6 +48,7 @@
     "container_preference": {
       "anyOf": [
         {
+          "pattern": "^[A-Za-z0-9]{1,12}$",
           "type": "string"
         },
         {

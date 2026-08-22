@@ -31,7 +31,7 @@ from webmedia_dl.domain.enums import (
     Surface,
 )
 from webmedia_dl.errors import SimulatedPassError
-from webmedia_dl.identity import is_safe_container
+from webmedia_dl.identity import SAFE_CONTAINER_PATTERN, is_safe_container
 
 
 def utcnow() -> datetime:
@@ -157,13 +157,23 @@ class MediaProbe(StrictModel):
     drm_signals: list[str] = Field(default_factory=list)
 
 
+def annotate_container_preference_schema(schema: dict[str, Any]) -> None:
+    for item in schema.get("anyOf") or ():
+        if isinstance(item, dict) and item.get("type") == "string":
+            item["pattern"] = SAFE_CONTAINER_PATTERN
+    schema.pop("pattern", None)
+
+
 class ExportIntent(StrictModel):
     preset_id: str = "original-sacred"
     destination_kind: DestinationKind = DestinationKind.STAGING_ONLY
     destination_path: str | None = None
     include_original: bool = True
     allow_lossy: bool = False
-    container_preference: str | None = None
+    container_preference: str | None = Field(
+        default=None,
+        json_schema_extra=annotate_container_preference_schema,
+    )
     approved_roots: list[str] = Field(default_factory=list)
     security_scoped_path: str | None = None
     security_scoped_bookmark: str | None = None

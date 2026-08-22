@@ -247,6 +247,20 @@ def test_openspec_capabilities_match_bundle_inventory() -> None:
     assert sorted(declared) == expected
 
 
+def test_runtime_dependencies_do_not_bundle_provider_clis() -> None:
+    import tomllib
+
+    data = tomllib.loads((repo_root() / "pyproject.toml").read_text(encoding="utf-8"))
+    runtime = "\n".join(data["project"]["dependencies"])
+    dev = "\n".join(data["dependency-groups"]["dev"])
+    assert "yt-dlp" not in runtime
+    assert "gallery-dl" not in runtime
+    assert "yt-dlp" in dev
+    assert "gallery-dl" in dev
+    workflow = (repo_root() / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    assert "webmedia-dl doctor" in workflow
+
+
 def test_validate_bundle_refuses_to_extract_unsafe_members(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

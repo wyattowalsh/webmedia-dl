@@ -2,6 +2,13 @@
 
 ## 0.1.0
 
+- GitHub Actions `32573782710` on `2ee51ec` passed Python (600 pytest, 100%)
+  and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after fail-closing
+  `container_preference` and installing `yt-dlp` / `gallery-dl` in CI.
+  Exported JSON Schema now documents that allowlist on the string branch
+  only. Linux CI executes `webmedia-dl doctor` and requires those provider
+  version probes to PASS while signing, stores, App Review, legal review,
+  and the original pack ZIP stay BLOCKED.
 - Fail-close `container_preference` to an alphanumeric extension (1–12) and
   keep remux/convert outputs inside staging. Add `yt-dlp` and `gallery-dl` to
   the developer/CI toolchain so `webmedia-dl doctor` can PASS those version

@@ -6,8 +6,9 @@ import hashlib
 import re
 from urllib.parse import urlparse
 
+SAFE_CONTAINER_PATTERN = r"^[A-Za-z0-9]{1,12}$"
 _SAFE_FORMAT_ID = re.compile(r"^[A-Za-z0-9+._][A-Za-z0-9+._-]*$")
-_SAFE_CONTAINER = re.compile(r"^[A-Za-z0-9]{1,12}$")
+_SAFE_CONTAINER = re.compile(SAFE_CONTAINER_PATTERN)
 
 
 def sha256_bytes(data: bytes) -> str:

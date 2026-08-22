@@ -17,6 +17,25 @@ jobs:
       - run: uv run ruff format --check
       - run: uv run ty check
       - run: uv run pytest --cov
+      - name: Doctor provider version probes
+        run: |
+          uv run webmedia-dl doctor | tee /tmp/webmedia-dl-doctor.json
+          uv run python -c '
+          import json
+          payload = json.loads(open("/tmp/webmedia-dl-doctor.json", encoding="utf-8").read())
+          for name in ("ytdlp", "gallery-dl", "ffmpeg"):
+              item = payload["providers"][name]
+              assert item["status"] == "PASS", (name, item)
+              assert item["executed"] is True, (name, item)
+          for name in (
+              "signing_notarization",
+              "browser_stores",
+              "app_review",
+              "legal_review",
+              "original_planning_pack",
+          ):
+              assert payload[name]["status"] == "BLOCKED", (name, payload[name])
+          '
       - run: uv run python -m webmedia_dl.schema_export
       - run: uv run python scripts/sync_browser_extensions.py
       - run: uv run python scripts/validate_bundle.py
