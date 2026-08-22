@@ -87,6 +87,65 @@ def test_cookie_grant_rejects_html_replacement(tmp_path: Path) -> None:
         ledger.resolve(grant.grant_id, job_id=job_id, profile_id="personal-full")
 
 
+def test_cookie_grant_rejects_missing_file(tmp_path: Path) -> None:
+    cookies = tmp_path / "user-cookies.txt"
+    cookies.write_text("# Netscape HTTP Cookie File\n", encoding="utf-8")
+    ledger = CookieGrantLedger()
+    job_id = uuid4()
+    grant = ledger.issue(job_id, cookies, "personal-full")
+    cookies.unlink()
+    with pytest.raises(CookiePolicyError, match="does not exist"):
+        ledger.resolve(grant.grant_id, job_id=job_id, profile_id="personal-full")
+
+
+def test_cookie_grant_resolve_when_repo_root_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cookies = tmp_path / "user-cookies.txt"
+    cookies.write_text("# Netscape HTTP Cookie File\n", encoding="utf-8")
+    ledger = CookieGrantLedger()
+    job_id = uuid4()
+    grant = ledger.issue(job_id, cookies, "personal-full")
+
+    def missing() -> Path:
+        raise FileNotFoundError("no checkout")
+
+    monkeypatch.setattr("webmedia_dl.paths.repo_root", missing)
+    assert (
+        ledger.resolve(grant.grant_id, job_id=job_id, profile_id="personal-full")
+        == cookies.resolve()
+    )
+
+
+def test_cookie_grant_rejects_unresolved_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cookies = tmp_path / "user-cookies.txt"
+    cookies.write_text("# Netscape HTTP Cookie File\n", encoding="utf-8")
+    ledger = CookieGrantLedger()
+    job_id = uuid4()
+    grant = ledger.issue(job_id, cookies, "personal-full")
+    monkeypatch.setattr("webmedia_dl.security.resolve_cookie_path", lambda *_a, **_k: None)
+    with pytest.raises(CookiePolicyError, match="absolute"):
+        ledger.resolve(grant.grant_id, job_id=job_id, profile_id="personal-full")
+
+
+def test_cookie_grant_rejects_path_change(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    cookies = tmp_path / "user-cookies.txt"
+    cookies.write_text("# Netscape HTTP Cookie File\n", encoding="utf-8")
+    other = tmp_path / "elsewhere.txt"
+    other.write_text("# Netscape HTTP Cookie File\n", encoding="utf-8")
+    ledger = CookieGrantLedger()
+    job_id = uuid4()
+    grant = ledger.issue(job_id, cookies, "personal-full")
+    monkeypatch.setattr(
+        "webmedia_dl.security.resolve_cookie_path",
+        lambda *_a, **_k: other.resolve(),
+    )
+    with pytest.raises(CookiePolicyError, match="path changed"):
+        ledger.resolve(grant.grant_id, job_id=job_id, profile_id="personal-full")
+
+
 def test_probe_encrypted_stream_refuses_closed(tmp_data: Path, tmp_path: Path, monkeypatch) -> None:
     media = tmp_path / "clip.mp4"
     media.write_bytes(b"not-a-real-mp4")

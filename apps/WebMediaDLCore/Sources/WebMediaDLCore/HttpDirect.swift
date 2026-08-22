@@ -255,8 +255,11 @@ public enum WebMediaDLHttpDirect {
         }
         let resolved = bookmark.resolve()
         let root = resolved.path.trimmingCharacters(in: .whitespacesAndNewlines)
-        if root.isEmpty || resolved.stale {
+        if root.isEmpty {
             throw TransferError.filesDestinationRequired
+        }
+        if resolved.stale {
+            throw TransferError.destinationDenied
         }
         let urlSignals = drmSignals(in: trimmed)
         if !urlSignals.isEmpty {

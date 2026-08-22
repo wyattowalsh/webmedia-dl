@@ -862,7 +862,7 @@ final class ContractTests: XCTestCase {
                 fetch: { _ in (200, [:], Data(png)) }
             )
             XCTFail("stale Files bookmarks must not write")
-        } catch WebMediaDLHttpDirect.TransferError.filesDestinationRequired {
+        } catch WebMediaDLHttpDirect.TransferError.destinationDenied {
             ()
         }
         do {

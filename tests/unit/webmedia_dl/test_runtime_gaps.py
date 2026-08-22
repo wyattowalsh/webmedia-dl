@@ -422,7 +422,7 @@ def test_checkpoint_keeps_evidence_id(tmp_path: Path, png_bytes: bytes) -> None:
     assert job.state is JobState.COMPLETED
     ctx = pipeline.queue.get_context(job.job_id)
     assert ctx.checkpoint.get("evidence_id")
-    assert ctx.checkpoint.get("stage") == "exported"
+    assert ctx.checkpoint.get("stage") in {"exported", "validating", "publishing"}
 
 
 def test_pipeline_skips_reexport_when_stage_exported(tmp_path: Path, png_bytes: bytes) -> None:

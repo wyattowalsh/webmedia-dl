@@ -225,10 +225,7 @@ class Pipeline:
             self.queue.put_context(job.job_id, html=html, cookies=cookie_value, evidence=evidence)
             if not wait:
                 return job
-            claimed = self.queue.claim(job.job_id)
-            if claimed is None:
-                return self.queue.get_job(job.job_id)
-            return self._run(claimed, html=html, cookies=cookie_value, evidence=evidence)
+            return self._run(job, html=html, cookies=cookie_value, evidence=evidence)
         except PauseRequested:
             return self.queue.get_job(job.job_id)
         except CancelledError:
@@ -244,6 +241,11 @@ class Pipeline:
         cookies: str | None,
         evidence: list[BrowserEvidence] | None = None,
     ) -> Job:
+        if job.state is JobState.ACCEPTED:
+            claimed = self.queue.claim(job.job_id)
+            if claimed is None:
+                return self.queue.get_job(job.job_id)
+            job = claimed
         self._activate_job(job)
         self._check_control(job.job_id)
         stored = self.queue.get_context(job.job_id)
@@ -258,7 +260,7 @@ class Pipeline:
                 msg = "Resume checkpoint refers to a missing source artifact."
                 raise ProviderPolicyError(msg) from exc
         restored_kinds = {item.media_kind.value for item in sources}
-        if acquired_kinds - restored_kinds:
+        if sources and acquired_kinds - restored_kinds:
             msg = "Resume checkpoint acquired_kinds do not match restored source artifacts."
             raise ProviderPolicyError(msg)
 

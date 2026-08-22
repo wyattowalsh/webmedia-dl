@@ -233,15 +233,15 @@ class QueueStore:
         return None
 
     def set_state(self, job_id: UUID, state: JobState, error: str | None = None) -> Job:
-        ctx = self.get_context(job_id)
+        pause_requested, cancel_requested = self._control_flags(job_id)
         job = self.get_job(job_id)
-        if ctx.cancel_requested and state is not JobState.CANCELLED:
+        if cancel_requested and state is not JobState.CANCELLED:
             cancelled = job.model_copy(
                 update={"state": JobState.CANCELLED, "error": error or "cancelled by user"}
             )
             self.put_job(cancelled)
             raise CancelledError(f"Job {job_id} was cancelled.")
-        if ctx.pause_requested and state not in {
+        if pause_requested and state not in {
             JobState.PAUSED,
             JobState.CANCELLED,
             JobState.COMPLETED,
@@ -356,6 +356,13 @@ class QueueStore:
             if cancel_requested is not None:
                 row.cancel_requested = cancel_requested
             session.commit()
+
+    def _control_flags(self, job_id: UUID) -> tuple[bool, bool]:
+        with Session(self.engine) as session:
+            row = session.get(JobContextRow, str(job_id))
+        if row is None:
+            return False, False
+        return bool(row.pause_requested), bool(row.cancel_requested)
 
     def get_context(self, job_id: UUID) -> JobContext:
         with Session(self.engine) as session:

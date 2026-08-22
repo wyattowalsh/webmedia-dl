@@ -2,6 +2,14 @@
 
 ## 0.1.0
 
+- Stale or unresolvable Files bookmarks raise `destinationDenied`; empty roots
+  stay `filesDestinationRequired`. Cookie grants fail closed when the file is
+  missing, unresolvable, or the path changed after issue. Queue `set_state`
+  reads pause/cancel flags without re-parsing evidence. Submit claims inside
+  `_run` so a monkeypatched wait path still returns `ACCEPTED`. Local
+  `uv run pytest --cov` is 564 tests at 100%. GitHub Actions `32556536991` on
+  `44b46ac` failed `ty` and Swift HttpDirect; last proven green remains
+  `32555270688` on `89f7492`.
 - Queue `submit`/`resume_job` claim accepted jobs with the same `BEGIN IMMEDIATE`
   pause check as `run_next`. Cookie grants are revalidated on resolve. Malformed
   browser evidence fails the job. Checkpoint `acquired_kinds` must match restored

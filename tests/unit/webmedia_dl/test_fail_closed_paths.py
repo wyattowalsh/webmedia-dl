@@ -41,6 +41,7 @@ from webmedia_dl.errors import (
     CancelledError,
     PauseRequested,
     ProviderPolicyError,
+    QueueIntegrityError,
     RequiredOperationFailed,
     ValidationFailed,
 )
@@ -1217,6 +1218,16 @@ def test_lifespan_without_dispatcher(tmp_path: Path) -> None:
         assert response.json()["status"] == "ok"
 
 
+def test_submit_wait_returns_accepted_when_queue_paused(
+    tmp_data: Path, tmp_path: Path, png_bytes: bytes
+) -> None:
+    media = _png(tmp_path, png_bytes)
+    pipeline = Pipeline(data_dir=tmp_data)
+    pipeline.pause_queue()
+    job = pipeline.submit(str(media), wait=True)
+    assert job.state is JobState.ACCEPTED
+
+
 def test_queue_claim_is_atomic_with_pause(tmp_data: Path, tmp_path: Path, png_bytes: bytes) -> None:
     media = _png(tmp_path, png_bytes)
     pipeline = Pipeline(data_dir=tmp_data)
@@ -1229,6 +1240,53 @@ def test_queue_claim_is_atomic_with_pause(tmp_data: Path, tmp_path: Path, png_by
     assert claimed is not None
     assert claimed.state is JobState.DISCOVERING
     assert pipeline.queue.claim(job.job_id) is None
+
+
+def test_queue_claim_cas_miss_returns_none(
+    tmp_data: Path, tmp_path: Path, png_bytes: bytes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    media = _png(tmp_path, png_bytes)
+    pipeline = Pipeline(data_dir=tmp_data)
+    job = pipeline.submit(str(media), wait=False)
+
+    class Result:
+        def __init__(self, value: object) -> None:
+            self._value = value
+
+        def scalar(self) -> object:
+            return self._value
+
+        def fetchone(self) -> object:
+            return self._value
+
+    class Conn:
+        def __enter__(self) -> Conn:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def execute(self, sql: object, _params: object = None) -> Result:
+            text_sql = str(sql)
+            if "paused" in text_sql:
+                return Result(False)
+            if "SELECT job_id, payload" in text_sql:
+                return Result((str(job.job_id), job.model_dump_json()))
+            return Result(None)
+
+    monkeypatch.setattr(pipeline.queue.engine, "begin", lambda: Conn())
+    assert pipeline.queue.claim(job.job_id) is None
+
+
+def test_missing_job_context_is_empty(tmp_data: Path) -> None:
+    pipeline = Pipeline(data_dir=tmp_data)
+    missing = uuid4()
+    ctx = pipeline.queue.get_context(missing)
+    assert ctx.evidence == ()
+    assert ctx.checkpoint == {}
+    pause_requested, cancel_requested = pipeline.queue._control_flags(missing)
+    assert pause_requested is False
+    assert cancel_requested is False
 
 
 def test_malformed_browser_evidence_fails_closed(
@@ -1247,6 +1305,35 @@ def test_malformed_browser_evidence_fails_closed(
     assert result.state is JobState.FAILED
     assert result.error is not None
     assert "evidence" in result.error.lower()
+    with pipeline.queue.engine.begin() as conn:
+        conn.execute(
+            text("UPDATE job_context SET evidence_json = :payload WHERE job_id = :job_id"),
+            {"payload": "{}", "job_id": str(job.job_id)},
+        )
+    with pytest.raises(QueueIntegrityError, match="JSON array"):
+        pipeline.queue.get_context(job.job_id)
+    with pipeline.queue.engine.begin() as conn:
+        conn.execute(
+            text("UPDATE job_context SET evidence_json = :payload WHERE job_id = :job_id"),
+            {"payload": '[{"url": 1}]', "job_id": str(job.job_id)},
+        )
+    with pytest.raises(QueueIntegrityError, match="failed validation"):
+        pipeline.queue.get_context(job.job_id)
+
+
+def test_browser_evidence_type_error_fails_closed(
+    tmp_data: Path, tmp_path: Path, png_bytes: bytes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    media = _png(tmp_path, png_bytes)
+    pipeline = Pipeline(data_dir=tmp_data)
+    job = pipeline.submit(str(media), wait=False)
+
+    def boom(_payload: object) -> object:
+        raise TypeError("not text")
+
+    monkeypatch.setattr("webmedia_dl.queue.json.loads", boom)
+    with pytest.raises(QueueIntegrityError, match="not valid JSON"):
+        pipeline.queue.get_context(job.job_id)
 
 
 def test_checkpoint_kinds_must_match_restored_sources(

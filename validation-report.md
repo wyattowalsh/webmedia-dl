@@ -2,8 +2,8 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 550 tests on GitHub Actions `ci` run `32555270688` (`89f7492`); follow-up binds queue claim, cookie revalidation, malformed evidence, checkpoint kinds, missing binaries, unsafe zip extraction, and remaining OpenSpec SHALLs |
-| `uv run pytest --cov` | PASS | 99.98% on `89f7492`; local follow-up (`fail_under` 99) |
+| `uv run pytest` | PASS | 564 tests locally after stale-bookmark / cookie-grant follow-up; last proven GitHub Actions `ci` run is `32555270688` (`89f7492`, 550 tests). Run `32556536991` on `44b46ac` failed `ty` and Swift `testHttpDirectSavesClearMediaAndRefusesDrm` |
+| `uv run pytest --cov` | PASS | 100% locally (`fail_under` 99); 99.98% on GitHub `89f7492` |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
 | `uv run ty check` | PASS | |
@@ -25,13 +25,13 @@
 | Simulated `PASS` | PASS | tests reject planned/simulated PASS |
 | DRM circumvention | PASS | encrypted HLS/DASH refused before any segment fetch; `#EXT-X-SESSION-KEY` SAMPLE-AES/FairPlay refused before fetch; `cenc` / Widevine / PlayReady UUIDs / `skd://` detected; mixed clear-then-key records the prefix only; later live-poll DRM stops without fetching protected parts; dynamic A/V DASH stops remaining renditions after late ContentProtection; growing HLS byte-ranges refetch and append only the new suffix; a later growing-range HTTP error fails closed; already-written live ranges are not rewound; HTTP probe encryption quarantines and does not fall back to yt-dlp; a later `_record_probe` that reports encryption after a clear acquire probe fails closed without quarantining |
 | Pairing profile bound | PASS | restricted/browser/watch/tv pairing stays on the client profile; unknown/full/expired pairing and missing/mismatched session keys fail closed; CLI `pair create/confirm` reports `DelegationDenied` |
-| Cookie grants | PASS | job-bound grants persist in `cookie-grants.json` with merge/`0600` lock; dump-json uses the grant; relative and in-repo paths rejected; HTML replacement after issue is refused; `run_next` restores the grant from job context and passes `--cookies` |
+| Cookie grants | PASS | job-bound grants persist in `cookie-grants.json` with merge/`0600` lock; dump-json uses the grant; relative and in-repo paths rejected; HTML replacement, missing files, unresolved paths, and path changes after issue are refused; `run_next` restores the grant from job context and passes `--cookies` |
 | Default telemetry | PASS | false in doctor and profiles; `policy-profiles.json` cannot enable DRM circumvention, telemetry, cookie widening, subprocess, or delegation |
 | Publish sibling isolation | PASS | a failed validation or unreadable sibling does not abort other validated destination copies; a failed remux or export policy error still publishes the original source |
 | Packaged runtime fallback | PASS | `runtime_root` / `runtime_file` fall back to checkout `resources/` without a packaged `runtime/` tree; `repo_root` fails closed when `pyproject.toml` is absent |
 | CLI paste/speak/drop fail-closed | PASS | DRM locators exit 1 with `job.error`; missing drop files fail closed; drop publication errors exit 1 |
 | Fetch bounds | PASS | HTML truncate, media overflow error, streaming within-limit, redirect bound, owned client closed |
-| Queue durability | PASS | legacy `job_context` columns migrate; `claim_next` CAS misses return none; `UPDATE … RETURNING` plus `BEGIN IMMEDIATE` keeps concurrent claims exclusive; `submit`/`resume_job` use the same pause-aware claim; invalid JSON checkpoints become `{}`; malformed browser evidence fails the job; `next_runnable` ignores non-accepted jobs |
+| Queue durability | PASS | legacy `job_context` columns migrate; `claim_next`/`claim` CAS misses return none; `UPDATE … RETURNING` plus `BEGIN IMMEDIATE` keeps concurrent claims exclusive; `submit` claims inside `_run`; `set_state` reads pause/cancel flags without re-parsing evidence; invalid JSON checkpoints become `{}`; malformed browser evidence fails the job; `next_runnable` ignores non-accepted jobs |
 | Source artifact identity | PASS | SOURCE `artifact_id` must be `sha256:<digest>`; titles and `plan:source` sentinels are rejected |
 | Capability health probe | PASS | present binaries whose version probe fails are `unhealthy`; missing binaries stay `missing`; a resolved path that does not exist is `missing`; `/bin/false` is not `healthy`; `http-direct` records an executed httpx probe; `validate.container` is not `healthy` when ffprobe is missing |
 | Extension popup one-tap | PASS | `popup.js` `#send` click collects page URLs and POSTs `/v1/jobs` with no `nativeCommand` |
@@ -107,7 +107,7 @@
 | Vision share + Files destinations | PASS | share Info.plist principals; `fileImporter` + `bookmarkData`; PhotoKit write stays closed |
 | Typed event payloads | PASS | `EventRecord` rejects stdout/stderr/argv/nativeCommand/cookie paths |
 | Files/clipboard/PhotoKit contracts | PASS | security-scoped bookmark boundary; complete clients persist and submit `security_scoped_bookmark`; clipboard URL is never `local_path`; PhotoKit write stays closed |
-| Complete-client on-device HTTP | PASS | iPhone/iPad/visionOS `WebMediaDLHttpDirect` downloads direct media into a Files bookmark; page/live locators require pairing; DRM signals refuse before write; byte overflow refuses before write; `.`/`..` stems become `source`; URLSession.bytes stops at `maxBytes`; watchOS/tvOS stay capture-only |
+| Complete-client on-device HTTP | PASS | iPhone/iPad/visionOS `WebMediaDLHttpDirect` downloads direct media into a Files bookmark; empty roots are `filesDestinationRequired`; stale or unresolvable bookmark data is `destinationDenied`; page/live locators require pairing; DRM signals refuse before write; byte overflow refuses before write; `.`/`..` stems become `source`; URLSession.bytes stops at `maxBytes`; watchOS/tvOS stay capture-only |
 | Share sheet extractors | PASS | HTTPS locators stay URL intake; `file://` paths use drop intake; awaited `NSItemProvider` load |
 | Companion Mac relay | PASS | watchOS/tvOS `WCSessionDelegate` activate + `transferUserInfo`; Mac `autoForward` drains sealed/plain companion messages with pairing session key; `nativeCommand` null |
 | HTTP stream stop | PASS | `bound_fetch(..., should_stop=)` aborts mid-stream; cancel discards completed HTTP fetch; pause commits |

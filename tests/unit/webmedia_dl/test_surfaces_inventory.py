@@ -287,6 +287,12 @@ def test_files_destinations_use_bookmarks_not_typed_paths() -> None:
     assert "bookmarkData" in destinations
     assert "fromPickedURL" in destinations
     assert ".withSecurityScope" in destinations
+    http_direct = (root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/HttpDirect.swift").read_text(
+        encoding="utf-8"
+    )
+    assert "if resolved.stale" in http_direct
+    assert "TransferError.destinationDenied" in http_direct
+    assert "startAccessingSecurityScopedResource" in http_direct
     assert ".minimalBookmark" in destinations
     assert "HTTPS stays a URL; file paths use drop intake" in destinations
     assert "static func locators(fromShared" in destinations
@@ -745,6 +751,8 @@ def test_github_ci_compiles_apple_packages() -> None:
             assert f'.library(name: "{share}"' in text
             assert f'"{share}"' in text
     assert "testHttpDirectSavesClearMediaAndRefusesDrm" in contracts
+    assert "unresolvable bookmark data must fail closed" in contracts
+    assert "TransferError.destinationDenied" in contracts
     assert "TransferError.overflow" in contracts
     assert "invalidLocator" in contracts
     assert "testDomainInvariantsFailClosed" in contracts
@@ -790,6 +798,8 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert "liveRequiresMac" in http_direct
     assert "pairingRequired" in http_direct
     assert "drmRefused" in http_direct
+    assert "destinationDenied" in http_direct
+    assert "filesDestinationRequired" in http_direct
     assert "saveIfDirect" in http_direct
     assert "outputStem" in http_direct
     assert "URLSession.shared.bytes" in http_direct

@@ -221,16 +221,15 @@ def test_validate_bundle_refuses_to_extract_unsafe_members(
     mod = _load("validate_bundle_unsafe", "scripts/validate_bundle.py")
     pkg = _load("package_bundle_unsafe", "scripts/package_bundle.py")
     extracted: list[bool] = []
-    original = zipfile.ZipFile.extractall
 
     def write_bundle(_root: Path, output: Path) -> str:
         with zipfile.ZipFile(output, "w") as archive:
             archive.writestr("../etc/passwd", "x")
         return "deadbeef"
 
-    def extractall(self, *args: object, **kwargs: object) -> None:
+    def extractall(self: zipfile.ZipFile, path: str | Path | None = None) -> None:
         extracted.append(True)
-        return original(self, *args, **kwargs)
+        raise AssertionError("unsafe archives must not extract")
 
     monkeypatch.setattr(
         mod,
