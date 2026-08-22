@@ -2,6 +2,13 @@
 
 ## 0.1.0
 
+- Prefer HLS/DASH path suffixes (`.m3u8` / `.m3u` / `.mpd`) when several
+  `live_stream` candidates exist, so a MIME-typed watch page or `.json`
+  playlist link cannot steal recording from `video[src]` / iframe playlists.
+  VIDEO first-wins is unchanged. GitHub Actions `32589213449` on `e469686`
+  passed Python (626 pytest, 100%), doctor provider probes, and Swift
+  (18 tests, 0 failures; 12× BUILD SUCCEEDED) after following nested playlist
+  locators by path suffix.
 - Follow nested HLS/DASH playlist locators by path suffix so `index.m3u8?token`,
   `CHILD.M3U8`, trailing slashes, and classic `.m3u` children are fetched as
   playlists instead of concatenated as source bytes. A wrapper playlist that

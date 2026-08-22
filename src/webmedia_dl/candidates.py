@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
+from webmedia_dl.discovery import is_direct_media_url
 from webmedia_dl.domain.enums import MediaKind
 from webmedia_dl.domain.models import CandidateGraph, GraphEdge, MediaCandidate
 
@@ -72,6 +73,13 @@ def preferred_by_kind(graph: CandidateGraph) -> list[MediaCandidate]:
             continue
         clean = [node for node in nodes if not node.drm_signals]
         pool = clean or nodes
+        if kind is MediaKind.LIVE_STREAM:
+            pool = sorted(
+                pool,
+                key=lambda node: (
+                    0 if node.retrieval_urls and is_direct_media_url(node.retrieval_urls[0]) else 1
+                ),
+            )
         picked.append(pool[0])
     picked.sort(key=lambda node: KIND_RANK.get(node.media_kind, 7))
     if picked:

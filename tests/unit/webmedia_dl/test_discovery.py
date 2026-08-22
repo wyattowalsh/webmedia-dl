@@ -244,6 +244,41 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
     assert kinds["https://cdn.example.com/playlist.json"] is MediaKind.LIVE_STREAM
     assert kinds["https://cdn.example.com/classic.m3u"] is MediaKind.LIVE_STREAM
     assert kinds["https://cdn.example.com/listed.m3u"] is MediaKind.LIVE_STREAM
+    steal_live = """
+    <html>
+      <head>
+        <link type="application/vnd.apple.mpegurl" href="https://example.com/watch">
+        <link type="application/vnd.apple.mpegurl" href="https://cdn.example.com/playlist.json">
+      </head>
+      <body>
+        <video src="https://cdn.example.com/live.m3u8"></video>
+      </body>
+    </html>
+    """
+    stolen_live = discover(_source(), profile, html=steal_live)
+    live_pref = [
+        item
+        for item in preferred_by_kind(build_graph(uuid4(), stolen_live))
+        if item.media_kind is MediaKind.LIVE_STREAM
+    ]
+    assert live_pref
+    assert live_pref[0].retrieval_urls[0] == "https://cdn.example.com/live.m3u8"
+    typed_only = """
+    <html>
+      <head>
+        <link type="application/vnd.apple.mpegurl" href="https://example.com/watch">
+        <link type="application/vnd.apple.mpegurl" href="https://cdn.example.com/playlist.json">
+      </head>
+    </html>
+    """
+    typed_live = discover(_source(), profile, html=typed_only)
+    typed_pref = [
+        item
+        for item in preferred_by_kind(build_graph(uuid4(), typed_live))
+        if item.media_kind is MediaKind.LIVE_STREAM
+    ]
+    assert typed_pref
+    assert typed_pref[0].retrieval_urls[0] == "https://example.com/watch"
     object_id = """
     <html><body>
       <script type="application/ld+json">

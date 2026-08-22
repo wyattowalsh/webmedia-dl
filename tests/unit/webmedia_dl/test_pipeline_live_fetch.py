@@ -69,6 +69,30 @@ def test_pipeline_records_clear_hls(tmp_data: Path) -> None:
         if item.media_kind is MediaKind.LIVE_STREAM
     }
     assert live_bytes == {b"SEGMENT", b"PLAINLIVE", b"M3ULIVE"}
+    steal = (
+        "<html><head>"
+        '<link type="application/vnd.apple.mpegurl" href="https://example.com/watch">'
+        "</head><body>"
+        '<video src="https://cdn.example.com/steal.m3u8"></video>'
+        "</body></html>"
+    )
+    bodies["https://example.com/watch"] = b"<html>not a playlist</html>"
+    bodies["https://cdn.example.com/steal.m3u8"] = b"#EXTM3U\n#EXTINF:1,\nsteal.ts\n"
+    bodies["https://cdn.example.com/steal.ts"] = b"STEALLIVE"
+    job = pipeline.submit("https://example.com/watch-page", html=steal)
+    assert job.state is JobState.COMPLETED
+    ranked = [
+        event.payload["strategies"]
+        for event in pipeline.queue.events_for(job.job_id)
+        if event.type is EventType.PLAN_RANKED
+    ]
+    assert ranked == [["live-clear-record"]]
+    live_bytes = {
+        pipeline.store.resolve(item).read_bytes()
+        for item in pipeline.store._records.values()
+        if item.media_kind is MediaKind.LIVE_STREAM
+    }
+    assert b"STEALLIVE" in live_bytes
 
 
 def test_live_playlist_fetch_uses_download_bound(
