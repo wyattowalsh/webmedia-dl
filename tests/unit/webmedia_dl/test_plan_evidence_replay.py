@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 from sqlmodel import Session
 
-from webmedia_dl.discovery import discover
+from webmedia_dl.discovery import _usable_url, discover
 from webmedia_dl.domain.enums import IntakeKind, JobState, MediaKind, Surface
 from webmedia_dl.domain.models import BrowserEvidence, ExportIntent, MediaSource
 from webmedia_dl.envelope import open_payload, seal_payload
@@ -42,6 +42,8 @@ def test_javascript_urls_are_ignored() -> None:
     assert not any(item.startswith("file:") for item in urls)
     assert not any(item.startswith("blob:") for item in urls)
     assert any(item.endswith("ok.png") for item in urls)
+    assert _usable_url("") is False
+    assert _usable_url("   ") is False
 
 
 def test_srcset_poster_and_browser_evidence() -> None:
