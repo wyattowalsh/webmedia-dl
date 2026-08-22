@@ -486,6 +486,45 @@ def test_segment_timeline_t_override_and_inverted_range() -> None:
         "https://cdn.example.com/s3-t5000.m4s",
         "https://cdn.example.com/s4-t6000.m4s",
     ]
+    numbered = """
+    <MPD><Period>
+      <SegmentTemplate media="s$Number$-t$Time$.m4s" startNumber="1">
+        <SegmentTimeline>
+          <S t="5000" d="1000" r="1" n="10"/>
+          <S t="7000" d="1000" r="0" n="50"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+    </Period></MPD>
+    """
+    assert recordable_segment_urls(numbered, "https://cdn.example.com/") == [
+        "https://cdn.example.com/s10-t5000.m4s",
+        "https://cdn.example.com/s11-t6000.m4s",
+        "https://cdn.example.com/s50-t7000.m4s",
+    ]
+    invalid_n = """
+    <MPD><Period>
+      <SegmentTemplate media="s$Number$.m4s" startNumber="3">
+        <SegmentTimeline>
+          <S t="0" d="1" r="0" n="nope"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+    </Period></MPD>
+    """
+    assert recordable_segment_urls(invalid_n, "https://cdn.example.com/") == [
+        "https://cdn.example.com/s3.m4s",
+    ]
+    zero_n = """
+    <MPD><Period>
+      <SegmentTemplate media="s$Number$.m4s" startNumber="3">
+        <SegmentTimeline>
+          <S t="0" d="1" r="0" n="0"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+    </Period></MPD>
+    """
+    assert recordable_segment_urls(zero_n, "https://cdn.example.com/") == [
+        "https://cdn.example.com/s0.m4s",
+    ]
     inverted = """
     <MPD><Period>
       <Representation id="v" bandwidth="1" mimeType="video/mp4">

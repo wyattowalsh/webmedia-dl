@@ -2,6 +2,12 @@
 
 ## 0.1.0
 
+- Bind DASH SegmentTimeline `S@n` onto `$Number$` so advertised segment
+  numbers are recorded instead of always counting from `startNumber`.
+  Invalid `@n` keeps the running number. GitHub Actions `32596345102` on
+  `8d03589` passed Python (626 pytest, 100%), doctor provider probes, and
+  Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after collecting
+  `og:image:secure_url` as IMAGE.
 - Collect Open Graph `og:image:secure_url` in HTML discovery and browser
   capture the same way as `og:video:secure_url` / `og:audio:secure_url`, so
   HTTPS-only profiles keep an IMAGE candidate when the page omits `og:image`

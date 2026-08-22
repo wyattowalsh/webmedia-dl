@@ -527,6 +527,8 @@ def _template_urls(
             sattrs = _attrs(item.group(1))
             if "t" in sattrs:
                 clock = int(sattrs["t"])
+            if "n" in sattrs:
+                number = _int_attr(sattrs, "n", number)
             duration = int(sattrs.get("d") or 0)
             repeats = int(sattrs.get("r") or 0)
             count = (

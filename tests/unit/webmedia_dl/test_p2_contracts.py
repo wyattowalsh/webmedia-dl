@@ -733,6 +733,19 @@ def test_dash_open_ended_timeline_is_capped() -> None:
         f"https://cdn.example.com/chunk_{index}.m4s"
         for index in range(1, MAX_TIMELINE_SEGMENTS + 1)
     ]
+    numbered_open = """
+    <MPD><Period>
+      <SegmentTemplate media="chunk_$Number$.m4s" startNumber="1">
+        <SegmentTimeline>
+          <S t="0" d="90000" r="-1" n="10"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+    </Period></MPD>
+    """
+    assert recordable_segment_urls(numbered_open, "https://cdn.example.com/") == [
+        f"https://cdn.example.com/chunk_{index}.m4s"
+        for index in range(10, 10 + MAX_TIMELINE_SEGMENTS)
+    ]
     bounded = """
     <MPD mediaPresentationDuration="PT6S"><Period duration="PT6S">
       <SegmentTemplate media="chunk_$Number$.m4s" startNumber="1" timescale="1">
@@ -744,6 +757,20 @@ def test_dash_open_ended_timeline_is_capped() -> None:
     """
     assert recordable_segment_urls(bounded, "https://cdn.example.com/") == [
         f"https://cdn.example.com/chunk_{index}.m4s" for index in range(1, 4)
+    ]
+    numbered_bounded = """
+    <MPD mediaPresentationDuration="PT6S"><Period duration="PT6S">
+      <SegmentTemplate media="chunk_$Number$.m4s" startNumber="1" timescale="1">
+        <SegmentTimeline>
+          <S t="0" d="2" r="-1" n="10"/>
+        </SegmentTimeline>
+      </SegmentTemplate>
+    </Period></MPD>
+    """
+    assert recordable_segment_urls(numbered_bounded, "https://cdn.example.com/") == [
+        "https://cdn.example.com/chunk_10.m4s",
+        "https://cdn.example.com/chunk_11.m4s",
+        "https://cdn.example.com/chunk_12.m4s",
     ]
     mpd_only = """
     <MPD mediaPresentationDuration="PT6S"><Period>

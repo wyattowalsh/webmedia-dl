@@ -208,6 +208,37 @@ def test_dash_segment_timeline(tmp_path: Path) -> None:
     assert urls[0] == "https://cdn.example.com/dash/init.mp4"
     assert "https://cdn.example.com/dash/chunk_1.m4s" in urls
     assert "https://cdn.example.com/dash/chunk_3.m4s" in urls
+    numbered = """
+    <MPD>
+      <Period>
+        <SegmentTemplate timescale="90000" initialization="init.mp4"
+          media="chunk_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="0" d="90000" r="1" n="10"/>
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Period>
+    </MPD>
+    """
+    numbered_urls = recordable_segment_urls(numbered, "https://cdn.example.com/dash/")
+    assert numbered_urls == [
+        "https://cdn.example.com/dash/init.mp4",
+        "https://cdn.example.com/dash/chunk_10.m4s",
+        "https://cdn.example.com/dash/chunk_11.m4s",
+    ]
+    numbered_blob = {"init.mp4": b"INIT", "chunk_10.m4s": b"A", "chunk_11.m4s": b"B"}
+
+    def fetch_numbered(url: str) -> tuple[int, str, bytes]:
+        name = url.rsplit("/", 1)[-1]
+        if name not in numbered_blob:
+            raise AssertionError(url)
+        return 200, "video/mp4", numbered_blob[name]
+
+    numbered_out = tmp_path / "dash-n.bin"
+    record_clear_stream(
+        numbered, "https://cdn.example.com/dash/manifest.mpd", numbered_out, fetch_numbered
+    )
+    assert numbered_out.read_bytes() == b"INITAB"
     child_init = """
     <MPD mediaPresentationDuration="PT4S"><Period>
       <SegmentTemplate media="s$Number$.m4s" startNumber="1" duration="2" timescale="1">
