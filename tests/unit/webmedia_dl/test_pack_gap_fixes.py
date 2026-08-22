@@ -364,11 +364,17 @@ def test_hls_and_dash_keep_alternate_audio(tmp_path: Path) -> None:
         <SegmentTemplate media="video/$RepresentationID$.m4s" startNumber="1"/>
         <Representation id="v1" bandwidth="800000" mimeType="video/mp4"/>
       </AdaptationSet>
+      <AdaptationSet contentType="text">
+        <SegmentTemplate media="text/$RepresentationID$.vtt" startNumber="1"/>
+        <Representation id="t1" bandwidth="4000" mimeType="text/vtt"/>
+      </AdaptationSet>
     </Period></MPD>
     """
+    captions = b"WEBVTT\n"
     dash_bodies = {
         "https://cdn.example.com/video/v1.m4s": b"V",
         "https://cdn.example.com/audio/a1.m4s": b"A",
+        "https://cdn.example.com/text/t1.vtt": captions,
     }
 
     def dash_fetch(url: str) -> tuple[int, str, bytes]:
@@ -383,6 +389,9 @@ def test_hls_and_dash_keep_alternate_audio(tmp_path: Path) -> None:
     dash_kinds = {kind for kind, _path in dash_recorded}
     assert MediaKind.VIDEO in dash_kinds
     assert MediaKind.AUDIO in dash_kinds
+    assert MediaKind.SUBTITLE in dash_kinds
+    dash_payloads = {kind: path.read_bytes() for kind, path in dash_recorded}
+    assert dash_payloads[MediaKind.SUBTITLE] == captions
 
 
 def test_live_watch_page_plans_ytdlp_not_clear_recorder() -> None:

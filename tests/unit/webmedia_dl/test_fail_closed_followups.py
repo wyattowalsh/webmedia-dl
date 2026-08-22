@@ -262,6 +262,11 @@ def test_dynamic_dash_stops_remaining_kinds_after_late_drm(tmp_path: Path) -> No
             <BaseURL>audio.m4s</BaseURL>
           </Representation>
         </AdaptationSet>
+        <AdaptationSet mimeType="text/vtt">
+          <Representation id="t" bandwidth="1000">
+            <BaseURL>subs.vtt</BaseURL>
+          </Representation>
+        </AdaptationSet>
       </Period>
     </MPD>
     """
@@ -277,6 +282,8 @@ def test_dynamic_dash_stops_remaining_kinds_after_late_drm(tmp_path: Path) -> No
             return 200, "application/dash+xml", protected.encode()
         if url.endswith("audio.m4s"):
             raise AssertionError("audio must not be fetched after ContentProtection")
+        if url.endswith("subs.vtt"):
+            raise AssertionError("text must not be fetched after ContentProtection")
         return 200, "video/mp4", b"VID"
 
     dest = tmp_path / "live.bin"
@@ -290,7 +297,9 @@ def test_dynamic_dash_stops_remaining_kinds_after_late_drm(tmp_path: Path) -> No
     kinds = {kind for kind, _path in recorded}
     assert MediaKind.VIDEO in kinds
     assert MediaKind.AUDIO not in kinds
+    assert MediaKind.SUBTITLE not in kinds
     assert not any(item.endswith("audio.m4s") for item in fetched)
+    assert not any(item.endswith("subs.vtt") for item in fetched)
     video_path = next(path for kind, path in recorded if kind is MediaKind.VIDEO)
     assert video_path.read_bytes() == b"VID"
 

@@ -2,6 +2,15 @@
 
 ## 0.1.0
 
+- Record DASH text/subtitle AdaptationSets (`contentType="text"`, `text/vtt`,
+  `wvtt` / `stpp` / `ttml`) as a separate SUBTITLE sidecar, using the
+  highest-bandwidth text Representation. Primary `recordable_parts` still
+  prefers video and does not concatenate text into that source. Late
+  ContentProtection after video skips remaining audio/text fetches.
+  GitHub Actions `32600696959` on `8497275` passed Python (626 pytest, 100%),
+  doctor provider probes, and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED)
+  after collecting JSON-LD media `url` locators typed from `@type`.
+
 - Collect JSON-LD `url` on VideoObject / AudioObject / ImageObject (and the
   same `@type` families) in HTML discovery and browser capture, so a watch-page
   or embed locator without `contentUrl` / `embedUrl` is still typed from `@type`.

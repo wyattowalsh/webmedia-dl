@@ -600,15 +600,27 @@ def test_record_kind_streams_writes_separate_dash_kinds(tmp_path: Path) -> None:
             <BaseURL>audio.m4s</BaseURL>
           </Representation>
         </AdaptationSet>
+        <AdaptationSet contentType="text" mimeType="text/vtt">
+          <Representation id="t1" bandwidth="1000">
+            <BaseURL>subs-lo.vtt</BaseURL>
+          </Representation>
+          <Representation id="t2" bandwidth="2000" codecs="wvtt">
+            <BaseURL>subs.vtt</BaseURL>
+          </Representation>
+        </AdaptationSet>
       </Period>
     </MPD>
     """
+    captions = b"WEBVTT\n"
     bodies = {
         "https://cdn.example.com/video.m4s": b"VID",
         "https://cdn.example.com/audio.m4s": b"AUD",
+        "https://cdn.example.com/subs.vtt": captions,
     }
 
     def fetch(url: str) -> tuple[int, str, bytes]:
+        if url.endswith("subs-lo.vtt"):
+            raise AssertionError(url)
         return 200, "video/mp4", bodies[url]
 
     dest = tmp_path / "live.bin"
@@ -616,9 +628,13 @@ def test_record_kind_streams_writes_separate_dash_kinds(tmp_path: Path) -> None:
     kinds = {kind for kind, _path in recorded}
     assert MediaKind.VIDEO in kinds
     assert MediaKind.AUDIO in kinds
+    assert MediaKind.SUBTITLE in kinds
     by_kind = {kind: path.read_bytes() for kind, path in recorded}
     assert by_kind[MediaKind.VIDEO] == b"VID"
     assert by_kind[MediaKind.AUDIO] == b"AUD"
+    assert by_kind[MediaKind.SUBTITLE] == captions
+    sub_path = next(path for kind, path in recorded if kind is MediaKind.SUBTITLE)
+    assert sub_path.name == "live-subtitles.bin"
 
 
 def test_live_poll_should_stop_and_hls_audio_http_error(tmp_path: Path) -> None:

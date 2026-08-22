@@ -892,10 +892,13 @@ def _dash_kind(attrs: dict[str, str]) -> str:
     ).lower()
     video_tokens = ("video", "avc", "hev1", "hvc1", "vp9", "av01")
     audio_tokens = ("audio", "mp4a", "opus", "ec-3", "ac-3")
+    text_tokens = ("text", "vtt", "wvtt", "stpp", "ttml", "subtitle")
     if any(token in blob for token in video_tokens):
         return "video"
     if any(token in blob for token in audio_tokens):
         return "audio"
+    if any(token in blob for token in text_tokens):
+        return "text"
     return "unknown"
 
 
@@ -1093,10 +1096,13 @@ def _select_dash_kinds(
         return selected
     videos = [item for item in populated if item[1] == "video"]
     audios = [item for item in populated if item[1] == "audio"]
+    texts = [item for item in populated if item[1] == "text"]
     if videos:
         selected["video"] = max(videos, key=lambda item: item[0])[2]
     if audios:
         selected["audio"] = max(audios, key=lambda item: item[0])[2]
+    if texts:
+        selected["text"] = max(texts, key=lambda item: item[0])[2]
     if not selected:
         best = max(populated, key=lambda item: item[0])
         selected[best[1] if best[1] != "unknown" else "video"] = best[2]
@@ -1610,16 +1616,19 @@ def record_kind_streams(
             mapping.append((MediaKind.VIDEO, "video"))
         if "audio" in kinds:
             mapping.append((MediaKind.AUDIO, "audio"))
+        if "text" in kinds:
+            mapping.append((MediaKind.SUBTITLE, "text"))
         if mapping:
             recorded: list[tuple[MediaKind, Path]] = []
             drm_flag: list[bool] = []
             for media_kind, name in mapping:
                 if drm_flag:
                     break
+                dest_label = "subtitles" if name == "text" else name
                 dest = (
                     output
                     if len(mapping) == 1
-                    else output.parent / f"{output.stem}-{name}{output.suffix or '.bin'}"
+                    else output.parent / f"{output.stem}-{dest_label}{output.suffix or '.bin'}"
                 )
                 record_clear_stream(
                     playlist_text,

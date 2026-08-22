@@ -1200,11 +1200,15 @@ def test_dash_prefers_highest_video_representation() -> None:
         <Representation id="v1" bandwidth="800000" mimeType="video/mp4"/>
         <Representation id="v2" bandwidth="1600000" mimeType="video/mp4"/>
       </AdaptationSet>
+      <AdaptationSet contentType="text">
+        <SegmentTemplate media="text/$RepresentationID$.vtt" startNumber="1"/>
+        <Representation id="t1" bandwidth="9999999" mimeType="text/vtt"/>
+      </AdaptationSet>
     </Period></MPD>
     """
     urls = recordable_segment_urls(text, "https://cdn.example.com/manifest.mpd")
     assert urls == ["https://cdn.example.com/video/v2.m4s"]
-    assert not any("audio" in url or "v1.m4s" in url for url in urls)
+    assert not any("audio" in url or "v1.m4s" in url or "text" in url for url in urls)
 
 
 def test_hls_master_prefers_highest_bandwidth(tmp_path: Path) -> None:
