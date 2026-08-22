@@ -371,8 +371,8 @@ SCENARIO_EVIDENCE: dict[str, tuple[str, str]] = {
         "testContinuityIsNotASubprocessWorker",
     ),
     "complete clients carry files destinations": (
-        "apps/WebMediaDLCore/Tests/WebMediaDLCoreTests/IdentityTests.swift",
-        "testPhotosDestinationRequiresApprovedRoot",
+        "tests/unit/webmedia_dl/test_surfaces_inventory.py",
+        "test_complete_clients_http_direct_and_shared_domain",
     ),
     "share destination publishes under approved root": (
         "tests/unit/webmedia_dl/test_pack_gaps.py",

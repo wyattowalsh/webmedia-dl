@@ -3,7 +3,12 @@ from pathlib import Path
 import pytest
 
 from webmedia_dl.errors import ProviderPolicyError
-from webmedia_dl.providers import MAX_PROVIDER_STDIO, ProviderRequest, ProviderRuntime
+from webmedia_dl.providers import (
+    MAX_PROVIDER_STDIO,
+    ProviderRequest,
+    ProviderRuntime,
+    _staging_regular_files,
+)
 
 
 def test_extra_args_rejected(tmp_path: Path) -> None:
@@ -198,3 +203,19 @@ def test_provider_stdio_is_byte_bounded(tmp_path: Path) -> None:
     )
     assert len(result.stdout) == MAX_PROVIDER_STDIO
     assert len(result.stderr) == MAX_PROVIDER_STDIO
+
+
+def test_staging_regular_files_skips_directory_symlink_escape(tmp_path: Path) -> None:
+    staging = tmp_path / "stage"
+    staging.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    leaked = outside / "leak.jpg"
+    leaked.write_bytes(b"secret")
+    (staging / "nested").symlink_to(outside)
+    nested_file = staging / "nested" / "leak.jpg"
+    assert nested_file.is_file()
+    assert nested_file.resolve() == leaked.resolve()
+    found = _staging_regular_files(staging)
+    assert leaked.resolve() not in {path.resolve() for path in found}
+    assert all(path.name != "leak.jpg" for path in found)

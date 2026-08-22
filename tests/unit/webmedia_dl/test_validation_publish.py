@@ -5,7 +5,7 @@ import pytest
 
 from webmedia_dl.domain.enums import ArtifactRole, EvidenceStatus, MediaKind
 from webmedia_dl.domain.models import Artifact, ExportIntent
-from webmedia_dl.errors import SimulatedPassError, ValidationFailed
+from webmedia_dl.errors import PublicationError, SimulatedPassError, ValidationFailed
 from webmedia_dl.network_policy import authorize_destination
 from webmedia_dl.publish import publish_artifacts
 from webmedia_dl.validation import record_result, require_pass, validate_artifact
@@ -155,3 +155,13 @@ def test_destination_outside_roots_denied(tmp_path: Path) -> None:
 
     with pytest.raises(NetworkPolicyError):
         authorize_destination(tmp_path / "other", [str(tmp_path / "allowed")])
+
+
+def test_publish_rejects_unsupported_destination_kind() -> None:
+    from unittest.mock import MagicMock
+
+    intent = MagicMock()
+    intent.destination_kind = MagicMock()
+    intent.destination_kind.value = "clipboard"
+    with pytest.raises(PublicationError, match="Unsupported destination"):
+        publish_artifacts([], intent)

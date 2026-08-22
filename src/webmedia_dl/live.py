@@ -224,7 +224,7 @@ def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
             if offset is None:
                 offset = next_offset.get(url, 0)
             parts.append(ManifestPart(url, offset, length))
-            if offset is not None and length is not None:
+            if length is not None:
                 next_offset[url] = offset + length
             continue
         parts.append(ManifestPart(url))
@@ -362,9 +362,9 @@ def _template_urls(
                 clock = int(sattrs["t"])
             duration = int(sattrs.get("d") or 0)
             repeats = int(sattrs.get("r") or 0)
-            count = max(MAX_TIMELINE_SEGMENTS - len(urls), 1) if repeats < 0 else repeats + 1
-            if count < 1:
-                count = 1
+            count = (
+                max(MAX_TIMELINE_SEGMENTS - len(urls), 1) if repeats < 0 else max(repeats + 1, 1)
+            )
             count = min(count, MAX_TIMELINE_SEGMENTS)
             for _ in range(count):
                 add(media, number=number, time_value=clock)

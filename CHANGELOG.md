@@ -4,9 +4,10 @@
 
 - Envelope nonce ledger prunes rows older than 24h on open and consume so
   `nonces.sqlite` cannot grow without bound. OpenSpec scenario titles map to
-  `(path, test)` evidence so a mapping to an unrelated file fails the build.
-  GitHub Actions run `32553572140` on `8d754df` passed Python (536 pytest,
-  99.52%) and Swift (18 tests, 0 failures).
+  `(path, test)` evidence. Unreachable URL-as-path and DASH timeline branches
+  are removed; publication refuses unknown destination kinds. GitHub Actions
+  run `32553903514` on `bc808d0` passed Python (540 pytest, 99.55%) and Swift
+  (18 tests, 0 failures).
 - Companion cancel/pause_job/resume_job require a job UUID (sealed
   envelopes included). `/v1/companion` forbids extra JSON fields such as
   `providerArgv`. `doctor` records an executed httpx probe for

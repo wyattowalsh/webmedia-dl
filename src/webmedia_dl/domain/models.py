@@ -67,13 +67,6 @@ class MediaSource(StrictModel):
         if self.kind in url_kinds and self.local_path is not None:
             msg = "A source URL never becomes a filesystem path."
             raise ValueError(msg)
-        if (
-            self.local_path is not None
-            and self.normalized_url is not None
-            and self.kind not in {IntakeKind.FILE, IntakeKind.DROP}
-        ):
-            msg = "A source URL never becomes a filesystem path."
-            raise ValueError(msg)
         if self.normalized_url is not None and self.normalized_url.startswith("file:"):
             msg = "A source URL never becomes a filesystem path."
             raise ValueError(msg)
