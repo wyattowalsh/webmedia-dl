@@ -2,6 +2,10 @@
 
 ## 0.1.0
 
+- GitHub Actions `32569700666` on `ae33eda` passed Python (583 pytest, 100%)
+  and failed Swift: plan-body assertions compared raw JSON text to
+  `https://example.com/a.mp4`, but Apple `JSONSerialization` escapes `/`.
+  Contract tests now decode the plan JSON object.
 - GitHub Actions `32569147243` on `5932ebc` passed Python (583 pytest, 100%)
   and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after speaking every
   App Intent result. Complete clients now explain the safest best-quality plan

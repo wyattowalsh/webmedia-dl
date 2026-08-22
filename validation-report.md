@@ -2,7 +2,7 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 583 tests locally; GitHub Actions `ci` run `32569147243` (`5932ebc`) passed Python (583 pytest, 100%) and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED). `32568400311` (`b2839e6`) hopped complete-client queue buttons onto Core; `32568126057` (`f474719`) boxed Mac worker spawn; `32567922144` (`6516591`) passed Python and failed Swift 6 non-Sendable start closures; `32567533760` (`6aad227`) passed Python and failed Swift 6 Mac `WebMediaDLMacWorkerLaunch` Sendable |
+| `uv run pytest` | PASS | 583 tests locally; GitHub Actions `ci` run `32569700666` (`ae33eda`) passed Python (583 pytest, 100%) and failed Swift plan-body slash escaping; `32569147243` (`5932ebc`) passed Python (583 pytest, 100%) and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED). `32568400311` (`b2839e6`) hopped complete-client queue buttons onto Core; `32568126057` (`f474719`) boxed Mac worker spawn; `32567922144` (`6516591`) passed Python and failed Swift 6 non-Sendable start closures; `32567533760` (`6aad227`) passed Python and failed Swift 6 Mac `WebMediaDLMacWorkerLaunch` Sendable |
 | `uv run pytest --cov` | PASS | 583 tests at 100% locally (`fail_under` 100); GitHub `32569147243` (`5932ebc`) was 583 tests at 100% |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |

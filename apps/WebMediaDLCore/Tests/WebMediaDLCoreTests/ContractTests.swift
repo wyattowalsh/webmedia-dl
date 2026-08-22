@@ -272,8 +272,14 @@ final class ContractTests: XCTestCase {
         let planned = try client.planRequest(locator: "https://example.com/a.mp4", surface: .macos)
         XCTAssertTrue(planned.url?.path.hasSuffix("/v1/plan") ?? false)
         XCTAssertEqual(planned.httpMethod, "POST")
+        let planObject = try JSONSerialization.jsonObject(with: planned.httpBody ?? Data()) as? [String: Any]
+        XCTAssertEqual(planObject?["locator"] as? String, "https://example.com/a.mp4")
+        XCTAssertEqual(planObject?["surface"] as? String, "macos")
+        XCTAssertEqual(planObject?["local_user_confirmed"] as? Bool, true)
+        XCTAssertNil(planObject?["nativeCommand"])
+        XCTAssertNil(planObject?["wait"])
+        XCTAssertNil(planObject?["intake_kind"])
         let planBody = String(data: planned.httpBody ?? Data(), encoding: .utf8) ?? ""
-        XCTAssertTrue(planBody.contains("https://example.com/a.mp4"))
         XCTAssertFalse(planBody.contains("nativeCommand"))
         XCTAssertFalse(planBody.contains("\"wait\""))
         XCTAssertFalse(planBody.contains("intake_kind"))
@@ -424,8 +430,18 @@ final class ContractTests: XCTestCase {
         XCTAssertEqual(endpointPlan.value(forHTTPHeaderField: "X-WebMedia-Pairing"), pairing.uuidString)
         XCTAssertEqual(endpointPlan.value(forHTTPHeaderField: "X-WebMedia-Session"), "sess")
         XCTAssertEqual(endpointPlan.value(forHTTPHeaderField: "Authorization"), "Bearer tok")
+        let endpointPlanObject = try JSONSerialization.jsonObject(
+            with: endpointPlan.httpBody ?? Data()
+        ) as? [String: Any]
+        XCTAssertEqual(endpointPlanObject?["locator"] as? String, "https://example.com/a.mp4")
+        XCTAssertEqual(endpointPlanObject?["surface"] as? String, "ios")
+        XCTAssertEqual(endpointPlanObject?["local_user_confirmed"] as? Bool, true)
+        XCTAssertEqual(endpointPlanObject?["pairing_id"] as? String, pairing.uuidString)
+        XCTAssertEqual(endpointPlanObject?["session_key"] as? String, "sess")
+        XCTAssertNil(endpointPlanObject?["nativeCommand"])
+        XCTAssertNil(endpointPlanObject?["wait"])
+        XCTAssertNil(endpointPlanObject?["intake_kind"])
         let endpointPlanBody = String(data: endpointPlan.httpBody ?? Data(), encoding: .utf8) ?? ""
-        XCTAssertTrue(endpointPlanBody.contains("https://example.com/a.mp4"))
         XCTAssertTrue(endpointPlanBody.contains("local_user_confirmed"))
         XCTAssertFalse(endpointPlanBody.contains("nativeCommand"))
         XCTAssertFalse(endpointPlanBody.contains("\"wait\""))
