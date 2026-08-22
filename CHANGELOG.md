@@ -2,6 +2,13 @@
 
 ## 0.1.0
 
+- Expand DASH `$Bandwidth%0Nd$` identifiers in AdaptationSet BaseURL and
+  SegmentTemplate media the same way as `$Number%0Nd$`, so padded bandwidth
+  locators are recorded instead of an empty source. Invalid format specs fall
+  back to decimal. GitHub Actions `32595371630` on `ab2f132` passed Python
+  (626 pytest, 100%), doctor provider probes, and Swift (18 tests, 0 failures;
+  12× BUILD SUCCEEDED) after bounding open-ended SegmentTimeline `r="-1"`
+  repeats to Period duration.
 - Bound open-ended DASH SegmentTimeline `r="-1"` repeats to the Period /
   MPD presentation window so `$Number$` locators stop at the real duration
   instead of always filling 64 segments. Unbounded timelines stay capped at

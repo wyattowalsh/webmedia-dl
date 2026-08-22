@@ -43,6 +43,7 @@ _DASH_SEGMENT_LIST = re.compile(
 _DASH_ATTR = re.compile(r"([A-Za-z_:][\w:.-]*)=(?:\"([^\"]*)\"|'([^']*)')")
 _NUMBER_TOKEN = re.compile(r"\$Number(%[^$]+)?\$")
 _TIME_TOKEN = re.compile(r"\$Time(%[^$]+)?\$")
+_BANDWIDTH_TOKEN = re.compile(r"\$Bandwidth(%[^$]+)?\$")
 _UNEXPANDED_DASH = re.compile(r"\$(?:Number|Time|RepresentationID|Bandwidth)(?:%[^$]+)?\$")
 _REPRESENTATION = re.compile(
     rf"<{_XML_NS}Representation\b([^>]*)(?:/>|>(.*?)</{_XML_NS}Representation>)",
@@ -407,6 +408,19 @@ def _format_token(value: int, spec: str | None) -> str:
         return str(value)
 
 
+def _expand_bandwidth(text: str, bandwidth: str) -> str:
+    """Bind `$Bandwidth$` / `$Bandwidth%0Nd$` once the Representation bandwidth is known."""
+
+    def replace(match: re.Match[str]) -> str:
+        try:
+            value = int(bandwidth)
+        except ValueError:
+            return bandwidth
+        return _format_token(value, match.group(1))
+
+    return _BANDWIDTH_TOKEN.sub(replace, text)
+
+
 def _expand_dash_template(
     template: str,
     *,
@@ -420,7 +434,8 @@ def _expand_dash_template(
         text = _NUMBER_TOKEN.sub(lambda match: _format_token(number, match.group(1)), text)
     if time_value is not None:
         text = _TIME_TOKEN.sub(lambda match: _format_token(time_value, match.group(1)), text)
-    text = text.replace("$RepresentationID$", representation).replace("$Bandwidth$", bandwidth)
+    text = text.replace("$RepresentationID$", representation)
+    text = _expand_bandwidth(text, bandwidth)
     return text.replace("\x00", "$")
 
 
@@ -437,7 +452,7 @@ def _expand_locator_tokens(
     if representation is not None:
         text = text.replace("$RepresentationID$", representation)
     if bandwidth is not None:
-        text = text.replace("$Bandwidth$", bandwidth)
+        text = _expand_bandwidth(text, bandwidth)
     return text
 
 

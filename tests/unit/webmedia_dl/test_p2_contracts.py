@@ -99,6 +99,59 @@ def test_dash_adaptationset_binds_self_closing_representation() -> None:
     assert recordable_segment_urls(bandwidth, "https://cdn.example.com/manifest.mpd") == [
         "https://cdn.example.com/800000/seg1.m4s"
     ]
+    bandwidth_format = """
+    <MPD>
+      <Period>
+        <AdaptationSet>
+          <BaseURL>$Bandwidth%06d$/</BaseURL>
+          <SegmentTemplate media="seg$Number%02d$.m4s" startNumber="1"/>
+          <Representation id="v1" bandwidth="800"/>
+        </AdaptationSet>
+      </Period>
+    </MPD>
+    """
+    assert recordable_segment_urls(bandwidth_format, "https://cdn.example.com/manifest.mpd") == [
+        "https://cdn.example.com/000800/seg01.m4s"
+    ]
+    bandwidth_media = """
+    <MPD>
+      <Period>
+        <AdaptationSet>
+          <SegmentTemplate media="$Bandwidth%06d$/seg$Number$.m4s" startNumber="1"/>
+          <Representation id="v1" bandwidth="800"/>
+        </AdaptationSet>
+      </Period>
+    </MPD>
+    """
+    assert recordable_segment_urls(bandwidth_media, "https://cdn.example.com/manifest.mpd") == [
+        "https://cdn.example.com/000800/seg1.m4s"
+    ]
+    bandwidth_invalid = """
+    <MPD>
+      <Period>
+        <AdaptationSet>
+          <SegmentTemplate media="$Bandwidth%zz$/$Number$.m4s" startNumber="1"/>
+          <Representation id="v1" bandwidth="800000"/>
+        </AdaptationSet>
+      </Period>
+    </MPD>
+    """
+    assert recordable_segment_urls(bandwidth_invalid, "https://cdn.example.com/manifest.mpd") == [
+        "https://cdn.example.com/800000/1.m4s"
+    ]
+    bandwidth_raw = """
+    <MPD>
+      <Period>
+        <AdaptationSet>
+          <SegmentTemplate media="$Bandwidth%06d$/$Number$.m4s" startNumber="1"/>
+          <Representation id="v1" bandwidth="high"/>
+        </AdaptationSet>
+      </Period>
+    </MPD>
+    """
+    assert recordable_segment_urls(bandwidth_raw, "https://cdn.example.com/manifest.mpd") == [
+        "https://cdn.example.com/high/1.m4s"
+    ]
     dangling = """
     <MPD><Period>
       <BaseURL>$RepresentationID$.mp4</BaseURL>
