@@ -2,6 +2,15 @@
 
 ## 0.1.0
 
+- Prefer the HLS `AUDIO` group of the highest-`BANDWIDTH` `EXT-X-STREAM-INF`
+  variant, with `DEFAULT=YES` first, so `record_kind_streams` fetches the
+  referenced rendition instead of the first `#EXT-X-MEDIA` URI (commentary
+  listed before default English, or a lower-bandwidth group's playlist).
+  GitHub Actions `32598410063` on `eb98156` passed Python (626 pytest, 100%),
+  doctor provider probes, and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED)
+  after skipping a completed HLS media-segment URI once `#EXT-X-PART` prefixes
+  for that media-sequence slot were already recorded.
+
 - Skip a completed HLS media-segment URI after `#EXT-X-PART` prefixes for that
   media-sequence slot are already recorded, including RFC order (`PART` then
   `#EXTINF` then URI) and live polls that publish the parent object later.

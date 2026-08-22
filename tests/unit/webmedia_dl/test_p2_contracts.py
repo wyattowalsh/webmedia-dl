@@ -887,6 +887,37 @@ def test_hls_audio_media_skips_non_audio_and_duplicates() -> None:
     assert hls_audio_playlist_urls(text, "https://cdn.example.com/") == [
         "https://cdn.example.com/a.m3u8"
     ]
+    defaulted = (
+        "#EXTM3U\n"
+        '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="commentary",URI="comment.m3u8"\n'
+        '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="eng",DEFAULT=YES,URI="eng.m3u8"\n'
+        '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="ec3",URI="ec3.m3u8"\n'
+        '#EXT-X-STREAM-INF:BANDWIDTH=400000,AUDIO="aac"\n'
+        "low.m3u8\n"
+        '#EXT-X-STREAM-INF:BANDWIDTH=800000,AUDIO="ec3"\n'
+        "high.m3u8\n"
+    )
+    assert hls_audio_playlist_urls(defaulted, "https://cdn.example.com/") == [
+        "https://cdn.example.com/ec3.m3u8"
+    ]
+    aac_default = (
+        "#EXTM3U\n"
+        '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="commentary",URI="comment.m3u8"\n'
+        '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="eng",DEFAULT=YES,URI="eng.m3u8"\n'
+        '#EXT-X-STREAM-INF:BANDWIDTH=800000,AUDIO="aac"\n'
+        "video.m3u8\n"
+    )
+    assert hls_audio_playlist_urls(aac_default, "https://cdn.example.com/") == [
+        "https://cdn.example.com/eng.m3u8",
+        "https://cdn.example.com/comment.m3u8",
+    ]
+    missing_group = (
+        "#EXTM3U\n"
+        '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",URI="aac.m3u8"\n'
+        '#EXT-X-STREAM-INF:BANDWIDTH=800000,AUDIO="ec3"\n'
+        "high.m3u8\n"
+    )
+    assert hls_audio_playlist_urls(missing_group, "https://cdn.example.com/") == []
 
 
 def test_hls_audio_playlist_fetch_failure(tmp_path: Path) -> None:

@@ -853,26 +853,33 @@ def _live_playlist_locator(url: str) -> bool:
     return path.endswith(_LIVE_PLAYLIST_SUFFIXES)
 
 
-def _preferred_hls_variant(text: str, base: str) -> str | None:
-    variants: list[tuple[int, str]] = []
-    pending: int | None = None
+def _preferred_hls_stream(text: str, base: str) -> tuple[str, dict[str, str]] | None:
+    variants: list[tuple[int, str, dict[str, str]]] = []
+    pending: tuple[int, dict[str, str]] | None = None
     for line in text.splitlines():
         stripped = _hls_line(line)
         if stripped.startswith("#EXT-X-STREAM-INF:"):
             attrs, duplicates = _hls_attr_map(stripped.split(":", 1)[1])
             raw = attrs.get("BANDWIDTH")
             pending = (
-                int(raw)
+                (int(raw), attrs)
                 if raw is not None and raw.isdigit() and "BANDWIDTH" not in duplicates
                 else None
             )
             continue
         if pending is not None and stripped and not stripped.startswith("#"):
-            variants.append((pending, _join(base, stripped)))
+            bandwidth, attrs = pending
+            variants.append((bandwidth, _join(base, stripped), attrs))
             pending = None
     if not variants:
         return None
-    return max(variants, key=lambda item: item[0])[1]
+    _bandwidth, uri, attrs = max(variants, key=lambda item: item[0])
+    return uri, attrs
+
+
+def _preferred_hls_variant(text: str, base: str) -> str | None:
+    chosen = _preferred_hls_stream(text, base)
+    return None if chosen is None else chosen[0]
 
 
 def _dash_kind(attrs: dict[str, str]) -> str:
@@ -1295,7 +1302,16 @@ def manifest_is_live(text: str) -> bool:
 
 
 def hls_audio_playlist_urls(text: str, base: str) -> list[str]:
-    urls: list[str] = []
+    """Audio rendition playlists referenced by the preferred STREAM-INF group.
+
+    When the highest-bandwidth variant names an `AUDIO` group, only that group's
+    URIs are returned, with `DEFAULT=YES` first. Masters without an audio group
+    keep every unique AUDIO URI in playlist order.
+    """
+    chosen = _preferred_hls_stream(text, base)
+    group = chosen[1].get("AUDIO") if chosen is not None else None
+    group = group or None
+    renditions: list[tuple[bool, str]] = []
     seen: set[str] = set()
     for line in text.splitlines():
         stripped = _hls_line(line)
@@ -1304,6 +1320,8 @@ def hls_audio_playlist_urls(text: str, base: str) -> list[str]:
         attrs, _duplicates = _hls_attr_map(stripped.split(":", 1)[1])
         if attrs.get("TYPE", "").upper() != "AUDIO":
             continue
+        if group is not None and attrs.get("GROUP-ID") != group:
+            continue
         uri = attrs.get("URI")
         if not uri:
             continue
@@ -1311,8 +1329,13 @@ def hls_audio_playlist_urls(text: str, base: str) -> list[str]:
         if resolved in seen:
             continue
         seen.add(resolved)
-        urls.append(resolved)
-    return urls
+        default = attrs.get("DEFAULT", "").upper() == "YES"
+        renditions.append((default, resolved))
+    if not renditions:
+        return []
+    preferred = next((url for default, url in renditions if default), renditions[0][1])
+    rest = [url for _default, url in renditions if url != preferred]
+    return [preferred, *rest]
 
 
 def _part_record_key(part: ManifestPart) -> tuple[str, int | None, int | None, int]:

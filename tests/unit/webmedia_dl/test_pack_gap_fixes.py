@@ -250,6 +250,27 @@ def test_hls_and_dash_keep_alternate_audio(tmp_path: Path) -> None:
     assert payloads[MediaKind.VIDEO] == b"VIDEO"
     assert payloads[MediaKind.AUDIO] == b"AUDIO"
     assert b"VIDEOAUDIO" not in payloads[MediaKind.VIDEO]
+    comment_first = (
+        "#EXTM3U\n"
+        '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="commentary",URI="comment.m3u8"\n'
+        '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="eng",DEFAULT=YES,URI="audio.m3u8"\n'
+        '#EXT-X-STREAM-INF:BANDWIDTH=800000,AUDIO="aac"\n'
+        "video.m3u8\n"
+    )
+
+    def fetch_default(url: str) -> tuple[int, str, bytes]:
+        if url.endswith("comment.m3u8"):
+            raise AssertionError(url)
+        return 200, "application/vnd.apple.mpegurl", bodies[url]
+
+    defaulted = record_kind_streams(
+        comment_first,
+        "https://cdn.example.com/master.m3u8",
+        tmp_path / "default.bin",
+        fetch_default,
+    )
+    default_payloads = {kind: path.read_bytes() for kind, path in defaulted}
+    assert default_payloads[MediaKind.AUDIO] == b"AUDIO"
     dash = """
     <MPD><Period>
       <AdaptationSet contentType="audio">
