@@ -2,7 +2,7 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 574 tests locally and on GitHub Actions `ci` run `32561499120` (`6d90ce4`). GitHub `32561025265` (`882169a`) Python passed and Swift failed (`homeDirectoryForCurrentUser` unavailable on iOS). Prior both-green run `32560244195` (`5cb2090`) was 571 pytest |
+| `uv run pytest` | PASS | 577 tests locally; GitHub Actions `ci` run `32561499120` (`6d90ce4`) was 574 pytest at 99.97% with Swift 18/0 and 8× BUILD SUCCEEDED. Docs HEAD `31b9296` / `32561772584` also succeeded. This follow-up assembles unsigned share-extension `.appex` layouts |
 | `uv run pytest --cov` | PASS | 99.99% locally (`fail_under` 99); GitHub `6d90ce4` is 99.97% |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
@@ -119,7 +119,7 @@
 | App Group + pairing clients | PASS | `group.local.webmedia-dl` on apps and share extensions; unauthenticated loopback `POST /v1/pair` bootstrap; Mac-only confirm parses `session_key`; iPhone/iPad/vision derive SHA256(`nonce:mac-confirm`) locally and restore Files bookmarks; watch/tv `lastJobId` comes from companion history/response |
 | Original planning-pack ZIP byte compare | BLOCKED | zip not in this workspace; 159 overlay files reconstructed |
 | Real WatchConnectivity radio | BLOCKED | WCSession scaffolding + queued fallback; no Apple radio on Linux |
-| Safari wrapping / signed NSExtension | BLOCKED | `swiftc -typecheck` of `SafariWebExtensionHandler.swift` executed on GitHub `macos-15` run `32555270688`; signed Xcode NSExtension wrapping is not executed |
+| Safari wrapping / signed NSExtension | BLOCKED | `swiftc -typecheck` of `SafariWebExtensionHandler.swift` executed on GitHub `macos-15`; unsigned share-extension `.appex` layouts are assembled with package type `XPC!`; signed Xcode NSExtension wrapping is not executed |
 
 Planning overlay files reconstructed from the 2026-08-18 pack inventory except
 `START_HERE.md`, `product-brief.md`, and `system-architecture.md`, which were

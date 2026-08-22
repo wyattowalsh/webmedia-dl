@@ -54,6 +54,11 @@ to the loopback worker. Those adapters SHALL NOT run provider argv.
 - **THEN** it launches `webmedia-dl serve` on `127.0.0.1:8765` when the binary
   is on PATH
 
+#### Scenario: unsigned share extension bundles are assembled
+- **WHEN** unsigned share-extension `.appex` layouts are assembled
+- **THEN** each bundle is named `*.appex`, has package type `XPC!`, and keeps
+  the share-services principal class
+
 #### Scenario: share destination publishes under approved root
 
 - **WHEN** `destination_kind` is `share` under an approved root

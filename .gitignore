@@ -164,6 +164,7 @@ worker.token
 DerivedData/
 .build/
 .ci-derived/
+.ci-derived-appex/
 .swiftpm/
 *.xcuserstate
 *.xccheckout

@@ -61,3 +61,16 @@ compile_scheme WebMediaDLVision WebMediaDLVision "generic/platform=visionOS"
 compile_scheme WebMediaDLVision WebMediaDLVisionShareExtension "generic/platform=visionOS"
 compile_scheme WebMediaDLWatch WebMediaDLWatch "generic/platform=watchOS"
 compile_scheme WebMediaDLTV WebMediaDLTV "generic/platform=tvOS"
+
+python3 "$root/scripts/assemble_unsigned_appex.py" --dest "$root/apps/.ci-derived-appex"
+for name in \
+  WebMediaDLiOSShareExtension \
+  WebMediaDLiPadOSShareExtension \
+  WebMediaDLVisionShareExtension \
+  WebMediaDLMacShareExtension
+do
+  bundle="$root/apps/.ci-derived-appex/${name}.appex"
+  test -d "$bundle"
+  test -f "$bundle/Info.plist"
+  test -f "$bundle/PrivacyInfo.xcprivacy"
+done

@@ -422,6 +422,10 @@ SCENARIO_EVIDENCE: dict[str, tuple[str, str]] = {
         "tests/unit/webmedia_dl/test_surfaces_inventory.py",
         "test_macos_app_supervises_the_loopback_worker",
     ),
+    "unsigned share extension bundles are assembled": (
+        "tests/unit/webmedia_dl/test_surfaces_inventory.py",
+        "test_unsigned_share_extension_appex_layouts",
+    ),
     "share destination publishes under approved root": (
         "tests/unit/webmedia_dl/test_pack_gaps.py",
         "test_share_destination_publishes_under_approved_root",
@@ -488,7 +492,7 @@ SCENARIO_EVIDENCE: dict[str, tuple[str, str]] = {
     ),
     "iPhone forwards watch companion messages": (
         "tests/unit/webmedia_dl/test_surfaces_inventory.py",
-        "test_complete_clients_http_direct_and_shared_domain",
+        "test_iphone_forwards_watch_companion_messages",
     ),
     "sealed companion envelope": (
         "tests/unit/webmedia_dl/test_companion_checkpoint.py",
@@ -512,7 +516,7 @@ SCENARIO_EVIDENCE: dict[str, tuple[str, str]] = {
     ),
     "complete-client control intents use mac relay": (
         "tests/unit/webmedia_dl/test_surfaces_inventory.py",
-        "test_complete_clients_http_direct_and_shared_domain",
+        "test_complete_client_control_intents_use_mac_relay",
     ),
     "HTML extracts media without using the title as identity": (
         "tests/unit/webmedia_dl/test_discovery.py",

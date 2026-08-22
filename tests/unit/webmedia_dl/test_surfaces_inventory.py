@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 import plistlib
+from pathlib import Path
 
 from webmedia_dl.capabilities import registry
 from webmedia_dl.paths import repo_root
@@ -707,6 +709,9 @@ def test_github_ci_compiles_apple_packages() -> None:
     assert "--target WebMediaDLMacShareExtension" in script
     assert "xcodebuild -list" in script
     assert "library product + target dependency" in script
+    assert "assemble_unsigned_appex.py" in script
+    assert ".ci-derived-appex" in script
+    assert "WebMediaDLiOSShareExtension.appex" in script or "${name}.appex" in script
     assert 'generic/platform=iOS"' in script or "generic/platform=iOS" in script
     assert "generic/platform=watchOS" in script
     assert "generic/platform=tvOS" in script
@@ -1038,3 +1043,67 @@ def test_macos_app_supervises_the_loopback_worker() -> None:
         assert "WebMediaDLMacWorkerProcess.start" not in text
         assert "homeDirectoryForCurrentUser" not in text
         assert "Process(" not in text
+
+
+def test_iphone_forwards_watch_companion_messages() -> None:
+    root = repo_root()
+    ios = (root / ROOT_VIEWS["ios"]).read_text(encoding="utf-8")
+    tv = (root / ROOT_VIEWS["tvos"]).read_text(encoding="utf-8")
+    assert "watchRelay.activateSession()" in ios
+    assert "onReceivedMessage" in ios
+    assert "WebMediaDLPairedMacSubmit.companion" in ios
+    assert "WebMediaDLWatchConnectivityTransport" not in tv
+    assert "WebMediaDLLocalNetworkCompanionTransport" in tv
+
+
+def test_complete_client_control_intents_use_mac_relay() -> None:
+    root = repo_root()
+    for rel in (
+        "apps/WebMediaDLiOS/Sources/WebMediaDLiOS/WebMediaDLSubmitURLIntent.swift",
+        "apps/WebMediaDLiPadOS/Sources/WebMediaDLiPadOS/WebMediaDLiPadOSSubmitURLIntent.swift",
+        "apps/WebMediaDLVision/Sources/WebMediaDLVision/WebMediaDLVisionSubmitURLIntent.swift",
+    ):
+        text = (root / rel).read_text(encoding="utf-8")
+        assert "WebMediaDLPairedMacSubmit.submit" in text
+        assert "WebMediaDLPairedMacSubmit.pauseQueue" in text
+        assert "WebMediaDLPairedMacSubmit.resumeQueue" in text
+        assert "WebMediaDLPairedMacSubmit.history" in text
+        assert "WebMediaDLPairedMacSubmit.cancel" in text
+        assert "WebMediaDLPairedMacSubmit.queueStatus" in text
+        assert "WebMediaDLPairedMacSubmit.pauseJob" in text
+        assert "WebMediaDLPairedMacSubmit.resumeJob" in text
+
+
+def _load_assemble_unsigned_appex():
+    path = repo_root() / "scripts/assemble_unsigned_appex.py"
+    spec = importlib.util.spec_from_file_location("assemble_unsigned_appex", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("unable to load assemble_unsigned_appex.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_unsigned_share_extension_appex_layouts(tmp_path: Path) -> None:
+    module = _load_assemble_unsigned_appex()
+    dest = tmp_path / "appex"
+    created = module.assemble(repo_root(), dest)
+    assert len(created) == 4
+    expected = {item[1]: item[2] for item in module.SHARE_EXTENSIONS}
+    for bundle in created:
+        assert bundle.suffix == ".appex"
+        assert bundle.is_dir()
+        payload = plistlib.loads((bundle / "Info.plist").read_bytes())
+        name = bundle.name.removesuffix(".appex")
+        assert payload["CFBundlePackageType"] == "XPC!"
+        assert payload["CFBundleExecutable"] == name
+        assert payload["NSExtension"]["NSExtensionPointIdentifier"] == ("com.apple.share-services")
+        assert payload["NSExtension"]["NSExtensionPrincipalClass"] == expected[name]
+        privacy = plistlib.loads((bundle / "PrivacyInfo.xcprivacy").read_bytes())
+        assert privacy["NSPrivacyTracking"] is False
+        assert privacy["NSPrivacyAccessedAPITypes"][0]["NSPrivacyAccessedAPITypeReasons"] == [
+            "1C8F.1"
+        ]
+    script = (repo_root() / "scripts/assemble_unsigned_appex.py").read_text(encoding="utf-8")
+    assert 'payload["CFBundlePackageType"] = "XPC!"' in script
+    assert "Signed Xcode NSExtension wrapping stays BLOCKED" in script
