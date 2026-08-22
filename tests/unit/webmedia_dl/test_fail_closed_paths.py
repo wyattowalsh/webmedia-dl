@@ -486,6 +486,8 @@ def test_dash_template_tokens_and_period_fallback(monkeypatch: pytest.MonkeyPatc
     assert _iso8601_duration_seconds("PT1M30S") == 90
     assert _iso8601_duration_seconds("P0Y0M0DT0H0M4.5S") == 4.5
     assert _iso8601_duration_seconds("P1Y") is None
+    assert _iso8601_duration_seconds("P1M") is None
+    assert _iso8601_duration_seconds("PT1H") == 3600
     assert _iso8601_duration_seconds("not-a-duration") is None
     timed_duration = """
     <MPD mediaPresentationDuration="PT6S"><Period>
@@ -521,6 +523,22 @@ def test_dash_template_tokens_and_period_fallback(monkeypatch: pytest.MonkeyPatc
     """
     assert recordable_segment_urls(unknown_duration, "https://cdn.example.com/") == [
         "https://cdn.example.com/s5.m4s",
+    ]
+    bad_end = """
+    <MPD><Period>
+      <SegmentTemplate media="s$Number$.m4s" startNumber="2" endNumber="nope"/>
+    </Period></MPD>
+    """
+    assert recordable_segment_urls(bad_end, "https://cdn.example.com/") == [
+        "https://cdn.example.com/s2.m4s",
+    ]
+    bad_ticks = """
+    <MPD mediaPresentationDuration="PT6S"><Period>
+      <SegmentTemplate media="s$Number$.m4s" startNumber="1" duration="nope" timescale="1000"/>
+    </Period></MPD>
+    """
+    assert recordable_segment_urls(bad_ticks, "https://cdn.example.com/") == [
+        "https://cdn.example.com/s1.m4s",
     ]
     two_periods_mpd_duration = """
     <MPD mediaPresentationDuration="PT6S">
