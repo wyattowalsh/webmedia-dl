@@ -2,6 +2,16 @@
 
 ## 0.1.0
 
+- Record nested HLS `#EXT-X-MEDIA:TYPE=SUBTITLES` playlists (and direct
+  WebVTT/SRT objects) as a separate SUBTITLE artifact. Selection follows the
+  preferred STREAM-INF `SUBTITLES` group with `DEFAULT=YES` first and
+  `AUTOSELECT=YES` when no default is advertised, so commentary listed first is
+  not recorded. Masters without AUDIO stay `LIVE_STREAM` plus `SUBTITLE`.
+  Late AES-128 on the video playlist stops remaining audio/subtitle fetches.
+  GitHub Actions `32599683100` on `2bb1aaa` passed Python (626 pytest, 100%),
+  doctor provider probes, and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED)
+  after preferring HLS `AUTOSELECT=YES` audio when no `DEFAULT=YES` exists.
+
 - Prefer HLS `AUTOSELECT=YES` audio renditions when a master has no
   `DEFAULT=YES` in the selected variant's `AUDIO` group, so commentary listed
   first is not recorded instead of the autoselect English playlist.

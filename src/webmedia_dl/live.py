@@ -1301,25 +1301,23 @@ def manifest_is_live(text: str) -> bool:
     return False
 
 
-def hls_audio_playlist_urls(text: str, base: str) -> list[str]:
-    """Audio rendition playlists referenced by the preferred STREAM-INF group.
+def _hls_rendition_playlist_urls(
+    text: str, base: str, *, media_type: str, group: str | None
+) -> list[str]:
+    """MEDIA URIs of one TYPE, filtered to a STREAM-INF group when named.
 
-    When the highest-bandwidth variant names an `AUDIO` group, only that group's
-    URIs are returned, with `DEFAULT=YES` first and `AUTOSELECT=YES` next when
-    no default is advertised. Masters without an audio group keep every unique
-    AUDIO URI in playlist order.
+    `DEFAULT=YES` is first; `AUTOSELECT=YES` is next when no default exists.
+    Masters that do not name a group keep every unique URI in playlist order.
     """
-    chosen = _preferred_hls_stream(text, base)
-    group = chosen[1].get("AUDIO") if chosen is not None else None
-    group = group or None
     renditions: list[tuple[bool, bool, str]] = []
     seen: set[str] = set()
+    wanted = media_type.upper()
     for line in text.splitlines():
         stripped = _hls_line(line)
         if not stripped.startswith("#EXT-X-MEDIA:"):
             continue
         attrs, _duplicates = _hls_attr_map(stripped.split(":", 1)[1])
-        if attrs.get("TYPE", "").upper() != "AUDIO":
+        if attrs.get("TYPE", "").upper() != wanted:
             continue
         if group is not None and attrs.get("GROUP-ID") != group:
             continue
@@ -1340,6 +1338,20 @@ def hls_audio_playlist_urls(text: str, base: str) -> list[str]:
         preferred = next((url for _default, auto, url in renditions if auto), renditions[0][2])
     rest = [url for _default, _auto, url in renditions if url != preferred]
     return [preferred, *rest]
+
+
+def hls_audio_playlist_urls(text: str, base: str) -> list[str]:
+    """Audio rendition playlists referenced by the preferred STREAM-INF group."""
+    chosen = _preferred_hls_stream(text, base)
+    group = chosen[1].get("AUDIO") if chosen is not None else None
+    return _hls_rendition_playlist_urls(text, base, media_type="AUDIO", group=group or None)
+
+
+def hls_subtitle_playlist_urls(text: str, base: str) -> list[str]:
+    """Subtitle rendition playlists referenced by the preferred STREAM-INF group."""
+    chosen = _preferred_hls_stream(text, base)
+    group = chosen[1].get("SUBTITLES") if chosen is not None else None
+    return _hls_rendition_playlist_urls(text, base, media_type="SUBTITLES", group=group or None)
 
 
 def _part_record_key(part: ManifestPart) -> tuple[str, int | None, int | None, int]:
@@ -1527,6 +1539,42 @@ def record_clear_stream(
     return dest
 
 
+def _record_hls_sidecar(
+    url: str,
+    dest: Path,
+    fetch: FetchFn,
+    *,
+    budget: ByteBudget,
+    should_stop: StopFn | None,
+    live_polls: int,
+    drm_flag: list[bool],
+    fail_label: str,
+) -> None:
+    """Record a nested AUDIO/SUBTITLES playlist, or a direct WebVTT/SRT object."""
+    if should_stop is not None:
+        should_stop()
+    status, _, data = fetch(url)
+    if status >= 400:
+        msg = f"Live {fail_label} playlist fetch failed with HTTP {status}."
+        raise DiscoveryError(msg)
+    body = _without_bom(data.decode("utf-8", errors="replace"))
+    if _live_playlist_locator(url) or "#EXTM3U" in body:
+        record_clear_stream(
+            body,
+            url,
+            dest,
+            fetch,
+            should_stop=should_stop,
+            live_polls=live_polls,
+            budget=budget,
+            drm_flag=drm_flag,
+        )
+        return
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    budget.consume(len(data))
+    dest.write_bytes(data)
+
+
 def record_kind_streams(
     playlist_text: str,
     playlist_url: str,
@@ -1537,7 +1585,7 @@ def record_kind_streams(
     should_stop: StopFn | None = None,
     live_polls: int = 1,
 ) -> list[tuple[MediaKind, Path]]:
-    """Record the primary stream plus a separate audio rendition when present."""
+    """Record the primary stream plus audio and subtitle renditions when present."""
     inspect_manifest(playlist_text)
     playlist_text = _without_bom(playlist_text)
     bound = ByteBudget(max_bytes)
@@ -1585,6 +1633,7 @@ def record_kind_streams(
         )
         return [(MediaKind.LIVE_STREAM, output)]
     audio_uris = hls_audio_playlist_urls(playlist_text, playlist_url)
+    subtitle_uris = hls_subtitle_playlist_urls(playlist_text, playlist_url)
     drm_flag: list[bool] = []
     record_clear_stream(
         playlist_text,
@@ -1596,27 +1645,35 @@ def record_kind_streams(
         budget=bound,
         drm_flag=drm_flag,
     )
-    if not audio_uris or drm_flag:
-        return [(MediaKind.LIVE_STREAM, output)] if not audio_uris else [(MediaKind.VIDEO, output)]
-    video_dest = output
-    results: list[tuple[MediaKind, Path]] = [(MediaKind.VIDEO, video_dest)]
-    audio_url = audio_uris[0]
-    if should_stop is not None:
-        should_stop()
-    status, _, data = fetch(audio_url)
-    if status >= 400:
-        msg = f"Live audio playlist fetch failed with HTTP {status}."
-        raise DiscoveryError(msg)
-    audio_dest = output.parent / f"{output.stem}-audio{output.suffix or '.bin'}"
-    record_clear_stream(
-        data.decode("utf-8", errors="replace"),
-        audio_url,
-        audio_dest,
-        fetch,
-        should_stop=should_stop,
-        live_polls=live_polls,
-        budget=bound,
-        drm_flag=drm_flag,
+    if drm_flag or not (audio_uris or subtitle_uris):
+        return [(MediaKind.VIDEO, output)] if audio_uris else [(MediaKind.LIVE_STREAM, output)]
+    results: list[tuple[MediaKind, Path]] = (
+        [(MediaKind.VIDEO, output)] if audio_uris else [(MediaKind.LIVE_STREAM, output)]
     )
-    results.append((MediaKind.AUDIO, audio_dest))
+    if audio_uris:
+        audio_dest = output.parent / f"{output.stem}-audio{output.suffix or '.bin'}"
+        _record_hls_sidecar(
+            audio_uris[0],
+            audio_dest,
+            fetch,
+            budget=bound,
+            should_stop=should_stop,
+            live_polls=live_polls,
+            drm_flag=drm_flag,
+            fail_label="audio",
+        )
+        results.append((MediaKind.AUDIO, audio_dest))
+    if subtitle_uris:
+        sub_dest = output.parent / f"{output.stem}-subtitles{output.suffix or '.bin'}"
+        _record_hls_sidecar(
+            subtitle_uris[0],
+            sub_dest,
+            fetch,
+            budget=bound,
+            should_stop=should_stop,
+            live_polls=live_polls,
+            drm_flag=drm_flag,
+            fail_label="subtitle",
+        )
+        results.append((MediaKind.SUBTITLE, sub_dest))
     return results

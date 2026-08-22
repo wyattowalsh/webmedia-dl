@@ -42,6 +42,7 @@ from webmedia_dl.live import (
     _parse_dash_range,
     _period_parts,
     hls_audio_playlist_urls,
+    hls_subtitle_playlist_urls,
     record_clear_stream,
     record_kind_streams,
     recordable_parts,
@@ -656,6 +657,9 @@ def test_live_poll_should_stop_and_hls_audio_http_error(tmp_path: Path) -> None:
     assert hls_audio_playlist_urls(master, "https://cdn.example.com/") == [
         "https://cdn.example.com/audio.m3u8"
     ]
+    assert hls_subtitle_playlist_urls(master, "https://cdn.example.com/") == [
+        "https://cdn.example.com/subs.vtt"
+    ]
 
     def audio_fetch(url: str) -> tuple[int, str, bytes]:
         if url.endswith("video.m3u8"):
@@ -673,6 +677,31 @@ def test_live_poll_should_stop_and_hls_audio_http_error(tmp_path: Path) -> None:
             tmp_path / "mux.bin",
             audio_fetch,
         )
+    captions = b"WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nHi\n"
+
+    def sidecar_fetch(url: str) -> tuple[int, str, bytes]:
+        if url.endswith("video.m3u8"):
+            return 200, "application/vnd.apple.mpegurl", b"#EXTM3U\n#EXTINF:1,\nv.ts\n"
+        if url.endswith("v.ts"):
+            return 200, "video/MP2T", b"V"
+        if url.endswith("audio.m3u8"):
+            return 200, "application/vnd.apple.mpegurl", b"#EXTM3U\n#EXTINF:1,\na.ts\n"
+        if url.endswith("a.ts"):
+            return 200, "audio/MP2T", b"A"
+        if url.endswith("subs.vtt"):
+            return 200, "text/vtt", captions
+        return 200, "application/vnd.apple.mpegurl", master.encode()
+
+    muxed = record_kind_streams(
+        master,
+        "https://cdn.example.com/master.m3u8",
+        tmp_path / "mux-ok.bin",
+        sidecar_fetch,
+    )
+    mux_payloads = {kind: path.read_bytes() for kind, path in muxed}
+    assert mux_payloads[MediaKind.VIDEO] == b"V"
+    assert mux_payloads[MediaKind.AUDIO] == b"A"
+    assert mux_payloads[MediaKind.SUBTITLE] == captions
 
 
 def test_discovery_picture_embed_gallery_and_jsonld_list() -> None:

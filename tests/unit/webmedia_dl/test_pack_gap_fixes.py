@@ -286,6 +286,53 @@ def test_hls_and_dash_keep_alternate_audio(tmp_path: Path) -> None:
     )
     autoselect_payloads = {kind: path.read_bytes() for kind, path in autoselected}
     assert autoselect_payloads[MediaKind.AUDIO] == b"AUDIO"
+    sub_master = (
+        "#EXTM3U\n"
+        '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="eng",DEFAULT=YES,URI="audio.m3u8"\n'
+        '#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="commentary",URI="comment.vtt"\n'
+        '#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="eng",DEFAULT=YES,URI="eng.vtt"\n'
+        '#EXT-X-STREAM-INF:BANDWIDTH=800000,AUDIO="aac",SUBTITLES="subs"\n'
+        "video.m3u8\n"
+    )
+    captions = b"WEBVTT\n\nHi\n"
+    sub_bodies = {
+        **bodies,
+        "https://cdn.example.com/eng.vtt": b"#EXTM3U\n#EXTINF:1,\neng1.vtt\n",
+        "https://cdn.example.com/eng1.vtt": captions,
+    }
+
+    def fetch_subs(url: str) -> tuple[int, str, bytes]:
+        if url.endswith("comment.vtt"):
+            raise AssertionError(url)
+        return 200, "application/vnd.apple.mpegurl", sub_bodies[url]
+
+    subtitled = record_kind_streams(
+        sub_master,
+        "https://cdn.example.com/master.m3u8",
+        tmp_path / "subs.bin",
+        fetch_subs,
+    )
+    sub_payloads = {kind: path.read_bytes() for kind, path in subtitled}
+    assert sub_payloads[MediaKind.VIDEO] == b"VIDEO"
+    assert sub_payloads[MediaKind.AUDIO] == b"AUDIO"
+    assert sub_payloads[MediaKind.SUBTITLE] == captions
+    only_subs = (
+        "#EXTM3U\n"
+        '#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",URI="eng.vtt"\n'
+        '#EXT-X-STREAM-INF:BANDWIDTH=800000,SUBTITLES="subs"\n'
+        "video.m3u8\n"
+    )
+    only = record_kind_streams(
+        only_subs,
+        "https://cdn.example.com/master.m3u8",
+        tmp_path / "only-subs.bin",
+        fetch_subs,
+    )
+    only_kinds = {kind for kind, _path in only}
+    assert MediaKind.LIVE_STREAM in only_kinds
+    assert MediaKind.SUBTITLE in only_kinds
+    assert MediaKind.VIDEO not in only_kinds
+    assert MediaKind.AUDIO not in only_kinds
     dash = """
     <MPD><Period>
       <AdaptationSet contentType="audio">

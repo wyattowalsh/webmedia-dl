@@ -30,6 +30,7 @@ from webmedia_dl.live import (
     MAX_TIMELINE_SEGMENTS,
     ManifestPart,
     hls_audio_playlist_urls,
+    hls_subtitle_playlist_urls,
     manifest_is_live,
     record_clear_stream,
     record_kind_streams,
@@ -571,6 +572,37 @@ def test_hls_live_poll_stops_on_later_aes128(tmp_path: Path) -> None:
     )
     assert output.read_bytes() == b"A"
     assert all("secret" not in item for item in fetched)
+    master = (
+        "#EXTM3U\n"
+        '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",URI="audio.m3u8"\n'
+        '#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",URI="subs.vtt"\n'
+        '#EXT-X-STREAM-INF:BANDWIDTH=1,AUDIO="aac",SUBTITLES="subs"\n'
+        "video.m3u8\n"
+    )
+    video_rounds = [first, second]
+    skipped: list[str] = []
+
+    def kind_fetch(url: str) -> tuple[int, str, bytes]:
+        skipped.append(url)
+        if url.endswith("video.m3u8"):
+            payload = video_rounds.pop(0) if video_rounds else second
+            return 200, "application/vnd.apple.mpegurl", payload.encode()
+        if url.endswith("seg1.ts"):
+            return 200, "video/MP2T", b"A"
+        if url.endswith(("audio.m3u8", "subs.vtt", "secret.ts")) or "key" in url:
+            raise AssertionError(url)
+        return 200, "application/vnd.apple.mpegurl", master.encode()
+
+    recorded = record_kind_streams(
+        master,
+        "https://cdn.example.com/master.m3u8",
+        tmp_path / "mux.bin",
+        kind_fetch,
+        live_polls=2,
+    )
+    assert recorded == [(MediaKind.VIDEO, tmp_path / "mux.bin")]
+    assert (tmp_path / "mux.bin").read_bytes() == b"A"
+    assert not any(item.endswith(("audio.m3u8", "subs.vtt")) for item in skipped)
 
 
 def test_hls_live_poll_keeps_prefix_when_playlist_fetch_fails(tmp_path: Path) -> None:
@@ -929,6 +961,36 @@ def test_hls_audio_media_skips_non_audio_and_duplicates() -> None:
         "high.m3u8\n"
     )
     assert hls_audio_playlist_urls(missing_group, "https://cdn.example.com/") == []
+    subtitles = (
+        "#EXTM3U\n"
+        '#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="commentary",URI="comment.vtt"\n'
+        '#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="eng",DEFAULT=YES,URI="eng.vtt"\n'
+        '#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="other",URI="other.vtt"\n'
+        '#EXT-X-STREAM-INF:BANDWIDTH=800000,SUBTITLES="subs"\n'
+        "video.m3u8\n"
+    )
+    assert hls_subtitle_playlist_urls(subtitles, "https://cdn.example.com/") == [
+        "https://cdn.example.com/eng.vtt",
+        "https://cdn.example.com/comment.vtt",
+    ]
+    autoselect_subs = (
+        "#EXTM3U\n"
+        '#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="commentary",URI="comment.vtt"\n'
+        '#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="eng",AUTOSELECT=YES,URI="eng.vtt"\n'
+        '#EXT-X-STREAM-INF:BANDWIDTH=800000,SUBTITLES="subs"\n'
+        "video.m3u8\n"
+    )
+    assert hls_subtitle_playlist_urls(autoselect_subs, "https://cdn.example.com/") == [
+        "https://cdn.example.com/eng.vtt",
+        "https://cdn.example.com/comment.vtt",
+    ]
+    missing_subs = (
+        "#EXTM3U\n"
+        '#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",URI="eng.vtt"\n'
+        '#EXT-X-STREAM-INF:BANDWIDTH=800000,SUBTITLES="nope"\n'
+        "video.m3u8\n"
+    )
+    assert hls_subtitle_playlist_urls(missing_subs, "https://cdn.example.com/") == []
 
 
 def test_hls_audio_playlist_fetch_failure(tmp_path: Path) -> None:
@@ -954,6 +1016,29 @@ def test_hls_audio_playlist_fetch_failure(tmp_path: Path) -> None:
             "https://cdn.example.com/master.m3u8",
             tmp_path / "live.bin",
             fetch,
+        )
+    sub_master = (
+        "#EXTM3U\n"
+        '#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",URI="subs.m3u8"\n'
+        '#EXT-X-STREAM-INF:BANDWIDTH=1,SUBTITLES="subs"\n'
+        "video.m3u8\n"
+    )
+
+    def fetch_sub(url: str) -> tuple[int, str, bytes]:
+        if url.endswith("video.m3u8"):
+            return 200, "application/vnd.apple.mpegurl", b"#EXTM3U\n#EXTINF:1,\nv.ts\n"
+        if url.endswith("v.ts"):
+            return 200, "video/MP2T", b"V"
+        if url.endswith("subs.m3u8"):
+            return 404, "", b""
+        return 200, "application/vnd.apple.mpegurl", sub_master.encode()
+
+    with pytest.raises(DiscoveryError, match="subtitle playlist"):
+        record_kind_streams(
+            sub_master,
+            "https://cdn.example.com/master.m3u8",
+            tmp_path / "subs.bin",
+            fetch_sub,
         )
 
 
