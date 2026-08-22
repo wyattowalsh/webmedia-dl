@@ -678,3 +678,144 @@ public enum WebMediaDLPairedMacSubmit {
         return endpoint
     }
 }
+
+/// Complete-client Siri/Shortcuts controls hop onto the saved Mac relay.
+public enum WebMediaDLCompleteClientControl {
+    public enum Kind: String, Sendable, Equatable {
+        case pauseQueue
+        case resumeQueue
+        case history
+        case queueStatus
+        case cancel
+        case pauseJob
+        case resumeJob
+    }
+
+    public typealias Send = @Sendable (Kind, UUID?) async throws -> String
+
+    public static func kind(from raw: String) throws -> Kind {
+        guard let parsed = Kind(rawValue: raw) else {
+            throw WebMediaDLDomainError("unknown complete-client control")
+        }
+        return parsed
+    }
+
+    public static func resolvedJobId(_ kind: Kind, jobId: String?) throws -> UUID? {
+        switch kind {
+        case .cancel, .pauseJob, .resumeJob:
+            return try WebMediaDLCompanionJobControl.requireJobId(jobId ?? "")
+        case .pauseQueue, .resumeQueue, .history, .queueStatus:
+            return nil
+        }
+    }
+
+    public static func perform(
+        _ kind: Kind,
+        jobId: String? = nil,
+        send: Send
+    ) async throws -> String {
+        let resolved = try resolvedJobId(kind, jobId: jobId)
+        return try await send(kind, resolved)
+    }
+
+    public static func perform(
+        _ raw: String,
+        jobId: String? = nil,
+        send: Send
+    ) async throws -> String {
+        try await perform(try kind(from: raw), jobId: jobId, send: send)
+    }
+
+    public static func perform(
+        _ kind: Kind,
+        jobId: String? = nil,
+        credentials: WebMediaDLLoopbackClient = WebMediaDLWorkerCredentials.loadClient(),
+        pairingId: UUID? = nil,
+        sessionKey: String? = nil,
+        defaults: UserDefaults = WebMediaDLWorkerCredentials.defaults()
+    ) async throws -> String {
+        let resolved = try resolvedJobId(kind, jobId: jobId)
+        switch kind {
+        case .pauseQueue:
+            return try await WebMediaDLPairedMacSubmit.pauseQueue(
+                credentials: credentials,
+                pairingId: pairingId,
+                sessionKey: sessionKey,
+                defaults: defaults
+            )
+        case .resumeQueue:
+            return try await WebMediaDLPairedMacSubmit.resumeQueue(
+                credentials: credentials,
+                pairingId: pairingId,
+                sessionKey: sessionKey,
+                defaults: defaults
+            )
+        case .history:
+            _ = try await WebMediaDLPairedMacSubmit.history(
+                credentials: credentials,
+                pairingId: pairingId,
+                sessionKey: sessionKey,
+                defaults: defaults
+            )
+            return "ok"
+        case .queueStatus:
+            return try await WebMediaDLPairedMacSubmit.queueStatus(
+                credentials: credentials,
+                pairingId: pairingId,
+                sessionKey: sessionKey,
+                defaults: defaults
+            )
+        case .cancel:
+            guard let resolved else {
+                throw WebMediaDLCompanionError.jobIdRequired
+            }
+            return try await WebMediaDLPairedMacSubmit.cancel(
+                jobId: resolved,
+                credentials: credentials,
+                pairingId: pairingId,
+                sessionKey: sessionKey,
+                defaults: defaults
+            )
+        case .pauseJob:
+            guard let resolved else {
+                throw WebMediaDLCompanionError.jobIdRequired
+            }
+            return try await WebMediaDLPairedMacSubmit.pauseJob(
+                jobId: resolved,
+                credentials: credentials,
+                pairingId: pairingId,
+                sessionKey: sessionKey,
+                defaults: defaults
+            )
+        case .resumeJob:
+            guard let resolved else {
+                throw WebMediaDLCompanionError.jobIdRequired
+            }
+            return try await WebMediaDLPairedMacSubmit.resumeJob(
+                jobId: resolved,
+                credentials: credentials,
+                pairingId: pairingId,
+                sessionKey: sessionKey,
+                defaults: defaults
+            )
+        }
+    }
+
+    public static func perform(
+        _ raw: String,
+        jobId: String? = nil,
+        credentials: WebMediaDLLoopbackClient = WebMediaDLWorkerCredentials.loadClient(),
+        pairingId: UUID? = nil,
+        sessionKey: String? = nil,
+        defaults: UserDefaults = WebMediaDLWorkerCredentials.defaults()
+    ) async throws -> String {
+        try await perform(
+            try kind(from: raw),
+            jobId: jobId,
+            credentials: credentials,
+            pairingId: pairingId,
+            sessionKey: sessionKey,
+            defaults: defaults
+        )
+    }
+}

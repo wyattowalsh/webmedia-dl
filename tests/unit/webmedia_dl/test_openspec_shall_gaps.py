@@ -519,8 +519,8 @@ SCENARIO_EVIDENCE: dict[str, tuple[str, str]] = {
         "testLoopbackRequestBuildersStayOnLoopback",
     ),
     "complete-client control intents use mac relay": (
-        "tests/unit/webmedia_dl/test_surfaces_inventory.py",
-        "test_complete_client_control_intents_use_mac_relay",
+        "apps/WebMediaDLCore/Tests/WebMediaDLCoreTests/ContractTests.swift",
+        "testLoopbackRequestBuildersStayOnLoopback",
     ),
     "HTML extracts media without using the title as identity": (
         "tests/unit/webmedia_dl/test_discovery.py",

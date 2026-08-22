@@ -72,7 +72,7 @@ public enum WebMediaDLMacWorkerProcess {
 }
 
 /// Mac app launches `webmedia-dl serve` or claims a healthy existing loopback worker.
-public enum WebMediaDLMacWorkerLaunch {
+public enum WebMediaDLMacWorkerLaunch: @unchecked Sendable {
     case started(AnyObject)
     case claimedExisting(spawnError: String)
 }

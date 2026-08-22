@@ -9,6 +9,12 @@ private final class WebMediaDLWatchForwardProbe: @unchecked Sendable {
     var sent = 0
 }
 
+private final class WebMediaDLCompleteClientControlProbe: @unchecked Sendable {
+    var kind: WebMediaDLCompleteClientControl.Kind?
+    var jobId: UUID?
+    var sent = 0
+}
+
 final class ContractTests: XCTestCase {
     func testTitleIsNeverArtifactIdentity() {
         let id = UUID()
@@ -438,6 +444,71 @@ final class ContractTests: XCTestCase {
             XCTFail("unhealthy existing worker must keep the spawn error")
         } catch let error as WebMediaDLDomainError {
             XCTAssertTrue(error.message.contains("missing binary"))
+        }
+        do {
+            _ = try await WebMediaDLCompleteClientControl.perform(
+                .pauseQueue,
+                defaults: UserDefaults(suiteName: UUID().uuidString)!
+            )
+            XCTFail("complete-client pause without pairing must fail closed")
+        } catch WebMediaDLHttpDirect.TransferError.pairingRequired {
+            ()
+        }
+        do {
+            _ = try await WebMediaDLCompleteClientControl.perform(.cancel, jobId: "nope")
+            XCTFail("complete-client cancel without a job UUID must fail closed")
+        } catch WebMediaDLCompanionError.jobIdRequired {
+            ()
+        }
+        do {
+            _ = try await WebMediaDLCompleteClientControl.perform("not-a-kind")
+            XCTFail("unknown complete-client control must fail closed")
+        } catch let error as WebMediaDLDomainError {
+            XCTAssertTrue(error.message.contains("unknown complete-client control"))
+        }
+        let controlProbe = WebMediaDLCompleteClientControlProbe()
+        let paused = try await WebMediaDLCompleteClientControl.perform(.pauseQueue) { kind, id in
+            controlProbe.kind  = kind
+            controlProbe.jobId = id
+            controlProbe.sent += 1
+            return "paused"
+        }
+        XCTAssertEqual(paused, "paused")
+        XCTAssertEqual(controlProbe.kind, .pauseQueue)
+        XCTAssertNil(controlProbe.jobId)
+        XCTAssertEqual(controlProbe.sent, 1)
+        let controlJob = UUID()
+        let cancelled = try await WebMediaDLCompleteClientControl.perform(
+            .cancel,
+            jobId: controlJob.uuidString
+        ) { kind, id in
+            controlProbe.kind  = kind
+            controlProbe.jobId = id
+            controlProbe.sent += 1
+            return "cancelled"
+        }
+        XCTAssertEqual(cancelled, "cancelled")
+        XCTAssertEqual(controlProbe.kind, .cancel)
+        XCTAssertEqual(controlProbe.jobId, controlJob)
+        XCTAssertEqual(controlProbe.sent, 2)
+        do {
+            _ = try await WebMediaDLCompleteClientControl.perform(.cancel, jobId: "nope") { _, _ in
+                controlProbe.sent += 1
+                return "nope"
+            }
+            XCTFail("injectable send must not run without a job UUID")
+        } catch WebMediaDLCompanionError.jobIdRequired {
+            XCTAssertEqual(controlProbe.sent, 2)
+        }
+        do {
+            _ = try await WebMediaDLCompleteClientControl.perform("not-a-kind") { _, _ in
+                controlProbe.sent += 1
+                return "nope"
+            }
+            XCTFail("injectable send must not run for unknown complete-client control")
+        } catch let error as WebMediaDLDomainError {
+            XCTAssertTrue(error.message.contains("unknown complete-client control"))
+            XCTAssertEqual(controlProbe.sent, 2)
         }
         do {
             _ = try await WebMediaDLPairedMacSubmit.pullToFiles(

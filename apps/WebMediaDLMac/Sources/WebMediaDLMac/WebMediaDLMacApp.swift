@@ -281,22 +281,27 @@ struct MacRootView: View {
     private func startMacWorker() {
         Task {
             do {
-                switch try await WebMediaDLMacWorkerSupervision.startOrClaimExisting(
+                let launch = try await WebMediaDLMacWorkerSupervision.startOrClaimExisting(
                     start: {
                         try WebMediaDLMacWorkerProcess.start(
                             dataDir: WebMediaDLMacWorkerProcess.defaultDataDirectory()
                         )
                     },
                     health: { try await WebMediaDLLoopbackClient().requireHealthyWorker() }
-                ) {
-                case .started(let process):
-                    workerProcess = process
-                    status = "Local worker started on \(WebMediaDLLoopbackClient.defaultBaseURL.absoluteString)"
-                case .claimedExisting(let spawnError):
-                    status = "Using existing loopback worker (\(spawnError))"
+                )
+                await MainActor.run {
+                    switch launch {
+                    case .started(let process):
+                        workerProcess = process
+                        status = "Local worker started on \(WebMediaDLLoopbackClient.defaultBaseURL.absoluteString)"
+                    case .claimedExisting(let spawnError):
+                        status = "Using existing loopback worker (\(spawnError))"
+                    }
                 }
             } catch {
-                status = error.localizedDescription
+                await MainActor.run {
+                    status = error.localizedDescription
+                }
             }
         }
     }

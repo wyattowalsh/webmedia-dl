@@ -2,6 +2,14 @@
 
 ## 0.1.0
 
+- GitHub Actions `32567533760` on `6aad227` passed Python (583 pytest, 100%)
+  and failed Swift 6: `WebMediaDLMacWorkerLaunch` (`started(AnyObject)`) is not
+  Sendable, so the Mac app `Task` could not receive `startOrClaimExisting`.
+  The launch enum is `@unchecked Sendable` and `startMacWorker` applies UI
+  updates with `MainActor.run` after the nonisolated spawn/claim. Complete-client
+  Siri/Shortcuts controls share
+  `WebMediaDLCompleteClientControl` so unknown kinds, cancel without a UUID,
+  and pause without a saved Mac relay fail closed before transport.
 - GitHub Actions `32567291154` on `9e8a154` passed Python (583 pytest, 100%)
   and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after proving iPhone
   watch-forward in Core. Watch/tv control intents share

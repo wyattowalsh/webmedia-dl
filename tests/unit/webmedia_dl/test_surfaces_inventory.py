@@ -879,6 +879,15 @@ def test_github_ci_compiles_apple_packages() -> None:
     assert "invalidJSON" in paired_mac
     assert "loopbackToken" in paired_mac
     assert 'forHTTPHeaderField: "X-WebMedia-Token"' in paired_mac
+    assert "enum WebMediaDLCompleteClientControl" in paired_mac
+    assert "unknown complete-client control" in paired_mac
+    assert "WebMediaDLPairedMacSubmit.pauseQueue" in paired_mac
+    assert "WebMediaDLPairedMacSubmit.resumeQueue" in paired_mac
+    assert "WebMediaDLPairedMacSubmit.history" in paired_mac
+    assert "WebMediaDLPairedMacSubmit.cancel" in paired_mac
+    assert "WebMediaDLPairedMacSubmit.queueStatus" in paired_mac
+    assert "WebMediaDLPairedMacSubmit.pauseJob" in paired_mac
+    assert "WebMediaDLPairedMacSubmit.resumeJob" in paired_mac
     assert "maxStagingBytes" in relay_http
     assert "func maxBytes(for target: String)" in relay_http
     assert "func requestByteLimit(buffer: Data)" in relay_http
@@ -1003,6 +1012,9 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert "WebMediaDLMacWorkerSupervision.startOrClaimExisting" in mac
     assert "loopbackToken: token" in mac
     assert "relayServer?.loopbackToken = value" in mac
+    start_worker = mac.split("func startMacWorker()", 1)[1].split("func startMacRelay()", 1)[0]
+    assert "await MainActor.run" in start_worker
+    assert "WebMediaDLMacWorkerSupervision.startOrClaimExisting" in start_worker
     worker_launch = (
         root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/MacWorkerProcess.swift"
     ).read_text(encoding="utf-8")
@@ -1015,6 +1027,7 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert '"--data-dir"' in worker_launch
     assert "func start(dataDir:" in worker_launch
     assert "func startOrClaimExisting(" in worker_launch
+    assert "WebMediaDLMacWorkerLaunch: @unchecked Sendable" in worker_launch
     assert 'NSClassFromString("NSTask")' in worker_launch
     assert "Process(" not in worker_launch
     assert worker_launch.index("#if os(macOS)") < worker_launch.index("homeDirectoryForCurrentUser")
@@ -1039,14 +1052,15 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
         assert "WebMediaDLPairedMacSubmit.submit" in text
         assert "WebMediaDLShareIntake.fromSavedBookmark" in text
         assert 'destinationKind: files == nil ? nil : "staging_only"' in text
-        assert "WebMediaDLPairedMacSubmit.pauseQueue" in text
-        assert "WebMediaDLPairedMacSubmit.resumeQueue" in text
-        assert "WebMediaDLPairedMacSubmit.history" in text
-        assert "WebMediaDLPairedMacSubmit.cancel" in text
-        assert "WebMediaDLPairedMacSubmit.queueStatus" in text
-        assert "WebMediaDLPairedMacSubmit.pauseJob" in text
-        assert "WebMediaDLPairedMacSubmit.resumeJob" in text
-        assert "WebMediaDLCompanionJobControl.requireJobId" in text
+        assert "WebMediaDLCompleteClientControl.perform" in text
+        assert ".pauseQueue" in text
+        assert ".resumeQueue" in text
+        assert ".history" in text
+        assert ".cancel, jobId:" in text
+        assert ".queueStatus" in text
+        assert ".pauseJob, jobId:" in text
+        assert ".resumeJob, jobId:" in text
+        assert "WebMediaDLPairedMacSubmit.pauseQueue" not in text
         assert "else { return .result() }" not in text
     mac_intent = (
         root / "apps/WebMediaDLMac/Sources/WebMediaDLMac/WebMediaDLMacSubmitURLIntent.swift"
@@ -1146,6 +1160,9 @@ def test_macos_app_supervises_the_loopback_worker() -> None:
     assert "Using existing loopback worker" in mac
     assert "error.localizedDescription" in mac
     assert "loopbackToken: token" in mac
+    start_worker = mac.split("func startMacWorker()", 1)[1].split("func startMacRelay()", 1)[0]
+    assert "await MainActor.run" in start_worker
+    assert "WebMediaDLMacWorkerSupervision.startOrClaimExisting" in start_worker
     assert "bindWatchDelegate" not in mac
     assert "historyEntries()" in mac
     loopback = (root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/LoopbackClient.swift").read_text(
@@ -1164,6 +1181,7 @@ def test_macos_app_supervises_the_loopback_worker() -> None:
     assert "8765" in worker
     assert "func start(dataDir:" in worker
     assert "func startOrClaimExisting(" in worker
+    assert "WebMediaDLMacWorkerLaunch: @unchecked Sendable" in worker
     assert "claimedExisting" in worker
     assert 'NSClassFromString("NSTask")' in worker
     assert "Process(" not in worker
@@ -1242,14 +1260,15 @@ def test_complete_client_control_intents_use_mac_relay() -> None:
     ):
         text = (root / rel).read_text(encoding="utf-8")
         assert "WebMediaDLPairedMacSubmit.submit" in text
-        assert "WebMediaDLPairedMacSubmit.pauseQueue" in text
-        assert "WebMediaDLPairedMacSubmit.resumeQueue" in text
-        assert "WebMediaDLPairedMacSubmit.history" in text
-        assert "WebMediaDLPairedMacSubmit.cancel" in text
-        assert "WebMediaDLPairedMacSubmit.queueStatus" in text
-        assert "WebMediaDLPairedMacSubmit.pauseJob" in text
-        assert "WebMediaDLPairedMacSubmit.resumeJob" in text
-        assert "WebMediaDLCompanionJobControl.requireJobId" in text
+        assert "WebMediaDLCompleteClientControl.perform" in text
+        assert ".pauseQueue" in text
+        assert ".resumeQueue" in text
+        assert ".history" in text
+        assert ".cancel, jobId:" in text
+        assert ".queueStatus" in text
+        assert ".pauseJob, jobId:" in text
+        assert ".resumeJob, jobId:" in text
+        assert "WebMediaDLPairedMacSubmit.pauseQueue" not in text
         assert "else { return .result() }" not in text
 
 

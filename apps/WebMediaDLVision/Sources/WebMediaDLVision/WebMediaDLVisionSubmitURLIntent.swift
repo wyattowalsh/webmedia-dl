@@ -68,9 +68,7 @@ public struct WebMediaDLVisionPauseQueueIntent: AppIntent {
     public init() {}
 
     public func perform() async throws -> some IntentResult {
-        _ = try await WebMediaDLPairedMacSubmit.pauseQueue(
-            credentials: WebMediaDLWorkerCredentials.loadClient()
-        )
+        _ = try await WebMediaDLCompleteClientControl.perform(.pauseQueue)
         return .result()
     }
 }
@@ -81,9 +79,7 @@ public struct WebMediaDLVisionResumeQueueIntent: AppIntent {
     public init() {}
 
     public func perform() async throws -> some IntentResult {
-        _ = try await WebMediaDLPairedMacSubmit.resumeQueue(
-            credentials: WebMediaDLWorkerCredentials.loadClient()
-        )
+        _ = try await WebMediaDLCompleteClientControl.perform(.resumeQueue)
         return .result()
     }
 }
@@ -94,9 +90,7 @@ public struct WebMediaDLVisionHistoryIntent: AppIntent {
     public init() {}
 
     public func perform() async throws -> some IntentResult {
-        _ = try await WebMediaDLPairedMacSubmit.history(
-            credentials: WebMediaDLWorkerCredentials.loadClient()
-        )
+        _ = try await WebMediaDLCompleteClientControl.perform(.history)
         return .result()
     }
 }
@@ -114,11 +108,7 @@ public struct WebMediaDLVisionCancelIntent: AppIntent {
     }
 
     public func perform() async throws -> some IntentResult {
-        let id = try WebMediaDLCompanionJobControl.requireJobId(jobId)
-        _ = try await WebMediaDLPairedMacSubmit.cancel(
-            jobId: id,
-            credentials: WebMediaDLWorkerCredentials.loadClient()
-        )
+        _ = try await WebMediaDLCompleteClientControl.perform(.cancel, jobId: jobId)
         return .result()
     }
 }
@@ -129,9 +119,7 @@ public struct WebMediaDLVisionStatusIntent: AppIntent {
     public init() {}
 
     public func perform() async throws -> some IntentResult {
-        _ = try await WebMediaDLPairedMacSubmit.queueStatus(
-            credentials: WebMediaDLWorkerCredentials.loadClient()
-        )
+        _ = try await WebMediaDLCompleteClientControl.perform(.queueStatus)
         return .result()
     }
 }
@@ -149,11 +137,7 @@ public struct WebMediaDLVisionPauseJobIntent: AppIntent {
     }
 
     public func perform() async throws -> some IntentResult {
-        let id = try WebMediaDLCompanionJobControl.requireJobId(jobId)
-        _ = try await WebMediaDLPairedMacSubmit.pauseJob(
-            jobId: id,
-            credentials: WebMediaDLWorkerCredentials.loadClient()
-        )
+        _ = try await WebMediaDLCompleteClientControl.perform(.pauseJob, jobId: jobId)
         return .result()
     }
 }
@@ -171,11 +155,7 @@ public struct WebMediaDLVisionResumeJobIntent: AppIntent {
     }
 
     public func perform() async throws -> some IntentResult {
-        let id = try WebMediaDLCompanionJobControl.requireJobId(jobId)
-        _ = try await WebMediaDLPairedMacSubmit.resumeJob(
-            jobId: id,
-            credentials: WebMediaDLWorkerCredentials.loadClient()
-        )
+        _ = try await WebMediaDLCompleteClientControl.perform(.resumeJob, jobId: jobId)
         return .result()
     }
 }
