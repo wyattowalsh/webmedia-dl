@@ -9,6 +9,7 @@ import Network
 /// HTTP/1.1 framing for the Mac LAN relay. One request per connection.
 public enum WebMediaDLMacRelayHTTP {
     public static let maxRequestBytes = 1_048_576
+    public static let maxStagingBytes = 512 * 1024 * 1024
 
     public struct ParsedRequest: Equatable, Sendable {
         public var method: String
@@ -18,8 +19,38 @@ public enum WebMediaDLMacRelayHTTP {
         public var consumed: Int
     }
 
+    public static func maxBytes(for target: String) -> Int {
+        let path = target.split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false)
+            .first
+            .map(String.init) ?? target
+        if path == "/v1/staging" || path.hasPrefix("/v1/staging/") {
+            return maxStagingBytes
+        }
+        return maxRequestBytes
+    }
+
+    public static func requestByteLimit(buffer: Data) -> Int {
+        let separator = Data("\r\n\r\n".utf8)
+        guard let headerEnd = buffer.range(of: separator) else {
+            return maxRequestBytes
+        }
+        guard let headerText = String(
+            data: buffer.subdata(in: buffer.startIndex ..< headerEnd.lowerBound),
+            encoding: .utf8
+        ),
+            let requestLine = headerText.split(
+                separator: "\r\n",
+                omittingEmptySubsequences: false
+            ).first
+        else {
+            return maxRequestBytes
+        }
+        let parts = requestLine.split(separator: " ", omittingEmptySubsequences: true)
+        guard parts.count >= 2 else { return maxRequestBytes }
+        return maxBytes(for: String(parts[1]))
+    }
+
     public static func parseRequest(_ data: Data) -> ParsedRequest? {
-        guard data.count <= maxRequestBytes else { return nil }
         let separator = Data("\r\n\r\n".utf8)
         guard let headerEnd = data.range(of: separator) else { return nil }
         let headerData = data.subdata(in: data.startIndex ..< headerEnd.lowerBound)
@@ -28,6 +59,9 @@ public enum WebMediaDLMacRelayHTTP {
         guard let requestLine = lines.first else { return nil }
         let parts = requestLine.split(separator: " ", omittingEmptySubsequences: true)
         guard parts.count >= 2 else { return nil }
+        let target = String(parts[1])
+        let limit = maxBytes(for: target)
+        if data.count > limit { return nil }
         var headers: [String: String] = [:]
         for line in lines.dropFirst() where !line.isEmpty {
             guard let colon = line.firstIndex(of: ":") else { continue }
@@ -37,13 +71,13 @@ public enum WebMediaDLMacRelayHTTP {
         }
         let lengthKey = headers.first { $0.key.lowercased() == "content-length" }?.value
         let contentLength = Int(lengthKey ?? "0") ?? 0
-        if contentLength < 0 || contentLength > maxRequestBytes { return nil }
+        if contentLength < 0 || contentLength > limit { return nil }
         let bodyStart = headerEnd.upperBound
         guard data.count - bodyStart >= contentLength else { return nil }
         let body = data.subdata(in: bodyStart ..< bodyStart + contentLength)
         return ParsedRequest(
             method: String(parts[0]),
-            target: String(parts[1]),
+            target: target,
             headers: headers,
             body: body,
             consumed: bodyStart + contentLength
@@ -260,7 +294,7 @@ public final class WebMediaDLMacRelayServer: @unchecked Sendable {
     }
 
     private func receive(_ connection: NWConnection, buffer: Data) {
-        if buffer.count > WebMediaDLMacRelayHTTP.maxRequestBytes {
+        if buffer.count > WebMediaDLMacRelayHTTP.requestByteLimit(buffer: buffer) {
             reply(
                 connection,
                 status: 413,

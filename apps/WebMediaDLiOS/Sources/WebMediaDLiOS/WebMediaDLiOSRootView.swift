@@ -16,6 +16,7 @@ public struct WebMediaDLiOSRootView: View {
     @State private var pickingDestination = false
     @State private var fromClipboard = false
     @State private var macRelay = ""
+    @State private var watchRelay = WebMediaDLWatchConnectivityTransport()
     private let role = WebMediaDLClientRole.pairedClient
 
     public init() {}
@@ -262,6 +263,12 @@ public struct WebMediaDLiOSRootView: View {
                 if let data = WebMediaDLWorkerCredentials.loadBookmark() {
                     filesBookmark = WebMediaDLSecurityScopedBookmark(path: "", bookmarkData: data).resolve()
                 }
+                watchRelay.onReceivedMessage = { message in
+                    Task {
+                        _ = try? await WebMediaDLPairedMacSubmit.companion(message)
+                    }
+                }
+                watchRelay.activateSession()
             }
             .onChange(of: pairingId) { _, value in
                 WebMediaDLWorkerCredentials.defaults().set(value, forKey: WebMediaDLWorkerCredentials.pairingDefaultsKey)

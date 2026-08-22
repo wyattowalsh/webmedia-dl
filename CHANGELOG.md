@@ -7,9 +7,19 @@
   missing, unresolvable, or the path changed after issue. Queue `set_state`
   reads pause/cancel flags without re-parsing evidence. Submit claims inside
   `_run` so a monkeypatched wait path still returns `ACCEPTED`. Local
-  `uv run pytest --cov` is 564 tests at 100%. GitHub Actions `32556536991` on
-  `44b46ac` failed `ty` and Swift HttpDirect; last proven green remains
-  `32555270688` on `89f7492`.
+  `uv run pytest --cov` is 571 tests at 99.99%. GitHub Actions `32556972304` on
+  `54c90dc` passed Python (564 pytest, 99.99%) and Swift (18 tests, 0 failures;
+  8× BUILD SUCCEEDED). GitHub Actions `32556536991` on `44b46ac` failed `ty`
+  and Swift HttpDirect.
+- Pause and cancel after `publishing` fail closed so publication cannot finish
+  as `paused`/`cancelled`. tvOS companion messages use a Mac LAN transport
+  rather than WatchConnectivity; the iPhone companion app forwards watch
+  userInfo to the paired Mac relay. Cancel/pause_job/resume_job companion
+  messages require a job UUID at send time. Complete-client share drops upload
+  bytes to `POST /v1/staging` with a sha256 digest and submit the Mac staging
+  path; a phone sandbox `file://` path is not queued. The LAN relay keeps a
+  1 MiB JSON cap and a separate staging byte bound. App and share-extension
+  `PrivacyInfo.xcprivacy` manifests declare UserDefaults reason `1C8F.1`.
 - Queue `submit`/`resume_job` claim accepted jobs with the same `BEGIN IMMEDIATE`
   pause check as `run_next`. Cookie grants are revalidated on resolve. Malformed
   browser evidence fails the job. Checkpoint `acquired_kinds` must match restored

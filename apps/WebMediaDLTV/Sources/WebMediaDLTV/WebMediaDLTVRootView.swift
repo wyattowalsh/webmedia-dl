@@ -3,14 +3,14 @@ import WebMediaDLCore
 
 /// tvOS capture, status, history, and controls. Not a subprocess worker.
 /// tvOS has no pasteboard string API; capture is typed URL only.
-/// The paired Mac forwards companion messages to the loopback worker.
+/// The paired Mac receives companion messages over LAN HTTP, not WatchConnectivity.
 public struct WebMediaDLTVRootView: View {
     private let role = WebMediaDLClientRole.captureAndStatus
     private let bridge = WebMediaDLContinuityBridge()
     @State private var locator = ""
     @State private var status = "Status: idle"
     @State private var lastJobId: String?
-    @State private var transport = WebMediaDLWatchConnectivityTransport()
+    @State private var transport = WebMediaDLLocalNetworkCompanionTransport()
     @State private var history: [WebMediaDLHistoryEntry] = []
 
     public init() {}
@@ -72,7 +72,7 @@ public struct WebMediaDLTVRootView: View {
             }
             .navigationTitle("WebMedia DL")
             .onAppear {
-                transport.activateSession()
+                _ = role
             }
         }
     }

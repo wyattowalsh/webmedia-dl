@@ -99,7 +99,7 @@ final class ContractTests: XCTestCase {
         XCTAssertFalse(decoded.subprocessWorker)
         XCTAssertEqual(decoded.surface, .tvos)
         XCTAssertTrue(decoded.dictionary()["nativeCommand"] is NSNull)
-        XCTAssertEqual(decoded.dictionary()["subprocessWorker"] as? String, "false")
+        XCTAssertEqual(decoded.dictionary()["subprocessWorker"] as? Bool, false)
         XCTAssertNil((decoded.dictionary()["nativeCommand"] as? String))
 
         let subprocess: [String: Any] = [
@@ -281,6 +281,44 @@ final class ContractTests: XCTestCase {
                 Data("POST /v1/jobs HTTP/1.1\r\nContent-Length: 10\r\n\r\n{}".utf8)
             )
         )
+        XCTAssertEqual(
+            WebMediaDLMacRelayHTTP.maxBytes(for: "/v1/jobs"),
+            WebMediaDLMacRelayHTTP.maxRequestBytes
+        )
+        XCTAssertEqual(
+            WebMediaDLMacRelayHTTP.maxBytes(for: "/v1/staging?x=1"),
+            WebMediaDLMacRelayHTTP.maxStagingBytes
+        )
+        XCTAssertNil(
+            WebMediaDLMacRelayHTTP.parseRequest(
+                Data("POST /v1/jobs HTTP/1.1\r\nContent-Length: 1048577\r\n\r\n".utf8)
+            )
+        )
+        let stagingParsed = WebMediaDLMacRelayHTTP.parseRequest(
+            Data("POST /v1/staging HTTP/1.1\r\nContent-Length: 2\r\n\r\nab".utf8)
+        )
+        XCTAssertEqual(stagingParsed?.target, "/v1/staging")
+        XCTAssertEqual(stagingParsed?.body, Data("ab".utf8))
+        let stagedReq = endpoint!.stageRequest(digest: "aa", filename: "clip.mp4", size: 4)
+        XCTAssertTrue(stagedReq.url?.path.hasSuffix("/v1/staging") == true)
+        XCTAssertEqual(stagedReq.value(forHTTPHeaderField: "X-WebMedia-Digest"), "aa")
+        XCTAssertEqual(stagedReq.value(forHTTPHeaderField: "X-WebMedia-Filename"), "clip.mp4")
+        #if canImport(CryptoKit)
+        XCTAssertEqual(
+            WebMediaDLPairedMacEndpoint.sha256Hex(Data("hi".utf8)),
+            "8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4"
+        )
+        #endif
+        do {
+            _ = try await WebMediaDLPairedMacSubmit.submitDrop(
+                localPath: "/no/such/webmedia-dl-drop",
+                surface: .ios,
+                defaults: UserDefaults(suiteName: UUID().uuidString)!
+            )
+            XCTFail("drop without pairing must fail closed")
+        } catch WebMediaDLHttpDirect.TransferError.pairingRequired {
+            ()
+        }
         let rebuilt = try WebMediaDLMacRelayServer.urlRequest(
             from: parsed!,
             fallback: URL(string: "http://127.0.0.1:8766")!
@@ -380,6 +418,20 @@ final class ContractTests: XCTestCase {
         )
         XCTAssertEqual(queued.relay.pending.count, 1)
         XCTAssertEqual(queued.relay.pending.first?.surface, .tvos)
+        do {
+            try await queued.send(WebMediaDLCompanionMessage(kind: .cancel, surface: .tvos))
+            XCTFail("cancel without a job UUID must fail closed")
+        } catch WebMediaDLCompanionError.jobIdRequired {
+            ()
+        }
+
+        let lan = WebMediaDLLocalNetworkCompanionTransport()
+        do {
+            try await lan.send(WebMediaDLCompanionMessage(kind: .status, surface: .tvos))
+            XCTFail("tvOS LAN send without a saved Mac relay must fail closed")
+        } catch WebMediaDLHttpDirect.TransferError.pairingRequired {
+            XCTAssertEqual(lan.fallback.relay.pending.last?.kind, .status)
+        }
 
         let transport = WebMediaDLWatchConnectivityTransport()
         transport.sendResponse(["body": "HTTP 200 {\"job_id\":\"11111111-1111-1111-1111-111111111111\"}"])

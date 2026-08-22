@@ -19,6 +19,7 @@ from webmedia_dl.errors import CancelledError, PauseRequested, QueueIntegrityErr
 
 QUEUE_EVENT_JOB_ID = UUID(int=0)
 _QUEUE_TABLES = frozenset({"jobs", "events", "queue_control", "job_context"})
+TRANSITION_ATTEMPTS = 8
 
 
 @dataclass(frozen=True)
@@ -160,7 +161,7 @@ class QueueStore:
 
     def claim_next(self) -> Job | None:
         """Atomically claim the oldest accepted job by moving it to discovering."""
-        for _ in range(8):
+        for _ in range(TRANSITION_ATTEMPTS):
             with self.engine.begin() as conn:
                 paused = conn.execute(
                     text("SELECT paused FROM queue_control WHERE id = 1")
@@ -198,7 +199,7 @@ class QueueStore:
 
     def claim(self, job_id: UUID) -> Job | None:
         """Atomically claim one accepted job unless the queue is paused."""
-        for _ in range(8):
+        for _ in range(TRANSITION_ATTEMPTS):
             with self.engine.begin() as conn:
                 paused = conn.execute(
                     text("SELECT paused FROM queue_control WHERE id = 1")
@@ -232,9 +233,67 @@ class QueueStore:
                     return claimed
         return None
 
+    def pause_unless_committed(self, job_id: UUID) -> Job | None:
+        """Pause a job unless publication has already committed."""
+        return self._transition_unless_committed(job_id, JobState.PAUSED)
+
+    def cancel_unless_committed(self, job_id: UUID) -> Job | None:
+        """Cancel a job unless publication has already committed."""
+        return self._transition_unless_committed(
+            job_id, JobState.CANCELLED, error="cancelled by user"
+        )
+
+    def _transition_unless_committed(
+        self,
+        job_id: UUID,
+        state: JobState,
+        error: str | None = None,
+    ) -> Job | None:
+        blocked = (
+            JobState.COMPLETED.value,
+            JobState.FAILED.value,
+            JobState.CANCELLED.value,
+            JobState.PUBLISHING.value,
+        )
+        for _ in range(TRANSITION_ATTEMPTS):
+            with self.engine.begin() as conn:
+                row = conn.execute(
+                    text("SELECT job_id, payload, state FROM jobs WHERE job_id = :job_id"),
+                    {"job_id": str(job_id)},
+                ).fetchone()
+                if row is None or row[2] in blocked:
+                    return None
+                job = Job.model_validate_json(row[1])
+                updated = job.model_copy(update={"state": state, "error": error})
+                returned = conn.execute(
+                    text(
+                        "UPDATE jobs SET state = :new_state, payload = :payload "
+                        "WHERE job_id = :job_id AND state NOT IN "
+                        "(:completed, :failed, :cancelled, :publishing) "
+                        "RETURNING job_id"
+                    ),
+                    {
+                        "new_state": state.value,
+                        "payload": updated.model_dump_json(),
+                        "job_id": row[0],
+                        "completed": JobState.COMPLETED.value,
+                        "failed": JobState.FAILED.value,
+                        "cancelled": JobState.CANCELLED.value,
+                        "publishing": JobState.PUBLISHING.value,
+                    },
+                ).fetchone()
+                if returned is not None:
+                    return updated
+        return None
+
     def set_state(self, job_id: UUID, state: JobState, error: str | None = None) -> Job:
         pause_requested, cancel_requested = self._control_flags(job_id)
         job = self.get_job(job_id)
+        if job.state is JobState.PUBLISHING and state is JobState.COMPLETED:
+            updated = job.model_copy(update={"state": state, "error": error})
+            self.put_job(updated)
+            self.set_job_flags(job_id, pause_requested=False, cancel_requested=False)
+            return updated
         if cancel_requested and state is not JobState.CANCELLED:
             cancelled = job.model_copy(
                 update={"state": JobState.CANCELLED, "error": error or "cancelled by user"}

@@ -35,6 +35,7 @@ from webmedia_dl.domain.models import (
     MediaSource,
     Operation,
     StreamInfo,
+    ValidationResult,
 )
 from webmedia_dl.errors import (
     ArtifactImmutabilityError,
@@ -1226,6 +1227,69 @@ def test_submit_wait_returns_accepted_when_queue_paused(
     pipeline.pause_queue()
     job = pipeline.submit(str(media), wait=True)
     assert job.state is JobState.ACCEPTED
+
+
+def test_pause_during_publish_is_a_conflict(
+    tmp_data: Path, tmp_path: Path, png_bytes: bytes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from webmedia_dl import pipeline as pipeline_mod
+
+    media = _png(tmp_path, png_bytes)
+    pipeline = Pipeline(data_dir=tmp_data)
+    job = pipeline.submit(str(media), wait=False)
+    original = pipeline_mod.publish_artifacts
+    seen: dict[str, JobState] = {}
+
+    def pausing(
+        publishable: list[tuple[Artifact, Path, list[ValidationResult]]],
+        intent: ExportIntent,
+    ) -> list[Path]:
+        seen["state"] = pipeline.queue.get_job(job.job_id).state
+        assert pipeline.queue.pause_unless_committed(job.job_id) is None
+        assert pipeline.queue.cancel_unless_committed(job.job_id) is None
+        with pytest.raises(PauseRequested, match="publishing"):
+            pipeline.pause_job(job.job_id)
+        with pytest.raises(CancelledError, match="publishing"):
+            pipeline.cancel(job.job_id)
+        return original(publishable, intent)
+
+    monkeypatch.setattr(pipeline_mod, "publish_artifacts", pausing)
+    result = pipeline.run_next()
+    assert seen["state"] is JobState.PUBLISHING
+    assert result is not None
+    assert result.state is JobState.COMPLETED
+    types = [event.type for event in pipeline.queue.events_for(job.job_id)]
+    assert EventType.JOB_PAUSED not in types
+    assert EventType.JOB_CANCELLED not in types
+    assert EventType.JOB_COMPLETED in types
+
+
+def test_pause_and_cancel_cas_miss_after_precheck(
+    tmp_data: Path, tmp_path: Path, png_bytes: bytes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    media = _png(tmp_path, png_bytes)
+    pipeline = Pipeline(data_dir=tmp_data)
+    job = pipeline.submit(str(media), wait=False)
+    monkeypatch.setattr(pipeline.queue, "pause_unless_committed", lambda _job_id: None)
+    monkeypatch.setattr(pipeline.queue, "cancel_unless_committed", lambda _job_id: None)
+    with pytest.raises(PauseRequested, match="cannot be paused"):
+        pipeline.pause_job(job.job_id)
+    with pytest.raises(CancelledError, match="cannot be cancelled"):
+        pipeline.cancel(job.job_id)
+    pipeline.queue.set_state(job.job_id, JobState.PUBLISHING)
+    pipeline._check_control(job.job_id)
+    assert pipeline.queue.get_job(job.job_id).state is JobState.PUBLISHING
+
+
+def test_transition_unless_committed_gives_up(
+    tmp_data: Path, tmp_path: Path, png_bytes: bytes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    media = _png(tmp_path, png_bytes)
+    pipeline = Pipeline(data_dir=tmp_data)
+    job = pipeline.submit(str(media), wait=False)
+    monkeypatch.setattr("webmedia_dl.queue.TRANSITION_ATTEMPTS", 0)
+    assert pipeline.queue.pause_unless_committed(job.job_id) is None
+    assert pipeline.queue.get_job(job.job_id).state is JobState.ACCEPTED
 
 
 def test_queue_claim_is_atomic_with_pause(tmp_data: Path, tmp_path: Path, png_bytes: bytes) -> None:

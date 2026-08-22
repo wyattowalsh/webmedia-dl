@@ -39,6 +39,11 @@ to the loopback worker. Those adapters SHALL NOT run provider argv.
 - **WHEN** a share sheet supplies `https://example.com/a.mp4` and `file:///tmp/a.png`
 - **THEN** the HTTPS value is URL intake and the file URL is drop intake
 
+#### Scenario: complete-client drop stages onto the mac worker
+- **WHEN** iPhone, iPad, or visionOS share a local file
+- **THEN** the bytes are uploaded to `/v1/staging` with a sha256 digest and the
+  job locator is the Mac staging path, not the phone sandbox path
+
 #### Scenario: complete clients carry files destinations
 - **WHEN** iPhone, iPad, or visionOS submit with an approved Files path
 - **THEN** the job intent uses `files_app` and the security-scoped path boundary

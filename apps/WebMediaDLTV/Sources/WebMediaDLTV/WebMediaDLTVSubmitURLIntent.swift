@@ -17,7 +17,7 @@ public struct WebMediaDLTVSubmitURLIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let bridge = WebMediaDLContinuityBridge()
-        let transport = WebMediaDLWatchConnectivityTransport()
+        let transport = WebMediaDLLocalNetworkCompanionTransport()
         let message = bridge.message(kind: .capture, locator: locator, surface: .tvos)
         try await transport.send(message)
         return .result()
@@ -31,7 +31,7 @@ public struct WebMediaDLTVPauseIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let bridge = WebMediaDLContinuityBridge()
-        let transport = WebMediaDLWatchConnectivityTransport()
+        let transport = WebMediaDLLocalNetworkCompanionTransport()
         try await transport.send(bridge.message(kind: .pause, surface: .tvos))
         return .result()
     }
@@ -44,7 +44,7 @@ public struct WebMediaDLTVResumeIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let bridge = WebMediaDLContinuityBridge()
-        let transport = WebMediaDLWatchConnectivityTransport()
+        let transport = WebMediaDLLocalNetworkCompanionTransport()
         try await transport.send(bridge.message(kind: .resume, surface: .tvos))
         return .result()
     }
@@ -57,7 +57,7 @@ public struct WebMediaDLTVHistoryIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let bridge = WebMediaDLContinuityBridge()
-        let transport = WebMediaDLWatchConnectivityTransport()
+        let transport = WebMediaDLLocalNetworkCompanionTransport()
         try await transport.send(bridge.message(kind: .history, surface: .tvos))
         return .result()
     }
@@ -70,7 +70,7 @@ public struct WebMediaDLTVStatusIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let bridge = WebMediaDLContinuityBridge()
-        let transport = WebMediaDLWatchConnectivityTransport()
+        let transport = WebMediaDLLocalNetworkCompanionTransport()
         try await transport.send(bridge.message(kind: .status, surface: .tvos))
         return .result()
     }
@@ -91,7 +91,7 @@ public struct WebMediaDLTVCancelIntent: AppIntent {
     public func perform() async throws -> some IntentResult {
         guard UUID(uuidString: jobId) != nil else { return .result() }
         let bridge = WebMediaDLContinuityBridge()
-        let transport = WebMediaDLWatchConnectivityTransport()
+        let transport = WebMediaDLLocalNetworkCompanionTransport()
         try await transport.send(bridge.message(kind: .cancel, jobId: jobId, surface: .tvos))
         return .result()
     }
@@ -112,7 +112,7 @@ public struct WebMediaDLTVPauseJobIntent: AppIntent {
     public func perform() async throws -> some IntentResult {
         guard UUID(uuidString: jobId) != nil else { return .result() }
         let bridge = WebMediaDLContinuityBridge()
-        let transport = WebMediaDLWatchConnectivityTransport()
+        let transport = WebMediaDLLocalNetworkCompanionTransport()
         try await transport.send(bridge.message(kind: .pauseJob, jobId: jobId, surface: .tvos))
         return .result()
     }
@@ -133,7 +133,7 @@ public struct WebMediaDLTVResumeJobIntent: AppIntent {
     public func perform() async throws -> some IntentResult {
         guard UUID(uuidString: jobId) != nil else { return .result() }
         let bridge = WebMediaDLContinuityBridge()
-        let transport = WebMediaDLWatchConnectivityTransport()
+        let transport = WebMediaDLLocalNetworkCompanionTransport()
         try await transport.send(bridge.message(kind: .resumeJob, jobId: jobId, surface: .tvos))
         return .result()
     }

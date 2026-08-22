@@ -44,6 +44,16 @@ subprocess runtime.
 - **THEN** each action queues the matching companion kind with `nativeCommand`
   null, and cancel/pause_job/resume_job include a UUID `job_id`
 
+#### Scenario: tvOS uses local-network companion transport
+
+- **WHEN** tvOS sends a companion message
+- **THEN** it uses a saved Mac LAN relay rather than WatchConnectivity
+
+#### Scenario: iPhone forwards watch companion messages
+
+- **WHEN** the iPhone companion app receives a WatchConnectivity companion message
+- **THEN** it forwards that typed message to the paired Mac relay
+
 #### Scenario: sealed companion envelope
 
 - **WHEN** the Mac worker receives a companion POST with AES-GCM envelope fields

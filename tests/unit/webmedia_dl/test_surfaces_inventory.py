@@ -265,7 +265,11 @@ def test_share_extension_principals_match_plists() -> None:
         assert "NSExtensionRequestHandling" in source
         assert "beginRequest(with context: NSExtensionContext)" in source
         assert 'intakeKind: "share_sheet"' in source
-        assert 'intakeKind: "drop"' in source
+        if "WebMediaDLMac" in rel:
+            assert 'intakeKind: "drop"' in source
+            assert "submitDrop" not in source
+        else:
+            assert "WebMediaDLPairedMacSubmit.submitDrop" in source
         assert "NSItemProvider" in source or "attachments" in source or "loadSharedValues" in source
     for package, share in (
         ("apps/WebMediaDLMac/Package.swift", "WebMediaDLMacShareExtension"),
@@ -345,6 +349,8 @@ def test_companion_transport_and_typed_history() -> None:
     assert "func dictionary() -> [String: Any]" in continuity
     assert "protocol WebMediaDLCompanionTransport" in continuity
     assert "struct WebMediaDLQueuedCompanionTransport" in continuity
+    assert "class WebMediaDLLocalNetworkCompanionTransport" in continuity
+    assert "func validate(_ message: WebMediaDLCompanionMessage)" in continuity
     assert "WCSessionDelegate" in continuity
     assert "extension WebMediaDLWatchConnectivityTransport: WCSessionDelegate" in continuity
     assert "extension WebMediaDLMacWatchConnectivityDelegate: WCSessionDelegate" in continuity
@@ -371,7 +377,8 @@ def test_companion_transport_and_typed_history() -> None:
     watch = (root / ROOT_VIEWS["watchos"]).read_text(encoding="utf-8")
     tv = (root / ROOT_VIEWS["tvos"]).read_text(encoding="utf-8")
     assert "WebMediaDLWatchConnectivityTransport" in watch
-    assert "WebMediaDLWatchConnectivityTransport" in tv
+    assert "WebMediaDLLocalNetworkCompanionTransport" in tv
+    assert "WebMediaDLWatchConnectivityTransport" not in tv
     assert 'Data("[]".utf8)' not in watch
     assert 'Data("[]".utf8)' not in tv
     assert "decodeCompanionHistory" in watch
@@ -384,7 +391,7 @@ def test_companion_transport_and_typed_history() -> None:
     assert "transport.send" in watch
     assert "transport.send" in tv
     assert "activateSession()" in watch
-    assert "activateSession()" in tv
+    assert "activateSession()" not in tv
     assert "lastResponse" in watch
     assert "lastResponse" in tv
     assert "status.data(using: .utf8)" not in watch
@@ -607,7 +614,12 @@ def test_intents_and_share_adapters_load_credentials() -> None:
         assert "providerArgv" not in text
     for rel in COMPANION_INTENTS:
         text = (root / rel).read_text(encoding="utf-8")
-        assert "WebMediaDLWatchConnectivityTransport" in text
+        if "WebMediaDLWatch" in rel:
+            assert "WebMediaDLWatchConnectivityTransport" in text
+            assert "WebMediaDLLocalNetworkCompanionTransport" not in text
+        else:
+            assert "WebMediaDLLocalNetworkCompanionTransport" in text
+            assert "WebMediaDLWatchConnectivityTransport" not in text
         assert "let transport" in text
         assert "var transport" not in text
         assert "transport.send" in text
@@ -766,6 +778,19 @@ def test_github_ci_compiles_apple_packages() -> None:
     assert (
         repo_root() / "apps/WebMediaDLCore/Sources/WebMediaDLCore/MacRelayServer.swift"
     ).is_file()
+    paired_mac = (
+        repo_root() / "apps/WebMediaDLCore/Sources/WebMediaDLCore/PairedMac.swift"
+    ).read_text(encoding="utf-8")
+    relay_http = (
+        repo_root() / "apps/WebMediaDLCore/Sources/WebMediaDLCore/MacRelayServer.swift"
+    ).read_text(encoding="utf-8")
+    assert "func submitDrop(" in paired_mac
+    assert 'appendingPathComponent("v1/staging")' in paired_mac
+    assert 'destinationKind: "staging_only"' in paired_mac
+    assert "X-WebMedia-Digest" in paired_mac
+    assert "maxStagingBytes" in relay_http
+    assert "func maxBytes(for target: String)" in relay_http
+    assert "func requestByteLimit(buffer: Data)" in relay_http
 
 
 def test_complete_clients_http_direct_and_shared_domain() -> None:
@@ -838,6 +863,10 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert "WebMediaDLHttpDirect" not in watch
     assert "WebMediaDLHttpDirect" not in tv
     assert "UIPasteboard" not in tv
+    assert "watchRelay.activateSession()" in ios
+    assert "onReceivedMessage" in ios
+    assert "WebMediaDLPairedMacSubmit.companion" in ios
+    assert "WebMediaDLLocalNetworkCompanionTransport" in tv
     assert "autoForward = true" in mac
     assert "bindWatchDelegate" in mac
     assert "WebMediaDLMacRelayServer.start" in mac
@@ -891,6 +920,7 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
         assert "WebMediaDLHttpDirect.saveIfDirect" in text
         assert f"surface: {surface}" in text
         assert "WebMediaDLPairedMacSubmit.submit" in text
+        assert "WebMediaDLPairedMacSubmit.submitDrop" in text
         assert "WebMediaDLShareIntake.fromSavedBookmark" in text
         assert 'destinationKind: files == nil ? nil : "files_app"' in text
     mac_share = (
@@ -913,3 +943,29 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
         text = (root / rel).read_text(encoding="utf-8")
         assert "resolvedForSubmit" in text
         assert 'destinationKind: files == nil ? nil : "files_app"' in text
+
+
+def test_privacy_manifests_declare_user_defaults() -> None:
+    root = repo_root()
+    manifests = [
+        "apps/WebMediaDLMac/Resources/PrivacyInfo.xcprivacy",
+        "apps/WebMediaDLMac/ShareExtension/PrivacyInfo.xcprivacy",
+        "apps/WebMediaDLiOS/Resources/PrivacyInfo.xcprivacy",
+        "apps/WebMediaDLiOS/ShareExtension/PrivacyInfo.xcprivacy",
+        "apps/WebMediaDLiPadOS/Resources/PrivacyInfo.xcprivacy",
+        "apps/WebMediaDLiPadOS/ShareExtension/PrivacyInfo.xcprivacy",
+        "apps/WebMediaDLVision/Resources/PrivacyInfo.xcprivacy",
+        "apps/WebMediaDLVision/ShareExtension/PrivacyInfo.xcprivacy",
+        "apps/WebMediaDLWatch/Resources/PrivacyInfo.xcprivacy",
+        "apps/WebMediaDLTV/Resources/PrivacyInfo.xcprivacy",
+    ]
+    for rel in manifests:
+        payload = plistlib.loads((root / rel).read_bytes())
+        assert payload["NSPrivacyTracking"] is False
+        assert payload["NSPrivacyTrackingDomains"] == []
+        assert payload["NSPrivacyCollectedDataTypes"] == []
+        accessed = payload["NSPrivacyAccessedAPITypes"]
+        assert accessed[0]["NSPrivacyAccessedAPIType"] == (
+            "NSPrivacyAccessedAPICategoryUserDefaults"
+        )
+        assert accessed[0]["NSPrivacyAccessedAPITypeReasons"] == ["1C8F.1"]

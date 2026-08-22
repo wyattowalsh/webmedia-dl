@@ -88,7 +88,7 @@ public struct WebMediaDLCompanionMessage: Codable, Sendable, Equatable {
     public func dictionary() -> [String: Any] {
         var payload: [String: Any] = [
             "kind": kind.rawValue,
-            "subprocessWorker": "false",
+            "subprocessWorker": false,
             "surface": surface.rawValue,
             "nativeCommand": NSNull(),
         ]
@@ -100,6 +100,22 @@ public struct WebMediaDLCompanionMessage: Codable, Sendable, Equatable {
         }
         return payload
     }
+
+    public static func validate(_ message: WebMediaDLCompanionMessage) throws {
+        switch message.kind {
+        case .cancel, .pauseJob, .resumeJob:
+            guard let raw = message.jobId, UUID(uuidString: raw) != nil else {
+                throw WebMediaDLCompanionError.jobIdRequired
+            }
+        default:
+            return
+        }
+    }
+}
+
+public enum WebMediaDLCompanionError: Error, Equatable {
+    case jobIdRequired
+    case pairingRequired
 }
 
 /// watchOS/tvOS queue companion messages until the Mac forwards them to loopback.
@@ -151,14 +167,38 @@ public struct WebMediaDLQueuedCompanionTransport: WebMediaDLCompanionTransport {
     }
 
     public mutating func send(_ message: WebMediaDLCompanionMessage) async throws {
+        try WebMediaDLCompanionMessage.validate(message)
         relay.enqueue(message)
+        relay.persist()
+    }
+}
+
+/// tvOS companion transport. WatchConnectivity is not a tvOS counterpart; messages
+/// go to a saved private/loopback Mac relay, with a durable queue if pairing is missing.
+public final class WebMediaDLLocalNetworkCompanionTransport: WebMediaDLCompanionTransport, @unchecked Sendable {
+    public var fallback = WebMediaDLQueuedCompanionTransport()
+    public var lastResponse: String?
+
+    public init() {}
+
+    public func send(_ message: WebMediaDLCompanionMessage) async throws {
+        try WebMediaDLCompanionMessage.validate(message)
+        do {
+            lastResponse = try await WebMediaDLPairedMacSubmit.companion(message)
+        } catch {
+            fallback.relay.enqueue(message)
+            fallback.relay.persist()
+            throw error
+        }
     }
 }
 
 /// Typed WatchConnectivity userInfo transport. Radio delivery is BLOCKED without a paired Apple device.
+/// watchOS talks to its iPhone companion; the phone forwards to the Mac LAN relay.
 public final class WebMediaDLWatchConnectivityTransport: NSObject, WebMediaDLCompanionTransport, @unchecked Sendable {
     public var fallback = WebMediaDLQueuedCompanionTransport()
     public var lastResponse: String?
+    public var onReceivedMessage: (@Sendable (WebMediaDLCompanionMessage) -> Void)?
 
     public override init() {
         super.init()
@@ -174,6 +214,7 @@ public final class WebMediaDLWatchConnectivityTransport: NSObject, WebMediaDLCom
     }
 
     public func send(_ message: WebMediaDLCompanionMessage) async throws {
+        try WebMediaDLCompanionMessage.validate(message)
         #if canImport(WatchConnectivity)
         if WCSession.isSupported() {
             WCSession.default.transferUserInfo(
@@ -184,6 +225,7 @@ public final class WebMediaDLWatchConnectivityTransport: NSObject, WebMediaDLCom
         #endif
         var queued = fallback
         try await queued.send(message)
+        queued.relay.persist()
         fallback = queued
     }
 
@@ -212,6 +254,17 @@ extension WebMediaDLWatchConnectivityTransport: WCSessionDelegate {
     public func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
         if let body = userInfo["body"] as? String {
             lastResponse = body
+        }
+        if let kind = (userInfo["kind"] as? String).flatMap(WebMediaDLCompanionKind.init(rawValue:)) {
+            let surface = (userInfo["surface"] as? String).flatMap(WebMediaDLSurface.init(rawValue:)) ?? .watchos
+            onReceivedMessage?(
+                WebMediaDLCompanionMessage(
+                    kind: kind,
+                    locator: userInfo["locator"] as? String,
+                    jobId: userInfo["jobId"] as? String,
+                    surface: surface
+                )
+            )
         }
         _ = session
     }

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import Body, Depends, FastAPI, Header, HTTPException
+from fastapi import Body, Depends, FastAPI, Header, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -22,6 +22,7 @@ from webmedia_dl.envelope import open_payload, seal_payload
 from webmedia_dl.errors import (
     CancelledError,
     DelegationDenied,
+    IntakeError,
     NetworkPolicyError,
     PauseRequested,
     WebMediaError,
@@ -29,6 +30,7 @@ from webmedia_dl.errors import (
 from webmedia_dl.names import DISPLAY_NAME
 from webmedia_dl.pipeline import Pipeline
 from webmedia_dl.settings import Settings
+from webmedia_dl.staging import assert_staging_size, declared_content_length, ingest_staged_upload
 from webmedia_dl.support import write_support_bundle
 
 bearer = HTTPBearer(auto_error=False)
@@ -207,6 +209,33 @@ def create_app(data_dir: Path | None = None, *, enable_dispatcher: bool = False)
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok", "product": DISPLAY_NAME}
+
+    @app.post("/v1/staging")
+    async def stage_upload(
+        request: Request,
+        auth: dict[str, str] = Depends(require_auth),
+        x_webmedia_digest: str | None = Header(default=None, alias="X-WebMedia-Digest"),
+        x_webmedia_filename: str | None = Header(default=None, alias="X-WebMedia-Filename"),
+    ) -> dict:
+        if not x_webmedia_digest:
+            raise HTTPException(status_code=400, detail="X-WebMedia-Digest is required.")
+        max_bytes = pipeline.host_profile.max_download_bytes
+        try:
+            declared = declared_content_length(request.headers.get("content-length"))
+            body = await request.body()
+            assert_staging_size(declared=declared, actual=len(body), max_bytes=max_bytes)
+            return ingest_staged_upload(
+                data_dir=root,
+                owner=auth.get("pairing_id") or "mac",
+                expected_digest=x_webmedia_digest,
+                filename=x_webmedia_filename,
+                chunks=iter([body]),
+                max_bytes=max_bytes,
+            )
+        except IntakeError as exc:
+            detail = str(exc)
+            status = 413 if "byte bound" in detail else 400
+            raise HTTPException(status_code=status, detail=detail) from exc
 
     @app.post("/v1/jobs")
     def submit_job(body: SubmitBody, auth: dict[str, str] = Depends(require_auth)) -> dict:

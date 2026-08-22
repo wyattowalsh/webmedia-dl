@@ -2,8 +2,8 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 564 tests locally after stale-bookmark / cookie-grant follow-up; last proven GitHub Actions `ci` run is `32555270688` (`89f7492`, 550 tests). Run `32556536991` on `44b46ac` failed `ty` and Swift `testHttpDirectSavesClearMediaAndRefusesDrm` |
-| `uv run pytest --cov` | PASS | 100% locally (`fail_under` 99); 99.98% on GitHub `89f7492` |
+| `uv run pytest` | PASS | 571 tests locally; GitHub Actions `ci` run `32556972304` (`54c90dc`) was 564. Follow-up adds publication pause/cancel conflict, tvOS LAN companion transport, complete-client `/v1/staging` drop upload, and PrivacyInfo manifests |
+| `uv run pytest --cov` | PASS | 99.99% locally and on GitHub `54c90dc` (`fail_under` 99) |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
 | `uv run ty check` | PASS | |
@@ -31,11 +31,11 @@
 | Packaged runtime fallback | PASS | `runtime_root` / `runtime_file` fall back to checkout `resources/` without a packaged `runtime/` tree; `repo_root` fails closed when `pyproject.toml` is absent |
 | CLI paste/speak/drop fail-closed | PASS | DRM locators exit 1 with `job.error`; missing drop files fail closed; drop publication errors exit 1 |
 | Fetch bounds | PASS | HTML truncate, media overflow error, streaming within-limit, redirect bound, owned client closed |
-| Queue durability | PASS | legacy `job_context` columns migrate; `claim_next`/`claim` CAS misses return none; `UPDATE … RETURNING` plus `BEGIN IMMEDIATE` keeps concurrent claims exclusive; `submit` claims inside `_run`; `set_state` reads pause/cancel flags without re-parsing evidence; invalid JSON checkpoints become `{}`; malformed browser evidence fails the job; `next_runnable` ignores non-accepted jobs |
+| Queue durability | PASS | legacy `job_context` columns migrate; `claim_next`/`claim` CAS misses return none; `UPDATE … RETURNING` plus `BEGIN IMMEDIATE` keeps concurrent claims exclusive; `submit` claims inside `_run`; `set_state` reads pause/cancel flags without re-parsing evidence; pause/cancel after `publishing` fail closed and publication stays `completed`; invalid JSON checkpoints become `{}`; malformed browser evidence fails the job; `next_runnable` ignores non-accepted jobs |
 | Source artifact identity | PASS | SOURCE `artifact_id` must be `sha256:<digest>`; titles and `plan:source` sentinels are rejected |
 | Capability health probe | PASS | present binaries whose version probe fails are `unhealthy`; missing binaries stay `missing`; a resolved path that does not exist is `missing`; `/bin/false` is not `healthy`; `http-direct` records an executed httpx probe; `validate.container` is not `healthy` when ffprobe is missing |
 | Extension popup one-tap | PASS | `popup.js` `#send` click collects page URLs and POSTs `/v1/jobs` with no `nativeCommand` |
-| Complete-client Mac relay | PASS | iPhone/iPad/visionOS heavy submit, history, and queue controls use a saved private/loopback Mac URL plus pairing; Mac `WebMediaDLMacRelayServer` listens on private/loopback HTTP, `forwardToLoopback` rewrites to `127.0.0.1`, and public peers / `nativeCommand` are refused. GitHub `macos-15` run `32555270688` on `89f7492` executed Core `swift test` 18 tests, 0 failures, including queue status and per-job App Intents on every Apple client. Physical device radio remains BLOCKED |
+| Complete-client Mac relay | PASS | iPhone/iPad/visionOS heavy submit, history, and queue controls use a saved private/loopback Mac URL plus pairing; Mac `WebMediaDLMacRelayServer` listens on private/loopback HTTP, `forwardToLoopback` rewrites to `127.0.0.1`, and public peers / `nativeCommand` are refused. iPhone WatchConnectivity forwards watch companion messages to that Mac relay; tvOS uses LAN companion transport, not WCSession. Complete-client file drops POST `/v1/staging` with a sha256 digest and submit the Mac staging path (`staging_only`); a phone sandbox path is not queued. JSON relay stays 1 MiB; staging uses a separate byte bound. GitHub `macos-15` run `32556972304` on `54c90dc` executed Core `swift test` 18 tests, 0 failures. Physical device radio remains BLOCKED |
 | Publication skip | PASS | preview-only produced sets and `include_original=false` leave no publishable artifacts; a restored preview plus source skips the preview at validation and publishes the source; validation failures fail the job |
 | Worker API errors | PASS | unknown pairing confirm/submit/plan/envelope fail closed; companion envelope non-objects are 400; pair `personal-full`/unknown profiles are 400; companion unknown job ids are 404; sealed companion `nativeCommand` is 400 then nonce-replay fails; loopback `serve` reaches uvicorn; `serve_worker` refuses `0.0.0.0`; `GET /v1/jobs` lists history; plan uses pairing id from auth headers; empty `run-next` returns `job: null`; `/v1/plan` DRM locators are 400 with no provider execution or job creation; `/v1/jobs` destinations outside `approved_roots` fail the job with `job.failed` |
 | Cancel during acquire | PASS | mixed-media HTTP cancel during the first kind raises closed to `cancelled` without publishing |
@@ -75,9 +75,9 @@
 | Acquired remote skip | PASS | resume at `stage=acquired` does not refetch remote media |
 | ImageMagick convert alias | PASS | health and argv resolve IM6 `convert` when `magick` is missing |
 | Job-detail / run-next helpers | PASS | unrelated history rows are skipped; empty queue returns `job: null`; a queued job returns events |
-| Swift Core CI job | PASS | GitHub Actions `ci` run `32555270688` on `89f7492`: `IdentityTests` executed 6 tests, 0 failures on `macos-15` |
-| Swift Core contract tests | PASS | `ContractTests.swift` executed 12 tests, 0 failures with IdentityTests (6) on GitHub `macos-15` run `32555270688` (`89f7492`) |
-| Apple package compile CI | PASS | GitHub Actions `ci` run `32555270688` on `89f7492`: Core `swift test` 18 tests, 0 failures (`ContractTests` 12 + `IdentityTests` 6); Safari handler `swiftc -typecheck`; 8× `BUILD SUCCEEDED`. Device runtime stays BLOCKED |
+| Swift Core CI job | PASS | GitHub Actions `ci` run `32556972304` on `54c90dc`: `IdentityTests` executed 6 tests, 0 failures on `macos-15` |
+| Swift Core contract tests | PASS | `ContractTests.swift` executed 12 tests, 0 failures with IdentityTests (6) on GitHub `macos-15` run `32556972304` (`54c90dc`) |
+| Apple package compile CI | PASS | GitHub Actions `ci` run `32556972304` on `54c90dc`: Core `swift test` 18 tests, 0 failures (`ContractTests` 12 + `IdentityTests` 6); Safari handler `swiftc -typecheck`; 8× `BUILD SUCCEEDED`. Device runtime stays BLOCKED |
 | OpenSpec scenarios | PASS | every capability spec scenario has WHEN/THEN; each scenario title maps to a named Python or Swift test in a pinned source file; popup markup is parsed; drop records `local_path`; local submit does not upload; job submit forbids native argv; queue-level events use a zero UUID; `wmdl` is not the console script; remux precedes transcode; failed derivatives do not block siblings; `run_next` restores cookie grants, HTML, and browser evidence; unsafe format ids are refused; doctor keeps signing/stores/legal BLOCKED |
 | Builtin manifests / profiles | PASS | every shipped provider sets `install_automatic` false and `accepts_user_argv` false; every shipped profile forbids telemetry, DRM circumvention, and delegation |
 | Graph relation schema | PASS | Swift `WebMediaDLGraphRelation` raw values match `GraphEdge.relation` |
@@ -108,8 +108,9 @@
 | Typed event payloads | PASS | `EventRecord` rejects stdout/stderr/argv/nativeCommand/cookie paths |
 | Files/clipboard/PhotoKit contracts | PASS | security-scoped bookmark boundary; complete clients persist and submit `security_scoped_bookmark`; clipboard URL is never `local_path`; PhotoKit write stays closed |
 | Complete-client on-device HTTP | PASS | iPhone/iPad/visionOS `WebMediaDLHttpDirect` downloads direct media into a Files bookmark; empty roots are `filesDestinationRequired`; stale or unresolvable bookmark data is `destinationDenied`; page/live locators require pairing; DRM signals refuse before write; byte overflow refuses before write; `.`/`..` stems become `source`; URLSession.bytes stops at `maxBytes`; watchOS/tvOS stay capture-only |
-| Share sheet extractors | PASS | HTTPS locators stay URL intake; `file://` paths use drop intake; awaited `NSItemProvider` load |
-| Companion Mac relay | PASS | watchOS/tvOS `WCSessionDelegate` activate + `transferUserInfo`; Mac `autoForward` drains sealed/plain companion messages with pairing session key; `nativeCommand` null |
+| Share sheet extractors | PASS | HTTPS locators stay URL intake; `file://` paths use drop intake; awaited `NSItemProvider` load; complete-client drops stage onto the Mac worker before submit |
+| Privacy manifests | PASS | every app and share extension ships `PrivacyInfo.xcprivacy` with `NSPrivacyAccessedAPICategoryUserDefaults` reason `1C8F.1` and tracking disabled |
+| Companion Mac relay | PASS | watchOS `WCSessionDelegate` on the iPhone companion forwards typed userInfo to the Mac LAN relay; tvOS uses `WebMediaDLLocalNetworkCompanionTransport`; Mac `autoForward` drains sealed/plain companion messages with pairing session key; `nativeCommand` null |
 | HTTP stream stop | PASS | `bound_fetch(..., should_stop=)` aborts mid-stream; cancel discards completed HTTP fetch; pause commits |
 | Wheel install | PASS | isolated `uv` venv import of packaged `runtime/export-presets.json` and `webmedia-dl --help` |
 | CLI names in README | PASS | every Typer command name appears in `README.md` |

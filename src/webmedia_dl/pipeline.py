@@ -800,12 +800,22 @@ class Pipeline:
 
     def cancel(self, job_id: UUID) -> Job:
         job = self.queue.get_job(job_id)
-        if job.state in {JobState.COMPLETED, JobState.FAILED, JobState.CANCELLED}:
+        if job.state in {
+            JobState.COMPLETED,
+            JobState.FAILED,
+            JobState.CANCELLED,
+            JobState.PUBLISHING,
+        }:
             msg = f"Job {job_id} cannot be cancelled from state {job.state.value}."
             raise CancelledError(msg)
         self.queue.set_job_flags(job_id, cancel_requested=True)
         self.runtime.cancel_running(job_id)
-        cancelled = self.queue.set_state(job_id, JobState.CANCELLED, error="cancelled by user")
+        cancelled = self.queue.cancel_unless_committed(job_id)
+        if cancelled is None:
+            self.queue.set_job_flags(job_id, cancel_requested=False)
+            current = self.queue.get_job(job_id)
+            msg = f"Job {job_id} cannot be cancelled from state {current.state.value}."
+            raise CancelledError(msg)
         self.queue.emit(job_id, EventType.JOB_CANCELLED, {"state": "cancelled"})
         return cancelled
 
@@ -821,12 +831,22 @@ class Pipeline:
 
     def pause_job(self, job_id: UUID) -> Job:
         job = self.queue.get_job(job_id)
-        if job.state in {JobState.COMPLETED, JobState.FAILED, JobState.CANCELLED}:
+        if job.state in {
+            JobState.COMPLETED,
+            JobState.FAILED,
+            JobState.CANCELLED,
+            JobState.PUBLISHING,
+        }:
             msg = f"Job {job_id} cannot be paused from state {job.state.value}."
             raise PauseRequested(msg)
         self.queue.set_job_flags(job_id, pause_requested=True)
         self.runtime.pause_running(job_id)
-        paused = self.queue.set_state(job_id, JobState.PAUSED)
+        paused = self.queue.pause_unless_committed(job_id)
+        if paused is None:
+            self.queue.set_job_flags(job_id, pause_requested=False)
+            current = self.queue.get_job(job_id)
+            msg = f"Job {job_id} cannot be paused from state {current.state.value}."
+            raise PauseRequested(msg)
         self.queue.emit(job_id, EventType.JOB_PAUSED, {"state": "paused"})
         return paused
 
@@ -879,6 +899,8 @@ class Pipeline:
     def _check_control(self, job_id: UUID) -> None:
         ctx = self.queue.get_context(job_id)
         job = self.queue.get_job(job_id)
+        if job.state is JobState.PUBLISHING:
+            return
         if ctx.cancel_requested or job.state is JobState.CANCELLED:
             if job.state is not JobState.CANCELLED:
                 self.queue.set_state(job_id, JobState.CANCELLED, error="cancelled by user")

@@ -370,6 +370,10 @@ SCENARIO_EVIDENCE: dict[str, tuple[str, str]] = {
         "apps/WebMediaDLCore/Tests/WebMediaDLCoreTests/IdentityTests.swift",
         "testContinuityIsNotASubprocessWorker",
     ),
+    "complete-client drop stages onto the mac worker": (
+        "tests/unit/webmedia_dl/test_staging_upload.py",
+        "test_staging_upload_then_drop_job",
+    ),
     "complete clients carry files destinations": (
         "tests/unit/webmedia_dl/test_surfaces_inventory.py",
         "test_complete_clients_http_direct_and_shared_domain",
@@ -433,6 +437,14 @@ SCENARIO_EVIDENCE: dict[str, tuple[str, str]] = {
     "watch control intents queue companion kinds": (
         "tests/unit/webmedia_dl/test_companion_checkpoint.py",
         "test_sealed_companion_cancel_requires_job_uuid",
+    ),
+    "tvOS uses local-network companion transport": (
+        "tests/unit/webmedia_dl/test_surfaces_inventory.py",
+        "test_companion_transport_and_typed_history",
+    ),
+    "iPhone forwards watch companion messages": (
+        "tests/unit/webmedia_dl/test_surfaces_inventory.py",
+        "test_complete_clients_http_direct_and_shared_domain",
     ),
     "sealed companion envelope": (
         "tests/unit/webmedia_dl/test_companion_checkpoint.py",
@@ -685,6 +697,10 @@ SCENARIO_EVIDENCE: dict[str, tuple[str, str]] = {
     "acquired kinds must match restored sources": (
         "tests/unit/webmedia_dl/test_fail_closed_paths.py",
         "test_checkpoint_kinds_must_match_restored_sources",
+    ),
+    "pause after publishing is a conflict": (
+        "tests/unit/webmedia_dl/test_fail_closed_paths.py",
+        "test_pause_during_publish_is_a_conflict",
     ),
     "cookie grant is revalidated on resolve": (
         "tests/unit/webmedia_dl/test_pack_gap_fixes.py",

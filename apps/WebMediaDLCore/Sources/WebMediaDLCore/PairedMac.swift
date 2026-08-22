@@ -1,4 +1,20 @@
 import Foundation
+#if canImport(CryptoKit)
+import CryptoKit
+#endif
+
+/// Worker response after a complete-client drop is staged on the Mac.
+public struct WebMediaDLStagedUpload: Codable, Sendable, Equatable {
+    public var path: String
+    public var sha256: String
+    public var bytes: Int
+
+    public init(path: String, sha256: String, bytes: Int) {
+        self.path   = path
+        self.sha256 = sha256
+        self.bytes  = bytes
+    }
+}
 
 /// Paired-Mac heavy work. The Python worker stays loopback-only; complete
 /// clients send jobs to a Mac relay URL saved during pairing, never to the
@@ -181,6 +197,66 @@ public struct WebMediaDLPairedMacEndpoint: Sendable {
     public func pauseJob(jobId: UUID) async throws -> String { try await send(pauseJobRequest(jobId: jobId)) }
     public func resumeJob(jobId: UUID) async throws -> String { try await send(resumeJobRequest(jobId: jobId)) }
 
+    public func companionRequest(_ message: WebMediaDLCompanionMessage) -> URLRequest {
+        var request = authorized(relayURL.appendingPathComponent("v1/companion"), method: "POST")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        var body: [String: Any] = [
+            "kind": message.kind.rawValue,
+            "nativeCommand": NSNull(),
+            "subprocessWorker": false,
+            "surface": message.surface.rawValue,
+        ]
+        if let locator = message.locator {
+            body["locator"] = locator
+        }
+        if let jobId = message.jobId.flatMap(UUID.init(uuidString:)) {
+            body["job_id"] = jobId.uuidString
+        }
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        return request
+    }
+
+    public func companion(_ message: WebMediaDLCompanionMessage) async throws -> String {
+        try await send(companionRequest(message))
+    }
+
+    public func stageRequest(digest: String, filename: String, size: Int) -> URLRequest {
+        var request = authorized(relayURL.appendingPathComponent("v1/staging"), method: "POST")
+        request.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
+        request.setValue(digest, forHTTPHeaderField: "X-WebMedia-Digest")
+        request.setValue(filename, forHTTPHeaderField: "X-WebMedia-Filename")
+        request.setValue(String(size), forHTTPHeaderField: "Content-Length")
+        return request
+    }
+
+    public func stage(fileURL: URL) async throws -> WebMediaDLStagedUpload {
+        let data = try Data(contentsOf: fileURL)
+        let digest = Self.sha256Hex(data)
+        var request = stageRequest(digest: digest, filename: fileURL.lastPathComponent, size: data.count)
+        request.httpBody = data
+        let (body, response) = try await URLSession.shared.data(for: request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard (200 ..< 300).contains(status) else {
+            let detail = String(data: body, encoding: .utf8) ?? "staging failed"
+            throw WebMediaDLHttpDirect.TransferError.writeFailed(detail)
+        }
+        let payload = try JSONDecoder().decode(WebMediaDLStagedUpload.self, from: body)
+        if payload.sha256 != digest {
+            throw WebMediaDLHttpDirect.TransferError.writeFailed(
+                "Staging upload digest does not match the declared sha256."
+            )
+        }
+        return payload
+    }
+
+    public static func sha256Hex(_ data: Data) -> String {
+        #if canImport(CryptoKit)
+        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        #else
+        ""
+        #endif
+    }
+
     private func authorized(_ url: URL, method: String = "GET") -> URLRequest {
         var request = URLRequest(url: url)
         request.httpMethod = method
@@ -314,6 +390,35 @@ public enum WebMediaDLPairedMacSubmit {
         )
     }
 
+    public static func submitDrop(
+        localPath: String,
+        surface: WebMediaDLSurface,
+        credentials: WebMediaDLLoopbackClient = WebMediaDLWorkerCredentials.loadClient(),
+        pairingId: UUID? = nil,
+        sessionKey: String? = nil,
+        defaults: UserDefaults = WebMediaDLWorkerCredentials.defaults()
+    ) async throws -> String {
+        let endpoint = try loadEndpoint(
+            credentials: credentials,
+            pairingId: pairingId,
+            sessionKey: sessionKey,
+            defaults: defaults
+        )
+        let url = URL(fileURLWithPath: localPath)
+        guard FileManager.default.isReadableFile(atPath: url.path) else {
+            throw WebMediaDLHttpDirect.TransferError.writeFailed(
+                "File intake requires an existing file."
+            )
+        }
+        let staged = try await endpoint.stage(fileURL: url)
+        return try await endpoint.submit(
+            locator: staged.path,
+            surface: surface,
+            intakeKind: "drop",
+            destinationKind: "staging_only"
+        )
+    }
+
     public static func history(
         credentials: WebMediaDLLoopbackClient = WebMediaDLWorkerCredentials.loadClient(),
         pairingId: UUID? = nil,
@@ -413,6 +518,22 @@ public enum WebMediaDLPairedMacSubmit {
             sessionKey: sessionKey,
             defaults: defaults
         ).resumeJob(jobId: jobId)
+    }
+
+    public static func companion(
+        _ message: WebMediaDLCompanionMessage,
+        credentials: WebMediaDLLoopbackClient = WebMediaDLWorkerCredentials.loadClient(),
+        pairingId: UUID? = nil,
+        sessionKey: String? = nil,
+        defaults: UserDefaults = WebMediaDLWorkerCredentials.defaults()
+    ) async throws -> String {
+        try WebMediaDLCompanionMessage.validate(message)
+        return try await loadEndpoint(
+            credentials: credentials,
+            pairingId: pairingId,
+            sessionKey: sessionKey,
+            defaults: defaults
+        ).companion(message)
     }
 
     public static func loadEndpoint(

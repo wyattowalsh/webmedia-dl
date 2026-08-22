@@ -80,3 +80,9 @@ registered sources, and `resume_job` SHALL skip kinds already acquired.
 
 - **WHEN** a checkpoint lists video `acquired_kinds` but only an image source
 - **THEN** resume fails closed
+
+#### Scenario: pause after publishing is a conflict
+
+- **WHEN** `pause_job` or `cancel` is requested after the job has entered `publishing`
+- **THEN** the call fails closed, publication finishes, and the durable state is
+  `completed` rather than `paused` or `cancelled`
