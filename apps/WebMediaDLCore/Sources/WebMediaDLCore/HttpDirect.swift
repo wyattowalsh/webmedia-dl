@@ -34,6 +34,7 @@ public enum WebMediaDLHttpDirect {
         ".vtt": .subtitle,
         ".srt": .subtitle,
         ".m3u8": .liveStream,
+        ".m3u": .liveStream,
         ".mpd": .liveStream,
     ]
 
@@ -187,8 +188,16 @@ public enum WebMediaDLHttpDirect {
         return authorized
     }
 
+    public static func strippedLocatorPath(_ path: String) -> String {
+        var path = path.lowercased()
+        while path.hasSuffix("/") {
+            path.removeLast()
+        }
+        return path
+    }
+
     public static func kind(for locator: String) -> WebMediaDLMediaKind {
-        let path = (URL(string: locator)?.path ?? locator).lowercased()
+        let path = strippedLocatorPath(URL(string: locator)?.path ?? locator)
         for (ext, kind) in directExtensions where path.hasSuffix(ext) {
             return kind
         }
@@ -366,7 +375,7 @@ public enum WebMediaDLHttpDirect {
                 return mapped
             }
         }
-        let path = url.path.lowercased()
+        let path = strippedLocatorPath(url.path)
         for ext in directExtensions.keys.sorted(by: { $0.count > $1.count }) where path.hasSuffix(ext) {
             return ext == ".jpeg" ? ".jpg" : ext
         }

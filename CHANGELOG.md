@@ -2,6 +2,12 @@
 
 ## 0.1.0
 
+- Classify complete-client HTTP locators after stripping trailing slashes so
+  `clip.mp4/` is an on-device transfer, `live.m3u8/` stays Mac-only live, and
+  classic `.m3u` playlists are live rather than pages. GitHub Actions
+  `32592137100` on `fc77f27` passed Python (626 pytest, 100%), doctor provider
+  probes, and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after collecting
+  capture `a[href]` `.svg` locators as IMAGE.
 - Collect `a[href]` locators that name `.svg` objects so browser capture matches
   worker IMAGE discovery (`DIRECT_EXTENSIONS`). HTTP-direct keeps `.svg` from the
   path or `image/svg+xml` instead of writing `.bin`. GitHub Actions

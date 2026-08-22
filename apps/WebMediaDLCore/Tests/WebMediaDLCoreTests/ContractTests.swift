@@ -1371,10 +1371,15 @@ final class ContractTests: XCTestCase {
 
     func testHttpDirectSavesClearMediaAndRefusesDrm() async throws {
         XCTAssertTrue(WebMediaDLHttpDirect.isOnDeviceTransfer("https://cdn.example.com/a.mp4"))
+        XCTAssertTrue(WebMediaDLHttpDirect.isOnDeviceTransfer("https://cdn.example.com/a.mp4/"))
         XCTAssertFalse(WebMediaDLHttpDirect.isOnDeviceTransfer("http://cdn.example.com/a.mp4"))
         XCTAssertFalse(WebMediaDLHttpDirect.isOnDeviceTransfer("https://www.youtube.com/watch?v=1"))
         XCTAssertFalse(WebMediaDLHttpDirect.isOnDeviceTransfer("https://cdn.example.com/live.m3u8"))
+        XCTAssertFalse(WebMediaDLHttpDirect.isOnDeviceTransfer("https://cdn.example.com/live.m3u8/"))
+        XCTAssertFalse(WebMediaDLHttpDirect.isOnDeviceTransfer("https://cdn.example.com/classic.m3u"))
         XCTAssertTrue(WebMediaDLHttpDirect.isDirectMediaURL("https://cdn.example.com/live.m3u8"))
+        XCTAssertTrue(WebMediaDLHttpDirect.isDirectMediaURL("https://cdn.example.com/live.m3u8/"))
+        XCTAssertTrue(WebMediaDLHttpDirect.isDirectMediaURL("https://cdn.example.com/classic.m3u"))
         XCTAssertFalse(WebMediaDLHttpDirect.isDirectMediaURL("http://cdn.example.com/a.mp4"))
         XCTAssertFalse(WebMediaDLHttpDirect.isOnDeviceTransfer("file:///tmp/a.mp4"))
         XCTAssertFalse(WebMediaDLHttpDirect.isDirectMediaURL("javascript:foo.mp4"))
@@ -1532,6 +1537,22 @@ final class ContractTests: XCTestCase {
         )
         XCTAssertEqual(
             WebMediaDLHttpDirect.suffix(
+                url: URL(string: "https://cdn.example.com/icon.svg/")!,
+                headers: [:],
+                body: Data()
+            ),
+            ".svg"
+        )
+        XCTAssertEqual(
+            WebMediaDLHttpDirect.suffix(
+                url: URL(string: "https://cdn.example.com/clip.mp4/")!,
+                headers: [:],
+                body: Data()
+            ),
+            ".mp4"
+        )
+        XCTAssertEqual(
+            WebMediaDLHttpDirect.suffix(
                 url: URL(string: "https://cdn.example.com/blob")!,
                 headers: ["Content-Type": "Image/SVG+XML; charset=utf-8"],
                 body: Data()
@@ -1620,6 +1641,32 @@ final class ContractTests: XCTestCase {
         } catch WebMediaDLHttpDirect.TransferError.liveRequiresMac {
             ()
         }
+        do {
+            _ = try await WebMediaDLHttpDirect.transfer(
+                locator: "https://cdn.example.com/live.m3u8/",
+                bookmark: bookmark,
+                fetch: { _ in XCTFail("live must not fetch"); return (200, [:], Data()) }
+            )
+            XCTFail("trailing-slash live must stay on the Mac")
+        } catch WebMediaDLHttpDirect.TransferError.liveRequiresMac {
+            ()
+        }
+        do {
+            _ = try await WebMediaDLHttpDirect.transfer(
+                locator: "https://cdn.example.com/classic.m3u",
+                bookmark: bookmark,
+                fetch: { _ in XCTFail("classic m3u must not fetch"); return (200, [:], Data()) }
+            )
+            XCTFail("classic m3u must stay on the Mac")
+        } catch WebMediaDLHttpDirect.TransferError.liveRequiresMac {
+            ()
+        }
+        let slashedVideo = try await WebMediaDLHttpDirect.transfer(
+            locator: "https://cdn.example.com/clip.mp4/",
+            bookmark: bookmark,
+            fetch: { _ in (200, [:], Data("mp4".utf8)) }
+        )
+        XCTAssertTrue(slashedVideo.outputPath.hasSuffix(".mp4"))
         do {
             _ = try await WebMediaDLHttpDirect.transfer(
                 locator: "https://cdn.example.com/a.mp4",
