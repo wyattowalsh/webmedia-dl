@@ -36,8 +36,6 @@ DRM_PATTERNS = (
     re.compile(r"clearkey", re.I),
 )
 
-REPO_COOKIE_DENY = ("cookies.txt", "www.youtube.com_cookies.txt")
-
 
 def detect_drm_signals(*texts: str) -> list[str]:
     hits: list[str] = []
@@ -89,9 +87,6 @@ def resolve_cookie_path(
         else:
             msg = "Cookie files inside the repository are forbidden."
             raise CookiePolicyError(msg)
-    if resolved.name in REPO_COOKIE_DENY and "test" not in resolved.parts:
-        # still allowed outside repo; name check is advisory for common mistakes
-        pass
     return resolved
 
 
@@ -205,7 +200,12 @@ class CookieGrantLedger:
         if grant is None:
             msg = "Cookie grant is unknown or expired."
             raise CookiePolicyError(msg)
-        if job_id is None or UUID(str(job_id)) != grant.job_id:
+        try:
+            bound = UUID(str(job_id)) if job_id is not None else None
+        except ValueError as exc:
+            msg = "Cookie grants are bound to a single job."
+            raise CookiePolicyError(msg) from exc
+        if bound is None or bound != grant.job_id:
             msg = "Cookie grants are bound to a single job."
             raise CookiePolicyError(msg)
         if profile_id is None or profile_id != grant.profile_id:

@@ -68,6 +68,8 @@ def test_cookie_grants_are_job_and_profile_bound(tmp_path: Path) -> None:
     )
     with pytest.raises(CookiePolicyError, match="single job"):
         ledger.resolve(grant.grant_id, job_id=job_b, profile_id="personal-full")
+    with pytest.raises(CookiePolicyError, match="single job"):
+        ledger.resolve(grant.grant_id, job_id="not-a-uuid", profile_id="personal-full")
     with pytest.raises(CookiePolicyError, match="policy profile"):
         ledger.resolve(grant.grant_id, job_id=job_a, profile_id="personal-restricted")
     with pytest.raises(CookiePolicyError, match="forbids cookie"):

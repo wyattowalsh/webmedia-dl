@@ -438,6 +438,12 @@ def test_policy_resources_match_runtime() -> None:
     assert "acquire.gallery_dl" in ids
 
 
+def test_container_capability_health_follows_ffprobe(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("webmedia_dl.capabilities.resolve_provider_binary", lambda _name: None)
+    container = next(item for item in registry() if item.capability_id == "validate.container")
+    assert container.health == "missing"
+
+
 def test_registry_skips_platforms_missing_from_matrix(monkeypatch: pytest.MonkeyPatch) -> None:
     from webmedia_dl import capabilities as cap_mod
 

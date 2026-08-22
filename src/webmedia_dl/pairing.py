@@ -46,6 +46,16 @@ class PairingStore:
         for item in payload:
             record = PairingRecord.model_validate(item)
             self._records[str(record.pairing_id)] = record
+        if self._prune_expired():
+            self._save()
+
+    def _prune_expired(self) -> bool:
+        changed = False
+        for key, record in list(self._records.items()):
+            if expired(record.to_challenge()):
+                del self._records[key]
+                changed = True
+        return changed
 
     def _save(self) -> None:
         data = [item.model_dump(mode="json") for item in self._records.values()]
@@ -72,6 +82,7 @@ class PairingStore:
             client_profile_id=challenge.client_profile_id,
             worker_id=challenge.worker_id,
         )
+        self._prune_expired()
         self._records[str(record.pairing_id)] = record
         self._save()
         return challenge

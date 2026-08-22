@@ -67,6 +67,12 @@ def test_package_bundle_skips_symlinks(tmp_path: Path) -> None:
     assert "secret.txt" not in names
     assert ".env" not in names
     assert "id_rsa.pem" not in names
+    (tree / "queue.sqlite").write_bytes(b"sqlite")
+    (tree / "nonces.sqlite-wal").write_bytes(b"wal")
+    names = {path.name for path in mod.iter_files(tree)}
+    assert "queue.sqlite" not in names
+    assert "nonces.sqlite-wal" not in names
+    assert "keep.txt" in names
     assert mod.archive_member_is_unsafe("../etc/passwd")
     assert mod.archive_member_is_unsafe("/tmp/x")
     assert not mod.archive_member_is_unsafe("docs/planning/note.md")
@@ -184,3 +190,23 @@ def test_pipeline_executes_imagemagick_convert(tmp_path: Path, png_bytes: bytes)
         event.payload.get("operation_id") == "image-convert"
         for event in pipeline.queue.events_for(job.job_id)
     )
+
+
+def test_week_evidence_files_declare_scope() -> None:
+    files = sorted((repo_root() / "docs/build").glob("w*-evidence.md"))
+    assert len(files) >= 13
+    for path in files:
+        text = path.read_text(encoding="utf-8")
+        assert re.search(r"(?m)^- status: ", text), path.name
+        assert re.search(r"(?m)^- scope: ", text), path.name
+        assert re.search(r"(?m)^- reason: ", text), path.name
+
+
+def test_openspec_capabilities_match_bundle_inventory() -> None:
+    specs = sorted(
+        path.name
+        for path in (repo_root() / "openspec/changes/build-webmedia-dl-v1/specs").iterdir()
+        if path.is_dir()
+    )
+    mod = _load("validate_bundle", "scripts/validate_bundle.py")
+    assert specs == sorted(mod.CAPABILITIES)

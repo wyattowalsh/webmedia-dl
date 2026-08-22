@@ -67,6 +67,16 @@ def test_empty_locator_fails_closed() -> None:
         normalize_source("  ", surface=Surface.CLI, policy_profile_id="personal-full")
 
 
+def test_https_drop_never_becomes_a_path() -> None:
+    with pytest.raises(NetworkPolicyError, match="never becomes a filesystem path"):
+        normalize_source(
+            "https://cdn.example.com/a.mp4",
+            surface=Surface.CLI,
+            policy_profile_id="personal-full",
+            kind=IntakeKind.DROP,
+        )
+
+
 def test_missing_file_intake_fails_closed(tmp_path: Path) -> None:
     missing = tmp_path / "gone.png"
     with pytest.raises(IntakeError, match="existing file"):

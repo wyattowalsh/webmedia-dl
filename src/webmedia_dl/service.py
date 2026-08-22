@@ -128,6 +128,8 @@ class ControlBody(BaseModel):
 
 
 class CompanionBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     kind: str | None = None
     locator: str | None = None
     job_id: UUID | None = None

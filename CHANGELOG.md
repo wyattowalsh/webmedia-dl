@@ -2,6 +2,12 @@
 
 ## 0.1.0
 
+- Companion cancel/pause_job/resume_job require a job UUID (sealed
+  envelopes included). `/v1/companion` forbids extra JSON fields such as
+  `providerArgv`. `doctor` records an executed httpx probe for
+  `http-direct`. `validate.container` health follows ffprobe. File/drop
+  intake refuses `http(s)` locators. Expired pairing records are pruned.
+  Bundle zips skip sqlite databases.
 - DASH `$Number$` templates expand through `endNumber` or Period /
   `mediaPresentationDuration` (capped at 64 segments). Provider stdout/stderr
   is clipped to 8 MiB before logging. GitHub Actions run `32552988266` on

@@ -659,6 +659,8 @@ def test_github_ci_compiles_apple_packages() -> None:
     assert "runs-on: macos-15" in workflow
     assert "bash scripts/build_apple_packages.sh" in workflow
     assert "if: false" not in workflow
+    python_job = workflow.split("swift:")[0]
+    assert python_job.index("scripts/validate_bundle.py") < python_job.index("git diff --exit-code")
     assert "swift test --package-path" in script
     assert "apps/WebMediaDLCore" in script
     assert "swift build --package-path" in script

@@ -51,8 +51,6 @@ def authorize_destination(destination: Path, approved_roots: list[str]) -> Path:
 
 def assert_not_url_as_path(locator: str) -> None:
     parsed = urlparse(locator)
-    if parsed.scheme in {"http", "https"} and (
-        locator.startswith("/") or locator.startswith("file:")
-    ):
+    if parsed.scheme in {"http", "https"}:
         msg = "A source URL never becomes a filesystem path."
         raise NetworkPolicyError(msg)

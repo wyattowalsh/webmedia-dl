@@ -5,7 +5,8 @@
 ### Requirement: Allowlisted provider argv
 
 Provider runtime SHALL build argv only from typed inputs and an allowlist.
-Arbitrary `extra_args` SHALL be rejected. Format ids SHALL match `^[A-Za-z0-9+._-]+$`.
+Arbitrary `extra_args` SHALL be rejected. Format ids SHALL match
+`^[A-Za-z0-9+._][A-Za-z0-9+._-]*$`.
 
 #### Scenario: extra_args rejected
 

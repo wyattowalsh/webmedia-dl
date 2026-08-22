@@ -82,8 +82,6 @@ def bound_fetch(
                 return response.status_code, content_type, b"".join(chunks)
             finally:
                 response.close()
-    except httpx.TooManyRedirects as exc:
-        raise NetworkPolicyError(f"Redirect bound exceeded for {url!r}.") from exc
     except httpx.HTTPError as exc:
         raise DiscoveryError(f"Fetch failed for {url!r}: {exc}") from exc
     finally:

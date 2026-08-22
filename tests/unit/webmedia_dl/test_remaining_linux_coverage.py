@@ -886,8 +886,11 @@ def test_job_detail_skips_unrelated_history_and_run_next_payload(
 
 def test_doctor_reports_missing_provider_binaries(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("webmedia_dl.diagnostics.resolve_provider_binary", lambda _name: None)
+    monkeypatch.setattr("webmedia_dl.capabilities.resolve_provider_binary", lambda _name: None)
     payload = doctor()
     assert payload["providers"]["http-direct"]["status"] == "PASS"
+    assert payload["providers"]["http-direct"]["executed"] is True
+    assert "httpx" in payload["providers"]["http-direct"]["probe"]
     assert payload["providers"]["ytdlp"]["status"] == "BLOCKED"
     assert payload["providers"]["gallery-dl"]["status"] == "BLOCKED"
     assert payload["providers"]["ffmpeg"]["status"] == "BLOCKED"
@@ -895,3 +898,7 @@ def test_doctor_reports_missing_provider_binaries(monkeypatch: pytest.MonkeyPatc
     assert payload["providers"]["ytdlp"]["binary"] is None
     assert payload["tools"]["ffprobe"]["status"] == "BLOCKED"
     assert payload["tools"]["ffprobe"]["binary"] is None
+    container = next(
+        item for item in payload["capabilities"] if item["capability_id"] == "validate.container"
+    )
+    assert container["health"] != "healthy"

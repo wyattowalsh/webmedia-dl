@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from webmedia_dl.domain.enums import JobState, Surface
 from webmedia_dl.errors import DelegationDenied
+from webmedia_dl.pairing import PairingStore
 from webmedia_dl.pipeline import Pipeline
 from webmedia_dl.providers import ProviderRuntime
 from webmedia_dl.service import create_app, load_or_create_token
@@ -161,6 +162,19 @@ def test_pairing_unknown_profile_and_expired_and_session_key(tmp_data: Path) -> 
     )
     with pytest.raises(DelegationDenied, match="expired"):
         pipeline.pairing.confirm(stale.pairing_id)
+
+
+def test_pairing_store_prunes_expired_records(tmp_data: Path) -> None:
+    pipeline = Pipeline(data_dir=tmp_data)
+    challenge = pipeline.pairing.create("personal-restricted", pipeline.host_worker.worker_id)
+    record = pipeline.pairing.get(challenge.pairing_id)
+    assert record is not None
+    pipeline.pairing._records[str(challenge.pairing_id)] = record.model_copy(
+        update={"expires_at": datetime.now(UTC) - timedelta(seconds=1)}
+    )
+    pipeline.pairing._save()
+    reloaded = PairingStore(tmp_data / "pairing")
+    assert reloaded.get(challenge.pairing_id) is None
 
 
 def test_pairing_store_modes_are_owner_only(tmp_data: Path) -> None:

@@ -454,7 +454,7 @@ def test_submit_dest_and_companion_requires_job(tmp_path: Path, png_bytes: bytes
     assert spoken.exit_code == 0
     missing = runner.invoke(app, ["companion", "cancel", "--data-dir", str(tmp_path / "comp")])
     assert missing.exit_code == 1
-    assert "job_id" in missing.stdout
+    assert "UUID" in missing.stdout
     tagged = runner.invoke(
         app,
         [

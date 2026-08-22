@@ -1,4 +1,5 @@
 # W11 evidence
 
 - status: `BLOCKED`
-- reason: Apple/store/signing hardware or human review required.
+- scope: Human legal review.
+- reason: Legal review of ToS, copyright, and distribution claims is not automated.

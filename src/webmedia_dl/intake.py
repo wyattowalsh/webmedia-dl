@@ -42,8 +42,8 @@ def normalize_source(
         raise IntakeError(msg)
     profile = get_profile(policy_profile_id)
     resolved_kind = kind or classify_locator(locator)
-    assert_not_url_as_path(locator)
     if resolved_kind in {IntakeKind.FILE, IntakeKind.DROP}:
+        assert_not_url_as_path(locator)
         path = Path(locator).expanduser().resolve()
         if not path.is_file():
             msg = f"File intake requires an existing file: {path}"

@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import httpx
+
 from webmedia_dl import __version__
 from webmedia_dl.capabilities import registry
 from webmedia_dl.domain.enums import EvidenceStatus
@@ -44,7 +46,10 @@ def doctor(*, data_dir: Path | None = None) -> dict[str, Any]:
     providers = {}
     for provider_id, manifest in manifests.items():
         if manifest.binary_name is None:
-            providers[provider_id] = _status(True, True)
+            providers[provider_id] = _status(True, True) | {
+                "binary": None,
+                "probe": f"in-process httpx {httpx.__version__}",
+            }
             continue
         path = resolve_provider_binary(manifest.binary_name)
         if path is None:

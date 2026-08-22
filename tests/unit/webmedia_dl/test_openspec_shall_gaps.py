@@ -244,6 +244,8 @@ def test_doctor_fail_and_warn_and_missing_skip_install(
     assert failed["providers"]["ffmpeg"]["status"] == "FAIL"
     assert failed["providers"]["ffmpeg"]["executed"] is True
     assert failed["providers"]["http-direct"]["status"] == "PASS"
+    assert failed["providers"]["http-direct"]["executed"] is True
+    assert "httpx" in failed["providers"]["http-direct"]["probe"]
 
     monkeypatch.setattr(
         "webmedia_dl.diagnostics.resolve_provider_binary",
@@ -261,6 +263,7 @@ def test_doctor_fail_and_warn_and_missing_skip_install(
         raise AssertionError("doctor must not download providers")
 
     monkeypatch.setattr("webmedia_dl.diagnostics.resolve_provider_binary", lambda _name: None)
+    monkeypatch.setattr("webmedia_dl.capabilities.resolve_provider_binary", lambda _name: None)
     monkeypatch.setattr("webmedia_dl.providers.resolve_provider_binary", lambda *_a, **_k: None)
     monkeypatch.setattr("webmedia_dl.providers.subprocess.run", boom)
     blocked = doctor()
@@ -369,7 +372,7 @@ SCENARIO_EVIDENCE = {
     "companion capture has no native command": "testContinuityIsNotASubprocessWorker",
     "watch worker cannot run yt-dlp": "test_watch_is_not_a_subprocess_worker",
     "watch queues for Mac relay": "test_watch_tv_capture_queues_without_ytdlp",
-    "watch control intents queue companion kinds": "test_intents_and_share_adapters_load_credentials",
+    "watch control intents queue companion kinds": "test_sealed_companion_cancel_requires_job_uuid",
     "sealed companion envelope": "test_companion_accepts_sealed_pairing_envelope",
     "unconfirmed pairing": "test_unconfirmed_pairing_does_not_escalate",
     "confirmed pairing lets mac execute without widening": (

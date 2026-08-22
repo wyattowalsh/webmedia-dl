@@ -37,6 +37,10 @@ def test_companion_message_rejects_native_command_and_argv() -> None:
         validate_companion_message({"kind": "capture"})
     with pytest.raises(ProviderPolicyError):
         validate_companion_message({"kind": "cancel"})
+    with pytest.raises(ProviderPolicyError, match="job UUID"):
+        validate_companion_message({"kind": "cancel", "job_id": "not-a-uuid"})
+    with pytest.raises(ProviderPolicyError, match="job UUID"):
+        validate_companion_message({"kind": "pause_job", "jobId": "also-not"})
     with pytest.raises(ProviderPolicyError):
         validate_companion_message({"kind": "status", "locator": 1})
     fallback = validate_companion_message({"kind": "status", "surface": "not-a-surface"})
@@ -241,3 +245,51 @@ def test_companion_accepts_sealed_pairing_envelope(tmp_path: Path) -> None:
         headers=headers,
     )
     assert missing.status_code == 400
+
+
+def test_sealed_companion_cancel_requires_job_uuid(tmp_path: Path) -> None:
+    from webmedia_dl.envelope import seal_payload
+
+    app = create_app(tmp_path)
+    token = load_or_create_token(tmp_path)
+    client = TestClient(app)
+    headers = {"Authorization": f"Bearer {token}"}
+    created = client.post("/v1/pair", headers=headers)
+    pairing_id = created.json()["pairing_id"]
+    confirmed = client.post("/v1/pair/confirm", headers=headers, json={"pairing_id": pairing_id})
+    session_key = confirmed.json()["session_key"]
+    sealed = seal_payload(
+        session_key,
+        {
+            "kind": "cancel",
+            "job_id": "not-a-uuid",
+            "nativeCommand": None,
+            "subprocessWorker": False,
+        },
+    )
+    refused = client.post(
+        "/v1/companion",
+        json={"pairing_id": pairing_id, "session_key": session_key, **sealed},
+        headers=headers,
+    )
+    assert refused.status_code == 400
+    assert "uuid" in refused.json()["detail"].lower()
+
+
+def test_companion_body_forbids_provider_argv(tmp_path: Path) -> None:
+    app = create_app(tmp_path)
+    token = load_or_create_token(tmp_path)
+    client = TestClient(app)
+    headers = {"Authorization": f"Bearer {token}"}
+    argv = client.post(
+        "/v1/companion",
+        headers=headers,
+        json={"kind": "status", "providerArgv": ["yt-dlp", "--exec"]},
+    )
+    assert argv.status_code == 422
+    cookies = client.post(
+        "/v1/companion",
+        headers=headers,
+        json={"kind": "status", "cookies": "/tmp/cookies.txt"},
+    )
+    assert cookies.status_code == 422

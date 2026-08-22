@@ -97,8 +97,14 @@ def validate_companion_message(payload: dict[str, Any]) -> dict[str, Any]:
     if kind == "capture" and not locator:
         msg = "Companion capture requires a locator."
         raise ProviderPolicyError(msg)
+    if job_id:
+        try:
+            job_id = str(UUID(str(job_id)))
+        except ValueError:
+            msg = f"Companion {kind} requires a job UUID."
+            raise ProviderPolicyError(msg) from None
     if kind in {"cancel", "pause_job", "resume_job"} and not job_id:
-        msg = f"Companion {kind} requires a job_id."
+        msg = f"Companion {kind} requires a job UUID."
         raise ProviderPolicyError(msg)
     return companion_message(
         kind,

@@ -33,7 +33,7 @@
 | Fetch bounds | PASS | HTML truncate, media overflow error, streaming within-limit, redirect bound, owned client closed |
 | Queue durability | PASS | legacy `job_context` columns migrate; `claim_next` CAS misses return none; `UPDATE … RETURNING` plus `BEGIN IMMEDIATE` keeps concurrent claims exclusive; invalid JSON checkpoints become `{}`; `next_runnable` ignores non-accepted jobs |
 | Source artifact identity | PASS | SOURCE `artifact_id` must be `sha256:<digest>`; titles and `plan:source` sentinels are rejected |
-| Capability health probe | PASS | present binaries whose version probe fails are `unhealthy`; missing binaries stay `missing`; `/bin/false` is not `healthy` |
+| Capability health probe | PASS | present binaries whose version probe fails are `unhealthy`; missing binaries stay `missing`; `/bin/false` is not `healthy`; `http-direct` records an executed httpx probe; `validate.container` is not `healthy` when ffprobe is missing |
 | Extension popup one-tap | PASS | `popup.js` `#send` click collects page URLs and POSTs `/v1/jobs` with no `nativeCommand` |
 | Complete-client Mac relay | PASS | iPhone/iPad/visionOS heavy submit, history, and queue controls use a saved private/loopback Mac URL plus pairing; Mac `WebMediaDLMacRelayServer` listens on private/loopback HTTP, `forwardToLoopback` rewrites to `127.0.0.1`, and public peers / `nativeCommand` are refused. GitHub `macos-15` run `32552988266` on `f3fd795` executed Core `swift test` 18 tests, 0 failures, including queue status and per-job App Intents on every Apple client. Physical device radio remains BLOCKED |
 | Publication skip | PASS | preview-only produced sets and `include_original=false` leave no publishable artifacts; validation failures fail the job |
@@ -57,7 +57,7 @@
 | Probe timeout/encrypted tags | PASS | ffprobe timeout returns none; `ENCRYPTED=yes` tags mark the stream encrypted |
 | Empty srcset skip | PASS | blank HTML `srcset` tokens are skipped instead of crashing discovery |
 | ffmpeg `%(ext)s` stem | PASS | `clip.%(ext)s` matches `clip.mkv` among other created files |
-| Cookie ledger JSON | PASS | non-list store, non-dict/incomplete grants, unknown grant ids, deny-name advisory, save without lock handle, and unresolved `resolve_cookie_path` fail closed |
+| Cookie ledger JSON | PASS | non-list store, non-dict/incomplete grants, unknown grant ids, malformed job ids, save without lock handle, and unresolved `resolve_cookie_path` fail closed |
 | Probe encrypted field | PASS | stream `encrypted: true` is recorded; non-dict tags are not treated as encrypted |
 | Probe unavailable | PASS | `probe_media` none records `probe-available:BLOCKED` and still publishes identity-validated sources |
 | Resume missing sources | PASS | acquired kinds with unrestored `source_ids` fail closed instead of a silent empty publish |
@@ -89,7 +89,7 @@
 | Container gate | PASS | ffprobe evidence required; filename suffix cannot PASS; `BLOCKED`/empty evidence cannot publish |
 | Wheel package-extensions | PASS | isolated wheel install writes six extension archives from packaged runtime trees |
 | Envelope replay | PASS | consumed nonce cannot be opened twice; malformed envelopes and tampered MAC fail closed; non-hex session keys still round-trip |
-| Companion native command | PASS | `/v1/companion` rejects `nativeCommand` and provider argv |
+| Companion native command | PASS | `/v1/companion` rejects `nativeCommand` and provider argv; extra JSON is 422; sealed cancel/pause_job/resume_job require a job UUID |
 | Cooperative per-job pause checkpoint | PASS | mixed-media pause keeps registered sources; resume acquires remaining kinds |
 | Publication I/O | PASS | `publish_artifacts` `OSError` becomes `PublicationError`; the durable job is `failed` with `job.failed` |
 | CLI unknown controls | PASS | unknown `job`/`cancel`/`pause`/`resume`/companion ids and DRM `plan` exit 1 with user-facing text |

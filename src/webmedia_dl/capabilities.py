@@ -4,11 +4,17 @@ from __future__ import annotations
 
 import json
 from functools import lru_cache
+from pathlib import Path
 
 from webmedia_dl.domain.enums import Surface
 from webmedia_dl.domain.models import Capability
 from webmedia_dl.paths import runtime_file
-from webmedia_dl.providers import ProviderRuntime, builtin_manifests
+from webmedia_dl.providers import (
+    ProviderRuntime,
+    builtin_manifests,
+    provider_version_ok,
+    resolve_provider_binary,
+)
 
 CAPABILITY_PLATFORMS: dict[str, list[Surface]] = {
     "intake.normalize": list(Surface),
@@ -88,6 +94,15 @@ def _provider_for(capability_id: str) -> str:
     return "webmedia-dl"
 
 
+def _container_health() -> str:
+    path = resolve_provider_binary("ffprobe")
+    if path is None:
+        return "missing"
+    if not Path(path).exists():
+        return "healthy"
+    return "healthy" if provider_version_ok(path, "ffprobe") else "unhealthy"
+
+
 def registry(*, runtime: ProviderRuntime | None = None) -> list[Capability]:
     runtime = runtime or ProviderRuntime()
     matrix = load_platform_matrix()
@@ -95,7 +110,9 @@ def registry(*, runtime: ProviderRuntime | None = None) -> list[Capability]:
     for capability_id, platforms in CAPABILITY_PLATFORMS.items():
         provider_id = _provider_for(capability_id)
         health: str = "healthy"
-        if provider_id in builtin_manifests():
+        if capability_id == "validate.container":
+            health = _container_health()
+        elif provider_id in builtin_manifests():
             health = runtime.health(provider_id)
         bound = []
         for platform in platforms:

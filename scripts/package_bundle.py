@@ -30,7 +30,21 @@ SKIP_NAMES = {
     "cookie-grants.json",
     "pairing.json",
 }
-SKIP_SUFFIX = {".pyc", ".pyo", ".zip", ".whl", ".so", ".pem", ".key", ".p12"}
+SKIP_SUFFIX = {
+    ".pyc",
+    ".pyo",
+    ".zip",
+    ".whl",
+    ".so",
+    ".pem",
+    ".key",
+    ".p12",
+    ".sqlite",
+    ".sqlite3",
+    ".db",
+    ".sqlite-wal",
+    ".sqlite-shm",
+}
 
 
 def archive_member_is_unsafe(name: str) -> bool:

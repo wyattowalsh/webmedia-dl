@@ -1,4 +1,5 @@
 # W10 evidence
 
 - status: `BLOCKED`
-- reason: Apple/store/signing hardware or human review required.
+- scope: Browser-store submission.
+- reason: Chromium, Firefox, and Safari store listings are not submitted from this environment.
