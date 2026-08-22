@@ -711,7 +711,12 @@ def test_github_ci_compiles_apple_packages() -> None:
     assert "container_only" in contracts
     assert "WebMediaDLPairedMacEndpoint" in contracts
     assert "forwardToLoopback" in contracts
+    assert "WebMediaDLMacRelayServer" in contracts
+    assert "isAllowedPeer" in contracts
     assert (repo_root() / "apps/WebMediaDLCore/Sources/WebMediaDLCore/PairedMac.swift").is_file()
+    assert (
+        repo_root() / "apps/WebMediaDLCore/Sources/WebMediaDLCore/MacRelayServer.swift"
+    ).is_file()
 
 
 def test_complete_clients_http_direct_and_shared_domain() -> None:
@@ -775,6 +780,9 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert "UIPasteboard" not in tv
     assert "autoForward = true" in mac
     assert "bindWatchDelegate" in mac
+    assert "WebMediaDLMacRelayServer.start" in mac
+    assert "This Mac's address" in mac
+    assert "localOnly: false" in mac
     continuity = (
         root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/ContinuityBridge.swift"
     ).read_text(encoding="utf-8")

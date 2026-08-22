@@ -176,7 +176,7 @@ final class ContractTests: XCTestCase {
         XCTAssertEqual(loaded, shared)
     }
 
-    func testLoopbackRequestBuildersStayOnLoopback() throws {
+    func testLoopbackRequestBuildersStayOnLoopback() async throws {
         XCTAssertTrue(WebMediaDLLoopbackClient(baseURL: URL(string: "http://localhost:8765")!).isLoopback)
         XCTAssertTrue(WebMediaDLLoopbackClient(baseURL: URL(string: "http://[::1]:8765")!).isLoopback)
         XCTAssertFalse(WebMediaDLLoopbackClient(baseURL: URL(string: "http://example.com:8765")!).isLoopback)
@@ -246,6 +246,81 @@ final class ContractTests: XCTestCase {
         var subprocess = request
         subprocess.httpBody = try JSONSerialization.data(withJSONObject: ["subprocessWorker": true])
         XCTAssertThrowsError(try WebMediaDLMacWorkerRelay.forwardToLoopback(subprocess))
+        XCTAssertFalse(WebMediaDLMacRelayServer.isAllowedBindHost("example.com"))
+        XCTAssertThrowsError(try WebMediaDLMacRelayServer.requireAllowedBind(host: "example.com"))
+        XCTAssertTrue(WebMediaDLMacRelayServer.isAllowedBindHost("127.0.0.1"))
+        XCTAssertTrue(WebMediaDLMacRelayServer.isAllowedBindHost("0.0.0.0"))
+        XCTAssertTrue(WebMediaDLMacRelayServer.isAllowedPeer("192.168.1.9"))
+        XCTAssertFalse(WebMediaDLMacRelayServer.isAllowedPeer("8.8.8.8"))
+        let paste = WebMediaDLMacRelayServer.clientPasteURLs(
+            port: 8766,
+            lanAddresses: ["192.168.1.9", "8.8.8.8", "127.0.0.1"]
+        )
+        XCTAssertEqual(paste.map(\.absoluteString), [
+            "http://127.0.0.1:8766",
+            "http://192.168.1.9:8766",
+        ])
+        let raw = Data("POST /v1/jobs HTTP/1.1\r\nHost: 192.168.1.9:8766\r\nContent-Length: 2\r\n\r\n{}".utf8)
+        let parsed = WebMediaDLMacRelayHTTP.parseRequest(raw)
+        XCTAssertEqual(parsed?.method, "POST")
+        XCTAssertEqual(parsed?.target, "/v1/jobs")
+        XCTAssertEqual(String(data: parsed?.body ?? Data(), encoding: .utf8), "{}")
+        XCTAssertNil(
+            WebMediaDLMacRelayHTTP.parseRequest(
+                Data("POST /v1/jobs HTTP/1.1\r\nContent-Length: 10\r\n\r\n{}".utf8)
+            )
+        )
+        let rebuilt = try WebMediaDLMacRelayServer.urlRequest(
+            from: parsed!,
+            fallback: URL(string: "http://127.0.0.1:8766")!
+        )
+        XCTAssertEqual(rebuilt.url?.host, "192.168.1.9")
+        XCTAssertEqual(rebuilt.httpMethod, "POST")
+        #if canImport(Network)
+        let server = try await WebMediaDLMacRelayServer.start(
+            bindHost: "127.0.0.1",
+            port: 0,
+            localOnly: true,
+            lanAddresses: [],
+            transport: { request in
+                XCTAssertEqual(request.url?.host, "127.0.0.1")
+                XCTAssertEqual(request.url?.port, 8765)
+                let body = Data(
+                    #"{"job":{"job_id":"11111111-1111-1111-1111-111111111111"}}"#.utf8
+                )
+                let response = HTTPURLResponse(
+                    url: request.url!,
+                    statusCode: 200,
+                    httpVersion: "HTTP/1.1",
+                    headerFields: ["Content-Type": "application/json"]
+                )!
+                return (body, response)
+            }
+        )
+        defer { server.stop() }
+        var job = URLRequest(url: URL(string: "\(server.advertisedURL.absoluteString)/v1/jobs")!)
+        job.httpMethod = "POST"
+        job.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        job.httpBody = try JSONSerialization.data(withJSONObject: [
+            "locator": "https://example.com/a.mp4",
+            "surface": "ios",
+        ])
+        let (data, response) = try await URLSession.shared.data(for: job)
+        XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
+        XCTAssertTrue(
+            String(data: data, encoding: .utf8)?
+                .contains("11111111-1111-1111-1111-111111111111") == true
+        )
+        var poisonedRelay = URLRequest(url: URL(string: "\(server.advertisedURL.absoluteString)/v1/jobs")!)
+        poisonedRelay.httpMethod = "POST"
+        poisonedRelay.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        poisonedRelay.httpBody = try JSONSerialization.data(withJSONObject: [
+            "nativeCommand": "yt-dlp",
+        ])
+        let (badBody, badResponse) = try await URLSession.shared.data(for: poisonedRelay)
+        XCTAssertEqual((badResponse as? HTTPURLResponse)?.statusCode, 400)
+        XCTAssertTrue(String(data: badBody, encoding: .utf8)?.contains("nativeCommand") == true)
+        #endif
         suite.removePersistentDomain(forName: suiteName)
     }
 

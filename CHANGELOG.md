@@ -2,6 +2,9 @@
 
 ## 0.1.0
 
+- Mac LAN HTTP relay binds private/loopback addresses, rewrites onto the
+  loopback worker, refuses public peers and `nativeCommand`, and advertises
+  paste URLs in the Mac app.
 - Source artifacts reject non-`sha256:<digest>` ids; capability health probes
   binary versions; complete clients send heavy work to a saved Mac relay URL
   instead of the phone's loopback; the extension popup send button is proven

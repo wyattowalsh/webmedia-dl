@@ -37,7 +37,7 @@ Original pack SHALL text remains unverified until the 2026-08-18 ZIP is re-attac
 |---|---|---|
 | accessibility-ux | `openspec/.../accessibility-ux/spec.md` | `test_accessibility_markup.py` |
 | acquisition-adapters | `openspec/.../acquisition-adapters/spec.md` | `test_providers.py`, `test_openspec_shall_gaps.py` |
-| apple-platform-clients | `openspec/.../apple-platform-clients/spec.md` | `test_surfaces_inventory.py`, `test_pairing_surfaces.py`, `test_openspec_shall_gaps.py`, `test_fail_closed_followups.py` |
+| apple-platform-clients | `openspec/.../apple-platform-clients/spec.md` | `test_surfaces_inventory.py`, `test_pairing_surfaces.py`, `test_openspec_shall_gaps.py`, `test_fail_closed_followups.py`, `MacRelayServer.swift`, `ContractTests.swift` |
 | apple-system-integrations | `openspec/.../apple-system-integrations/spec.md` | Share/intent files + `IdentityTests.swift` + `test_openspec_shall_gaps.py` |
 | asset-store-provenance | `openspec/.../asset-store-provenance/spec.md` | `test_invariants.py` |
 | browser-extensions | `openspec/.../browser-extensions/spec.md` | `capture.test.mjs` |

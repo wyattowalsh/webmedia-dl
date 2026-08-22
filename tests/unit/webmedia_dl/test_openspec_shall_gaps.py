@@ -368,6 +368,7 @@ SCENARIO_EVIDENCE = {
     "watch queues for Mac relay": "test_watch_tv_capture_queues_without_ytdlp",
     "sealed companion envelope": "test_companion_accepts_sealed_pairing_envelope",
     "unconfirmed pairing": "test_unconfirmed_pairing_does_not_escalate",
+    "mac lan relay rewrites to loopback": "testLoopbackRequestBuildersStayOnLoopback",
     "HTML extracts media without using the title as identity": (
         "test_html_discovery_extracts_media_without_using_title_as_id"
     ),

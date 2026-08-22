@@ -27,6 +27,8 @@ struct MacRootView: View {
     @State private var filesBookmark = WebMediaDLSecurityScopedBookmark(path: "")
     @State private var fromClipboard = false
     @State private var watchDelegate: WebMediaDLMacWatchConnectivityDelegate?
+    @State private var advertisedAddresses = "Mac relay is starting…"
+    @State private var relayServer: WebMediaDLMacRelayServer?
     private let role = WebMediaDLClientRole.fullWorker
     private let bridge = WebMediaDLContinuityBridge()
 
@@ -155,6 +157,12 @@ struct MacRootView: View {
                     }
                     .accessibilityLabel("Resume last job")
                 }
+                Section("Paired devices") {
+                    Text(advertisedAddresses)
+                        .textSelection(.enabled)
+                        .accessibilityLabel("This Mac's address")
+                    Text("Paste a private LAN or loopback URL on iPhone, iPad, or visionOS.")
+                }
                 Section("Pairing") {
                     TextField("Pairing id to confirm", text: $pairingId)
                         .accessibilityLabel("Pairing id")
@@ -244,6 +252,10 @@ struct MacRootView: View {
                     approvedRoot = filesBookmark.path
                 }
                 bindWatchDelegate()
+                Task { await startMacRelay() }
+            }
+            .onDisappear {
+                relayServer?.stop()
             }
             .onChange(of: token) { _, value in
                 WebMediaDLWorkerCredentials.defaults().set(value, forKey: WebMediaDLWorkerCredentials.tokenDefaultsKey)
@@ -259,6 +271,22 @@ struct MacRootView: View {
             }
         }
         .frame(minWidth: 480, minHeight: 320)
+    }
+
+    @MainActor
+    private func startMacRelay() async {
+        do {
+            let server = try await WebMediaDLMacRelayServer.start(
+                bindHost: "0.0.0.0",
+                port: WebMediaDLMacRelayServer.defaultPort,
+                localOnly: false
+            )
+            relayServer = server
+            let pasted = server.clientPasteURLs.map(\.absoluteString).joined(separator: "\n")
+            advertisedAddresses = pasted.isEmpty ? server.advertisedURL.absoluteString : pasted
+        } catch {
+            advertisedAddresses = "Mac relay failed: \(error.localizedDescription)"
+        }
     }
 
     @MainActor

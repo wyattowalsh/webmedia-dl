@@ -45,3 +45,16 @@ change the client profile to `personal-full`.
 #### Scenario: unconfirmed pairing
 - **WHEN** an iOS job supplies a pairing id that has not been confirmed
 - **THEN** `DelegationDenied` is raised and yt-dlp is not executed
+
+### Requirement: Mac LAN relay
+
+The Mac app SHALL listen on a private-LAN or loopback HTTP relay and rewrite
+requests onto the loopback worker. The relay SHALL reject public internet peers
+and `nativeCommand`. Complete clients SHALL paste an advertised private URL, not
+the phone's own `127.0.0.1`.
+
+#### Scenario: mac lan relay rewrites to loopback
+
+- **WHEN** a complete-client POST reaches the Mac LAN relay
+- **THEN** the host is rewritten to `127.0.0.1`, public peers are refused, and
+  `nativeCommand` is rejected

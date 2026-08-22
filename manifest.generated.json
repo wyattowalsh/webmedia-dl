@@ -25,6 +25,7 @@
     "apps/WebMediaDLCore/Sources/WebMediaDLCore/Domain.swift",
     "apps/WebMediaDLCore/Sources/WebMediaDLCore/HttpDirect.swift",
     "apps/WebMediaDLCore/Sources/WebMediaDLCore/LoopbackClient.swift",
+    "apps/WebMediaDLCore/Sources/WebMediaDLCore/MacRelayServer.swift",
     "apps/WebMediaDLCore/Sources/WebMediaDLCore/Models.swift",
     "apps/WebMediaDLCore/Sources/WebMediaDLCore/PairedMac.swift",
     "apps/WebMediaDLCore/Sources/WebMediaDLCore/ShareIntake.swift",
