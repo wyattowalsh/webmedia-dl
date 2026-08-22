@@ -13,14 +13,8 @@ from tqdm import tqdm
 
 from webmedia_dl.domain.enums import MediaKind
 from webmedia_dl.errors import DiscoveryError, DrmRefused, NetworkPolicyError
-from webmedia_dl.security import detect_drm_signals, refuse_drm
+from webmedia_dl.security import DRM_PATTERNS, detect_drm_signals, refuse_drm
 
-_ENCRYPTED_HLS = re.compile(r"#EXT-X-KEY:.*METHOD=(?!NONE)([A-Z0-9-]+)", re.I)
-_ENCRYPTED_SESSION_KEY = re.compile(
-    r"#EXT-X-SESSION-KEY:.*METHOD=(?!NONE)([A-Z0-9-]+)",
-    re.I,
-)
-_HLS_KEY_METHOD = re.compile(r"#EXT-X-KEY:.*METHOD=([A-Z0-9-]+)", re.I)
 _HLS_MAP = re.compile(
     r"#EXT-X-MAP:.*URI=(?P<q>['\"])(?P<uri>.*?)(?P=q)"
     r"(?:.*BYTERANGE=(?P<bq>['\"])(?P<byterange>.*?)(?P=bq))?",
@@ -100,16 +94,60 @@ class ByteBudget:
 AddPart = Callable[[ManifestPart], None]
 
 
-def _refuse_encrypted_session_key(text: str) -> None:
-    match = _ENCRYPTED_SESSION_KEY.search(text)
-    if match is None:
-        return
-    method = match.group(1)
+def _hls_attr_map(blob: str) -> dict[str, str]:
+    parsed: dict[str, str] = {}
+    for match in re.finditer(r"([A-Z0-9-]+)=(\"[^\"]*\"|'[^']*'|[^\",]+)", blob, flags=re.I):
+        parsed[match.group(1).upper()] = match.group(2).strip().strip("\"'")
+    return parsed
+
+
+def _hls_tag_method(stripped: str, tag: str) -> str | None:
+    if not stripped.upper().startswith(tag):
+        return None
+    method = _hls_attr_map(stripped.split(":", 1)[-1]).get("METHOD", "").upper()
+    return method or "UNKNOWN"
+
+
+def _first_encrypted_method(text: str, tag: str) -> str | None:
+    for line in text.splitlines():
+        method = _hls_tag_method(line.strip(), tag)
+        if method is not None and method != "NONE":
+            return method
+    return None
+
+
+def _drm_refused_encryption(method: str, *, session: bool = False) -> DrmRefused:
+    kind = "session encryption method" if session else "encryption method"
     msg = (
-        f"Live manifest uses session encryption method {method}. "
+        f"Live manifest uses {kind} {method}. "
         "WebMedia DL records clear manifests only and does not circumvent DRM."
     )
-    raise DrmRefused(msg)
+    return DrmRefused(msg)
+
+
+def _refuse_encrypted_session_key(text: str) -> None:
+    method = _first_encrypted_method(text, "#EXT-X-SESSION-KEY:")
+    if method is None:
+        return
+    raise _drm_refused_encryption(method, session=True)
+
+
+def _refuse_encrypted_media_key(text: str) -> None:
+    method = _first_encrypted_method(text, "#EXT-X-KEY:")
+    if method is None:
+        return
+    raise _drm_refused_encryption(method)
+
+
+def _refuse_hls_playlist_drm(text: str) -> None:
+    """Refuse Widevine/FairPlay/cenc/skd signals. Per-line EXT-X-KEY stays mixed-prefix."""
+    _refuse_encrypted_session_key(text)
+    skip = {
+        pattern.pattern
+        for pattern in DRM_PATTERNS
+        if "EXT-X-KEY" in pattern.pattern or "EXT-X-SESSION-KEY" in pattern.pattern
+    }
+    refuse_drm([item for item in detect_drm_signals(text) if item not in skip])
 
 
 def inspect_manifest(text: str) -> None:
@@ -120,17 +158,10 @@ def inspect_manifest(text: str) -> None:
             msg = "DASH ContentProtection is refused."
             raise DrmRefused(msg)
         return
-    _refuse_encrypted_session_key(text)
+    _refuse_hls_playlist_drm(text)
     if _clear_hls_parts(text, "https://live.invalid/"):
         return
-    match = _ENCRYPTED_HLS.search(text)
-    if match:
-        method = match.group(1)
-        msg = (
-            f"Live manifest uses encryption method {method}. "
-            "WebMedia DL records clear manifests only and does not circumvent DRM."
-        )
-        raise DrmRefused(msg)
+    _refuse_encrypted_media_key(text)
 
 
 def recordable_segment_urls(text: str, base: str) -> list[str]:
@@ -145,17 +176,10 @@ def recordable_parts(text: str, base: str) -> list[ManifestPart]:
             msg = "DASH ContentProtection is refused."
             raise DrmRefused(msg)
         return _dash_parts(text, base)
-    _refuse_encrypted_session_key(text)
+    _refuse_hls_playlist_drm(text)
     parts = _clear_hls_parts(text, base)
     if not parts:
-        match = _ENCRYPTED_HLS.search(text)
-        if match:
-            method = match.group(1)
-            msg = (
-                f"Live manifest uses encryption method {method}. "
-                "WebMedia DL records clear manifests only and does not circumvent DRM."
-            )
-            raise DrmRefused(msg)
+        _refuse_encrypted_media_key(text)
     return parts
 
 
@@ -208,9 +232,8 @@ def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
             except ValueError:
                 media_sequence = 0
             continue
-        key = _HLS_KEY_METHOD.search(stripped)
-        if key:
-            method = key.group(1).upper()
+        method = _hls_tag_method(stripped, "#EXT-X-KEY:")
+        if method is not None:
             if method != "NONE":
                 break
             continue
@@ -821,13 +844,6 @@ def manifest_is_live(text: str) -> bool:
     return False
 
 
-def _hls_attr_map(blob: str) -> dict[str, str]:
-    parsed: dict[str, str] = {}
-    for match in re.finditer(r"([A-Z0-9-]+)=(\"[^\"]*\"|'[^']*'|[^\",]+)", blob, flags=re.I):
-        parsed[match.group(1).upper()] = match.group(2).strip().strip("\"'")
-    return parsed
-
-
 def hls_audio_playlist_urls(text: str, base: str) -> list[str]:
     urls: list[str] = []
     seen: set[str] = set()
@@ -931,17 +947,10 @@ def record_clear_stream(
     if _DASH_CONTENT_PROTECTION.search(playlist):
         msg = "DASH ContentProtection is refused."
         raise DrmRefused(msg)
-    _refuse_encrypted_session_key(playlist)
+    _refuse_hls_playlist_drm(playlist)
     round_parts = parts if parts is not None else recordable_parts(playlist, playlist_url)
     if not round_parts:
-        match = _ENCRYPTED_HLS.search(playlist)
-        if match:
-            method = match.group(1)
-            msg = (
-                f"Live manifest uses encryption method {method}. "
-                "WebMedia DL records clear manifests only and does not circumvent DRM."
-            )
-            raise DrmRefused(msg)
+        _refuse_encrypted_media_key(playlist)
         msg = "Clear live playlist contained no recordable segments."
         raise DiscoveryError(msg)
     first = round_parts[0].url

@@ -249,13 +249,33 @@ public enum WebMediaDLHttpDirect {
         return Array(Set(hits)).sorted()
     }
 
+    public static func hlsAttributeMap(_ blob: String) -> [String: String] {
+        var parsed: [String: String] = [:]
+        let pattern = /([A-Za-z0-9-]+)=("[^"]*"|'[^']*'|[^",]+)/
+        for match in blob.matches(of: pattern) {
+            let key   = String(match.1).uppercased()
+            var value = String(match.2)
+            if (value.hasPrefix("\"") && value.hasSuffix("\""))
+                || (value.hasPrefix("'") && value.hasSuffix("'"))
+            {
+                value = String(value.dropFirst().dropLast())
+            }
+            parsed[key] = value
+        }
+        return parsed
+    }
+
     public static func hlsKeyIsProtected(_ text: String) -> Bool {
         for raw in text.split(whereSeparator: \.isNewline) {
-            let line = raw.uppercased()
-            guard line.contains("EXT-X-KEY:") || line.contains("EXT-X-SESSION-KEY:") else { continue }
-            guard let range = line.range(of: "METHOD=") else { continue }
-            let rest = line[range.upperBound...]
-            if !rest.hasPrefix("NONE") {
+            let line = String(raw)
+            let upper = line.uppercased()
+            guard upper.contains("EXT-X-KEY:") || upper.contains("EXT-X-SESSION-KEY:") else {
+                continue
+            }
+            guard let colon = line.firstIndex(of: ":") else { continue }
+            let attrs  = hlsAttributeMap(String(line[line.index(after: colon)...]))
+            let method = (attrs["METHOD"] ?? "").uppercased()
+            if method != "NONE" {
                 return true
             }
         }

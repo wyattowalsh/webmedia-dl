@@ -85,6 +85,108 @@ def test_session_key_fairplay_is_refused_before_fetch(tmp_path: Path) -> None:
         )
 
 
+def test_hls_key_method_is_not_read_from_quoted_uri(tmp_path: Path) -> None:
+    fairplay = (
+        "#EXTM3U\n#EXT-X-TARGETDURATION:4\n"
+        '#EXT-X-KEY:METHOD=SAMPLE-AES,KEYFORMAT="com.apple.streamingkeydelivery",'
+        'URI="skd://vendor/asset?METHOD=NONE"\n'
+        "#EXTINF:4,\nseg1.ts\n#EXTINF:4,\nseg2.ts\n#EXT-X-ENDLIST\n"
+    )
+    aes = (
+        "#EXTM3U\n"
+        '#EXT-X-KEY:URI="https://k.invalid/key?id=7&METHOD=NONE",METHOD=AES-128\n'
+        "#EXTINF:4,\nseg1.ts\n"
+    )
+    fetched: list[str] = []
+
+    def fetch(url: str) -> tuple[int, str, bytes]:
+        fetched.append(url)
+        raise AssertionError(url)
+
+    for playlist in (fairplay, aes):
+        fetched.clear()
+        with pytest.raises(DrmRefused):
+            inspect_manifest(playlist)
+        with pytest.raises(DrmRefused):
+            recordable_parts(playlist, "https://live.invalid/p.m3u8")
+        with pytest.raises(DrmRefused):
+            record_clear_stream(playlist, "https://live.invalid/p.m3u8", tmp_path / "out.ts", fetch)
+        assert fetched == []
+    with pytest.raises(DrmRefused, match="AES-128"):
+        inspect_manifest(aes)
+
+    session = (
+        "#EXTM3U\n"
+        '#EXT-X-SESSION-KEY:METHOD=SAMPLE-AES,URI="skd://a?METHOD=NONE"\n'
+        "#EXTINF:1,\nseg.ts\n"
+    )
+    with pytest.raises(DrmRefused, match="session encryption"):
+        inspect_manifest(session)
+
+    missing = '#EXTM3U\n#EXT-X-KEY:URI="https://example.com/key"\nseg.ts\n'
+    with pytest.raises(DrmRefused, match="UNKNOWN"):
+        inspect_manifest(missing)
+
+    none_spoof = (
+        '#EXTM3U\n#EXT-X-KEY:URI="https://k.invalid/key?METHOD=AES-128",METHOD=NONE\nseg.ts\n'
+    )
+    inspect_manifest(none_spoof)
+    assert recordable_parts(none_spoof, "https://cdn.example.com/index.m3u8")[0].url.endswith(
+        "/seg.ts"
+    )
+
+
+def test_hls_widevine_session_data_is_refused_before_fetch(tmp_path: Path) -> None:
+    master = (
+        "#EXTM3U\n"
+        '#EXT-X-SESSION-DATA:DATA-ID="com.widevine.alpha",VALUE="x"\n'
+        "#EXT-X-STREAM-INF:BANDWIDTH=1\n"
+        "v.m3u8\n"
+    )
+    fetched: list[str] = []
+
+    def fetch(url: str) -> tuple[int, str, bytes]:
+        fetched.append(url)
+        raise AssertionError(url)
+
+    with pytest.raises(DrmRefused):
+        inspect_manifest(master)
+    with pytest.raises(DrmRefused):
+        recordable_parts(master, "https://h.invalid/index.m3u8")
+    with pytest.raises(DrmRefused):
+        record_clear_stream(master, "https://h.invalid/index.m3u8", tmp_path / "out.ts", fetch)
+    assert fetched == []
+
+
+def test_hls_clear_prefix_still_records_before_later_aes128(tmp_path: Path) -> None:
+    playlist = (
+        "#EXTM3U\n"
+        "#EXT-X-KEY:METHOD=NONE\n"
+        "#EXTINF:1,\n"
+        "seg1.ts\n"
+        '#EXT-X-KEY:METHOD=AES-128,URI="https://example.com/key"\n'
+        "#EXTINF:1,\n"
+        "secret.ts\n"
+    )
+    fetched: list[str] = []
+    bodies = {"https://cdn.example.com/live/seg1.ts": b"CLEAR"}
+
+    def fetch(url: str) -> tuple[int, str, bytes]:
+        fetched.append(url)
+        if "secret" in url or "key" in url:
+            raise AssertionError(url)
+        return 200, "video/MP2T", bodies[url]
+
+    inspect_manifest(playlist)
+    assert [
+        part.url for part in recordable_parts(playlist, "https://cdn.example.com/live/index.m3u8")
+    ] == ["https://cdn.example.com/live/seg1.ts"]
+    output = tmp_path / "live.ts"
+    record_clear_stream(playlist, "https://cdn.example.com/live/index.m3u8", output, fetch)
+    assert output.read_bytes() == b"CLEAR"
+    assert fetched == ["https://cdn.example.com/live/seg1.ts"]
+
+
 def test_detect_drm_signals_covers_cenc_and_system_uuids() -> None:
     assert detect_drm_signals('schemeIdUri="urn:mpeg:cenc:2013" cenc:default_KID="aa"')
     assert detect_drm_signals("urn:uuid:EDEF8BA9-79D6-4ACE-A3C8-27DCD51D21ED")
