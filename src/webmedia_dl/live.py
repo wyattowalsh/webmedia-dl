@@ -614,7 +614,7 @@ def _collect_segments(
     for match in _SEGMENT_URL_TAG.finditer(text):
         attrs = _attrs(match.group(1))
         href = attrs.get("media")
-        start, length = _parse_dash_range(attrs.get("mediarange"))
+        start, length = _parse_dash_range(attrs.get("mediarange") or attrs.get("range"))
         if href:
             add(ManifestPart(_join(current, href.strip()), start, length))
         elif file_url is not None and (start is not None or length is not None):

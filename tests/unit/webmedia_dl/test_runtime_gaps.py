@@ -266,6 +266,23 @@ def test_dash_segment_timeline(tmp_path: Path) -> None:
     spaced_out = tmp_path / "dash-spaces.bin"
     record_clear_stream(spaced, "https://cdn.example.com/r/manifest.mpd", spaced_out, fetch_bundle)
     assert spaced_out.read_bytes() == b"INITSEGASEGB"
+    ranged_alias = """
+    <MPD><Period><SegmentList>
+      <Initialization sourceURL="bundle.mp4" range="0-3"/>
+      <SegmentURL media="bundle.mp4" range="4-7"/>
+      <SegmentURL media="bundle.mp4" range="8-11"/>
+    </SegmentList></Period></MPD>
+    """
+    assert recordable_parts(ranged_alias, "https://cdn.example.com/r/") == [
+        ManifestPart("https://cdn.example.com/r/bundle.mp4", 0, 4),
+        ManifestPart("https://cdn.example.com/r/bundle.mp4", 4, 4),
+        ManifestPart("https://cdn.example.com/r/bundle.mp4", 8, 4),
+    ]
+    alias_out = tmp_path / "dash-range-alias.bin"
+    record_clear_stream(
+        ranged_alias, "https://cdn.example.com/r/manifest.mpd", alias_out, fetch_bundle
+    )
+    assert alias_out.read_bytes() == b"INITSEGASEGB"
 
 
 def test_live_empty_and_nested_failure(tmp_path: Path) -> None:

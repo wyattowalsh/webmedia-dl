@@ -2,6 +2,12 @@
 
 ## 0.1.0
 
+- Slice DASH `SegmentURL` `range` the same way as `mediaRange`, so a SegmentList
+  that names inclusive byte ranges with the Initialization-style attribute still
+  records concatenated slices instead of dropping the media ranges. GitHub Actions
+  `32592398160` on `3839449` passed Python (626 pytest, 100%), doctor provider
+  probes, and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after classifying
+  trailing-slash complete-client HTTP locators.
 - Classify complete-client HTTP locators after stripping trailing slashes so
   `clip.mp4/` is an on-device transfer, `live.m3u8/` stays Mac-only live, and
   classic `.m3u` playlists are live rather than pages. GitHub Actions
