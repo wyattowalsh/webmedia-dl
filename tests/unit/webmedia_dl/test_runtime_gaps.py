@@ -189,6 +189,50 @@ def test_hls_map_and_byterange(tmp_path: Path) -> None:
     spaced_out = tmp_path / "live-spaces.bin"
     record_clear_stream(spaced, "https://cdn.example.com/live/index.m3u8", spaced_out, fetch)
     assert spaced_out.read_bytes() == b"INITABCDEF"
+    parts_only = (
+        "#EXTM3U\n"
+        '#EXT-X-MAP:URI="init.mp4",BYTERANGE="4@0"\n'
+        "#EXTINF:1.0,\n"
+        '#EXT-X-PART:DURATION=0.5,URI="p0.m4s"\n'
+        '#EXT-X-PART:DURATION=0.5,URI="p1.m4s"\n'
+        '#EXT-X-PART:DURATION=0.5,GAP=YES,URI="gap.m4s"\n'
+        '#EXT-X-PRELOAD-HINT:TYPE=PART,URI="hint.m4s"\n'
+    )
+    part_bodies = {
+        "https://cdn.example.com/live/init.mp4": b"INITXXXX",
+        "https://cdn.example.com/live/p0.m4s": b"AA",
+        "https://cdn.example.com/live/p1.m4s": b"BB",
+    }
+
+    def fetch_parts(url: str) -> tuple[int, str, bytes]:
+        if url.endswith("gap.m4s") or url.endswith("hint.m4s"):
+            raise AssertionError(url)
+        return 200, "video/mp4", part_bodies[url]
+
+    part_out = tmp_path / "live-parts.bin"
+    record_clear_stream(
+        parts_only, "https://cdn.example.com/live/index.m3u8", part_out, fetch_parts
+    )
+    assert part_out.read_bytes() == b"INITAABB"
+    completed = (
+        "#EXTM3U\n"
+        '#EXT-X-MAP:URI="init.mp4",BYTERANGE="4@0"\n'
+        "#EXTINF:1.0,\n"
+        '#EXT-X-PART:DURATION=0.5,URI="p0.m4s"\n'
+        '#EXT-X-PART:DURATION=0.5,URI="p1.m4s"\n'
+        "seg.ts\n"
+    )
+
+    def fetch_completed(url: str) -> tuple[int, str, bytes]:
+        if url.endswith("p0.m4s") or url.endswith("p1.m4s"):
+            raise AssertionError(url)
+        return 200, "video/mp4", bodies[url]
+
+    completed_out = tmp_path / "live-completed.bin"
+    record_clear_stream(
+        completed, "https://cdn.example.com/live/index.m3u8", completed_out, fetch_completed
+    )
+    assert completed_out.read_bytes() == b"INITABCDEF"
 
 
 def test_dash_segment_timeline(tmp_path: Path) -> None:

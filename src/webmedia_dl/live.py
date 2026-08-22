@@ -265,12 +265,24 @@ def _parse_byterange(
 
 
 def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
-    """Collect MAP + URI parts until the first non-NONE EXT-X-KEY."""
+    """Collect MAP + PART + URI parts until the first non-NONE EXT-X-KEY."""
     parts: list[ManifestPart] = []
+    held: list[ManifestPart] = []
     pending: tuple[int | None, int] | None = None
     next_offset: dict[str, int] = {}
     media_sequence = 0
     index = 0
+
+    def take_occurrence() -> int:
+        nonlocal index
+        occurrence = media_sequence + index
+        index += 1
+        return occurrence
+
+    def flush_held() -> None:
+        parts.extend(held)
+        held.clear()
+
     for line in text.splitlines():
         stripped = _hls_line(line)
         if not stripped:
@@ -285,7 +297,13 @@ def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
         method = _hls_tag_method(stripped, "#EXT-X-KEY:")
         if method is not None:
             if method != "NONE":
+                flush_held()
                 break
+            continue
+        if stripped.upper().startswith("#EXTINF:") or stripped.upper().startswith(
+            "#EXT-X-DISCONTINUITY"
+        ):
+            flush_held()
             continue
         if stripped.upper().startswith("#EXT-X-MAP:"):
             attrs, _duplicates = _hls_attr_map(stripped.split(":", 1)[-1])
@@ -294,8 +312,20 @@ def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
                 continue
             uri = _join(base, href)
             offset, length = _parse_byterange(attrs.get("BYTERANGE"), default_offset=0)
-            parts.append(ManifestPart(uri, offset, length, media_sequence + index))
-            index += 1
+            parts.append(ManifestPart(uri, offset, length, take_occurrence()))
+            if offset is not None and length is not None:
+                next_offset[uri] = offset + length
+            continue
+        if stripped.upper().startswith("#EXT-X-PART:"):
+            attrs, duplicates = _hls_attr_map(stripped.split(":", 1)[-1])
+            href = attrs.get("URI")
+            if not href or "URI" in duplicates or attrs.get("GAP", "").upper() == "YES":
+                continue
+            uri = _join(base, href)
+            offset, length = _parse_byterange(attrs.get("BYTERANGE"), default_offset=None)
+            if offset is None and length is not None:
+                offset = next_offset.get(uri, 0)
+            held.append(ManifestPart(uri, offset, length, take_occurrence()))
             if offset is not None and length is not None:
                 next_offset[uri] = offset + length
             continue
@@ -307,9 +337,9 @@ def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
             continue
         if stripped.startswith("#"):
             continue
+        held.clear()
         url = _join(base, stripped)
-        occurrence = media_sequence + index
-        index += 1
+        occurrence = take_occurrence()
         if pending is not None:
             offset, length = pending
             pending = None
@@ -319,6 +349,7 @@ def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
             next_offset[url] = offset + length
             continue
         parts.append(ManifestPart(url, occurrence=occurrence))
+    flush_held()
     return parts
 
 

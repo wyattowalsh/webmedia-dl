@@ -31,6 +31,26 @@ def test_record_clear_stream_concatenates_segments(tmp_path: Path) -> None:
     output = tmp_path / "live.ts"
     record_clear_stream(playlist, "https://cdn.example.com/live/index.m3u8", output, fetch)
     assert output.read_bytes() == b"AAABBB"
+    part_playlist = (
+        "#EXTM3U\n"
+        "#EXTINF:1,\n"
+        '#EXT-X-PART:DURATION=0.5,URI="a.m4s"\n'
+        "#EXTINF:1,\n"
+        '#EXT-X-PART:DURATION=0.5,URI="b.m4s"\n'
+    )
+    part_bodies = {
+        "https://cdn.example.com/live/a.m4s": b"AAA",
+        "https://cdn.example.com/live/b.m4s": b"BBB",
+    }
+
+    def fetch_parts(url: str) -> tuple[int, str, bytes]:
+        return 200, "video/mp4", part_bodies[url]
+
+    part_out = tmp_path / "parts.ts"
+    record_clear_stream(
+        part_playlist, "https://cdn.example.com/live/index.m3u8", part_out, fetch_parts
+    )
+    assert part_out.read_bytes() == b"AAABBB"
 
 
 def test_record_follows_master_playlist(tmp_path: Path) -> None:

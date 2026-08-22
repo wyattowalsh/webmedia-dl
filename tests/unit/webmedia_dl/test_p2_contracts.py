@@ -645,6 +645,26 @@ def test_hls_map_without_byterange_and_implicit_offset(tmp_path: Path) -> None:
     output = tmp_path / "live.bin"
     record_clear_stream(playlist, "https://cdn.example.com/live/index.m3u8", output, fetch)
     assert output.read_bytes() == b"INITXXXXABCDEF"
+    ranged_part = (
+        "#EXTM3U\n"
+        '#EXT-X-MAP:URI="init.mp4"\n'
+        "#EXTINF:1.0,\n"
+        '#EXT-X-PART:DURATION=0.5,URI="seg.ts",BYTERANGE="3@0"\n'
+        '#EXT-X-PART:DURATION=0.5,URI="seg.ts",BYTERANGE="3"\n'
+        '#EXT-X-PART:URI="dup.m4s",URI="https://evil.invalid/x.bin"\n'
+        "#EXT-X-PART:DURATION=0.5\n"
+    )
+
+    def fetch_ranged(url: str) -> tuple[int, str, bytes]:
+        if "evil" in url or url.endswith("dup.m4s"):
+            raise AssertionError(url)
+        return 200, "video/mp4", bodies[url]
+
+    ranged_out = tmp_path / "live-part-range.bin"
+    record_clear_stream(
+        ranged_part, "https://cdn.example.com/live/index.m3u8", ranged_out, fetch_ranged
+    )
+    assert ranged_out.read_bytes() == b"INITXXXXABCDEF"
 
 
 def test_dash_number_width_and_dollar_escape() -> None:

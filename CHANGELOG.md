@@ -2,6 +2,12 @@
 
 ## 0.1.0
 
+- Record HLS `#EXT-X-PART` URIs as clear media until the full segment URI
+  appears, so low-latency playlists concatenate advertised parts instead of
+  only the MAP. `GAP=YES`, duplicate `URI`, and `#EXT-X-PRELOAD-HINT` stay
+  skipped. GitHub Actions `32596577233` on `c248df4` passed Python (626
+  pytest, 100%), doctor provider probes, and Swift (18 tests, 0 failures;
+  12× BUILD SUCCEEDED) after binding SegmentTimeline `S@n` onto `$Number$`.
 - Bind DASH SegmentTimeline `S@n` onto `$Number$` so advertised segment
   numbers are recorded instead of always counting from `startNumber`.
   Invalid `@n` keeps the running number. GitHub Actions `32596345102` on
