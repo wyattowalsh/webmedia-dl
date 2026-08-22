@@ -213,7 +213,7 @@ export function pageCollector(doc) {
     const raw = el.textContent || el.innerText || "";
     parseJsonLd(raw);
   });
-  root.querySelectorAll?.("iframe, embed, object").forEach((el) => {
+  root.querySelectorAll?.("iframe, embed, object, amp-iframe").forEach((el) => {
     push(
       el.getAttribute?.("src") ||
         el.getAttribute?.("data") ||

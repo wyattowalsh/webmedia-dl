@@ -256,6 +256,8 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
       <body>
         <iframe src="https://cdn.example.com/player.m3u8"></iframe>
         <iframe data-src="https://cdn.example.com/lazy.m3u8"></iframe>
+        <amp-iframe src="https://cdn.example.com/amp-player.m3u8"></amp-iframe>
+        <amp-iframe data-src="https://cdn.example.com/amp-lazy.m3u8"></amp-iframe>
         <embed data-src="https://cdn.example.com/lazy-embed.mp4">
         <video src="https://cdn.example.com/classic.m3u"></video>
         <a href="https://cdn.example.com/listed.m3u">playlist</a>
@@ -295,6 +297,7 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
         <link rel="preload" as="script" href="https://cdn.example.com/boot.js">
         <link rel="preload" as="video" type="video/mp4" href="https://cdn.example.com/player.js">
         <iframe src="https://cdn.example.com/embed.js"></iframe>
+        <amp-iframe src="https://cdn.example.com/amp-embed.js"></amp-iframe>
         <embed src="https://cdn.example.com/plugin.js">
         <object data="https://cdn.example.com/object.js"></object>
       </head>
@@ -317,6 +320,7 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
     assert videos[0].retrieval_urls[0] == "https://cdn.example.com/clip.mp4"
     assert "https://cdn.example.com/player.js" not in mixed_urls
     assert "https://cdn.example.com/embed.js" not in mixed_urls
+    assert "https://cdn.example.com/amp-embed.js" not in mixed_urls
     assert "https://cdn.example.com/plugin.js" not in mixed_urls
     assert "https://cdn.example.com/object.js" not in mixed_urls
     assert "https://cdn.example.com/fallback.js" not in mixed_urls
@@ -326,6 +330,7 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
       <head>
         <link rel="preload" as="video" type="video/mp4" href="https://cdn.example.com/player.js/">
         <iframe src="https://cdn.example.com/embed.js/"></iframe>
+        <amp-iframe src="https://cdn.example.com/amp-embed.js/"></amp-iframe>
         <embed src="https://cdn.example.com/plugin.js/">
         <object data="https://cdn.example.com/object.js/"></object>
       </head>
@@ -351,6 +356,7 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
     assert slash_videos[0].retrieval_urls[0] == "https://cdn.example.com/clip.mp4"
     assert "https://cdn.example.com/player.js/" not in slash_urls
     assert "https://cdn.example.com/embed.js/" not in slash_urls
+    assert "https://cdn.example.com/amp-embed.js/" not in slash_urls
     assert "https://cdn.example.com/plugin.js/" not in slash_urls
     assert "https://cdn.example.com/object.js/" not in slash_urls
     assert "https://cdn.example.com/fallback.js/" not in slash_urls
@@ -360,6 +366,8 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
     assert kinds["https://example.com/watch?v=1"] is MediaKind.VIDEO
     assert kinds["https://cdn.example.com/player.m3u8"] is MediaKind.LIVE_STREAM
     assert kinds["https://cdn.example.com/lazy.m3u8"] is MediaKind.LIVE_STREAM
+    assert kinds["https://cdn.example.com/amp-player.m3u8"] is MediaKind.LIVE_STREAM
+    assert kinds["https://cdn.example.com/amp-lazy.m3u8"] is MediaKind.LIVE_STREAM
     assert kinds["https://cdn.example.com/lazy-embed.mp4"] is MediaKind.VIDEO
     assert kinds["https://cdn.example.com/alt.mpd"] is MediaKind.LIVE_STREAM
     assert kinds["https://cdn.example.com/alt.m3u8"] is MediaKind.LIVE_STREAM

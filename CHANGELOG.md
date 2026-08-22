@@ -2,6 +2,13 @@
 
 ## 0.1.0
 
+- Collect `amp-iframe` locators in HTML discovery and browser capture like
+  `iframe` / `embed` / `object`, including lazy `data-src`. Script-asset
+  `amp-iframe` values stay skipped. GitHub Actions `32604896910` on `5689ef6`
+  passed Python (626 pytest, 100%), doctor provider probes, and Swift (18
+  tests, 0 failures; 12× BUILD SUCCEEDED) after recording DASH Role /
+  ContentComponent subtitle AdaptationSets.
+
 - Record DASH AdaptationSets that omit `contentType` / `codecs` but carry Role
   `subtitle` / `caption` / `forced-subtitle` or ContentComponent
   `contentType="text"` as a SUBTITLE sidecar. Role `main` on

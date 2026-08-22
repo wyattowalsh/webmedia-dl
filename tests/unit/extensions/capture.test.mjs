@@ -265,6 +265,8 @@ describe("collectMediaEvidence", () => {
           return [
             { getAttribute: (name) => (name === "src" ? "https://cdn.example.com/live.m3u8" : null) },
             { getAttribute: (name) => (name === "data-src" ? "https://cdn.example.com/lazy.m3u8" : null) },
+            { getAttribute: (name) => (name === "src" ? "https://cdn.example.com/amp-player.m3u8" : null) },
+            { getAttribute: (name) => (name === "data-src" ? "https://cdn.example.com/amp-lazy.m3u8" : null) },
             { getAttribute: (name) => (name === "src" ? "https://cdn.example.com/embed.js" : null) },
             { getAttribute: (name) => (name === "data-src" ? "https://cdn.example.com/lazy.js" : null) },
             { getAttribute: (name) => (name === "src" ? "https://cdn.example.com/embed.js/" : null) },
@@ -388,6 +390,8 @@ describe("collectMediaEvidence", () => {
     const byUrl = Object.fromEntries(result.evidence.map((item) => [item.url, item.kind]));
     assert.ok(urls.includes("https://cdn.example.com/live.m3u8"));
     assert.ok(urls.includes("https://cdn.example.com/lazy.m3u8"));
+    assert.ok(urls.includes("https://cdn.example.com/amp-player.m3u8"));
+    assert.ok(urls.includes("https://cdn.example.com/amp-lazy.m3u8"));
     assert.ok(urls.includes("https://cdn.example.com/classic.m3u"));
     assert.ok(urls.includes("https://cdn.example.com/slash.m3u8/"));
     assert.ok(urls.includes("https://cdn.example.com/icon.svg"));
