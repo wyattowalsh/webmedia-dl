@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from webmedia_dl.errors import ProviderPolicyError
-from webmedia_dl.providers import ProviderRequest, ProviderRuntime
+from webmedia_dl.providers import MAX_PROVIDER_STDIO, ProviderRequest, ProviderRuntime
 
 
 def test_extra_args_rejected(tmp_path: Path) -> None:
@@ -171,3 +171,30 @@ def test_ytdlp_ext_template_falls_back_to_created_file(tmp_path: Path) -> None:
     )
     assert result.output_path is not None
     assert result.output_path.name == "other.webm"
+
+
+def test_provider_stdio_is_byte_bounded(tmp_path: Path) -> None:
+    huge = b"x" * (MAX_PROVIDER_STDIO + 64)
+
+    def run(_argv: list[str], _cwd: Path) -> tuple[int, bytes, bytes]:
+        dest = tmp_path / "clip.mp4"
+        dest.write_bytes(b"ok")
+        return 0, huge, huge
+
+    runtime = ProviderRuntime(
+        which=lambda name: "/usr/bin/yt-dlp" if name == "yt-dlp" else None,
+        run=run,
+    )
+    result = runtime.execute(
+        ProviderRequest(
+            provider_id="ytdlp",
+            capability_id="acquire.ytdlp",
+            typed_inputs={
+                "url": "https://example.com/v",
+                "output": str(tmp_path / "clip.mp4"),
+            },
+        ),
+        tmp_path,
+    )
+    assert len(result.stdout) == MAX_PROVIDER_STDIO
+    assert len(result.stderr) == MAX_PROVIDER_STDIO

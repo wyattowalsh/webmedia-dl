@@ -41,6 +41,7 @@ from webmedia_dl.live import (
     ManifestPart,
     _expand_dash_template,
     _format_token,
+    _iso8601_duration_seconds,
     _period_parts,
     record_clear_stream,
     record_kind_streams,
@@ -465,6 +466,92 @@ def test_dash_template_tokens_and_period_fallback(monkeypatch: pytest.MonkeyPatc
     </Period></MPD>
     """
     assert recordable_segment_urls(leftover, "https://cdn.example.com/") == []
+    numbered = """
+    <MPD><Period>
+      <SegmentTemplate media="s$Number$.m4s" startNumber="2" endNumber="4" duration="1000"/>
+    </Period></MPD>
+    """
+    assert recordable_segment_urls(numbered, "https://cdn.example.com/") == [
+        "https://cdn.example.com/s2.m4s",
+        "https://cdn.example.com/s3.m4s",
+        "https://cdn.example.com/s4.m4s",
+    ]
+    bounded = """
+    <MPD><Period>
+      <SegmentTemplate media="n$Number$.m4s" startNumber="1" endNumber="9999"/>
+    </Period></MPD>
+    """
+    assert len(recordable_segment_urls(bounded, "https://cdn.example.com/")) == 64
+    assert _iso8601_duration_seconds("PT6S") == 6
+    assert _iso8601_duration_seconds("PT1M30S") == 90
+    assert _iso8601_duration_seconds("P0Y0M0DT0H0M4.5S") == 4.5
+    assert _iso8601_duration_seconds("P1Y") is None
+    assert _iso8601_duration_seconds("not-a-duration") is None
+    timed_duration = """
+    <MPD mediaPresentationDuration="PT6S"><Period>
+      <SegmentTemplate media="s$Number$.m4s" startNumber="1" duration="2000" timescale="1000"/>
+    </Period></MPD>
+    """
+    assert recordable_segment_urls(timed_duration, "https://cdn.example.com/") == [
+        "https://cdn.example.com/s1.m4s",
+        "https://cdn.example.com/s2.m4s",
+        "https://cdn.example.com/s3.m4s",
+    ]
+    period_wins = """
+    <MPD mediaPresentationDuration="PT99S">
+      <Period duration="PT4S">
+        <SegmentTemplate media="p$Number$.m4s" startNumber="1" duration="2" timescale="1"/>
+      </Period>
+    </MPD>
+    """
+    assert recordable_segment_urls(period_wins, "https://cdn.example.com/") == [
+        "https://cdn.example.com/p1.m4s",
+        "https://cdn.example.com/p2.m4s",
+    ]
+    duration_cap = """
+    <MPD mediaPresentationDuration="PT10000S"><Period>
+      <SegmentTemplate media="n$Number$.m4s" startNumber="1" duration="1" timescale="1"/>
+    </Period></MPD>
+    """
+    assert len(recordable_segment_urls(duration_cap, "https://cdn.example.com/")) == 64
+    unknown_duration = """
+    <MPD mediaPresentationDuration="not-a-duration"><Period>
+      <SegmentTemplate media="s$Number$.m4s" startNumber="5" duration="1000"/>
+    </Period></MPD>
+    """
+    assert recordable_segment_urls(unknown_duration, "https://cdn.example.com/") == [
+        "https://cdn.example.com/s5.m4s",
+    ]
+    two_periods_mpd_duration = """
+    <MPD mediaPresentationDuration="PT6S">
+      <Period>
+        <SegmentTemplate media="a$Number$.m4s" startNumber="1" duration="2000" timescale="1000"/>
+      </Period>
+      <Period>
+        <SegmentTemplate media="b$Number$.m4s" startNumber="1" duration="2000" timescale="1000"/>
+      </Period>
+    </MPD>
+    """
+    assert recordable_segment_urls(two_periods_mpd_duration, "https://cdn.example.com/") == [
+        "https://cdn.example.com/a1.m4s",
+        "https://cdn.example.com/b1.m4s",
+    ]
+    two_periods_own_duration = """
+    <MPD>
+      <Period duration="PT2S">
+        <SegmentTemplate media="a$Number$.m4s" startNumber="1" duration="1" timescale="1"/>
+      </Period>
+      <Period duration="PT2S">
+        <SegmentTemplate media="b$Number$.m4s" startNumber="1" duration="1" timescale="1"/>
+      </Period>
+    </MPD>
+    """
+    assert recordable_segment_urls(two_periods_own_duration, "https://cdn.example.com/") == [
+        "https://cdn.example.com/a1.m4s",
+        "https://cdn.example.com/a2.m4s",
+        "https://cdn.example.com/b1.m4s",
+        "https://cdn.example.com/b2.m4s",
+    ]
     video = [ManifestPart("https://cdn.example.com/v.m4s")]
     monkeypatch.setattr(
         "webmedia_dl.live._period_kind_parts",

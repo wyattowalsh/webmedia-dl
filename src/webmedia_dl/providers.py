@@ -28,6 +28,8 @@ from webmedia_dl.paths import runtime_file
 from webmedia_dl.policy.profiles import get_profile
 from webmedia_dl.security import CookieGrantLedger
 
+MAX_PROVIDER_STDIO = 8 * 1024 * 1024
+
 MAGICK_FORMATS = {
     "jpg": "jpeg",
     "jpeg": "jpeg",
@@ -99,6 +101,12 @@ HTTP_CONTENT_TYPES = {
     "application/vnd.apple.mpegurl": ".m3u8",
     "application/dash+xml": ".mpd",
 }
+
+
+def _clip_stdio(data: bytes) -> bytes:
+    if len(data) <= MAX_PROVIDER_STDIO:
+        return data
+    return data[:MAX_PROVIDER_STDIO]
 
 
 def imagemagick_configure_path() -> Path:
@@ -373,6 +381,8 @@ class ProviderRuntime:
             argv = self._build_argv(manifest, request, staging)
             before = {path.resolve() for path in _staging_regular_files(staging)}
             code, stdout, stderr = self._run(argv, staging)
+            stdout = _clip_stdio(stdout)
+            stderr = _clip_stdio(stderr)
             self._raise_if_stopped(key)
             output = request.typed_inputs.get("output")
             output_path = Path(output) if output else None

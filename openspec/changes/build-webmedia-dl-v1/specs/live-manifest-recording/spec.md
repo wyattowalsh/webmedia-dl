@@ -24,6 +24,10 @@ whole files. `AdaptationSet` BaseURL and `SegmentTemplate` values SHALL bind
 child `Representation` identifiers, including self-closing representations.
 Dynamic MPDs (`type="dynamic"`) and HLS playlists without `#EXT-X-ENDLIST`
 SHALL be polled for newly advertised segments under the profile byte bound.
+`SegmentTemplate` `$Number$` without a `SegmentTimeline` SHALL expand from
+`startNumber` through `endNumber` when present, otherwise through the count
+implied by Period duration or MPD `mediaPresentationDuration` together with
+`@duration`/`@timescale`, capped at 64 segments.
 
 #### Scenario: two clear transport segments
 
@@ -64,3 +68,17 @@ SHALL be polled for newly advertised segments under the profile byte bound.
 - **WHEN** a dynamic MPD later advertises an additional segment
 - **THEN** recording concatenates only newly advertised parts and stops if
   ContentProtection appears
+
+#### Scenario: DASH SegmentTemplate endNumber
+
+- **WHEN** a SegmentTemplate lists `startNumber` and `endNumber` without a
+  SegmentTimeline
+- **THEN** recording locators include each `$Number$` from start through end,
+  capped at 64 segments
+
+#### Scenario: DASH SegmentTemplate presentation duration
+
+- **WHEN** a static MPD has `mediaPresentationDuration` or Period `@duration`
+  and a SegmentTemplate `@duration` without `endNumber` or SegmentTimeline
+- **THEN** recording locators include each `$Number$` covering that duration,
+  capped at 64 segments

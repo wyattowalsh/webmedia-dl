@@ -364,6 +364,8 @@ SCENARIO_EVIDENCE = {
     "HLS master highest bandwidth": "test_hls_master_prefers_highest_bandwidth",
     "multi-period DASH concatenates each period": "test_multi_period_same_uri_is_appended_twice",
     "dynamic MPD polls new segments": "test_dynamic_mpd_polls_new_segments",
+    "DASH SegmentTemplate endNumber": "test_dash_template_tokens_and_period_fallback",
+    "DASH SegmentTemplate presentation duration": "test_dash_template_tokens_and_period_fallback",
     "companion capture has no native command": "testContinuityIsNotASubprocessWorker",
     "watch worker cannot run yt-dlp": "test_watch_is_not_a_subprocess_worker",
     "watch queues for Mac relay": "test_watch_tv_capture_queues_without_ytdlp",

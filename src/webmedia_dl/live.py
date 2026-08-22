@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Callable
 from pathlib import Path
@@ -58,6 +59,11 @@ _PERIOD = re.compile(
     re.I | re.S,
 )
 _MPD_OPEN = re.compile(r"<MPD\b([^>]*)>", re.I)
+_ISO_DURATION = re.compile(
+    r"^P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)D)?"
+    r"(?:T(?:(\d+(?:\.\d+)?)H)?(?:(\d+(?:\.\d+)?)M)?(?:(\d+(?:\.\d+)?)S)?)?$",
+    re.I,
+)
 MAX_TIMELINE_SEGMENTS = 64
 MAX_LIVE_POLLS = 8
 
@@ -232,6 +238,60 @@ def _attrs(blob: str) -> dict[str, str]:
     return parsed
 
 
+def _int_attr(attrs: dict[str, str], name: str, default: int) -> int:
+    try:
+        return int(attrs.get(name) or default)
+    except ValueError:
+        return default
+
+
+def _iso8601_duration_seconds(value: str | None) -> float | None:
+    """Parse a DASH ISO 8601 duration (`PT…` / `PnDTnHnMnS`). Calendar Y/M units are refused."""
+    if not value:
+        return None
+    match = _ISO_DURATION.fullmatch(value.strip())
+    if match is None:
+        return None
+    years, months, days, hours, minutes, seconds = match.groups()
+    if years and float(years) != 0:
+        return None
+    if months and float(months) != 0:
+        return None
+    total = 0.0
+    if days:
+        total += float(days) * 86400
+    if hours:
+        total += float(hours) * 3600
+    if minutes:
+        total += float(minutes) * 60
+    if seconds:
+        total += float(seconds)
+    return total if total > 0 else None
+
+
+def _template_last_number(
+    attrs: dict[str, str],
+    start: int,
+    *,
+    period_seconds: float | None,
+) -> int | None:
+    end_raw = attrs.get("endnumber")
+    if end_raw:
+        try:
+            last = int(end_raw)
+        except ValueError:
+            last = start
+        return min(max(last, start), start + MAX_TIMELINE_SEGMENTS - 1)
+    duration_ticks = _int_attr(attrs, "duration", 0)
+    timescale = _int_attr(attrs, "timescale", 1)
+    if duration_ticks <= 0 or timescale <= 0 or not period_seconds or period_seconds <= 0:
+        return None
+    segment_seconds = duration_ticks / timescale
+    count = math.ceil(period_seconds / segment_seconds - 1e-9)
+    count = min(max(int(count), 1), MAX_TIMELINE_SEGMENTS)
+    return start + count - 1
+
+
 def _format_token(value: int, spec: str | None) -> str:
     if not spec:
         return str(value)
@@ -266,11 +326,12 @@ def _template_urls(
     *,
     representation: str | None = None,
     bandwidth: str | None = None,
+    period_seconds: float | None = None,
 ) -> list[str]:
     attrs = _attrs(attr_blob)
     representation = representation or attrs.get("id") or attrs.get("representationid") or "1"
     bandwidth = bandwidth or attrs.get("bandwidth") or "1"
-    start = int(attrs.get("startnumber") or 1)
+    start = _int_attr(attrs, "startnumber", 1)
     urls: list[str] = []
 
     def add(
@@ -309,6 +370,14 @@ def _template_urls(
                 add(media, number=number, time_value=clock)
                 number += 1
                 clock += duration
+        return urls
+    last = _template_last_number(attrs, start, period_seconds=period_seconds)
+    if media and last is not None:
+        duration = _int_attr(attrs, "duration", 0)
+        clock = 0
+        for number in range(start, last + 1):
+            add(media, number=number, time_value=clock)
+            clock += duration
         return urls
     add(media, number=start)
     return urls
@@ -368,6 +437,7 @@ def _collect_segments(
     representation: str | None = None,
     bandwidth: str | None = None,
     include_templates: bool = True,
+    period_seconds: float | None = None,
 ) -> None:
     if include_templates:
         for match in _DASH_TEMPLATE.finditer(text):
@@ -377,6 +447,7 @@ def _collect_segments(
                 current,
                 representation=representation,
                 bandwidth=bandwidth,
+                period_seconds=period_seconds,
             ):
                 add(ManifestPart(url))
     for match in re.finditer(r"<Initialization\b([^>]*)/?>", text, flags=re.I):
@@ -477,6 +548,7 @@ def _collect_representation(
     seen_urls: set[str],
     *,
     inherited_templates: str = "",
+    period_seconds: float | None = None,
 ) -> tuple[int, str]:
     rattrs = _attrs(match.group(1))
     body = match.group(2) or ""
@@ -498,6 +570,7 @@ def _collect_representation(
         seen_urls,
         representation=rattrs.get("id"),
         bandwidth=rattrs.get("bandwidth"),
+        period_seconds=period_seconds,
     )
     try:
         bandwidth = int(rattrs.get("bandwidth") or 0)
@@ -506,7 +579,9 @@ def _collect_representation(
     return bandwidth, _dash_kind(rattrs)
 
 
-def _dash_scope_groups(text: str, base: str) -> list[tuple[int, str, list[ManifestPart]]]:
+def _dash_scope_groups(
+    text: str, base: str, *, period_seconds: float | None = None
+) -> list[tuple[int, str, list[ManifestPart]]]:
     parts, seen_urls, add = _new_part_bucket()
     representations = list(_REPRESENTATION.finditer(text))
     prefix = text[: representations[0].start()] if representations else text
@@ -516,7 +591,12 @@ def _dash_scope_groups(text: str, base: str) -> list[tuple[int, str, list[Manife
     for rep in representations:
         bucket, bucket_urls, bucket_add = _new_part_bucket()
         bandwidth, kind = _collect_representation(
-            rep, resolve_base, bucket_add, bucket_urls, inherited_templates=inherited
+            rep,
+            resolve_base,
+            bucket_add,
+            bucket_urls,
+            inherited_templates=inherited,
+            period_seconds=period_seconds,
         )
         groups.append((bandwidth, kind, [*parts, *bucket] if parts else bucket))
     remainder = _strip_blocks(text, _REPRESENTATION) if representations else text
@@ -528,6 +608,7 @@ def _dash_scope_groups(text: str, base: str) -> list[tuple[int, str, list[Manife
         add,
         seen_urls,
         include_templates=not representations,
+        period_seconds=period_seconds,
     )
     if groups:
         return groups
@@ -535,7 +616,11 @@ def _dash_scope_groups(text: str, base: str) -> list[tuple[int, str, list[Manife
 
 
 def _dash_adaptation_groups(
-    text: str, base: str, as_attrs: dict[str, str]
+    text: str,
+    base: str,
+    as_attrs: dict[str, str],
+    *,
+    period_seconds: float | None = None,
 ) -> list[tuple[int, str, list[ManifestPart]]]:
     without_rep = _strip_blocks(text, _REPRESENTATION)
     parts, seen_urls, add = _new_part_bucket()
@@ -544,13 +629,18 @@ def _dash_adaptation_groups(
     as_kind = _dash_kind(as_attrs)
     representations = list(_REPRESENTATION.finditer(text))
     if not representations:
-        _collect_segments(text, as_base, add, seen_urls)
+        _collect_segments(text, as_base, add, seen_urls, period_seconds=period_seconds)
         return [(0, as_kind, parts)] if parts else []
     groups: list[tuple[int, str, list[ManifestPart]]] = []
     for rep in representations:
         bucket, bucket_urls, bucket_add = _new_part_bucket()
         bandwidth, kind = _collect_representation(
-            rep, as_base, bucket_add, bucket_urls, inherited_templates=inherited
+            rep,
+            as_base,
+            bucket_add,
+            bucket_urls,
+            inherited_templates=inherited,
+            period_seconds=period_seconds,
         )
         groups.append(
             (
@@ -592,7 +682,9 @@ def _select_dash_group(
     return next(iter(kinds.values()), [])
 
 
-def _period_kind_parts(body: str, base: str) -> dict[str, list[ManifestPart]]:
+def _period_kind_parts(
+    body: str, base: str, *, period_seconds: float | None = None
+) -> dict[str, list[ManifestPart]]:
     shared, shared_urls, shared_add = _new_part_bucket()
     period_without_as = _strip_blocks(body, _ADAPTATION_SET)
     representations_present = bool(_REPRESENTATION.search(body))
@@ -605,15 +697,22 @@ def _period_kind_parts(body: str, base: str) -> dict[str, list[ManifestPart]]:
     groups: list[tuple[int, str, list[ManifestPart]]] = []
     adaptations = list(_ADAPTATION_SET.finditer(body))
     if not adaptations:
-        groups.extend(_dash_scope_groups(body, period_base))
+        groups.extend(_dash_scope_groups(body, period_base, period_seconds=period_seconds))
     else:
-        _collect_segments(period_without_as, period_base, shared_add, shared_urls)
+        _collect_segments(
+            period_without_as,
+            period_base,
+            shared_add,
+            shared_urls,
+            period_seconds=period_seconds,
+        )
         for adaptation in adaptations:
             groups.extend(
                 _dash_adaptation_groups(
                     adaptation.group(2) or "",
                     period_base,
                     _attrs(adaptation.group(1)),
+                    period_seconds=period_seconds,
                 )
             )
     selected = _select_dash_kinds(groups) if groups else {"video": list(shared)}
@@ -648,12 +747,22 @@ def _dash_kind_parts(text: str, base: str) -> dict[str, list[ManifestPart]]:
     seen: dict[str, set[tuple[str, int | None, int | None, int]]] = {}
 
     periods = list(_PERIOD.finditer(text))
+    mpd_match = _MPD_OPEN.search(text)
+    mpd_attrs = _attrs(mpd_match.group(1)) if mpd_match else {}
+    mpd_seconds = _iso8601_duration_seconds(mpd_attrs.get("mediapresentationduration"))
     mpd_prefix = text[: periods[0].start()] if periods else ""
     mpd_shared, _mpd_urls, mpd_add = _new_part_bucket()
     mpd_base = _collect_baseurls(mpd_prefix, base, mpd_add)
-    scopes = [(match.group(2) or "") for match in periods] or [text]
-    for index, body in enumerate(scopes):
-        kind_parts = _period_kind_parts(body, mpd_base)
+    period_count = len(periods) if periods else 1
+    scopes = (
+        [(match.group(2) or "", _attrs(match.group(1))) for match in periods]
+        if periods
+        else [(text, {})]
+    )
+    for index, (body, period_attrs) in enumerate(scopes):
+        own = _iso8601_duration_seconds(period_attrs.get("duration"))
+        period_seconds = own if own is not None else (mpd_seconds if period_count <= 1 else None)
+        kind_parts = _period_kind_parts(body, mpd_base, period_seconds=period_seconds)
         for kind, parts in kind_parts.items():
             bucket = buckets.setdefault(kind, list(mpd_shared) if mpd_shared else [])
             kind_seen = seen.setdefault(kind, set())
