@@ -2,6 +2,14 @@
 
 ## 0.1.0
 
+- Acquire mixed VIDEO and LIVE preferred candidates independently. A completed
+  `http-direct` of `clip.mp4` no longer skips clear HLS on the same page via
+  live→video/audio kind aliases. Resume still treats live-recorded VIDEO/AUDIO
+  artifacts as covering a `live_stream` checkpoint, and gallery-dl IMAGE
+  artifacts as covering `gallery`. GitHub Actions `32589479805` on `55b306e`
+  passed Python (626 pytest, 100%), doctor provider probes, and Swift
+  (18 tests, 0 failures; 12× BUILD SUCCEEDED) after preferring HLS/DASH path
+  suffixes among `live_stream` candidates.
 - Prefer HLS/DASH path suffixes (`.m3u8` / `.m3u` / `.mpd`) when several
   `live_stream` candidates exist, so a MIME-typed watch page or `.json`
   playlist link cannot steal recording from `video[src]` / iframe playlists.

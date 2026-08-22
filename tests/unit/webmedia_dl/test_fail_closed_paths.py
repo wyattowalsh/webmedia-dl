@@ -1490,3 +1490,31 @@ def test_checkpoint_kinds_must_match_restored_sources(
     assert result.state is JobState.FAILED
     assert result.error is not None
     assert "acquired_kinds" in result.error
+    video_file = tmp_path / "recorded-video.bin"
+    audio_file = tmp_path / "recorded-audio.bin"
+    video_file.write_bytes(b"LIVEVIDEO")
+    audio_file.write_bytes(b"LIVEAUDIO")
+    live_job = pipeline.submit("https://cdn.example.com/split.m3u8", wait=False)
+    video_source = pipeline.store.register(
+        video_file,
+        role=ArtifactRole.SOURCE,
+        media_kind=MediaKind.VIDEO,
+        provenance={"job_id": str(live_job.job_id)},
+    )
+    audio_source = pipeline.store.register(
+        audio_file,
+        role=ArtifactRole.SOURCE,
+        media_kind=MediaKind.AUDIO,
+        provenance={"job_id": str(live_job.job_id)},
+    )
+    pipeline.queue.put_checkpoint(
+        live_job.job_id,
+        {
+            "stage": "acquired",
+            "source_ids": [video_source.artifact_id, audio_source.artifact_id],
+            "acquired_kinds": ["live_stream"],
+        },
+    )
+    live_result = pipeline.run_next()
+    assert live_result is not None
+    assert live_result.state is JobState.COMPLETED

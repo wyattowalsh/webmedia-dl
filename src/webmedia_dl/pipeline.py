@@ -77,6 +77,7 @@ _ACQUIRED_KIND_ALIASES: dict[str, frozenset[str]] = {
 
 
 def _restored_kinds_cover(acquired_kinds: set[str], restored_kinds: set[str]) -> bool:
+    # Resume only: live recordings may store VIDEO/AUDIO; gallery-dl may store IMAGE.
     for kind in acquired_kinds:
         aliases = _ACQUIRED_KIND_ALIASES.get(kind, frozenset({kind}))
         if aliases.isdisjoint(restored_kinds):
@@ -85,10 +86,8 @@ def _restored_kinds_cover(acquired_kinds: set[str], restored_kinds: set[str]) ->
 
 
 def _kind_already_acquired(kind: str, acquired_kinds: set[str]) -> bool:
-    if kind in acquired_kinds:
-        return True
-    aliases = _ACQUIRED_KIND_ALIASES.get(kind, frozenset({kind}))
-    return not aliases.isdisjoint(acquired_kinds)
+    # Mixed pages keep one preferred candidate per kind; VIDEO must not skip LIVE.
+    return kind in acquired_kinds
 
 
 class Pipeline:
