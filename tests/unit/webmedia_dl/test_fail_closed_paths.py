@@ -272,6 +272,133 @@ def test_include_original_false_leaves_no_publishable_source(
     assert "publishable" in job.error.lower()
 
 
+def test_pipeline_skips_preview_produced_ids_and_publishes_source(
+    tmp_data: Path, tmp_path: Path, png_bytes: bytes
+) -> None:
+    media = _png(tmp_path, png_bytes)
+    pipeline = Pipeline(data_dir=tmp_data)
+    job = pipeline.submit(str(media), wait=False)
+    source = pipeline.store.register(
+        media,
+        role=ArtifactRole.SOURCE,
+        media_kind=MediaKind.IMAGE,
+        provenance={"job_id": str(job.job_id)},
+    )
+    preview_path = tmp_path / "preview.jpg"
+    preview_path.write_bytes(png_bytes + b"preview")
+    preview = pipeline.store.register(
+        preview_path,
+        role=ArtifactRole.PREVIEW,
+        media_kind=MediaKind.IMAGE,
+        provenance={"job_id": str(job.job_id)},
+    )
+    pipeline.queue.put_checkpoint(
+        job.job_id,
+        {
+            "stage": "exported",
+            "source_ids": [source.artifact_id],
+            "produced_ids": [preview.artifact_id, source.artifact_id],
+            "acquired_kinds": ["image"],
+            "completed_operations": [f"{source.artifact_id}:keep-original"],
+            "operation_artifacts": {f"{source.artifact_id}:keep-original": source.artifact_id},
+        },
+    )
+    result = pipeline.run_next()
+    assert result is not None
+    assert result.state is JobState.COMPLETED
+
+
+def test_pipeline_skips_missing_produced_and_operation_artifact_ids(
+    tmp_data: Path, tmp_path: Path, png_bytes: bytes
+) -> None:
+    media = _png(tmp_path, png_bytes)
+    pipeline = Pipeline(data_dir=tmp_data)
+    job = pipeline.submit(str(media), wait=False)
+    source = pipeline.store.register(
+        media,
+        role=ArtifactRole.SOURCE,
+        media_kind=MediaKind.IMAGE,
+        provenance={"job_id": str(job.job_id)},
+    )
+    pipeline.queue.put_checkpoint(
+        job.job_id,
+        {
+            "stage": "exported",
+            "source_ids": [source.artifact_id],
+            "produced_ids": ["sha256:missing", source.artifact_id],
+            "acquired_kinds": ["image"],
+            "completed_operations": [f"{source.artifact_id}:keep-original"],
+            "operation_artifacts": {
+                "keep-original": "sha256:missing",
+                f"{source.artifact_id}:keep-original": source.artifact_id,
+            },
+        },
+    )
+    result = pipeline.run_next()
+    assert result is not None
+    assert result.state is JobState.COMPLETED
+
+
+def test_pipeline_preview_only_produced_set_is_not_publishable(
+    tmp_data: Path, tmp_path: Path, png_bytes: bytes
+) -> None:
+    media = _png(tmp_path, png_bytes)
+    pipeline = Pipeline(data_dir=tmp_data)
+    job = pipeline.submit(str(media), wait=False)
+    source = pipeline.store.register(
+        media,
+        role=ArtifactRole.SOURCE,
+        media_kind=MediaKind.IMAGE,
+        provenance={"job_id": str(job.job_id)},
+    )
+    preview_path = tmp_path / "preview.jpg"
+    preview_path.write_bytes(png_bytes + b"preview")
+    preview = pipeline.store.register(
+        preview_path,
+        role=ArtifactRole.PREVIEW,
+        media_kind=MediaKind.IMAGE,
+        provenance={"job_id": str(job.job_id)},
+    )
+    pipeline.queue.put_checkpoint(
+        job.job_id,
+        {
+            "stage": "exported",
+            "source_ids": [source.artifact_id],
+            "produced_ids": [preview.artifact_id],
+            "acquired_kinds": ["image"],
+        },
+    )
+    result = pipeline.run_next()
+    assert result is not None
+    assert result.state is JobState.FAILED
+    assert result.error is not None
+    assert "publishable" in result.error.lower()
+
+
+def test_acquired_kinds_without_restored_sources_fail_closed(
+    tmp_data: Path, png_bytes: bytes
+) -> None:
+    runtime = ProviderRuntime(
+        which=lambda _name: None,
+        http_get=lambda _url: (200, {"content-type": "image/png"}, png_bytes),
+    )
+    pipeline = Pipeline(data_dir=tmp_data, runtime=runtime)
+    job = pipeline.submit("https://cdn.example.com/hero.png", wait=False)
+    pipeline.queue.put_checkpoint(
+        job.job_id,
+        {
+            "stage": "acquiring",
+            "source_ids": [],
+            "acquired_kinds": ["image"],
+        },
+    )
+    result = pipeline.run_next()
+    assert result is not None
+    assert result.state is JobState.FAILED
+    assert result.error is not None
+    assert "no source artifact" in result.error.lower()
+
+
 def test_validation_failure_fails_closed(
     tmp_data: Path, tmp_path: Path, png_bytes: bytes, monkeypatch: pytest.MonkeyPatch
 ) -> None:
