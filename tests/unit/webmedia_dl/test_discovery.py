@@ -143,6 +143,7 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
       <script type="application/ld+json"><![CDATA[
         {"@type": "VideoObject", "contentUrl": "https://cdn.example.com/open-cdata.mp4"}
       </script>
+      <script type="application/ld+json">{&quot;@type&quot;:&quot;VideoObject&quot;,&quot;contentUrl&quot;:&quot;https://cdn.example.com/escaped.mp4&quot;}</script>
     </body></html>
     """
     both_found = discover(_source(), profile, html=both)
@@ -154,6 +155,7 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
     assert "https://cdn.example.com/open-comment.mp4" in both_urls
     assert "https://cdn.example.com/cdata.mp4" in both_urls
     assert "https://cdn.example.com/open-cdata.mp4" in both_urls
+    assert "https://cdn.example.com/escaped.mp4" in both_urls
 
 
 def test_direct_png_skips_html() -> None:
@@ -250,6 +252,7 @@ def test_page_discovery_http_error_non_html_and_jsonld_podcast() -> None:
     html = """
     <html>
       <script type="application/ld+json">{not-json</script>
+      <script type="application/ld+json">{&quot;not-json</script>
       <script type="application/ld+json">
         {"@type": "PodcastEpisode", "contentUrl": "https://cdn.example.com/episode"}
       </script>

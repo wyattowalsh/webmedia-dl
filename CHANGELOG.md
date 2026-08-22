@@ -2,6 +2,11 @@
 
 ## 0.1.0
 
+- Decode HTML entities in JSON-LD script bodies after comment/CDATA unwrap
+  so CMS-escaped `&quot;contentUrl&quot;` locators are collected. GitHub
+  Actions `32583153141` on `969b440` passed Python (624 pytest, 100%),
+  doctor provider probes, and Swift (18 tests, 0 failures; 12× BUILD
+  SUCCEEDED) after unwrapping JSON-LD `CDATA` scripts.
 - Unwrap JSON-LD `<![CDATA[...]]>` script bodies in the worker and browser
   capture so `contentUrl` locators are not dropped as a page-without-direct-media
   candidate. GitHub Actions `32582853577` on `88c319c` passed Python

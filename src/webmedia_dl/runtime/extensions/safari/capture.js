@@ -136,10 +136,27 @@ export function pageCollector(doc) {
       if (unwrapped.startsWith("<![CDATA[")) {
         unwrapped = unwrapped.replace(/^<!\[CDATA\[/, "").replace(/\]\]>$/, "").trim();
       }
-      try {
-        walkJsonLd(JSON.parse(unwrapped));
-      } catch {
-        /* ignore malformed JSON-LD */
+      const parseOnce = (value) => {
+        try {
+          walkJsonLd(JSON.parse(value));
+          return true;
+        } catch {
+          return false;
+        }
+      };
+      if (parseOnce(unwrapped)) {
+        return;
+      }
+      const decoded = unwrapped
+        .replace(/&quot;/gi, '"')
+        .replace(/&#34;/g, '"')
+        .replace(/&apos;/gi, "'")
+        .replace(/&#39;/g, "'")
+        .replace(/&lt;/gi, "<")
+        .replace(/&gt;/gi, ">")
+        .replace(/&amp;/gi, "&");
+      if (decoded !== unwrapped) {
+        parseOnce(decoded);
       }
     };
     const raw = el.textContent || el.innerText || "";

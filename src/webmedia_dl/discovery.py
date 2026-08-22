@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import json
 import re
 from collections.abc import Callable
@@ -205,7 +206,13 @@ def _parse_jsonld_block(block: str) -> object | None:
     try:
         return json.loads(text)
     except json.JSONDecodeError:
-        return None
+        decoded = html.unescape(text)
+        if decoded == text:
+            return None
+        try:
+            return json.loads(decoded)
+        except json.JSONDecodeError:
+            return None
 
 
 def _kind_from_mime(mime: str | None) -> MediaKind | None:

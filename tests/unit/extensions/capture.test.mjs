@@ -39,6 +39,10 @@ describe("collectMediaEvidence", () => {
               textContent:
                 '<![CDATA[{"@type":"VideoObject","contentUrl":"https://cdn.example.com/cdata.mp4"}]]>',
             },
+            {
+              textContent:
+                '{&quot;@type&quot;:&quot;VideoObject&quot;,&quot;contentUrl&quot;:&quot;https://cdn.example.com/escaped.mp4&quot;}',
+            },
           ];
         }
         if (selector.includes("ld+json")) {
@@ -71,6 +75,7 @@ describe("collectMediaEvidence", () => {
     assert.ok(urls.includes("https://cdn.example.com/charset.mp4"));
     assert.ok(urls.includes("https://cdn.example.com/commented.mp4"));
     assert.ok(urls.includes("https://cdn.example.com/cdata.mp4"));
+    assert.ok(urls.includes("https://cdn.example.com/escaped.mp4"));
     assert.ok(!urls.some((item) => item.startsWith("javascript:")));
     assert.ok(!urls.some((item) => item.startsWith("data:")));
     assert.ok(!urls.some((item) => item.startsWith("file:")));
