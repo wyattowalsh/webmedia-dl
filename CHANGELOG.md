@@ -2,6 +2,13 @@
 
 ## 0.1.0
 
+- Bind AdaptationSet, Period, and MPD `SegmentList` / `SegmentBase` (and MPD
+  `SegmentTemplate`) onto self-closing Representations so DASH multiple-segment
+  addressing records init/media ranges instead of an empty source. A child
+  addressing element still overwrites the parent. GitHub Actions `32594030070`
+  on `29bff23` passed Python (626 pytest, 100%), doctor provider probes, and
+  Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after recording
+  SegmentTemplate child Initialization before media.
 - Record DASH `SegmentTemplate` child `Initialization` (including `range`)
   before `$Number$` media so concatenated fMP4 sources start with the init
   segment instead of appending it after media. GitHub Actions `32593797449`

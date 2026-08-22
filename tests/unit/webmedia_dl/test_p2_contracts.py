@@ -28,10 +28,12 @@ from webmedia_dl.errors import (
 )
 from webmedia_dl.live import (
     MAX_TIMELINE_SEGMENTS,
+    ManifestPart,
     hls_audio_playlist_urls,
     manifest_is_live,
     record_clear_stream,
     record_kind_streams,
+    recordable_parts,
     recordable_segment_urls,
 )
 from webmedia_dl.providers import ProviderRequest, ProviderRuntime
@@ -151,6 +153,197 @@ def test_dash_adaptationset_binds_self_closing_representation() -> None:
     assert recordable_segment_urls(as_template_wins, "https://cdn.example.com/") == [
         "https://cdn.example.com/as/v1/1.m4s",
         "https://cdn.example.com/as/v1/2.m4s",
+    ]
+    as_segment_list = """
+    <MPD>
+      <Period>
+        <AdaptationSet mimeType="video/mp4">
+          <BaseURL>bundle.mp4</BaseURL>
+          <SegmentList>
+            <Initialization range="0-3"/>
+            <SegmentURL mediaRange="4-7"/>
+          </SegmentList>
+          <Representation id="v1" bandwidth="800000"/>
+        </AdaptationSet>
+      </Period>
+    </MPD>
+    """
+    assert recordable_parts(as_segment_list, "https://cdn.example.com/manifest.mpd") == [
+        ManifestPart("https://cdn.example.com/bundle.mp4", 0, 4, 0),
+        ManifestPart("https://cdn.example.com/bundle.mp4", 4, 4, 0),
+    ]
+    as_named_list = """
+    <MPD>
+      <Period>
+        <AdaptationSet mimeType="video/mp4">
+          <SegmentList>
+            <Initialization sourceURL="init.mp4"/>
+            <SegmentURL media="a.m4s"/>
+            <SegmentURL media="b.m4s"/>
+          </SegmentList>
+          <Representation id="v1" bandwidth="800000"/>
+        </AdaptationSet>
+      </Period>
+    </MPD>
+    """
+    assert recordable_segment_urls(as_named_list, "https://cdn.example.com/manifest.mpd") == [
+        "https://cdn.example.com/init.mp4",
+        "https://cdn.example.com/a.m4s",
+        "https://cdn.example.com/b.m4s",
+    ]
+    as_segment_base = """
+    <MPD>
+      <Period>
+        <AdaptationSet mimeType="video/mp4">
+          <BaseURL>bundle.mp4</BaseURL>
+          <SegmentBase>
+            <Initialization range="0-9"/>
+          </SegmentBase>
+          <Representation id="v1" bandwidth="800000"/>
+        </AdaptationSet>
+      </Period>
+    </MPD>
+    """
+    assert recordable_parts(as_segment_base, "https://cdn.example.com/manifest.mpd") == [
+        ManifestPart("https://cdn.example.com/bundle.mp4", 0, 10, 0),
+    ]
+    period_segment_list = """
+    <MPD>
+      <Period>
+        <BaseURL>bundle.mp4</BaseURL>
+        <SegmentList>
+          <Initialization range="0-3"/>
+          <SegmentURL mediaRange="4-7"/>
+        </SegmentList>
+        <AdaptationSet mimeType="video/mp4">
+          <Representation id="v1" bandwidth="800000"/>
+        </AdaptationSet>
+      </Period>
+    </MPD>
+    """
+    assert recordable_parts(period_segment_list, "https://cdn.example.com/manifest.mpd") == [
+        ManifestPart("https://cdn.example.com/bundle.mp4", 0, 4, 0),
+        ManifestPart("https://cdn.example.com/bundle.mp4", 4, 4, 0),
+    ]
+    period_segment_base = """
+    <MPD>
+      <Period>
+        <BaseURL>bundle.mp4</BaseURL>
+        <SegmentBase>
+          <Initialization range="0-9"/>
+        </SegmentBase>
+        <AdaptationSet mimeType="video/mp4">
+          <Representation id="v1" bandwidth="800000"/>
+        </AdaptationSet>
+      </Period>
+    </MPD>
+    """
+    assert recordable_parts(period_segment_base, "https://cdn.example.com/manifest.mpd") == [
+        ManifestPart("https://cdn.example.com/bundle.mp4", 0, 10, 0),
+    ]
+    mpd_template = """
+    <MPD mediaPresentationDuration="PT4S">
+      <SegmentTemplate media="$RepresentationID$/$Number$.m4s" startNumber="1" duration="2" timescale="1"/>
+      <Period>
+        <AdaptationSet mimeType="video/mp4">
+          <Representation id="v1" bandwidth="800000"/>
+        </AdaptationSet>
+      </Period>
+    </MPD>
+    """
+    assert recordable_segment_urls(mpd_template, "https://cdn.example.com/") == [
+        "https://cdn.example.com/v1/1.m4s",
+        "https://cdn.example.com/v1/2.m4s",
+    ]
+    mpd_segment_list = """
+    <MPD>
+      <BaseURL>bundle.mp4</BaseURL>
+      <SegmentList>
+        <Initialization range="0-3"/>
+        <SegmentURL mediaRange="4-7"/>
+      </SegmentList>
+      <Period>
+        <AdaptationSet mimeType="video/mp4">
+          <Representation id="v1" bandwidth="800000"/>
+        </AdaptationSet>
+      </Period>
+    </MPD>
+    """
+    assert recordable_parts(mpd_segment_list, "https://cdn.example.com/manifest.mpd") == [
+        ManifestPart("https://cdn.example.com/bundle.mp4", 0, 4, 0),
+        ManifestPart("https://cdn.example.com/bundle.mp4", 4, 4, 0),
+    ]
+    mpd_no_as = """
+    <MPD mediaPresentationDuration="PT4S">
+      <SegmentTemplate media="$RepresentationID$/$Number$.m4s" startNumber="1" duration="2" timescale="1"/>
+      <Period>
+        <Representation id="v1" bandwidth="800000" mimeType="video/mp4"/>
+      </Period>
+    </MPD>
+    """
+    assert recordable_segment_urls(mpd_no_as, "https://cdn.example.com/") == [
+        "https://cdn.example.com/v1/1.m4s",
+        "https://cdn.example.com/v1/2.m4s",
+    ]
+    mpd_empty_period = """
+    <MPD>
+      <SegmentTemplate media="s$Number$.m4s" startNumber="1"/>
+      <Period/>
+    </MPD>
+    """
+    assert recordable_segment_urls(mpd_empty_period, "https://cdn.example.com/") == [
+        "https://cdn.example.com/s1.m4s",
+    ]
+    as_list_overwrites_period_template = """
+    <MPD mediaPresentationDuration="PT4S">
+      <Period>
+        <SegmentTemplate media="period/$Number$.m4s" startNumber="1" duration="2" timescale="1"/>
+        <AdaptationSet mimeType="video/mp4">
+          <BaseURL>bundle.mp4</BaseURL>
+          <SegmentList>
+            <SegmentURL mediaRange="0-3"/>
+          </SegmentList>
+          <Representation id="v1" bandwidth="800000"/>
+        </AdaptationSet>
+      </Period>
+    </MPD>
+    """
+    assert recordable_parts(
+        as_list_overwrites_period_template, "https://cdn.example.com/manifest.mpd"
+    ) == [
+        ManifestPart("https://cdn.example.com/bundle.mp4", 0, 4, 0),
+    ]
+    own_list_overwrites_as_list = """
+    <MPD>
+      <Period>
+        <AdaptationSet mimeType="video/mp4">
+          <SegmentList>
+            <SegmentURL media="parent.m4s"/>
+          </SegmentList>
+          <Representation id="v1" bandwidth="800000">
+            <SegmentList>
+              <SegmentURL media="child.m4s"/>
+            </SegmentList>
+          </Representation>
+        </AdaptationSet>
+      </Period>
+    </MPD>
+    """
+    assert recordable_segment_urls(
+        own_list_overwrites_as_list, "https://cdn.example.com/manifest.mpd"
+    ) == ["https://cdn.example.com/child.m4s"]
+    period_list_no_as = """
+    <MPD>
+      <Period>
+        <SegmentList>
+          <SegmentURL media="clip.m4s"/>
+        </SegmentList>
+        <Representation id="v1" bandwidth="800000" mimeType="video/mp4"/>
+      </Period>
+    </MPD>
+    """
+    assert recordable_segment_urls(period_list_no_as, "https://cdn.example.com/") == [
+        "https://cdn.example.com/clip.m4s",
     ]
 
 

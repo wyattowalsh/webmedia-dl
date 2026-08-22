@@ -508,6 +508,17 @@ def _has_indexed_segments(text: str) -> bool:
     return bool(_DASH_SEGMENT_BASE.search(text) or _DASH_SEGMENT_LIST.search(text))
 
 
+def _has_segment_addressing(text: str) -> bool:
+    return bool(_DASH_TEMPLATE.search(text) or _has_indexed_segments(text))
+
+
+def _strip_segment_addressing(text: str) -> str:
+    return _strip_blocks(
+        _strip_blocks(_strip_blocks(text, _DASH_TEMPLATE), _DASH_SEGMENT_LIST),
+        _DASH_SEGMENT_BASE,
+    )
+
+
 def _advance_base(current: str, href: str) -> tuple[str, str | None]:
     """Step one BaseURL. Directories (including unexpanded tokens) update the prefix."""
     resolved = _join(current, href)
@@ -769,8 +780,9 @@ def _collect_representation(
     body = match.group(2) or ""
     representation = rattrs.get("id")
     bandwidth_token = rattrs.get("bandwidth")
-    has_segment_base = bool(_DASH_SEGMENT_BASE.search(body))
-    has_indexed = has_segment_base or bool(_DASH_SEGMENT_LIST.search(body))
+    working = body if _has_segment_addressing(body) else f"{inherited_templates}{body}"
+    has_segment_base = bool(_DASH_SEGMENT_BASE.search(working))
+    has_indexed = has_segment_base or bool(_DASH_SEGMENT_LIST.search(working))
     local_base = _collect_baseurls(
         body,
         current,
@@ -782,22 +794,21 @@ def _collect_representation(
     if has_segment_base:
         file_url = (
             _file_baseurl(
-                body,
+                working,
                 current,
                 representation=representation,
                 bandwidth=bandwidth_token,
             )
             or local_base
         )
-        _collect_segment_base(body, file_url, add)
+        _collect_segment_base(working, file_url, add)
         try:
             bandwidth = int(rattrs.get("bandwidth") or 0)
         except ValueError:
             bandwidth = 0
         return bandwidth, _dash_kind(rattrs)
-    combined = body if _DASH_TEMPLATE.search(body) else f"{inherited_templates}{body}"
     _collect_segments(
-        combined,
+        working,
         local_base,
         add,
         seen_urls,
@@ -819,6 +830,7 @@ def _dash_scope_groups(
     *,
     period_seconds: float | None = None,
     inherited_timescale: str | None = None,
+    inherited_templates: str = "",
 ) -> list[tuple[int, str, list[ManifestPart]]]:
     parts, seen_urls, add = _new_part_bucket()
     representations = list(_REPRESENTATION.finditer(text))
@@ -826,7 +838,9 @@ def _dash_scope_groups(
     resolve_base = _collect_baseurls(
         prefix, base, add, emit_files=not _has_indexed_segments(prefix)
     )
-    inherited = prefix if representations and _DASH_TEMPLATE.search(prefix) else ""
+    inherited = (
+        prefix if representations and _has_segment_addressing(prefix) else ""
+    ) or inherited_templates
     groups: list[tuple[int, str, list[ManifestPart]]] = []
     for rep in representations:
         bucket, bucket_urls, bucket_add = _new_part_bucket()
@@ -846,6 +860,10 @@ def _dash_scope_groups(
         resolve_base = _collect_baseurls(
             suffix, resolve_base, add, emit_files=not _has_indexed_segments(suffix)
         )
+        if inherited:
+            remainder = _strip_segment_addressing(remainder)
+    elif not _has_segment_addressing(remainder):
+        remainder = f"{inherited_templates}{remainder}"
     _collect_segments(
         remainder,
         resolve_base,
@@ -874,7 +892,7 @@ def _dash_adaptation_groups(
     as_base = _collect_baseurls(
         without_rep, base, add, emit_files=not _has_indexed_segments(without_rep)
     )
-    as_inherited = without_rep if _DASH_TEMPLATE.search(without_rep) else ""
+    as_inherited = without_rep if _has_segment_addressing(without_rep) else ""
     inherited = as_inherited or inherited_templates
     as_kind = _dash_kind(as_attrs)
     timescale = as_attrs.get("timescale") or inherited_timescale
@@ -947,6 +965,7 @@ def _period_kind_parts(
     *,
     period_seconds: float | None = None,
     inherited_timescale: str | None = None,
+    inherited_templates: str = "",
 ) -> dict[str, list[ManifestPart]]:
     shared, shared_urls, shared_add = _new_part_bucket()
     period_without_as = _strip_blocks(body, _ADAPTATION_SET)
@@ -959,7 +978,9 @@ def _period_kind_parts(
     )
     groups: list[tuple[int, str, list[ManifestPart]]] = []
     adaptations = list(_ADAPTATION_SET.finditer(body))
-    period_inherited = period_without_as if _DASH_TEMPLATE.search(period_without_as) else ""
+    period_inherited = (
+        period_without_as if _has_segment_addressing(period_without_as) else ""
+    ) or inherited_templates
     if not adaptations:
         groups.extend(
             _dash_scope_groups(
@@ -967,12 +988,13 @@ def _period_kind_parts(
                 period_base,
                 period_seconds=period_seconds,
                 inherited_timescale=inherited_timescale,
+                inherited_templates=inherited_templates,
             )
         )
     else:
         leftover = (
-            _strip_blocks(period_without_as, _DASH_TEMPLATE)
-            if period_inherited
+            _strip_segment_addressing(period_without_as)
+            if _has_segment_addressing(period_without_as)
             else period_without_as
         )
         _collect_segments(
@@ -1083,6 +1105,7 @@ def _dash_kind_parts(text: str, base: str) -> dict[str, list[ManifestPart]]:
     mpd_base = _collect_baseurls(
         mpd_prefix, base, mpd_add, emit_files=not _has_indexed_segments(mpd_prefix)
     )
+    mpd_inherited = mpd_prefix if _has_segment_addressing(mpd_prefix) else ""
     scopes = (
         [(match.group(2) or "", _attrs(match.group(1))) for match in periods]
         if periods
@@ -1097,6 +1120,7 @@ def _dash_kind_parts(text: str, base: str) -> dict[str, list[ManifestPart]]:
             mpd_base,
             period_seconds=period_seconds,
             inherited_timescale=period_attrs.get("timescale"),
+            inherited_templates=mpd_inherited,
         )
         for kind, parts in kind_parts.items():
             bucket = buckets.setdefault(kind, list(mpd_shared) if mpd_shared else [])
