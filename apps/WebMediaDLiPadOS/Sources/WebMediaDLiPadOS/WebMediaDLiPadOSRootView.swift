@@ -194,36 +194,42 @@ public struct WebMediaDLiPadOSRootView: View {
                 .accessibilityLabel("Save published files here")
                 Button("Pause queue") {
                     Task {
-                        status = await WebMediaDLLoopbackClient.displayedResponse {
-                            try await WebMediaDLPairedMacSubmit.pauseQueue(
+                        do {
+                            status = try await WebMediaDLPairedMacSubmit.pauseQueue(
                                 credentials: pairedClient,
                                 pairingId: UUID(uuidString: pairingId),
                                 sessionKey: sessionKey.isEmpty ? nil : sessionKey
                             )
+                        } catch {
+                            status = error.localizedDescription
                         }
                     }
                 }
                 .accessibilityLabel("Pause queue")
                 Button("Resume queue") {
                     Task {
-                        status = await WebMediaDLLoopbackClient.displayedResponse {
-                            try await WebMediaDLPairedMacSubmit.resumeQueue(
+                        do {
+                            status = try await WebMediaDLPairedMacSubmit.resumeQueue(
                                 credentials: pairedClient,
                                 pairingId: UUID(uuidString: pairingId),
                                 sessionKey: sessionKey.isEmpty ? nil : sessionKey
                             )
+                        } catch {
+                            status = error.localizedDescription
                         }
                     }
                 }
                 .accessibilityLabel("Resume queue")
                 Button("Queue status") {
                     Task {
-                        status = await WebMediaDLLoopbackClient.displayedResponse {
-                            try await WebMediaDLPairedMacSubmit.queueStatus(
+                        do {
+                            status = try await WebMediaDLPairedMacSubmit.queueStatus(
                                 credentials: pairedClient,
                                 pairingId: UUID(uuidString: pairingId),
                                 sessionKey: sessionKey.isEmpty ? nil : sessionKey
                             )
+                        } catch {
+                            status = error.localizedDescription
                         }
                     }
                 }
@@ -234,13 +240,15 @@ public struct WebMediaDLiPadOSRootView: View {
                             status = "No job to cancel"
                             return
                         }
-                        status = await WebMediaDLLoopbackClient.displayedResponse {
-                            try await WebMediaDLPairedMacSubmit.cancel(
+                        do {
+                            status = try await WebMediaDLPairedMacSubmit.cancel(
                                 jobId: lastJobId,
                                 credentials: pairedClient,
                                 pairingId: UUID(uuidString: pairingId),
                                 sessionKey: sessionKey.isEmpty ? nil : sessionKey
                             )
+                        } catch {
+                            status = error.localizedDescription
                         }
                     }
                 }
@@ -251,13 +259,15 @@ public struct WebMediaDLiPadOSRootView: View {
                             status = "No job to pause"
                             return
                         }
-                        status = await WebMediaDLLoopbackClient.displayedResponse {
-                            try await WebMediaDLPairedMacSubmit.pauseJob(
+                        do {
+                            status = try await WebMediaDLPairedMacSubmit.pauseJob(
                                 jobId: lastJobId,
                                 credentials: pairedClient,
                                 pairingId: UUID(uuidString: pairingId),
                                 sessionKey: sessionKey.isEmpty ? nil : sessionKey
                             )
+                        } catch {
+                            status = error.localizedDescription
                         }
                     }
                 }
@@ -268,13 +278,15 @@ public struct WebMediaDLiPadOSRootView: View {
                             status = "No job to resume"
                             return
                         }
-                        status = await WebMediaDLLoopbackClient.displayedResponse {
-                            try await WebMediaDLPairedMacSubmit.resumeJob(
+                        do {
+                            status = try await WebMediaDLPairedMacSubmit.resumeJob(
                                 jobId: lastJobId,
                                 credentials: pairedClient,
                                 pairingId: UUID(uuidString: pairingId),
                                 sessionKey: sessionKey.isEmpty ? nil : sessionKey
                             )
+                        } catch {
+                            status = error.localizedDescription
                         }
                     }
                 }

@@ -6,12 +6,16 @@
   redirects, and refuses non-2xx (including 3xx) bodies so cancelled redirects
   cannot publish HTML. Loopback and paired-Mac `send` plus history decode fail
   closed on non-2xx and malformed job lists. Complete-client queue, share, and
-  iPhone watch-forward surfaces show errors instead of swallowing `try? await`.
-  The Mac app no longer activates `WCSession`; watch messages stay
+  iPhone watch-forward surfaces use `do/catch` instead of swallowing `try? await`
+  (Swift 6 refuses non-Sendable `displayedResponse` closures in those views).
+  Watch/tv history decode fails closed instead of becoming `[]`. yt-dlp non-zero
+  exits quarantine partial output when a file exists and skip quarantine when it
+  does not. The Mac app no longer activates `WCSession`; watch messages stay
   watch → iPhone → Mac LAN HTTP. GitHub Actions `32564115037` on `7b909d0`
   passed Python (580 pytest, 99%) and Swift (18 tests, 0 failures;
-  12× BUILD SUCCEEDED). Local `uv run pytest --cov` is 580 tests at 100%
-  (`fail_under` stays 99 until GitHub HEAD also reports 100%).
+  12× BUILD SUCCEEDED). `32565220846` on `8cc0172` passed Python and failed
+  Swift 6 `displayedResponse` Sendable checks. Local `uv run pytest --cov` is
+  582 tests at 100% (`fail_under` stays 99 until GitHub HEAD also reports 100%).
 - Files `ExportIntent` path bounds use the same standardized `allows()` check
   as security-scoped bookmarks, so `/approved/../escape` is denied. On-device
   `HttpDirect` requires an `http`/`https` host and refuses the worker's blocked

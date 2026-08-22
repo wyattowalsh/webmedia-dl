@@ -2,7 +2,7 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 580 tests locally; GitHub Actions `ci` run `32564115037` (`7b909d0`) was 580 pytest at 99% with Swift 18/0 and 12× BUILD SUCCEEDED including unsigned `com.apple.product-type.app-extension` Mach-O `.appex` products |
+| `uv run pytest` | PASS | 582 tests locally; GitHub Actions `ci` run `32565220846` (`8cc0172`) passed Python (580 pytest) and failed Swift 6 non-Sendable `displayedResponse` closures; GitHub `32564115037` (`7b909d0`) was 580 pytest at 99% with Swift 18/0 and 12× BUILD SUCCEEDED |
 | `uv run pytest --cov` | PASS | 100% locally (`fail_under` 99); GitHub `7b909d0` is 99% (one branch in `pipeline.py`) |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |

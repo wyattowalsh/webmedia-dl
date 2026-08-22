@@ -289,7 +289,7 @@ public struct WebMediaDLLoopbackClient: Sendable {
         }
     }
 
-    public static func displayedResponse(_ work: () async throws -> String) async -> String {
+    public static func displayedResponse(_ work: @Sendable () async throws -> String) async -> String {
         do {
             return try await work()
         } catch {

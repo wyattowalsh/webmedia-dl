@@ -22,8 +22,8 @@ public struct WebMediaDLMacShareView: View {
                 Task {
                     let intake = self.intake.resolvedForSubmit()
                     let files = intake.filesDestination
-                    status = await WebMediaDLLoopbackClient.displayedResponse {
-                        try await client.submit(
+                    do {
+                        status = try await client.submit(
                             locator: intake.locator,
                             surface: .macos,
                             intakeKind: "share_sheet",
@@ -32,6 +32,8 @@ public struct WebMediaDLMacShareView: View {
                             approvedRoots: files.map { [$0.approvedRoot] } ?? [],
                             bookmarkData: files?.bookmark.bookmarkData ?? intake.bookmarkData
                         )
+                    } catch {
+                        status = error.localizedDescription
                     }
                 }
             }

@@ -200,36 +200,42 @@ public struct WebMediaDLiOSRootView: View {
                 Section("Queue") {
                     Button("Pause queue") {
                         Task {
-                            status = await WebMediaDLLoopbackClient.displayedResponse {
-                                try await WebMediaDLPairedMacSubmit.pauseQueue(
+                            do {
+                                status = try await WebMediaDLPairedMacSubmit.pauseQueue(
                                     credentials: client,
                                     pairingId: UUID(uuidString: pairingId),
                                     sessionKey: sessionKey.isEmpty ? nil : sessionKey
                                 )
+                            } catch {
+                                status = error.localizedDescription
                             }
                         }
                     }
                     .accessibilityLabel("Pause queue")
                     Button("Resume queue") {
                         Task {
-                            status = await WebMediaDLLoopbackClient.displayedResponse {
-                                try await WebMediaDLPairedMacSubmit.resumeQueue(
+                            do {
+                                status = try await WebMediaDLPairedMacSubmit.resumeQueue(
                                     credentials: client,
                                     pairingId: UUID(uuidString: pairingId),
                                     sessionKey: sessionKey.isEmpty ? nil : sessionKey
                                 )
+                            } catch {
+                                status = error.localizedDescription
                             }
                         }
                     }
                     .accessibilityLabel("Resume queue")
                     Button("Queue status") {
                         Task {
-                            status = await WebMediaDLLoopbackClient.displayedResponse {
-                                try await WebMediaDLPairedMacSubmit.queueStatus(
+                            do {
+                                status = try await WebMediaDLPairedMacSubmit.queueStatus(
                                     credentials: client,
                                     pairingId: UUID(uuidString: pairingId),
                                     sessionKey: sessionKey.isEmpty ? nil : sessionKey
                                 )
+                            } catch {
+                                status = error.localizedDescription
                             }
                         }
                     }
@@ -240,13 +246,15 @@ public struct WebMediaDLiOSRootView: View {
                                 status = "No job to cancel"
                                 return
                             }
-                            status = await WebMediaDLLoopbackClient.displayedResponse {
-                                try await WebMediaDLPairedMacSubmit.cancel(
+                            do {
+                                status = try await WebMediaDLPairedMacSubmit.cancel(
                                     jobId: lastJobId,
                                     credentials: client,
                                     pairingId: UUID(uuidString: pairingId),
                                     sessionKey: sessionKey.isEmpty ? nil : sessionKey
                                 )
+                            } catch {
+                                status = error.localizedDescription
                             }
                         }
                     }
@@ -257,13 +265,15 @@ public struct WebMediaDLiOSRootView: View {
                                 status = "No job to pause"
                                 return
                             }
-                            status = await WebMediaDLLoopbackClient.displayedResponse {
-                                try await WebMediaDLPairedMacSubmit.pauseJob(
+                            do {
+                                status = try await WebMediaDLPairedMacSubmit.pauseJob(
                                     jobId: lastJobId,
                                     credentials: client,
                                     pairingId: UUID(uuidString: pairingId),
                                     sessionKey: sessionKey.isEmpty ? nil : sessionKey
                                 )
+                            } catch {
+                                status = error.localizedDescription
                             }
                         }
                     }
@@ -274,13 +284,15 @@ public struct WebMediaDLiOSRootView: View {
                                 status = "No job to resume"
                                 return
                             }
-                            status = await WebMediaDLLoopbackClient.displayedResponse {
-                                try await WebMediaDLPairedMacSubmit.resumeJob(
+                            do {
+                                status = try await WebMediaDLPairedMacSubmit.resumeJob(
                                     jobId: lastJobId,
                                     credentials: client,
                                     pairingId: UUID(uuidString: pairingId),
                                     sessionKey: sessionKey.isEmpty ? nil : sessionKey
                                 )
+                            } catch {
+                                status = error.localizedDescription
                             }
                         }
                     }
@@ -301,8 +313,10 @@ public struct WebMediaDLiOSRootView: View {
                 }
                 watchRelay.onReceivedMessage = { message in
                     Task {
-                        status = await WebMediaDLLoopbackClient.displayedResponse {
-                            try await WebMediaDLPairedMacSubmit.companion(message)
+                        do {
+                            status = try await WebMediaDLPairedMacSubmit.companion(message)
+                        } catch {
+                            status = error.localizedDescription
                         }
                     }
                 }

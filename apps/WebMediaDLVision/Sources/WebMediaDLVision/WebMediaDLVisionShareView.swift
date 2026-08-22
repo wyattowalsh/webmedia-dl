@@ -20,14 +20,16 @@ public struct WebMediaDLVisionShareView: View {
                 Task {
                     let intake = self.intake.resolvedForSubmit()
                     let files = intake.filesDestination
-                    status = await WebMediaDLLoopbackClient.displayedResponse {
-                        try await WebMediaDLPairedMacSubmit.submit(
+                    do {
+                        status = try await WebMediaDLPairedMacSubmit.submit(
                             locator: intake.locator,
                             surface: .visionos,
                             credentials: WebMediaDLWorkerCredentials.loadClient(),
                             intakeKind: "share_sheet",
                             destinationKind: files == nil ? nil : "staging_only"
                         )
+                    } catch {
+                        status = error.localizedDescription
                     }
                 }
             }

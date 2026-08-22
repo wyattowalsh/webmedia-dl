@@ -34,8 +34,12 @@ public struct WebMediaDLTVRootView: View {
                     Task {
                         await send(kind: "history")
                         if let data = transport.lastResponse?.data(using: .utf8) {
-                            history = (try? WebMediaDLHistoryEntry.decodeCompanionHistory(from: data)) ?? []
-                            lastJobId = history.first?.jobId.uuidString ?? lastJobId
+                            do {
+                                history = try WebMediaDLHistoryEntry.decodeCompanionHistory(from: data)
+                                lastJobId = history.first?.jobId.uuidString ?? lastJobId
+                            } catch {
+                                status = error.localizedDescription
+                            }
                         }
                     }
                 }

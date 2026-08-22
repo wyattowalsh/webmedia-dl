@@ -17,7 +17,7 @@ from webmedia_dl.acquisition import preferred_format_id
 from webmedia_dl.artifacts import ArtifactStore
 from webmedia_dl.cli import app, main
 from webmedia_dl.discovery import discover
-from webmedia_dl.domain.enums import ArtifactRole, JobState, MediaKind, Surface
+from webmedia_dl.domain.enums import ArtifactRole, EventType, JobState, MediaKind, Surface
 from webmedia_dl.domain.models import FormatAlternative, MediaCandidate, ProviderManifest
 from webmedia_dl.errors import (
     ArtifactImmutabilityError,
@@ -325,6 +325,58 @@ def test_pipeline_ytdlp_produces_no_source_files(tmp_data: Path) -> None:
     assert job.state is JobState.FAILED
     assert job.error is not None
     assert "produced no source files" in job.error
+
+
+def test_pipeline_ytdlp_nonzero_exit_quarantines_partial_output(tmp_data: Path) -> None:
+    html = '<html><body><video src="https://example.com/watch?v=1"></video></body></html>'
+
+    def run(argv: list[str], _cwd: Path) -> tuple[int, bytes, bytes]:
+        for index, token in enumerate(argv):
+            if token == "--output" and index + 1 < len(argv):
+                target = Path(argv[index + 1])
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(b"partial-ytdlp")
+                return 1, b"", b"unavailable"
+        return 1, b"", b"unavailable"
+
+    pipeline = Pipeline(
+        data_dir=tmp_data,
+        runtime=ProviderRuntime(
+            which=lambda name: "/usr/bin/yt-dlp" if name == "yt-dlp" else None,
+            run=run,
+        ),
+    )
+    job = pipeline.submit("https://example.com/watch", html=html)
+    assert job.state is JobState.FAILED
+    assert job.error is not None
+    assert "exited 1" in job.error
+    roles = {item.role for item in pipeline.store.list_artifacts()}
+    assert ArtifactRole.QUARANTINE in roles
+    assert ArtifactRole.SOURCE not in roles
+    types = [event.type for event in pipeline.queue.events_for(job.job_id)]
+    assert EventType.ACQUISITION_QUARANTINE in types
+    assert EventType.JOB_FAILED in types
+
+
+def test_pipeline_ytdlp_nonzero_exit_without_partial_output(tmp_data: Path) -> None:
+    html = '<html><body><video src="https://example.com/watch?v=1"></video></body></html>'
+    pipeline = Pipeline(
+        data_dir=tmp_data,
+        runtime=ProviderRuntime(
+            which=lambda name: "/usr/bin/yt-dlp" if name == "yt-dlp" else None,
+            run=lambda _argv, _cwd: (1, b"", b"unavailable"),
+        ),
+    )
+    job = pipeline.submit("https://example.com/watch", html=html)
+    assert job.state is JobState.FAILED
+    assert job.error is not None
+    assert "exited 1" in job.error
+    roles = {item.role for item in pipeline.store.list_artifacts()}
+    assert ArtifactRole.QUARANTINE not in roles
+    assert ArtifactRole.SOURCE not in roles
+    types = [event.type for event in pipeline.queue.events_for(job.job_id)]
+    assert EventType.ACQUISITION_QUARANTINE not in types
+    assert EventType.JOB_FAILED in types
 
 
 def test_queue_pause_claim_and_cancel_intercept(

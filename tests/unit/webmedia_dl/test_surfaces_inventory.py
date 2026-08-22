@@ -436,6 +436,7 @@ def test_companion_transport_and_typed_history() -> None:
     assert "func requireHTTPSuccess(status:" in loopback
     assert "func requireHistoryEntries(status:" in loopback
     assert "func displayedResponse(" in loopback
+    assert "@Sendable () async throws -> String" in loopback
     assert "(200 ..< 300).contains(status)" in loopback
     assert "history JSON is not a job list" in loopback
     assert "func pairRequest(" in loopback
@@ -930,7 +931,8 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
         assert "Save Mac address" in text
         assert "WebMediaDLPairedMacEndpoint.startPairing" in text
         assert "try? await WebMediaDLPairedMacSubmit" not in text
-        assert "displayedResponse" in text
+        assert "displayedResponse" not in text
+        assert "status = error.localizedDescription" in text
     assert "Save on this device" not in watch
     assert "Save on this device" not in tv
     assert "WebMediaDLHttpDirect" not in watch
@@ -1038,7 +1040,8 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert "resolvedForSubmit" in mac_share_view
     assert 'destinationKind: files == nil ? nil : "files_app"' in mac_share_view
     assert "try? await" not in mac_share_view
-    assert "displayedResponse" in mac_share_view
+    assert "displayedResponse" not in mac_share_view
+    assert "status = error.localizedDescription" in mac_share_view
     for rel in (
         "apps/WebMediaDLiOS/Sources/WebMediaDLiOS/WebMediaDLiOSShareView.swift",
         "apps/WebMediaDLiPadOS/Sources/WebMediaDLiPadOS/WebMediaDLiPadOSShareView.swift",
@@ -1048,7 +1051,8 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
         assert "resolvedForSubmit" in text
         assert 'destinationKind: files == nil ? nil : "staging_only"' in text
         assert "try? await" not in text
-        assert "displayedResponse" in text
+        assert "displayedResponse" not in text
+        assert "status = error.localizedDescription" in text
 
 
 def test_privacy_manifests_declare_user_defaults() -> None:
@@ -1148,6 +1152,8 @@ def test_watch_control_intents_queue_companion_kinds() -> None:
         assert "try? await transport.send" not in text
         assert "try await transport.send" in text
         assert "status = error.localizedDescription" in text
+        assert "try? WebMediaDLHistoryEntry.decodeCompanionHistory" not in text
+        assert "try WebMediaDLHistoryEntry.decodeCompanionHistory" in text
         assert 'kind: "pause_job"' in text
         assert 'kind: "resume_job"' in text
         assert 'kind: "cancel"' in text
@@ -1161,7 +1167,8 @@ def test_iphone_forwards_watch_companion_messages() -> None:
     assert "onReceivedMessage" in ios
     assert "WebMediaDLPairedMacSubmit.companion" in ios
     assert "try? await WebMediaDLPairedMacSubmit.companion" not in ios
-    assert "displayedResponse" in ios
+    assert "displayedResponse" not in ios
+    assert "status = error.localizedDescription" in ios
     mac = (root / ROOT_VIEWS["macos"]).read_text(encoding="utf-8")
     assert "bindWatchDelegate" not in mac
     assert "WebMediaDLMacWatchConnectivityDelegate" not in mac
