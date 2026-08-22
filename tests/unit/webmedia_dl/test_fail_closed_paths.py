@@ -693,6 +693,76 @@ def test_dash_template_tokens_and_period_fallback(monkeypatch: pytest.MonkeyPatc
         "https://cdn.example.com/s2.m4s",
         "https://cdn.example.com/s3.m4s",
     ]
+    as_timescale = """
+    <MPD mediaPresentationDuration="PT6S"><Period>
+      <AdaptationSet mimeType="video/mp4" timescale="1000">
+        <Representation id="v1" bandwidth="800000">
+          <SegmentTemplate media="a$Number$.m4s" startNumber="1" duration="2000"/>
+        </Representation>
+      </AdaptationSet>
+    </Period></MPD>
+    """
+    assert recordable_segment_urls(as_timescale, "https://cdn.example.com/") == [
+        "https://cdn.example.com/a1.m4s",
+        "https://cdn.example.com/a2.m4s",
+        "https://cdn.example.com/a3.m4s",
+    ]
+    rep_timescale = """
+    <MPD mediaPresentationDuration="PT6S"><Period>
+      <AdaptationSet mimeType="video/mp4">
+        <Representation id="v1" bandwidth="800000" timescale="1000">
+          <SegmentTemplate media="r$Number$.m4s" startNumber="1" duration="2000"/>
+        </Representation>
+      </AdaptationSet>
+    </Period></MPD>
+    """
+    assert recordable_segment_urls(rep_timescale, "https://cdn.example.com/") == [
+        "https://cdn.example.com/r1.m4s",
+        "https://cdn.example.com/r2.m4s",
+        "https://cdn.example.com/r3.m4s",
+    ]
+    period_timescale = """
+    <MPD mediaPresentationDuration="PT6S">
+      <Period timescale="1000">
+        <SegmentTemplate media="p$Number$.m4s" startNumber="1" duration="2000"/>
+      </Period>
+    </MPD>
+    """
+    assert recordable_segment_urls(period_timescale, "https://cdn.example.com/") == [
+        "https://cdn.example.com/p1.m4s",
+        "https://cdn.example.com/p2.m4s",
+        "https://cdn.example.com/p3.m4s",
+    ]
+    period_as_timescale = """
+    <MPD mediaPresentationDuration="PT6S">
+      <Period timescale="1000">
+        <AdaptationSet mimeType="video/mp4">
+          <Representation id="v1" bandwidth="800000">
+            <SegmentTemplate media="q$Number$.m4s" startNumber="1" duration="2000"/>
+          </Representation>
+        </AdaptationSet>
+      </Period>
+    </MPD>
+    """
+    assert recordable_segment_urls(period_as_timescale, "https://cdn.example.com/") == [
+        "https://cdn.example.com/q1.m4s",
+        "https://cdn.example.com/q2.m4s",
+        "https://cdn.example.com/q3.m4s",
+    ]
+    template_timescale_wins = """
+    <MPD mediaPresentationDuration="PT6S"><Period>
+      <AdaptationSet mimeType="video/mp4" timescale="1">
+        <Representation id="v1" bandwidth="800000">
+          <SegmentTemplate media="w$Number$.m4s" startNumber="1" duration="2000" timescale="1000"/>
+        </Representation>
+      </AdaptationSet>
+    </Period></MPD>
+    """
+    assert recordable_segment_urls(template_timescale_wins, "https://cdn.example.com/") == [
+        "https://cdn.example.com/w1.m4s",
+        "https://cdn.example.com/w2.m4s",
+        "https://cdn.example.com/w3.m4s",
+    ]
     period_wins = """
     <MPD mediaPresentationDuration="PT99S">
       <Period duration="PT4S">

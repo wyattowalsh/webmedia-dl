@@ -432,8 +432,11 @@ def _template_urls(
     representation: str | None = None,
     bandwidth: str | None = None,
     period_seconds: float | None = None,
+    inherited_timescale: str | None = None,
 ) -> list[str]:
     attrs = _attrs(attr_blob)
+    if inherited_timescale and not attrs.get("timescale"):
+        attrs["timescale"] = inherited_timescale
     representation = representation or attrs.get("id") or attrs.get("representationid") or "1"
     bandwidth = bandwidth or attrs.get("bandwidth") or "1"
     base = _expand_locator_tokens(base, representation=representation, bandwidth=bandwidth)
@@ -589,6 +592,7 @@ def _collect_segments(
     bandwidth: str | None = None,
     include_templates: bool = True,
     period_seconds: float | None = None,
+    inherited_timescale: str | None = None,
 ) -> None:
     current = _expand_locator_tokens(current, representation=representation, bandwidth=bandwidth)
     if include_templates:
@@ -600,6 +604,7 @@ def _collect_segments(
                 representation=representation,
                 bandwidth=bandwidth,
                 period_seconds=period_seconds,
+                inherited_timescale=inherited_timescale,
             ):
                 add(ManifestPart(url))
     file_url = _file_baseurl(text, current, representation=representation, bandwidth=bandwidth)
@@ -720,6 +725,7 @@ def _collect_representation(
     *,
     inherited_templates: str = "",
     period_seconds: float | None = None,
+    inherited_timescale: str | None = None,
 ) -> tuple[int, str]:
     rattrs = _attrs(match.group(1))
     body = match.group(2) or ""
@@ -760,6 +766,7 @@ def _collect_representation(
         representation=rattrs.get("id"),
         bandwidth=rattrs.get("bandwidth"),
         period_seconds=period_seconds,
+        inherited_timescale=rattrs.get("timescale") or inherited_timescale,
     )
     try:
         bandwidth = int(rattrs.get("bandwidth") or 0)
@@ -769,7 +776,11 @@ def _collect_representation(
 
 
 def _dash_scope_groups(
-    text: str, base: str, *, period_seconds: float | None = None
+    text: str,
+    base: str,
+    *,
+    period_seconds: float | None = None,
+    inherited_timescale: str | None = None,
 ) -> list[tuple[int, str, list[ManifestPart]]]:
     parts, seen_urls, add = _new_part_bucket()
     representations = list(_REPRESENTATION.finditer(text))
@@ -788,6 +799,7 @@ def _dash_scope_groups(
             bucket_urls,
             inherited_templates=inherited,
             period_seconds=period_seconds,
+            inherited_timescale=inherited_timescale,
         )
         groups.append((bandwidth, kind, [*parts, *bucket] if parts else bucket))
     remainder = _strip_blocks(text, _REPRESENTATION) if representations else text
@@ -803,6 +815,7 @@ def _dash_scope_groups(
         seen_urls,
         include_templates=not representations,
         period_seconds=period_seconds,
+        inherited_timescale=inherited_timescale,
     )
     if groups:
         return groups
@@ -815,6 +828,7 @@ def _dash_adaptation_groups(
     as_attrs: dict[str, str],
     *,
     period_seconds: float | None = None,
+    inherited_timescale: str | None = None,
 ) -> list[tuple[int, str, list[ManifestPart]]]:
     without_rep = _strip_blocks(text, _REPRESENTATION)
     parts, seen_urls, add = _new_part_bucket()
@@ -823,9 +837,17 @@ def _dash_adaptation_groups(
     )
     inherited = without_rep if _DASH_TEMPLATE.search(without_rep) else ""
     as_kind = _dash_kind(as_attrs)
+    timescale = as_attrs.get("timescale") or inherited_timescale
     representations = list(_REPRESENTATION.finditer(text))
     if not representations:
-        _collect_segments(text, as_base, add, seen_urls, period_seconds=period_seconds)
+        _collect_segments(
+            text,
+            as_base,
+            add,
+            seen_urls,
+            period_seconds=period_seconds,
+            inherited_timescale=timescale,
+        )
         return [(0, as_kind, parts)] if parts else []
     groups: list[tuple[int, str, list[ManifestPart]]] = []
     for rep in representations:
@@ -837,6 +859,7 @@ def _dash_adaptation_groups(
             bucket_urls,
             inherited_templates=inherited,
             period_seconds=period_seconds,
+            inherited_timescale=timescale,
         )
         groups.append(
             (
@@ -879,7 +902,11 @@ def _select_dash_group(
 
 
 def _period_kind_parts(
-    body: str, base: str, *, period_seconds: float | None = None
+    body: str,
+    base: str,
+    *,
+    period_seconds: float | None = None,
+    inherited_timescale: str | None = None,
 ) -> dict[str, list[ManifestPart]]:
     shared, shared_urls, shared_add = _new_part_bucket()
     period_without_as = _strip_blocks(body, _ADAPTATION_SET)
@@ -893,7 +920,14 @@ def _period_kind_parts(
     groups: list[tuple[int, str, list[ManifestPart]]] = []
     adaptations = list(_ADAPTATION_SET.finditer(body))
     if not adaptations:
-        groups.extend(_dash_scope_groups(body, period_base, period_seconds=period_seconds))
+        groups.extend(
+            _dash_scope_groups(
+                body,
+                period_base,
+                period_seconds=period_seconds,
+                inherited_timescale=inherited_timescale,
+            )
+        )
     else:
         _collect_segments(
             period_without_as,
@@ -901,6 +935,7 @@ def _period_kind_parts(
             shared_add,
             shared_urls,
             period_seconds=period_seconds,
+            inherited_timescale=inherited_timescale,
         )
         for adaptation in adaptations:
             groups.extend(
@@ -909,6 +944,7 @@ def _period_kind_parts(
                     period_base,
                     _attrs(adaptation.group(1)),
                     period_seconds=period_seconds,
+                    inherited_timescale=inherited_timescale,
                 )
             )
     selected = _select_dash_kinds(groups) if groups else {"video": list(shared)}
@@ -960,7 +996,12 @@ def _dash_kind_parts(text: str, base: str) -> dict[str, list[ManifestPart]]:
     for index, (body, period_attrs) in enumerate(scopes):
         own = _iso8601_duration_seconds(period_attrs.get("duration"))
         period_seconds = own if own is not None else (mpd_seconds if period_count <= 1 else None)
-        kind_parts = _period_kind_parts(body, mpd_base, period_seconds=period_seconds)
+        kind_parts = _period_kind_parts(
+            body,
+            mpd_base,
+            period_seconds=period_seconds,
+            inherited_timescale=period_attrs.get("timescale"),
+        )
         for kind, parts in kind_parts.items():
             bucket = buckets.setdefault(kind, list(mpd_shared) if mpd_shared else [])
             kind_seen = seen.setdefault(kind, set())

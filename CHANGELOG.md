@@ -2,6 +2,13 @@
 
 ## 0.1.0
 
+- Inherit DASH `timescale` from Period, AdaptationSet, and Representation onto
+  a SegmentTemplate that only declares `@duration`, so `$Number$` expansion
+  under MPD/Period presentation duration covers the real segment count instead
+  of a single `$Number=1` locator. A template `@timescale` still wins. GitHub
+  Actions `32592650961` on `77c3a46` passed Python (626 pytest, 100%), doctor
+  provider probes, and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after
+  slicing DASH `SegmentURL` `range` like `mediaRange`.
 - Slice DASH `SegmentURL` `range` the same way as `mediaRange`, so a SegmentList
   that names inclusive byte ranges with the Initialization-style attribute still
   records concatenated slices instead of dropping the media ranges. GitHub Actions
