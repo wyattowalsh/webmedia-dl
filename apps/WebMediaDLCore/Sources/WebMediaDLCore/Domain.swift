@@ -638,8 +638,7 @@ public struct WebMediaDLExportIntent: Codable, Sendable {
                 throw WebMediaDLDomainError("Files destinations require a security-scoped bookmark.")
             }
             let allowed = cleaned.contains { root in
-                let prefix = root.hasSuffix("/") ? root : root + "/"
-                return scoped == root || scoped.hasPrefix(prefix)
+                WebMediaDLSecurityScopedBookmark(path: root).allows(scoped)
             }
             if !allowed {
                 throw WebMediaDLDomainError("Files security-scoped path must stay inside approved roots.")

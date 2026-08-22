@@ -89,7 +89,7 @@ public struct WebMediaDLTVCancelIntent: AppIntent {
     }
 
     public func perform() async throws -> some IntentResult {
-        guard UUID(uuidString: jobId) != nil else { return .result() }
+        guard UUID(uuidString: jobId) != nil else { throw WebMediaDLCompanionError.jobIdRequired }
         let bridge = WebMediaDLContinuityBridge()
         let transport = WebMediaDLLocalNetworkCompanionTransport()
         try await transport.send(bridge.message(kind: .cancel, jobId: jobId, surface: .tvos))
@@ -110,7 +110,7 @@ public struct WebMediaDLTVPauseJobIntent: AppIntent {
     }
 
     public func perform() async throws -> some IntentResult {
-        guard UUID(uuidString: jobId) != nil else { return .result() }
+        guard UUID(uuidString: jobId) != nil else { throw WebMediaDLCompanionError.jobIdRequired }
         let bridge = WebMediaDLContinuityBridge()
         let transport = WebMediaDLLocalNetworkCompanionTransport()
         try await transport.send(bridge.message(kind: .pauseJob, jobId: jobId, surface: .tvos))
@@ -131,7 +131,7 @@ public struct WebMediaDLTVResumeJobIntent: AppIntent {
     }
 
     public func perform() async throws -> some IntentResult {
-        guard UUID(uuidString: jobId) != nil else { return .result() }
+        guard UUID(uuidString: jobId) != nil else { throw WebMediaDLCompanionError.jobIdRequired }
         let bridge = WebMediaDLContinuityBridge()
         let transport = WebMediaDLLocalNetworkCompanionTransport()
         try await transport.send(bridge.message(kind: .resumeJob, jobId: jobId, surface: .tvos))

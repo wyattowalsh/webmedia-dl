@@ -26,6 +26,35 @@ public struct WebMediaDLLoopbackClient: Sendable {
         return host == "127.0.0.1" || host == "localhost" || host == "::1"
     }
 
+    public typealias HealthFetch = @Sendable (URLRequest) async throws -> (Int, Data)
+
+    public func healthRequest() -> URLRequest {
+        precondition(isLoopback, "Clients may only talk to the loopback worker.")
+        var request = URLRequest(url: baseURL.appendingPathComponent("health"))
+        request.httpMethod = "GET"
+        return request
+    }
+
+    public func requireHealthyWorker(fetch: HealthFetch? = nil) async throws {
+        let request = healthRequest()
+        let status: Int
+        let data: Data
+        if let fetch {
+            (status, data) = try await fetch(request)
+        } else {
+            let (body, response) = try await URLSession.shared.data(for: request)
+            status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            data   = body
+        }
+        guard status == 200 else {
+            throw WebMediaDLDomainError("loopback worker health returned HTTP \(status)")
+        }
+        let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        guard (object?["status"] as? String) == "ok" else {
+            throw WebMediaDLDomainError("loopback worker health is not ok")
+        }
+    }
+
     private func authorized(_ url: URL, method: String = "GET") -> URLRequest {
         precondition(isLoopback, "Clients may only talk to the loopback worker.")
         var request = URLRequest(url: url)

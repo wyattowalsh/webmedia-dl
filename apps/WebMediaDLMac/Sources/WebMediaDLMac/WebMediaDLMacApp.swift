@@ -295,7 +295,19 @@ struct MacRootView: View {
             )
             status = "Local worker started on \(WebMediaDLLoopbackClient.defaultBaseURL.absoluteString)"
         } catch {
-            status = "Using existing loopback worker (\(error.localizedDescription))"
+            let message = error.localizedDescription
+            status = message
+            Task { await adoptExistingLoopbackWorkerIfHealthy(spawnError: message) }
+        }
+    }
+
+    @MainActor
+    private func adoptExistingLoopbackWorkerIfHealthy(spawnError: String) async {
+        do {
+            try await WebMediaDLLoopbackClient().requireHealthyWorker()
+            status = "Using existing loopback worker (\(spawnError))"
+        } catch {
+            status = spawnError
         }
     }
 

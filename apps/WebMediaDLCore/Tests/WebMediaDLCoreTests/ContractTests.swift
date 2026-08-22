@@ -101,6 +101,20 @@ final class ContractTests: XCTestCase {
         XCTAssertTrue(decoded.dictionary()["nativeCommand"] is NSNull)
         XCTAssertEqual(decoded.dictionary()["subprocessWorker"] as? Bool, false)
         XCTAssertNil((decoded.dictionary()["nativeCommand"] as? String))
+        XCTAssertEqual(
+            WebMediaDLCompanionError.jobIdRequired.errorDescription,
+            "Cancel, pause, and resume of a job require a job UUID."
+        )
+        XCTAssertThrowsError(
+            try WebMediaDLCompanionMessage.validate(
+                WebMediaDLCompanionMessage(kind: .cancel, surface: .watchos)
+            )
+        )
+        XCTAssertThrowsError(
+            try WebMediaDLCompanionMessage.validate(
+                WebMediaDLCompanionMessage(kind: .pauseJob, jobId: "not-a-uuid", surface: .watchos)
+            )
+        )
 
         let subprocess: [String: Any] = [
             "kind": "status",
@@ -206,6 +220,26 @@ final class ContractTests: XCTestCase {
         XCTAssertFalse(WebMediaDLLoopbackClient(baseURL: URL(string: "http://example.com:8765")!).isLoopback)
         let client = WebMediaDLLoopbackClient()
         let jobId = UUID()
+        XCTAssertTrue(client.healthRequest().url?.path.hasSuffix("/health") ?? false)
+        XCTAssertFalse(client.healthRequest().url?.absoluteString.contains("/v1/") ?? true)
+        XCTAssertNil(client.healthRequest().value(forHTTPHeaderField: "Authorization"))
+        try await client.requireHealthyWorker(fetch: { _ in
+            (200, Data("{\"status\":\"ok\",\"product\":\"WebMedia DL\"}".utf8))
+        })
+        do {
+            try await client.requireHealthyWorker(fetch: { _ in (503, Data()) })
+            XCTFail("unhealthy loopback worker must fail closed")
+        } catch let error as WebMediaDLDomainError {
+            XCTAssertTrue(error.message.contains("HTTP 503"))
+        }
+        do {
+            try await client.requireHealthyWorker(fetch: { _ in
+                (200, Data("{\"status\":\"nope\"}".utf8))
+            })
+            XCTFail("non-ok health JSON must fail closed")
+        } catch let error as WebMediaDLDomainError {
+            XCTAssertTrue(error.message.contains("not ok"))
+        }
         XCTAssertTrue(client.resumeQueueRequest().url?.absoluteString.contains("queue/resume") ?? false)
         XCTAssertTrue(client.queueStatusRequest().url?.absoluteString.contains("/v1/queue") ?? false)
         XCTAssertFalse(client.queueStatusRequest().url?.absoluteString.contains("pause") ?? true)
@@ -698,6 +732,21 @@ final class ContractTests: XCTestCase {
             )
         )
         XCTAssertThrowsError(
+            try WebMediaDLExportIntent(
+                destinationKind: .filesApp,
+                destinationPath: "/tmp/movies/../escape",
+                approvedRoots: ["/tmp/movies"],
+                securityScopedBookmark: "ZmFrZQ=="
+            )
+        )
+        let nestedFiles = try WebMediaDLExportIntent(
+            destinationKind: .filesApp,
+            destinationPath: "/tmp/movies/inside",
+            approvedRoots: ["/tmp/movies"],
+            securityScopedBookmark: "ZmFrZQ=="
+        )
+        XCTAssertEqual(nestedFiles.securityScopedPath, "/tmp/movies/inside")
+        XCTAssertThrowsError(
             try JSONDecoder().decode(
                 WebMediaDLMediaSource.self,
                 from: JSONSerialization.data(withJSONObject: [
@@ -870,6 +919,14 @@ final class ContractTests: XCTestCase {
         XCTAssertFalse(WebMediaDLHttpDirect.isOnDeviceTransfer("https://www.youtube.com/watch?v=1"))
         XCTAssertFalse(WebMediaDLHttpDirect.isOnDeviceTransfer("https://cdn.example.com/live.m3u8"))
         XCTAssertTrue(WebMediaDLHttpDirect.isDirectMediaURL("https://cdn.example.com/live.m3u8"))
+        XCTAssertFalse(WebMediaDLHttpDirect.isOnDeviceTransfer("file:///tmp/a.mp4"))
+        XCTAssertFalse(WebMediaDLHttpDirect.isDirectMediaURL("javascript:foo.mp4"))
+        XCTAssertFalse(WebMediaDLHttpDirect.isOnDeviceTransfer("https:///a.mp4"))
+        XCTAssertNil(WebMediaDLHttpDirect.mediaURL(from: "https:///nohost"))
+        XCTAssertNil(WebMediaDLHttpDirect.mediaURL(from: "https://"))
+        XCTAssertNil(WebMediaDLHttpDirect.mediaURL(from: "data:text/plain,x"))
+        XCTAssertNil(WebMediaDLHttpDirect.mediaURL(from: "file:///tmp/a.mp4"))
+        XCTAssertNotNil(WebMediaDLHttpDirect.mediaURL(from: "https://cdn.example.com/a.mp4"))
         XCTAssertTrue(WebMediaDLHttpDirect.hlsKeyIsProtected("#EXT-X-KEY:METHOD=AES-128,URI=\"https://cdn.example.com/key\""))
         XCTAssertFalse(WebMediaDLHttpDirect.hlsKeyIsProtected("#EXT-X-KEY:METHOD=NONE"))
         XCTAssertFalse(WebMediaDLHttpDirect.drmSignals(in: "#EXT-X-KEY:METHOD=NONE").contains("ext-x-key"))
@@ -1032,6 +1089,26 @@ final class ContractTests: XCTestCase {
                 fetch: { _ in XCTFail("invalid locators must not fetch"); return (200, [:], Data()) }
             )
             XCTFail("file URLs must not transfer on-device")
+        } catch WebMediaDLHttpDirect.TransferError.invalidLocator {
+            ()
+        }
+        do {
+            _ = try await WebMediaDLHttpDirect.transfer(
+                locator: "https:///a.mp4",
+                bookmark: bookmark,
+                fetch: { _ in XCTFail("hostless locators must not fetch"); return (200, [:], Data()) }
+            )
+            XCTFail("hostless https URLs must not transfer on-device")
+        } catch WebMediaDLHttpDirect.TransferError.invalidLocator {
+            ()
+        }
+        do {
+            _ = try await WebMediaDLHttpDirect.transfer(
+                locator: "javascript:alert(1)",
+                bookmark: bookmark,
+                fetch: { _ in XCTFail("blocked schemes must not fetch"); return (200, [:], Data()) }
+            )
+            XCTFail("javascript locators must not transfer on-device")
         } catch WebMediaDLHttpDirect.TransferError.invalidLocator {
             ()
         }

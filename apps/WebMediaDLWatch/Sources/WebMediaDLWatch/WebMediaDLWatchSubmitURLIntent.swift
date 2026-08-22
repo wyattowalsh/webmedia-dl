@@ -89,7 +89,7 @@ public struct WebMediaDLWatchCancelIntent: AppIntent {
     }
 
     public func perform() async throws -> some IntentResult {
-        guard UUID(uuidString: jobId) != nil else { return .result() }
+        guard UUID(uuidString: jobId) != nil else { throw WebMediaDLCompanionError.jobIdRequired }
         let bridge = WebMediaDLContinuityBridge()
         let transport = WebMediaDLWatchConnectivityTransport()
         try await transport.send(bridge.message(kind: .cancel, jobId: jobId, surface: .watchos))
@@ -110,7 +110,7 @@ public struct WebMediaDLWatchPauseJobIntent: AppIntent {
     }
 
     public func perform() async throws -> some IntentResult {
-        guard UUID(uuidString: jobId) != nil else { return .result() }
+        guard UUID(uuidString: jobId) != nil else { throw WebMediaDLCompanionError.jobIdRequired }
         let bridge = WebMediaDLContinuityBridge()
         let transport = WebMediaDLWatchConnectivityTransport()
         try await transport.send(bridge.message(kind: .pauseJob, jobId: jobId, surface: .watchos))
@@ -131,7 +131,7 @@ public struct WebMediaDLWatchResumeJobIntent: AppIntent {
     }
 
     public func perform() async throws -> some IntentResult {
-        guard UUID(uuidString: jobId) != nil else { return .result() }
+        guard UUID(uuidString: jobId) != nil else { throw WebMediaDLCompanionError.jobIdRequired }
         let bridge = WebMediaDLContinuityBridge()
         let transport = WebMediaDLWatchConnectivityTransport()
         try await transport.send(bridge.message(kind: .resumeJob, jobId: jobId, surface: .watchos))

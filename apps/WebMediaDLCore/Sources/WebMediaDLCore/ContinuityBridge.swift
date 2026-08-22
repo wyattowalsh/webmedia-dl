@@ -113,9 +113,18 @@ public struct WebMediaDLCompanionMessage: Codable, Sendable, Equatable {
     }
 }
 
-public enum WebMediaDLCompanionError: Error, Equatable {
+public enum WebMediaDLCompanionError: Error, Equatable, LocalizedError {
     case jobIdRequired
     case pairingRequired
+
+    public var errorDescription: String? {
+        switch self {
+        case .jobIdRequired:
+            return "Cancel, pause, and resume of a job require a job UUID."
+        case .pairingRequired:
+            return "Pair with a Mac before sending companion messages."
+        }
+    }
 }
 
 /// watchOS/tvOS queue companion messages until the Mac forwards them to loopback.

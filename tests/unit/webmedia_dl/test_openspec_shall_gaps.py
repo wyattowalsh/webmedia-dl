@@ -487,8 +487,8 @@ SCENARIO_EVIDENCE: dict[str, tuple[str, str]] = {
         "test_watch_tv_capture_queues_without_ytdlp",
     ),
     "watch control intents queue companion kinds": (
-        "tests/unit/webmedia_dl/test_companion_checkpoint.py",
-        "test_sealed_companion_cancel_requires_job_uuid",
+        "tests/unit/webmedia_dl/test_surfaces_inventory.py",
+        "test_watch_control_intents_queue_companion_kinds",
     ),
     "tvOS uses local-network companion transport": (
         "tests/unit/webmedia_dl/test_surfaces_inventory.py",

@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from webmedia_dl.capabilities import registry
+from webmedia_dl.network_policy import BLOCKED_SCHEMES
 from webmedia_dl.paths import repo_root
 from webmedia_dl.providers import imagemagick_configure_path
 
@@ -643,6 +644,8 @@ def test_intents_and_share_adapters_load_credentials() -> None:
         assert "kind: .cancel, jobId:" in text
         assert "kind: .pauseJob" in text
         assert "kind: .resumeJob" in text
+        assert "throw WebMediaDLCompanionError.jobIdRequired" in text
+        assert "else { return .result() }" not in text
         assert "Pause WebMedia DL" in text
         assert "Resume WebMedia DL" in text
         assert "WebMedia DL history" in text
@@ -847,10 +850,20 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert "parent_ids" in domain
     assert "WebMediaDLPipelineJob" in domain
     assert "WebMediaDLOperation" in domain
+    assert "WebMediaDLSecurityScopedBookmark(path: root).allows(scoped)" in domain
+    assert "scoped.hasPrefix(prefix)" not in domain
     assert "never launches yt-dlp, ffmpeg, or gallery-dl" in http_direct
     assert "Process(" not in http_direct
     assert 'providerId = "http-direct"' in http_direct
     assert "isOnDeviceTransfer" in http_direct
+    assert "func mediaURL(from" in http_direct
+    assert "blockedSchemes" in http_direct
+    assert '"javascript"' in http_direct
+    assert '"chrome-extension"' in http_direct
+    assert "host.isEmpty" in http_direct
+    assert "guard let url = mediaURL(from: trimmed)" in http_direct
+    for scheme in BLOCKED_SCHEMES:
+        assert f'"{scheme}"' in http_direct, scheme
     assert "liveRequiresMac" in http_direct
     assert "pairingRequired" in http_direct
     assert "drmRefused" in http_direct
@@ -952,6 +965,8 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
         assert "WebMediaDLPairedMacSubmit.queueStatus" in text
         assert "WebMediaDLPairedMacSubmit.pauseJob" in text
         assert "WebMediaDLPairedMacSubmit.resumeJob" in text
+        assert "throw WebMediaDLCompanionError.jobIdRequired" in text
+        assert "else { return .result() }" not in text
     mac_intent = (
         root / "apps/WebMediaDLMac/Sources/WebMediaDLMac/WebMediaDLMacSubmitURLIntent.swift"
     ).read_text(encoding="utf-8")
@@ -965,6 +980,8 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     assert ".queueStatus()" in mac_intent
     assert ".pauseJob(jobId:" in mac_intent
     assert ".resumeJob(jobId:" in mac_intent
+    assert "throw WebMediaDLCompanionError.jobIdRequired" in mac_intent
+    assert "else { return .result() }" not in mac_intent
     for rel, surface in (
         ("apps/WebMediaDLiOS/ShareExtension/WebMediaDLiOSShareExtension.swift", ".ios"),
         ("apps/WebMediaDLiPadOS/ShareExtension/WebMediaDLiPadOSShareExtension.swift", ".ipados"),
@@ -1037,7 +1054,20 @@ def test_macos_app_supervises_the_loopback_worker() -> None:
     )
     assert "WebMediaDLMacWorkerProcess.start" in mac
     assert "startMacWorker" in mac
+    assert "adoptExistingLoopbackWorkerIfHealthy" in mac
+    assert "requireHealthyWorker" in mac
+    assert "Using existing loopback worker" in mac
+    assert "error.localizedDescription" in mac
+    assert "status = message" in mac
     assert "loopbackToken: token" in mac
+    loopback = (root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/LoopbackClient.swift").read_text(
+        encoding="utf-8"
+    )
+    health = loopback.split("func healthRequest()", 1)[1].split("func requireHealthyWorker", 1)[0]
+    assert 'appendingPathComponent("health")' in health
+    assert "authorized(" not in health
+    assert "Authorization" not in health
+    assert 'object?["status"] as? String) == "ok"' in loopback
     assert worker.index("#if os(macOS)") < worker.index("homeDirectoryForCurrentUser")
     assert '"serve"' in worker
     assert '"--host"' in worker
@@ -1059,6 +1089,35 @@ def test_macos_app_supervises_the_loopback_worker() -> None:
         assert "WebMediaDLMacWorkerProcess.start" not in text
         assert "homeDirectoryForCurrentUser" not in text
         assert "Process(" not in text
+
+
+def test_watch_control_intents_queue_companion_kinds() -> None:
+    root = repo_root()
+    watch_intents = (
+        root / "apps/WebMediaDLWatch/Sources/WebMediaDLWatch/WebMediaDLWatchSubmitURLIntent.swift"
+    ).read_text(encoding="utf-8")
+    tv_intents = (
+        root / "apps/WebMediaDLTV/Sources/WebMediaDLTV/WebMediaDLTVSubmitURLIntent.swift"
+    ).read_text(encoding="utf-8")
+    watch = (root / ROOT_VIEWS["watchos"]).read_text(encoding="utf-8")
+    tv = (root / ROOT_VIEWS["tvos"]).read_text(encoding="utf-8")
+    for text in (watch_intents, tv_intents):
+        assert "kind: .cancel, jobId:" in text
+        assert "kind: .pauseJob, jobId:" in text
+        assert "kind: .resumeJob, jobId:" in text
+        assert "throw WebMediaDLCompanionError.jobIdRequired" in text
+        assert "else { return .result() }" not in text
+        assert "transport.send" in text
+    assert "WebMediaDLWatchConnectivityTransport" in watch_intents
+    assert "WebMediaDLLocalNetworkCompanionTransport" in tv_intents
+    assert "WebMediaDLWatchConnectivityTransport" not in tv_intents
+    for text in (watch, tv):
+        assert "try? await transport.send" not in text
+        assert "try await transport.send" in text
+        assert "status = error.localizedDescription" in text
+        assert 'kind: "pause_job"' in text
+        assert 'kind: "resume_job"' in text
+        assert 'kind: "cancel"' in text
 
 
 def test_iphone_forwards_watch_companion_messages() -> None:
@@ -1088,6 +1147,8 @@ def test_complete_client_control_intents_use_mac_relay() -> None:
         assert "WebMediaDLPairedMacSubmit.queueStatus" in text
         assert "WebMediaDLPairedMacSubmit.pauseJob" in text
         assert "WebMediaDLPairedMacSubmit.resumeJob" in text
+        assert "throw WebMediaDLCompanionError.jobIdRequired" in text
+        assert "else { return .result() }" not in text
 
 
 def _load_assemble_unsigned_appex():

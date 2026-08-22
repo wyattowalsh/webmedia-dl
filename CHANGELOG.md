@@ -2,6 +2,13 @@
 
 ## 0.1.0
 
+- Files `ExportIntent` path bounds use the same standardized `allows()` check
+  as security-scoped bookmarks, so `/approved/../escape` is denied. On-device
+  `HttpDirect` requires an `http`/`https` host and refuses the worker's blocked
+  schemes before fetch. The Mac app claims an existing loopback worker only
+  after `GET /health` returns `{"status":"ok"}`. Cancel/pause_job/resume_job
+  App Intents throw when the job id is not a UUID instead of succeeding as a
+  no-op. Queue pause/cancel CAS retries until `TRANSITION_ATTEMPTS` is exhausted.
 - GitHub Actions `32563044217` on `c347068` passed Python (578 pytest, 99.97%)
   and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED). Unsigned
   `xcodebuild` produced Mach-O share-sheet `.appex` products (`iphoneos`/`xros`

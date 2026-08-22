@@ -472,6 +472,21 @@ def test_files_bookmark_and_photokit(tmp_path: Path) -> None:
             destination_path=str(dest),
             approved_roots=[str(dest)],
         )
+    sneaky = dest / ".." / "escape"
+    with pytest.raises(ValueError, match="inside approved roots"):
+        ExportIntent(
+            destination_kind=DestinationKind.FILES_APP,
+            destination_path=str(sneaky),
+            approved_roots=[str(dest)],
+            security_scoped_bookmark="ZmFrZQ==",
+        )
+    nested = ExportIntent(
+        destination_kind=DestinationKind.FILES_APP,
+        destination_path=str(dest / "inside"),
+        approved_roots=[str(dest)],
+        security_scoped_bookmark="ZmFrZQ==",
+    )
+    assert nested.security_scoped_path == str(dest / "inside")
 
 
 def test_dash_prefers_highest_video_representation() -> None:

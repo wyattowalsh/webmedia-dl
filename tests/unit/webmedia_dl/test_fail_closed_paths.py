@@ -1292,6 +1292,45 @@ def test_transition_unless_committed_gives_up(
     assert pipeline.queue.get_job(job.job_id).state is JobState.ACCEPTED
 
 
+def test_transition_unless_committed_retries_cas_miss(
+    tmp_data: Path, tmp_path: Path, png_bytes: bytes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    media = _png(tmp_path, png_bytes)
+    pipeline = Pipeline(data_dir=tmp_data)
+    job = pipeline.submit(str(media), wait=False)
+    payload = job.model_dump_json()
+    updates = {"n": 0}
+
+    class Result:
+        def __init__(self, value: object) -> None:
+            self._value = value
+
+        def fetchone(self) -> object:
+            return self._value
+
+    class Conn:
+        def __enter__(self) -> Conn:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def execute(self, sql: object, _params: object = None) -> Result:
+            text_sql = str(sql)
+            if "SELECT job_id, payload, state" in text_sql:
+                return Result((str(job.job_id), payload, JobState.ACCEPTED.value))
+            if "NOT IN" in text_sql:
+                updates["n"] += 1
+                return Result(None)
+            return Result(None)
+
+    monkeypatch.setattr(pipeline.queue.engine, "begin", lambda: Conn())
+    assert pipeline.queue.pause_unless_committed(job.job_id) is None
+    assert updates["n"] == 8
+    monkeypatch.undo()
+    assert pipeline.queue.get_job(job.job_id).state is JobState.ACCEPTED
+
+
 def test_queue_claim_is_atomic_with_pause(tmp_data: Path, tmp_path: Path, png_bytes: bytes) -> None:
     media = _png(tmp_path, png_bytes)
     pipeline = Pipeline(data_dir=tmp_data)

@@ -18,6 +18,7 @@ final class IdentityTests: XCTestCase {
         XCTAssertTrue(client.isLoopback)
         XCTAssertEqual(client.baseURL.host, "127.0.0.1")
         XCTAssertTrue(client.pauseQueueRequest().url?.absoluteString.contains("queue/pause") ?? false)
+        XCTAssertTrue(client.healthRequest().url?.path.hasSuffix("/health") ?? false)
         XCTAssertTrue(client.queueStatusRequest().url?.absoluteString.contains("/v1/queue") ?? false)
         XCTAssertTrue(client.companionRequest(kind: "status").url?.absoluteString.contains("companion") ?? false)
         XCTAssertTrue(
@@ -104,6 +105,14 @@ final class IdentityTests: XCTestCase {
         XCTAssertTrue(bookmark.allows("/Users/me/Movies/clip.mp4"))
         XCTAssertFalse(bookmark.allows("/Users/me/Movies-backup/clip.mp4"))
         XCTAssertFalse(bookmark.allows("/Users/me/Movies/../Movies-backup/clip.mp4"))
+        XCTAssertThrowsError(
+            try WebMediaDLExportIntent(
+                destinationKind: .filesApp,
+                destinationPath: "/Users/me/Movies/../Movies-backup",
+                approvedRoots: ["/Users/me/Movies"],
+                securityScopedBookmark: "ZmFrZQ=="
+            )
+        )
         XCTAssertFalse(WebMediaDLSecurityScopedBookmark(path: "Movies").allows("Movies/clip.mp4"))
         XCTAssertFalse(WebMediaDLPhotoKitDestination(approvedRoot: "/Users/me/Movies").canPublish)
         let clip = WebMediaDLClipboardIntake(text: "see https://cdn.example.com/a.mp4 please")

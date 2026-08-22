@@ -55,6 +55,17 @@ public enum WebMediaDLHttpDirect {
         "application/dash+xml": ".mpd",
     ]
 
+    public static let blockedSchemes: Set<String> = [
+        "file",
+        "javascript",
+        "data",
+        "blob",
+        "about",
+        "chrome",
+        "chrome-extension",
+    ]
+    public static let allowedSchemes: Set<String> = ["http", "https"]
+
     public enum TransferError: Error, LocalizedError, Equatable {
         case invalidLocator
         case pairingRequired
@@ -126,6 +137,26 @@ public enum WebMediaDLHttpDirect {
 
     public typealias Fetch = @Sendable (URL) async throws -> (Int, [String: String], Data)
 
+    public static func mediaURL(from locator: String) -> URL? {
+        let trimmed = locator.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: trimmed),
+              let scheme = url.scheme?.lowercased()
+        else {
+            return nil
+        }
+        if blockedSchemes.contains(scheme) {
+            return nil
+        }
+        guard allowedSchemes.contains(scheme) else {
+            return nil
+        }
+        let host = (url.host ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if host.isEmpty {
+            return nil
+        }
+        return url
+    }
+
     public static func kind(for locator: String) -> WebMediaDLMediaKind {
         let path = (URL(string: locator)?.path ?? locator).lowercased()
         for (ext, kind) in directExtensions where path.hasSuffix(ext) {
@@ -135,11 +166,13 @@ public enum WebMediaDLHttpDirect {
     }
 
     public static func isDirectMediaURL(_ locator: String) -> Bool {
+        guard mediaURL(from: locator) != nil else { return false }
         let kind = kind(for: locator)
         return kind != .page && kind != .unknown
     }
 
     public static func isOnDeviceTransfer(_ locator: String) -> Bool {
+        guard mediaURL(from: locator) != nil else { return false }
         let kind = kind(for: locator)
         return kind != .page && kind != .unknown && kind != .liveStream
     }
@@ -289,10 +322,7 @@ public enum WebMediaDLHttpDirect {
             throw TransferError.unsupportedSurface
         }
         let trimmed = locator.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let url = URL(string: trimmed),
-              let scheme = url.scheme?.lowercased(),
-              scheme == "http" || scheme == "https"
-        else {
+        guard let url = mediaURL(from: trimmed) else {
             throw TransferError.invalidLocator
         }
         let kind = kind(for: trimmed)
