@@ -2,12 +2,12 @@
 
 ## 0.1.0
 
+- Isolated wheel installs report yt-dlp / gallery-dl `BLOCKED` and do not
+  download them. Linux CI doctor JSON also asserts telemetry off and Apple /
+  signing / store / legal / original-pack `BLOCKED`.
 - GitHub Actions `32574079043` on `2628c2f` passed Python (602 pytest, 100%),
   executed `webmedia-dl doctor` with yt-dlp / gallery-dl / ffmpeg version
-  probes PASS, and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED). An
-  isolated wheel install still reports those provider CLIs BLOCKED and does
-  not download them. CI doctor JSON also keeps telemetry off and Apple /
-  signing / store / legal / original-pack gates BLOCKED.
+  probes PASS, and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED).
 - GitHub Actions `32573782710` on `2ee51ec` passed Python (600 pytest, 100%)
   and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after fail-closing
   `container_preference` and installing `yt-dlp` / `gallery-dl` in CI.
