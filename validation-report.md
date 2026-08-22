@@ -70,9 +70,9 @@
 | Acquired remote skip | PASS | resume at `stage=acquired` does not refetch remote media |
 | ImageMagick convert alias | PASS | health and argv resolve IM6 `convert` when `magick` is missing |
 | Job-detail / run-next helpers | PASS | unrelated history rows are skipped; empty queue returns `job: null`; a queued job returns events |
-| Swift Core CI job | PASS | GitHub Actions `ci` run `32538904545` on `94e423b`: `IdentityTests` executed 6 tests, 0 failures on `macos-15` |
-| Swift Core contract tests | PASS | `ContractTests.swift` executed 12 tests, 0 failures with IdentityTests (6) on GitHub `macos-15` run `32543981785` (`691114e`) |
-| Apple package compile CI | PASS | GitHub Actions `ci` run `32543981785` on `691114e`: Core `swift test` 18 tests, 0 failures (`ContractTests` 12 + `IdentityTests` 6); 8× `BUILD SUCCEEDED` (iOS, iOS share parent scheme, iPad, iPad share, vision, vision share, watchOS, tvOS). Device runtime stays BLOCKED |
+| Swift Core CI job | PASS | GitHub Actions `ci` run `32546457257` on `d3804b7`: `IdentityTests` executed 6 tests, 0 failures on `macos-15` |
+| Swift Core contract tests | PASS | `ContractTests.swift` executed 12 tests, 0 failures with IdentityTests (6) on GitHub `macos-15` run `32546457257` (`d3804b7`) |
+| Apple package compile CI | PASS | GitHub Actions `ci` run `32546457257` on `d3804b7`: Core `swift test` 18 tests, 0 failures (`ContractTests` 12 + `IdentityTests` 6); Safari handler `swiftc -typecheck`; 8× `BUILD SUCCEEDED` (iOS, iOS share parent scheme, iPad, iPad share, vision, vision share, watchOS, tvOS). Device runtime stays BLOCKED |
 | OpenSpec scenarios | PASS | every capability spec scenario has WHEN/THEN; each scenario title maps to a named Python or Swift test; popup markup is parsed; drop records `local_path`; local submit does not upload; job submit forbids native argv |
 | Builtin manifests / profiles | PASS | every shipped provider sets `install_automatic` false and `accepts_user_argv` false; every shipped profile forbids telemetry, DRM circumvention, and delegation |
 | Graph relation schema | PASS | Swift `WebMediaDLGraphRelation` raw values match `GraphEdge.relation` |
@@ -110,7 +110,7 @@
 | App Group + pairing clients | PASS | `group.local.webmedia-dl` on apps and share extensions; unauthenticated loopback `POST /v1/pair` bootstrap; Mac-only confirm parses `session_key`; iPhone/iPad/vision derive SHA256(`nonce:mac-confirm`) locally and restore Files bookmarks; watch/tv `lastJobId` comes from companion history/response |
 | Original planning-pack ZIP byte compare | BLOCKED | zip not in this workspace; 159 overlay files reconstructed |
 | Real WatchConnectivity radio | BLOCKED | WCSession scaffolding + queued fallback; no Apple radio on Linux |
-| Safari wrapping / signed NSExtension | BLOCKED | source handler conforms to `NSExtensionRequestHandling`; Xcode wrapping is not executed |
+| Safari wrapping / signed NSExtension | BLOCKED | `swiftc -typecheck` of `SafariWebExtensionHandler.swift` executed on GitHub `macos-15` run `32546457257`; signed Xcode NSExtension wrapping is not executed |
 
 Planning overlay files reconstructed from the 2026-08-18 pack inventory except
 `START_HERE.md`, `product-brief.md`, and `system-architecture.md`, which were

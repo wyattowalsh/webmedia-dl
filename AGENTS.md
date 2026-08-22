@@ -8,7 +8,7 @@
 - Browser capture extensions under `extensions/` (vanilla JS modules).
 - Swift packages under `apps/` for Apple clients. GitHub `macos-15` CI runs
   Core `swift test`, builds the Mac package and share-extension library, and
-  typechecks the remaining Apple packages. Share extensions are library
+  typechecks the remaining Apple packages and `SafariWebExtensionHandler.swift`. Share extensions are library
   products depended on by each complete-client executable. Linux workers do
   not compile Swift. Device UI, signing, and store submission stay BLOCKED.
   Shells: `WebMediaDLMac`, `WebMediaDLiOS`, `WebMediaDLiPadOS`, `WebMediaDLVision`,
