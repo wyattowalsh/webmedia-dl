@@ -2,6 +2,13 @@
 
 ## 0.1.0
 
+- Strip a leading UTF-8 BOM from HLS/DASH bodies so `#EXTM3U` sniffing and
+  playlist parsing do not treat `\ufeff#EXTM3U` as a segment URI. A BOM-prefixed
+  AES-128 playlist now refuses before any segment fetch instead of recording the
+  BOM line as a clear prefix. GitHub Actions `32590177267` on `efeb6fb` passed
+  Python (626 pytest, 100%), doctor provider probes, and Swift (18 tests,
+  0 failures; 12× BUILD SUCCEEDED) after joining relative segments beside
+  trailing-slash playlist locators.
 - Classify media and script-asset locators after stripping trailing slashes so
   `live.m3u8/` stays `live_stream` and `embed.js/` cannot steal preferred VIDEO
   from `clip.mp4`. Capture `a[href]` / iframe / preload regexes match the same

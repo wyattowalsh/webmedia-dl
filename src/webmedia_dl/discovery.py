@@ -278,7 +278,7 @@ def _sniff_live_manifest(content_type: str, body: str) -> bool:
     """True when a non-HTML fetch is itself an HLS/DASH playlist."""
     if _kind_from_mime(content_type) is MediaKind.LIVE_STREAM:
         return True
-    stripped = body.lstrip()
+    stripped = body.lstrip("\ufeff").lstrip()
     if stripped.startswith("#EXTM3U"):
         return True
     if "html" in content_type.lower():

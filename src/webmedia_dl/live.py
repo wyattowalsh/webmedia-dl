@@ -114,6 +114,14 @@ def _hls_attr_map(blob: str) -> tuple[dict[str, str], set[str]]:
     return parsed, duplicates
 
 
+def _hls_line(text: str) -> str:
+    return text.strip().lstrip("\ufeff")
+
+
+def _without_bom(text: str) -> str:
+    return text.lstrip("\ufeff")
+
+
 def _hls_tag_method(stripped: str, tag: str) -> str | None:
     if not stripped.upper().startswith(tag):
         return None
@@ -128,7 +136,7 @@ def _hls_tag_method(stripped: str, tag: str) -> str | None:
 
 def _first_encrypted_method(text: str, tag: str) -> str | None:
     for line in text.splitlines():
-        method = _hls_tag_method(line.strip(), tag)
+        method = _hls_tag_method(_hls_line(line), tag)
         if method is not None and method != "NONE":
             return method
     return None
@@ -169,6 +177,7 @@ def _refuse_hls_playlist_drm(text: str) -> None:
 
 
 def inspect_manifest(text: str) -> None:
+    text = _without_bom(text)
     dash = _is_dash_manifest(text)
     if dash:
         refuse_drm(detect_drm_signals(text))
@@ -187,6 +196,7 @@ def recordable_segment_urls(text: str, base: str) -> list[str]:
 
 
 def recordable_parts(text: str, base: str) -> list[ManifestPart]:
+    text = _without_bom(text)
     dash = _is_dash_manifest(text)
     if dash:
         refuse_drm(detect_drm_signals(text))
@@ -245,7 +255,7 @@ def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
     media_sequence = 0
     index = 0
     for line in text.splitlines():
-        stripped = line.strip()
+        stripped = _hls_line(line)
         if not stripped:
             continue
         if stripped.upper().startswith("#EXT-X-MEDIA-SEQUENCE:"):
@@ -633,7 +643,7 @@ def _preferred_hls_variant(text: str, base: str) -> str | None:
     variants: list[tuple[int, str]] = []
     pending: int | None = None
     for line in text.splitlines():
-        stripped = line.strip()
+        stripped = _hls_line(line)
         if stripped.startswith("#EXT-X-STREAM-INF:"):
             attrs, duplicates = _hls_attr_map(stripped.split(":", 1)[1])
             raw = attrs.get("BANDWIDTH")
@@ -961,7 +971,7 @@ def hls_audio_playlist_urls(text: str, base: str) -> list[str]:
     urls: list[str] = []
     seen: set[str] = set()
     for line in text.splitlines():
-        stripped = line.strip()
+        stripped = _hls_line(line)
         if not stripped.startswith("#EXT-X-MEDIA:"):
             continue
         attrs, _duplicates = _hls_attr_map(stripped.split(":", 1)[1])
@@ -1055,7 +1065,7 @@ def record_clear_stream(
     drm_flag: list[bool] | None = None,
 ) -> Path:
     dest = output
-    playlist = playlist_text
+    playlist = _without_bom(playlist_text)
     bound = budget or ByteBudget(max_bytes)
     if _DASH_CONTENT_PROTECTION.search(playlist):
         msg = "DASH ContentProtection is refused."
@@ -1139,7 +1149,7 @@ def record_clear_stream(
         status, _, data = fetch(playlist_url)
         if status >= 400:
             break
-        playlist = data.decode("utf-8", errors="replace")
+        playlist = _without_bom(data.decode("utf-8", errors="replace"))
         round_index += 1
     if not dest.exists() or dest.stat().st_size == 0 or written == 0:
         msg = "Live recording produced an empty artifact."
@@ -1159,6 +1169,7 @@ def record_kind_streams(
 ) -> list[tuple[MediaKind, Path]]:
     """Record the primary stream plus a separate audio rendition when present."""
     inspect_manifest(playlist_text)
+    playlist_text = _without_bom(playlist_text)
     bound = ByteBudget(max_bytes)
     dash = _is_dash_manifest(playlist_text)
     if dash:

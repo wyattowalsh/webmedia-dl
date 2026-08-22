@@ -484,6 +484,17 @@ def test_page_discovery_http_error_non_html_and_jsonld_podcast() -> None:
     )
     assert hls[0].media_kind is MediaKind.LIVE_STREAM
     assert hls[0].evidence_refs == ["intake:manifest"]
+    bom_hls = discover(
+        _source(),
+        profile,
+        fetch=lambda url: (
+            200,
+            "application/octet-stream",
+            b"\xef\xbb\xbf#EXTM3U\n#EXTINF:1,\nseg.ts\n",
+        ),
+    )
+    assert bom_hls[0].media_kind is MediaKind.LIVE_STREAM
+    assert bom_hls[0].evidence_refs == ["intake:manifest"]
     mpegurl = discover(
         _source(),
         profile,
@@ -510,6 +521,16 @@ def test_page_discovery_http_error_non_html_and_jsonld_podcast() -> None:
         ),
     )
     assert namespaced[0].media_kind is MediaKind.LIVE_STREAM
+    bom_dash = discover(
+        _source(),
+        profile,
+        fetch=lambda url: (
+            200,
+            "application/octet-stream",
+            b'\xef\xbb\xbf<MPD xmlns="urn:mpeg:dash:schema:mpd:2011"><Period/></MPD>',
+        ),
+    )
+    assert bom_dash[0].media_kind is MediaKind.LIVE_STREAM
     classic = MediaSource(
         kind=IntakeKind.URL,
         locator="https://cdn.example.com/live.m3u",
