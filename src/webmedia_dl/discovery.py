@@ -295,7 +295,7 @@ def _document_base(page_url: str, base_href: str | None) -> str:
     if not href:
         return page_url
     resolved = urljoin(page_url, href)
-    parsed   = urlparse(resolved)
+    parsed = urlparse(resolved)
     scheme = (parsed.scheme or "").lower()
     if scheme in BLOCKED_SCHEMES or scheme not in {"http", "https"} or not parsed.netloc:
         return page_url
