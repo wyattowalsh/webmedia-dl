@@ -198,7 +198,7 @@ def recordable_parts(text: str, base: str) -> list[ManifestPart]:
 
 
 def _join(base: str, href: str) -> str:
-    return href if href.startswith("http") else urljoin(base, href)
+    return urljoin(base, href)
 
 
 def _parse_dash_range(text: str | None) -> tuple[int | None, int | None]:

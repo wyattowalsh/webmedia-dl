@@ -50,6 +50,16 @@ def test_relative_segment_urls_join_base() -> None:
     text = "#EXTM3U\n#EXT-X-KEY:METHOD=NONE\nseg.ts\n"
     urls = recordable_segment_urls(text, "https://cdn.example.com/live/index.m3u8")
     assert urls == ["https://cdn.example.com/live/seg.ts"]
+    prefixed = "#EXTM3U\nhttp-seg.ts\nhttps-clip.ts\n"
+    urls = recordable_segment_urls(prefixed, "https://cdn.example.com/live/index.m3u8")
+    assert urls == [
+        "https://cdn.example.com/live/http-seg.ts",
+        "https://cdn.example.com/live/https-clip.ts",
+    ]
+    absolute = "#EXTM3U\nhttps://cdn.example.com/abs.ts\n"
+    assert recordable_segment_urls(absolute, "https://cdn.example.com/live/index.m3u8") == [
+        "https://cdn.example.com/abs.ts"
+    ]
 
 
 def test_encrypted_master_refused_before_fetch(tmp_path: Path) -> None:

@@ -2,6 +2,9 @@
 
 ## 0.1.0
 
+- Join live segment URIs with `urljoin` so a relative `http-seg.ts` is not
+  treated as an absolute URL. `startswith("http")` stole those names from
+  the playlist base.
 - GitHub Actions `32581604639` on `000f55c` passed Python (624 pytest, 100%),
   doctor provider probes, and Swift (18 tests, 0 failures; 12× BUILD
   SUCCEEDED) after collecting JSON-LD scripts that declare a charset.
