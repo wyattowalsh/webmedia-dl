@@ -1,8 +1,8 @@
 import SwiftUI
-import UIKit
 import WebMediaDLCore
 
 /// tvOS capture, status, history, and controls. Not a subprocess worker.
+/// tvOS has no pasteboard string API; capture is typed URL only.
 /// The paired Mac forwards companion messages to the loopback worker.
 public struct WebMediaDLTVRootView: View {
     private let role = WebMediaDLClientRole.captureAndStatus
@@ -18,16 +18,16 @@ public struct WebMediaDLTVRootView: View {
     public var body: some View {
         NavigationStack {
             List {
-                TextField("Clipboard or typed URL", text: $locator)
+                TextField("URL", text: $locator)
                     .accessibilityLabel("Media URL")
-                Button("Capture from clipboard") {
+                Button("Capture URL") {
                     Task {
-                        let clip = WebMediaDLClipboardIntake(text: UIPasteboard.general.string ?? locator)
+                        let clip = WebMediaDLClipboardIntake(text: locator)
                         locator = clip.locator ?? locator
                         await send(kind: "capture", locator: locator)
                     }
                 }
-                .accessibilityLabel("Capture from clipboard")
+                .accessibilityLabel("Capture URL")
                 Text(status)
                     .accessibilityLabel("Job status")
                 Button("History") {

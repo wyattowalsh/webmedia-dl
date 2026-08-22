@@ -216,6 +216,7 @@ extension WebMediaDLWatchConnectivityTransport: WCSessionDelegate {
 public final class WebMediaDLMacWatchConnectivityDelegate: NSObject, @unchecked Sendable {
     public var forwarder: WebMediaDLMacCompanionForwarder
     public var relay = WebMediaDLCompanionRelay()
+    public var autoForward = false
 
     public init(forwarder: WebMediaDLMacCompanionForwarder) {
         self.forwarder = forwarder
@@ -248,6 +249,32 @@ public final class WebMediaDLMacWatchConnectivityDelegate: NSObject, @unchecked 
         }
         forwarder.receiveWatchConnectivityUserInfo(typed, into: &relay)
         _ = sessionName
+        if autoForward {
+            let queued  = relay
+            relay       = WebMediaDLCompanionRelay()
+            let current = forwarder
+            Task {
+                do {
+                    let bodies: [String]
+                    if let pairingId = current.client.pairingId,
+                       let session = current.client.sessionKey,
+                       !session.isEmpty {
+                        bodies = try await current.forwardSealed(
+                            queued,
+                            pairingId: pairingId,
+                            sessionKey: session
+                        )
+                    } else {
+                        bodies = try await current.forward(queued)
+                    }
+                    if let body = bodies.last {
+                        sendResponse(["kind": "response", "body": body])
+                    }
+                } catch {
+                    sendResponse(["kind": "error", "body": error.localizedDescription])
+                }
+            }
+        }
         #if canImport(WatchConnectivity)
         _ = WCSession.default.activationState
         #endif

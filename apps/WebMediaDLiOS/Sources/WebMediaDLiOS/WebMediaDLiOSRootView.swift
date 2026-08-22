@@ -67,6 +67,21 @@ public struct WebMediaDLiOSRootView: View {
                         Text(filesBookmark.path)
                             .accessibilityLabel("Approved Files destination")
                     }
+                    Button("Save on this device") {
+                        Task {
+                            do {
+                                let result = try await WebMediaDLHttpDirect.transfer(
+                                    locator: locator,
+                                    bookmark: filesBookmark
+                                )
+                                status = "Saved on this device \(result.outputPath)"
+                                lastJobId = result.jobId
+                            } catch {
+                                status = error.localizedDescription
+                            }
+                        }
+                    }
+                    .accessibilityLabel("Save on this device")
                     Button("Send to paired Mac") {
                         Task {
                             let files = filesBookmark.path.isEmpty

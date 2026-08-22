@@ -368,7 +368,8 @@ def test_companion_transport_and_typed_history() -> None:
     assert "surface: .watchos" in watch
     assert "surface: .tvos" in tv
     assert "WebMediaDLClipboardIntake" in tv
-    assert "UIPasteboard" in tv
+    assert "UIPasteboard" not in tv
+    assert "Capture URL" in tv
     assert "transport.send" in watch
     assert "transport.send" in tv
     assert "activateSession()" in watch
@@ -668,3 +669,63 @@ def test_github_ci_compiles_apple_packages() -> None:
         if "ShareExtension" in text:
             assert f'.library(name: "{share}"' in text
             assert f'"{share}"' in text
+    assert "testHttpDirectSavesClearMediaAndRefusesDrm" in contracts
+    assert "testDomainInvariantsFailClosed" in contracts
+
+
+def test_complete_clients_http_direct_and_shared_domain() -> None:
+    root = repo_root()
+    domain = (root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/Domain.swift").read_text(
+        encoding="utf-8"
+    )
+    http_direct = (root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/HttpDirect.swift").read_text(
+        encoding="utf-8"
+    )
+    assert "A source URL never becomes a filesystem path." in domain
+    assert "A display title never becomes artifact identity." in domain
+    assert "A provider never receives arbitrary user arguments." in domain
+    assert "A planned or simulated check never becomes runtime PASS." in domain
+    assert "DRM circumvention is forbidden." in domain
+    assert 'capabilityId: "acquire.http"' in domain
+    assert 'providerId: "http-direct"' in domain
+    assert 'capabilityId: "acquire.ytdlp"' in domain
+    assert "WebMediaDLCapabilityRegistry" in domain
+    assert "never launches yt-dlp, ffmpeg, or gallery-dl" in http_direct
+    assert "Process(" not in http_direct
+    assert 'providerId = "http-direct"' in http_direct
+    assert "isOnDeviceTransfer" in http_direct
+    assert "liveRequiresMac" in http_direct
+    assert "pairingRequired" in http_direct
+    assert "drmRefused" in http_direct
+    assert "saveIfDirect" in http_direct
+    ios = (root / ROOT_VIEWS["ios"]).read_text(encoding="utf-8")
+    ipad = (root / ROOT_VIEWS["ipados"]).read_text(encoding="utf-8")
+    vision = (root / ROOT_VIEWS["visionos"]).read_text(encoding="utf-8")
+    watch = (root / ROOT_VIEWS["watchos"]).read_text(encoding="utf-8")
+    tv = (root / ROOT_VIEWS["tvos"]).read_text(encoding="utf-8")
+    mac = (root / ROOT_VIEWS["macos"]).read_text(encoding="utf-8")
+    for text in (ios, ipad, vision):
+        assert "Save on this device" in text
+        assert "WebMediaDLHttpDirect.transfer" in text
+        assert "Lightweight HTTP jobs stay on-device" in text
+        assert "Send to paired Mac" in text
+    assert "Save on this device" not in watch
+    assert "Save on this device" not in tv
+    assert "WebMediaDLHttpDirect" not in watch
+    assert "WebMediaDLHttpDirect" not in tv
+    assert "UIPasteboard" not in tv
+    assert "autoForward = true" in mac
+    assert "bindWatchDelegate" in mac
+    continuity = (
+        root / "apps/WebMediaDLCore/Sources/WebMediaDLCore/ContinuityBridge.swift"
+    ).read_text(encoding="utf-8")
+    assert "public var autoForward" in continuity
+    assert "forwardSealed" in continuity
+    for rel in (
+        "apps/WebMediaDLiOS/Sources/WebMediaDLiOS/WebMediaDLSubmitURLIntent.swift",
+        "apps/WebMediaDLiPadOS/Sources/WebMediaDLiPadOS/WebMediaDLiPadOSSubmitURLIntent.swift",
+        "apps/WebMediaDLVision/Sources/WebMediaDLVision/WebMediaDLVisionSubmitURLIntent.swift",
+    ):
+        text = (root / rel).read_text(encoding="utf-8")
+        assert "WebMediaDLHttpDirect.saveIfDirect" in text
+        assert "WebMediaDLWorkerCredentials.loadClient()" in text

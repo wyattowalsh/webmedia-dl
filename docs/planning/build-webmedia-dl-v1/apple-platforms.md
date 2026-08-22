@@ -13,4 +13,14 @@ last_reviewed: 2026-08-18
 | iPhone / iPad / visionOS | Complete clients | Lightweight HTTP locally; yt-dlp only after Mac pairing confirmation |
 | watchOS / tvOS | Capture, status, history, pause/resume controls | Never subprocess workers |
 
-Loopback only: `http://127.0.0.1:8765`. Photos/Files/Share destinations require a user-approved root. Swift packages are under `apps/`. GitHub `macos-15` CI runs Core `swift test`, builds the Mac package including the share-extension library product, and typechecks iOS/iPadOS/visionOS/watchOS/tvOS packages. Share extensions are library products depended on by the executable so `xcodebuild` compiles them even when SwiftPM does not auto-generate a scheme. Apple device runtime, signing, and store submission stay BLOCKED.
+Loopback worker: `http://127.0.0.1:8765`. Complete clients also run on-device
+`http-direct` (`URLSession`) into a user-approved Files bookmark for locators that
+already name a media object. Page locators, encrypted HLS/DASH, and live
+manifests fail closed locally and require a paired Mac. tvOS capture is typed URL
+only (`UIPasteboard` is unavailable). Photos/Files/Share destinations require a
+user-approved root. Swift packages are under `apps/`. GitHub `macos-15` CI runs
+Core `swift test`, builds the Mac package including the share-extension library
+product, and typechecks iOS/iPadOS/visionOS/watchOS/tvOS packages. Share
+extensions are library products depended on by the executable so `xcodebuild`
+compiles them even when SwiftPM does not auto-generate a scheme. Apple device
+runtime, signing, and store submission stay BLOCKED.

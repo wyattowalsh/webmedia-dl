@@ -9,7 +9,7 @@ public struct WebMediaDLiPadOSRootView: View {
     @State private var pairingId = ""
     @State private var sessionKey = ""
     @State private var status = "Pair with a Mac for yt-dlp and ffmpeg."
-    @State private var historyText = "Paired Mac history appears after confirmation."
+    @State private var historyText = "Lightweight HTTP jobs stay on-device. Heavy work waits for Mac confirmation."
     @State private var history: [WebMediaDLHistoryEntry] = []
     @State private var lastJobId: UUID?
     @State private var filesBookmark = WebMediaDLSecurityScopedBookmark(path: "")
@@ -74,6 +74,21 @@ public struct WebMediaDLiPadOSRootView: View {
                     Text(filesBookmark.path)
                         .accessibilityLabel("Approved Files destination")
                 }
+                Button("Save on this device") {
+                    Task {
+                        do {
+                            let result = try await WebMediaDLHttpDirect.transfer(
+                                locator: locator,
+                                bookmark: filesBookmark
+                            )
+                            status = "Saved on this device \(result.outputPath)"
+                            lastJobId = result.jobId
+                        } catch {
+                            status = error.localizedDescription
+                        }
+                    }
+                }
+                .accessibilityLabel("Save on this device")
                 Button("Send to paired Mac") {
                     Task {
                         let files = filesBookmark.path.isEmpty

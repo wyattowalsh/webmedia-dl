@@ -243,28 +243,42 @@ struct MacRootView: View {
                     filesBookmark = WebMediaDLSecurityScopedBookmark(path: "", bookmarkData: data).resolve()
                     approvedRoot = filesBookmark.path
                 }
-                let client = WebMediaDLLoopbackClient(
-                    token: token,
-                    pairingId: UUID(uuidString: pairingId),
-                    sessionKey: sessionKey.isEmpty ? nil : sessionKey
-                )
-                let delegate = WebMediaDLMacWatchConnectivityDelegate(
-                    forwarder: WebMediaDLMacCompanionForwarder(client: client)
-                )
-                delegate.activateSession()
-                watchDelegate = delegate
+                bindWatchDelegate()
             }
             .onChange(of: token) { _, value in
                 WebMediaDLWorkerCredentials.defaults().set(value, forKey: WebMediaDLWorkerCredentials.tokenDefaultsKey)
+                bindWatchDelegate()
             }
             .onChange(of: pairingId) { _, value in
                 WebMediaDLWorkerCredentials.defaults().set(value, forKey: WebMediaDLWorkerCredentials.pairingDefaultsKey)
+                bindWatchDelegate()
             }
             .onChange(of: sessionKey) { _, value in
                 WebMediaDLWorkerCredentials.defaults().set(value, forKey: WebMediaDLWorkerCredentials.sessionDefaultsKey)
+                bindWatchDelegate()
             }
         }
         .frame(minWidth: 480, minHeight: 320)
+    }
+
+    @MainActor
+    private func bindWatchDelegate() {
+        let client = WebMediaDLLoopbackClient(
+            token: token,
+            pairingId: UUID(uuidString: pairingId),
+            sessionKey: sessionKey.isEmpty ? nil : sessionKey
+        )
+        if let existing = watchDelegate {
+            existing.forwarder = WebMediaDLMacCompanionForwarder(client: client)
+            existing.autoForward = true
+            return
+        }
+        let delegate = WebMediaDLMacWatchConnectivityDelegate(
+            forwarder: WebMediaDLMacCompanionForwarder(client: client)
+        )
+        delegate.autoForward = true
+        delegate.activateSession()
+        watchDelegate = delegate
     }
 
     @MainActor

@@ -245,4 +245,171 @@ final class ContractTests: XCTestCase {
         delegate.activateSession()
         delegate.sendResponse(["kind": "response", "body": "ok"])
     }
+
+    func testDomainInvariantsFailClosed() throws {
+        XCTAssertThrowsError(
+            try WebMediaDLMediaSource(
+                kind: .url,
+                locator: "https://cdn.example.com/a.mp4",
+                localPath: "/tmp/a.mp4",
+                surface: .ios,
+                policyProfileId: "personal-restricted"
+            )
+        )
+        XCTAssertThrowsError(
+            try WebMediaDLPolicyProfile(
+                profileId: "bad",
+                displayName: "bad",
+                allowedCapabilities: ["acquire.http"],
+                drmCircumvention: true
+            )
+        )
+        XCTAssertThrowsError(
+            try WebMediaDLPolicyProfile(
+                profileId: "bad",
+                displayName: "bad",
+                allowedCapabilities: ["acquire.http"],
+                telemetryDefault: true
+            )
+        )
+        XCTAssertThrowsError(
+            try WebMediaDLAcquisitionStrategy(
+                strategyId: "http-direct",
+                providerId: "http-direct",
+                capabilityId: "acquire.http",
+                extraArgs: ["--user"]
+            )
+        )
+        XCTAssertThrowsError(
+            try WebMediaDLArtifact(
+                artifactId: "Clip",
+                role: .source,
+                sha256: "abc",
+                byteSize: 1,
+                mediaKind: .video,
+                storageRelpath: "a.mp4",
+                provenance: ["title": "Clip"]
+            )
+        )
+        XCTAssertThrowsError(
+            try WebMediaDLValidationResult(
+                jobId: UUID(),
+                targetArtifactId: "sha256:abc",
+                gateId: "validate.hash",
+                status: .pass,
+                message: "planned",
+                planned: true
+            )
+        )
+        let source = try WebMediaDLArtifact(
+            artifactId: "sha256:abc",
+            role: .source,
+            sha256: "abc",
+            byteSize: 4,
+            mediaKind: .image,
+            storageRelpath: "a.png"
+        )
+        XCTAssertTrue(source.immutable)
+        XCTAssertTrue(WebMediaDLCapabilityRegistry.allows(.acquireHTTP, on: .ios))
+        XCTAssertFalse(WebMediaDLCapabilityRegistry.allows(.acquireYtdlp, on: .ios))
+        XCTAssertFalse(WebMediaDLCapabilityRegistry.allows(.liveRecord, on: .ios))
+        XCTAssertTrue(WebMediaDLCapabilityRegistry.allows(.acquireYtdlp, on: .macos))
+        let watch = WebMediaDLWorker(
+            workerId: "watch",
+            platform: .watchos,
+            profileId: "watch-capture",
+            capabilities: [],
+            subprocessCapable: false
+        )
+        XCTAssertFalse(watch.subprocessCapable)
+        XCTAssertThrowsError(
+            try WebMediaDLExportIntent(
+                destinationKind: .filesApp,
+                destinationPath: "/tmp",
+                approvedRoots: ["/tmp"]
+            )
+        )
+    }
+
+    func testHttpDirectSavesClearMediaAndRefusesDrm() async throws {
+        XCTAssertTrue(WebMediaDLHttpDirect.isOnDeviceTransfer("https://cdn.example.com/a.mp4"))
+        XCTAssertFalse(WebMediaDLHttpDirect.isOnDeviceTransfer("https://www.youtube.com/watch?v=1"))
+        XCTAssertFalse(WebMediaDLHttpDirect.isOnDeviceTransfer("https://cdn.example.com/live.m3u8"))
+        XCTAssertTrue(WebMediaDLHttpDirect.isDirectMediaURL("https://cdn.example.com/live.m3u8"))
+        XCTAssertTrue(WebMediaDLHttpDirect.hlsKeyIsProtected("#EXT-X-KEY:METHOD=AES-128,URI=\"https://cdn.example.com/key\""))
+        XCTAssertFalse(WebMediaDLHttpDirect.hlsKeyIsProtected("#EXT-X-KEY:METHOD=NONE"))
+        XCTAssertFalse(WebMediaDLHttpDirect.drmSignals(in: "#EXT-X-KEY:METHOD=NONE").contains("ext-x-key"))
+
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("wmdl-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let bookmark = WebMediaDLSecurityScopedBookmark(path: root.path)
+
+        let png: [UInt8] = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]
+        let saved = try await WebMediaDLHttpDirect.transfer(
+            locator: "https://cdn.example.com/photo.png",
+            bookmark: bookmark,
+            fetch: { _ in (200, ["Content-Type": "image/png"], Data(png)) }
+        )
+        XCTAssertEqual(saved.providerId, "http-direct")
+        XCTAssertTrue(saved.argv.isEmpty)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: saved.outputPath))
+        XCTAssertTrue(saved.artifactId.hasPrefix("sha256:"))
+        XCTAssertEqual(saved.byteSize, png.count)
+
+        do {
+            _ = try await WebMediaDLHttpDirect.transfer(
+                locator: "https://cdn.example.com/clip.mp4",
+                bookmark: bookmark,
+                fetch: { _ in (200, [:], Data("#EXT-X-KEY:METHOD=AES-128".utf8)) }
+            )
+            XCTFail("encrypted body must refuse before write")
+        } catch WebMediaDLHttpDirect.TransferError.drmRefused {
+            ()
+        }
+        do {
+            _ = try await WebMediaDLHttpDirect.transfer(
+                locator: "https://www.youtube.com/watch?v=1",
+                bookmark: bookmark,
+                fetch: { _ in (200, [:], Data()) }
+            )
+            XCTFail("page locators must not fetch")
+        } catch WebMediaDLHttpDirect.TransferError.pairingRequired {
+            ()
+        }
+        do {
+            _ = try await WebMediaDLHttpDirect.transfer(
+                locator: "https://cdn.example.com/live.m3u8",
+                bookmark: bookmark,
+                fetch: { _ in XCTFail("live must not fetch"); return (200, [:], Data()) }
+            )
+            XCTFail("live must stay on the Mac")
+        } catch WebMediaDLHttpDirect.TransferError.liveRequiresMac {
+            ()
+        }
+        do {
+            _ = try await WebMediaDLHttpDirect.transfer(
+                locator: "https://cdn.example.com/a.mp4",
+                bookmark: WebMediaDLSecurityScopedBookmark(path: "")
+            )
+            XCTFail("empty Files root must fail closed")
+        } catch WebMediaDLHttpDirect.TransferError.filesDestinationRequired {
+            ()
+        }
+        do {
+            _ = try await WebMediaDLHttpDirect.transfer(
+                locator: "https://cdn.example.com/clip.mp4",
+                bookmark: bookmark,
+                fetch: { _ in (403, [:], Data("nope".utf8)) }
+            )
+            XCTFail("HTTP errors must not publish")
+        } catch WebMediaDLHttpDirect.TransferError.httpStatus(let code) {
+            XCTAssertEqual(code, 403)
+        }
+        let skipped = try await WebMediaDLHttpDirect.saveIfDirect(
+            locator: "https://www.youtube.com/watch?v=1",
+            bookmarkData: nil
+        )
+        XCTAssertNil(skipped)
+    }
 }
