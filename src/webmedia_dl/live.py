@@ -831,13 +831,15 @@ def _dash_adaptation_groups(
     *,
     period_seconds: float | None = None,
     inherited_timescale: str | None = None,
+    inherited_templates: str = "",
 ) -> list[tuple[int, str, list[ManifestPart]]]:
     without_rep = _strip_blocks(text, _REPRESENTATION)
     parts, seen_urls, add = _new_part_bucket()
     as_base = _collect_baseurls(
         without_rep, base, add, emit_files=not _has_indexed_segments(without_rep)
     )
-    inherited = without_rep if _DASH_TEMPLATE.search(without_rep) else ""
+    as_inherited = without_rep if _DASH_TEMPLATE.search(without_rep) else ""
+    inherited = as_inherited or inherited_templates
     as_kind = _dash_kind(as_attrs)
     timescale = as_attrs.get("timescale") or inherited_timescale
     representations = list(_REPRESENTATION.finditer(text))
@@ -921,6 +923,7 @@ def _period_kind_parts(
     )
     groups: list[tuple[int, str, list[ManifestPart]]] = []
     adaptations = list(_ADAPTATION_SET.finditer(body))
+    period_inherited = period_without_as if _DASH_TEMPLATE.search(period_without_as) else ""
     if not adaptations:
         groups.extend(
             _dash_scope_groups(
@@ -931,8 +934,13 @@ def _period_kind_parts(
             )
         )
     else:
+        leftover = (
+            _strip_blocks(period_without_as, _DASH_TEMPLATE)
+            if period_inherited
+            else period_without_as
+        )
         _collect_segments(
-            period_without_as,
+            leftover,
             period_base,
             shared_add,
             shared_urls,
@@ -947,6 +955,7 @@ def _period_kind_parts(
                     _attrs(adaptation.group(1)),
                     period_seconds=period_seconds,
                     inherited_timescale=inherited_timescale,
+                    inherited_templates=period_inherited,
                 )
             )
     selected = _select_dash_kinds(groups) if groups else {"video": list(shared)}

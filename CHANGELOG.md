@@ -2,6 +2,13 @@
 
 ## 0.1.0
 
+- Bind Period-level DASH `SegmentTemplate` values onto self-closing
+  Representation children so `$RepresentationID$` / `$Number$` locators are
+  recorded instead of an empty source. An AdaptationSet template still
+  overwrites a Period template. GitHub Actions `32593583542` on `5db92a7`
+  passed Python (626 pytest, 100%), doctor provider probes, and Swift (18
+  tests, 0 failures; 12× BUILD SUCCEEDED) after inferring DASH Period windows
+  from `@start`.
 - Infer DASH Period presentation windows from `@start` (and the last Period
   through MPD `mediaPresentationDuration`) when `@duration` is omitted, so
   `$Number$` expansion records each Period's segments instead of a single

@@ -123,6 +123,35 @@ def test_dash_adaptationset_binds_self_closing_representation() -> None:
     assert recordable_segment_urls(listed, "https://cdn.example.com/manifest.mpd") == [
         "https://cdn.example.com/v1.mp4"
     ]
+    period_template = """
+    <MPD mediaPresentationDuration="PT4S">
+      <Period>
+        <SegmentTemplate media="$RepresentationID$/$Number$.m4s" startNumber="1" duration="2" timescale="1"/>
+        <AdaptationSet mimeType="video/mp4">
+          <Representation id="v1" bandwidth="800000"/>
+        </AdaptationSet>
+      </Period>
+    </MPD>
+    """
+    assert recordable_segment_urls(period_template, "https://cdn.example.com/") == [
+        "https://cdn.example.com/v1/1.m4s",
+        "https://cdn.example.com/v1/2.m4s",
+    ]
+    as_template_wins = """
+    <MPD mediaPresentationDuration="PT4S">
+      <Period>
+        <SegmentTemplate media="period/$Number$.m4s" startNumber="1" duration="2" timescale="1"/>
+        <AdaptationSet mimeType="video/mp4">
+          <SegmentTemplate media="as/$RepresentationID$/$Number$.m4s" startNumber="1" duration="2" timescale="1"/>
+          <Representation id="v1" bandwidth="800000"/>
+        </AdaptationSet>
+      </Period>
+    </MPD>
+    """
+    assert recordable_segment_urls(as_template_wins, "https://cdn.example.com/") == [
+        "https://cdn.example.com/as/v1/1.m4s",
+        "https://cdn.example.com/as/v1/2.m4s",
+    ]
 
 
 def test_dynamic_mpd_polls_new_segments(tmp_path: Path) -> None:
