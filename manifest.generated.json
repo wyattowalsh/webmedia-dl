@@ -368,6 +368,7 @@
     "tests/unit/webmedia_dl/test_openspec_shall_gaps.py",
     "tests/unit/webmedia_dl/test_p0_correctness.py",
     "tests/unit/webmedia_dl/test_p2_contracts.py",
+    "tests/unit/webmedia_dl/test_pack_executed_gates.py",
     "tests/unit/webmedia_dl/test_pack_gap_fixes.py",
     "tests/unit/webmedia_dl/test_pack_gaps.py",
     "tests/unit/webmedia_dl/test_pairing_surfaces.py",

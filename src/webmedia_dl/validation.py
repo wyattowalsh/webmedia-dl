@@ -6,7 +6,7 @@ from pathlib import Path
 from uuid import UUID
 
 from webmedia_dl.domain.enums import EvidenceStatus
-from webmedia_dl.domain.models import Artifact, MediaProbe, ValidationResult
+from webmedia_dl.domain.models import Artifact, MediaProbe, StreamInfo, ValidationResult
 from webmedia_dl.errors import SimulatedPassError, ValidationFailed
 from webmedia_dl.identity import sha256_file
 from webmedia_dl.probe import probe_media
@@ -211,6 +211,72 @@ def validate_probe(
 
 
 IDENTITY_GATES = ("hash-match", "size-match")
+PARITY_SLACK_MS = 500
+PARITY_SLACK_RATIO = 0.05
+
+
+def _stream_signature(stream: StreamInfo) -> tuple[str, str]:
+    return (stream.media_kind.value, (stream.codec or "").lower())
+
+
+def validate_semantic_parity(
+    job_id: UUID,
+    artifact: Artifact,
+    source: MediaProbe | None,
+    derivative: MediaProbe | None,
+) -> list[ValidationResult]:
+    """Compare stream-copy derivatives against source probe facts."""
+    if source is None or derivative is None:
+        return [
+            record_result(
+                job_id=job_id,
+                artifact_id=artifact.artifact_id,
+                gate_id="semantic-parity",
+                status=EvidenceStatus.BLOCKED,
+                message="Semantic parity requires executed ffprobe facts for source and derivative.",
+                executed=False,
+            )
+        ]
+    source_sig = sorted(_stream_signature(item) for item in source.streams)
+    dest_sig = sorted(_stream_signature(item) for item in derivative.streams)
+    if source_sig != dest_sig:
+        return [
+            record_result(
+                job_id=job_id,
+                artifact_id=artifact.artifact_id,
+                gate_id="semantic-parity",
+                status=EvidenceStatus.FAIL,
+                message="Stream-copy derivative dropped or changed codecs.",
+                details={"source": source_sig, "derivative": dest_sig},
+            )
+        ]
+    if source.duration_ms is not None and derivative.duration_ms is not None:
+        slack = max(PARITY_SLACK_MS, int(PARITY_SLACK_RATIO * source.duration_ms))
+        if abs(source.duration_ms - derivative.duration_ms) > slack:
+            return [
+                record_result(
+                    job_id=job_id,
+                    artifact_id=artifact.artifact_id,
+                    gate_id="semantic-parity",
+                    status=EvidenceStatus.FAIL,
+                    message="Stream-copy duration drifted beyond the allowed slack.",
+                    details={
+                        "source_ms": source.duration_ms,
+                        "derivative_ms": derivative.duration_ms,
+                        "slack_ms": slack,
+                    },
+                )
+            ]
+    return [
+        record_result(
+            job_id=job_id,
+            artifact_id=artifact.artifact_id,
+            gate_id="semantic-parity",
+            status=EvidenceStatus.PASS,
+            message="Stream-copy derivative keeps source codecs and duration.",
+            details={"streams": source_sig, "duration_ms": derivative.duration_ms},
+        )
+    ]
 
 
 def require_pass(

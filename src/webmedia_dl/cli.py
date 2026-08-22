@@ -269,7 +269,12 @@ def drop(
 
 @app.command()
 def companion(
-    kind: Annotated[str, typer.Argument(help="capture, pause, resume, history, status, cancel")],
+    kind: Annotated[
+        str,
+        typer.Argument(
+            help="capture, pause, resume, history, status, cancel, pause_job, resume_job"
+        ),
+    ],
     locator_arg: Annotated[
         str | None,
         typer.Argument(help="Media locator for capture. Also accepted as --locator."),

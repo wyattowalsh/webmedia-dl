@@ -2,6 +2,9 @@
 
 ## 0.1.0
 
+- Bundle validation executes START_HERE link, task DAG, traceability, archive
+  safety, and clean-extraction gates; stream-copy exports require semantic
+  parity; ImageMagick convert runs under the packaged policy.
 - Complete-client `http-direct` streams under the byte bound, sanitizes Files
   output stems, and refuses stale bookmarks before write.
 - Implement `build-webmedia-dl-v1` Python worker, CLI, schemas, tests, and overlay.

@@ -20,6 +20,13 @@ def test_help() -> None:
     assert PERSONAL_ALIAS not in result.stdout.split("Usage")[0]
 
 
+def test_companion_help_lists_job_controls() -> None:
+    result = runner.invoke(app, ["companion", "--help"])
+    assert result.exit_code == 0
+    assert "pause_job" in result.stdout
+    assert "resume_job" in result.stdout
+
+
 def test_version() -> None:
     result = runner.invoke(app, ["version"])
     assert result.exit_code == 0

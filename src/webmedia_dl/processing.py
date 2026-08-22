@@ -8,7 +8,7 @@ from pathlib import Path
 from uuid import UUID
 
 from webmedia_dl.artifacts import ArtifactStore
-from webmedia_dl.domain.enums import ArtifactRole, EventType, JobState
+from webmedia_dl.domain.enums import ArtifactRole, EventType, JobState, LossClass
 from webmedia_dl.domain.models import Artifact, ExportPlan, Operation
 from webmedia_dl.errors import (
     CancelledError,
@@ -20,7 +20,12 @@ from webmedia_dl.errors import (
 from webmedia_dl.probe import probe_media
 from webmedia_dl.providers import ProviderRequest, ProviderRuntime
 from webmedia_dl.queue import QueueStore
-from webmedia_dl.validation import require_pass, validate_artifact, validate_probe
+from webmedia_dl.validation import (
+    require_pass,
+    validate_artifact,
+    validate_probe,
+    validate_semantic_parity,
+)
 
 
 def provider_for_operation(operation: Operation) -> str:
@@ -186,6 +191,17 @@ def execute_export_plan(
                     )
                 if probe is not None:
                     require_pass(probe_results, identity_gates=False)
+                if operation.loss_class in {LossClass.NONE, LossClass.CONTAINER_ONLY}:
+                    source_probe = probe_media(current_path)
+                    parity = validate_semantic_parity(job_id, derivative, source_probe, probe)
+                    for item in parity:
+                        queue.emit(
+                            job_id,
+                            EventType.VALIDATION_RECORDED,
+                            {"gate": item.gate_id, "status": item.status.value},
+                        )
+                    if source_probe is not None and probe is not None:
+                        require_pass(parity, identity_gates=False)
             produced.append((derivative, result.output_path))
             artifacts[derivative.artifact_id] = (derivative, result.output_path)
             artifacts[operation.operation_id] = (derivative, result.output_path)

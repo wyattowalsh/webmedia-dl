@@ -2,16 +2,18 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 504 tests |
-| `uv run pytest --cov` | PASS | 99.67% (`fail_under` 99) |
+| `uv run pytest` | PASS | 514 tests |
+| `uv run pytest --cov` | PASS | 99.65% (`fail_under` 99) |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
 | `uv run ty check` | PASS | |
 | `node --test tests/unit/extensions/*.mjs` | PASS | 6 tests including mocked fetch submit |
 | `uv run python -m webmedia_dl.schema_export` | PASS | 19 schemas + index |
-| `uv run python scripts/validate_bundle.py` | PASS | 159 pack paths + extension/app shells |
+| `uv run python scripts/validate_bundle.py` | PASS | 159 pack paths + extension/app shells + links + task DAG + traceability + archive safety + clean extraction |
 | `uv run webmedia-dl doctor` ffmpeg | PASS | `/usr/bin/ffmpeg -version` executed PASS |
 | `uv run webmedia-dl doctor` ImageMagick | WARN | IM6 `convert -version` executed; `magick` is absent |
+| ImageMagick convert pipeline | PASS | `test_pipeline_executes_imagemagick_convert` runs `process.imagemagick.convert` on a PNG |
+| Stream-copy semantic parity | PASS | remux/copy derivatives must keep source codecs and duration; missing probes stay BLOCKED |
 | `uv run webmedia-dl doctor` yt-dlp / gallery-dl | PASS when present | version probe executed; Linux CI without those binaries stays BLOCKED |
 | Apple device runtime / Xcode | BLOCKED | Device UI, PhotoKit writes, signing, and store submission stay BLOCKED; GitHub `macos-15` compiles Apple packages |
 | Signing / notarization / App Review / legal | BLOCKED | `webmedia-dl doctor` |

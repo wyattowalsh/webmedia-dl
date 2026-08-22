@@ -144,18 +144,17 @@ def adr_body(slug: str, title: str) -> str:
 def planning_note(name: str, title: str, body: str) -> None:
     write(
         ROOT / "docs/planning" / CHANGE / f"{name}.md",
-        f"""
-        ---
-        title: "{title}"
-        status: proposed
-        type: planning
-        change: {CHANGE}
-        last_reviewed: 2026-08-18
-        ---
-        # {title}
-
-        {body}
-        """,
+        (
+            "---\n"
+            f'title: "{title}"\n'
+            "status: proposed\n"
+            "type: planning\n"
+            f"change: {CHANGE}\n"
+            "last_reviewed: 2026-08-18\n"
+            "---\n"
+            f"# {title}\n\n"
+            f"{body.strip()}\n"
+        ),
     )
 
 

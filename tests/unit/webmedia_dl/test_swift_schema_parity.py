@@ -222,6 +222,13 @@ def test_swift_enum_raw_values_match_schema() -> None:
     assert seen == set(ENUM_TYPES)
 
 
+def test_swift_companion_kinds_match_python_allowlist() -> None:
+    from webmedia_dl.continuity import ALLOWED_KINDS
+
+    actual = _enum_values(_type_body(_swift_sources(), "WebMediaDLCompanionKind"))
+    assert actual == set(ALLOWED_KINDS)
+
+
 def test_domain_invariants_remain_in_swift_source() -> None:
     domain = (repo_root() / "apps/WebMediaDLCore/Sources/WebMediaDLCore/Domain.swift").read_text(
         encoding="utf-8"
