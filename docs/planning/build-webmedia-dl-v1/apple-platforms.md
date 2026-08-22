@@ -26,7 +26,9 @@ the Mac job publishes, complete clients pull artifact bytes from
 `GET /v1/artifacts/{id}/content` into that same Files bookmark. Page locators,
 encrypted HLS/DASH, and live manifests fail closed locally and require a paired Mac.
 Watch companion messages travel watch → iPhone `WCSession` → Mac LAN HTTP; the Mac
-app does not activate `WCSession`. tvOS capture is typed URL only (`UIPasteboard` is
+app does not activate `WCSession`. The iPhone companion hops those `userInfo`
+deliveries onto the main actor before forwarding, and JSON companion/loopback
+POSTs without a serializable body fail closed. tvOS capture is typed URL only (`UIPasteboard` is
 unavailable). Photos/Files/Share destinations require a user-approved root. Swift
 packages are under `apps/`. GitHub `macos-15` CI runs Core `swift test`, builds the
 Mac package including the share-extension library product, typechecks

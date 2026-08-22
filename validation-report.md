@@ -2,8 +2,8 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 582 tests locally; GitHub Actions `ci` run `32565220846` (`8cc0172`) passed Python (580 pytest) and failed Swift 6 non-Sendable `displayedResponse` closures; GitHub `32564115037` (`7b909d0`) was 580 pytest at 99% with Swift 18/0 and 12× BUILD SUCCEEDED |
-| `uv run pytest --cov` | PASS | 100% locally (`fail_under` 99); GitHub `7b909d0` is 99% (one branch in `pipeline.py`) |
+| `uv run pytest` | PASS | 582 tests locally; GitHub Actions `ci` run `32565480088` (`7088fda`) passed Python and failed Swift 6 iOS `status` mutation from a nonisolated WatchConnectivity callback; `32565220846` (`8cc0172`) passed Python (580 pytest) and failed Swift 6 non-Sendable `displayedResponse` closures; GitHub `32564115037` (`7b909d0`) was 580 pytest at 99% with Swift 18/0 and 12× BUILD SUCCEEDED |
+| `uv run pytest --cov` | PASS | 582 tests at 100% locally (`fail_under` 99); GitHub `32565480088` (`7088fda`) Python job was 582 tests at 100%; GitHub `7b909d0` was 99% before the yt-dlp quarantine branch tests |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
 | `uv run ty check` | PASS | |
@@ -112,14 +112,14 @@
 | Complete-client on-device HTTP | PASS | iPhone/iPad/visionOS `WebMediaDLHttpDirect` downloads direct HTTPS media into a Files bookmark after `mediaURL` requires a host and refuses `file`/`javascript`/`data`/`blob`/`about`/`chrome`/`chrome-extension`; cleartext `http` is parsed but not transferred on-device; cookies are disabled; redirects are capped and non-2xx (including 3xx) bodies are refused; empty roots are `filesDestinationRequired`; stale or unresolvable bookmark data is `destinationDenied`; page/live locators require pairing; DRM signals refuse before write; byte overflow refuses before write; `.`/`..` stems become `source`; `URLSession.bytes` stops at `maxBytes`; watchOS/tvOS stay capture-only |
 | Share sheet extractors | PASS | HTTPS locators stay URL intake; `file://` paths use drop intake; awaited `NSItemProvider` load; complete-client drops stage onto the Mac worker before submit |
 | Privacy manifests | PASS | every app and share extension ships `PrivacyInfo.xcprivacy` with `NSPrivacyAccessedAPICategoryUserDefaults` reason `1C8F.1` and tracking disabled |
-| Companion Mac relay | PASS | watchOS `WCSessionDelegate` on the iPhone companion forwards typed userInfo to the Mac LAN relay; tvOS uses `WebMediaDLLocalNetworkCompanionTransport`; the Mac app does not activate `WCSession`; `WebMediaDLMacCompanionForwarder` drains sealed/plain companion messages over LAN HTTP with the pairing session key; `nativeCommand` null |
+| Companion Mac relay | PASS | watchOS `WCSessionDelegate` on the iPhone companion hops `userInfo` onto the main actor and forwards typed messages to the Mac LAN relay; tvOS uses `WebMediaDLLocalNetworkCompanionTransport`; the Mac app does not activate `WCSession`; `WebMediaDLMacCompanionForwarder` drains sealed/plain companion messages over LAN HTTP with the pairing session key and refuses empty envelope fields; `nativeCommand` null |
 | HTTP stream stop | PASS | `bound_fetch(..., should_stop=)` aborts mid-stream; cancel discards completed HTTP fetch; pause commits |
 | Wheel install | PASS | isolated `uv` venv import of packaged `runtime/export-presets.json` and `webmedia-dl --help` |
 | CLI names in README | PASS | every Typer command name appears in `README.md` |
 | App Group + pairing clients | PASS | `group.local.webmedia-dl` on apps and share extensions; unauthenticated loopback `POST /v1/pair` bootstrap; Mac-only confirm parses `session_key`; iPhone/iPad/vision derive SHA256(`nonce:mac-confirm`) locally and restore Files bookmarks; watch/tv `lastJobId` comes from companion history/response |
 | Original planning-pack ZIP byte compare | BLOCKED | zip not in this workspace; 159 overlay files reconstructed |
 | Real WatchConnectivity radio | BLOCKED | WCSession scaffolding + queued fallback; no Apple radio on Linux |
-| Safari wrapping / signed NSExtension | BLOCKED | `swiftc -typecheck` of `SafariWebExtensionHandler.swift` executed on GitHub `macos-15`; unsigned share-extension `.appex` layouts are assembled with package type `XPC!`; GitHub `32564115037` (`7b909d0`) `xcodebuild`s unsigned `com.apple.product-type.app-extension` Mach-O `.appex` products; signed Xcode NSExtension wrapping is not executed |
+| Safari wrapping / signed NSExtension | BLOCKED | `swiftc -typecheck` of `SafariWebExtensionHandler.swift` executed on GitHub `macos-15`; the handler `try`s JSON encode, `cancelRequest`s on encode/HTTP failure, and `completeRequest`s only on 2xx; unsigned share-extension `.appex` layouts are assembled with package type `XPC!`; GitHub `32564115037` (`7b909d0`) `xcodebuild`s unsigned `com.apple.product-type.app-extension` Mach-O `.appex` products; signed Xcode NSExtension wrapping is not executed |
 
 Planning overlay files reconstructed from the 2026-08-18 pack inventory except
 `START_HERE.md`, `product-brief.md`, and `system-architecture.md`, which were

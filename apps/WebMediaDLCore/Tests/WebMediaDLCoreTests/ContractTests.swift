@@ -306,6 +306,16 @@ final class ContractTests: XCTestCase {
             try WebMediaDLLoopbackClient.requireHTTPSuccess(status: 200, body: Data("ok".utf8))
         }
         XCTAssertEqual(okBody, "HTTP 200 ok")
+        try WebMediaDLLoopbackClient.requireJSONBody(client.pairRequest())
+        try WebMediaDLLoopbackClient.requireJSONBody(client.historyRequest())
+        var missingJSON = client.pairRequest()
+        missingJSON.httpBody = nil
+        do {
+            try WebMediaDLLoopbackClient.requireJSONBody(missingJSON)
+            XCTFail("JSON content-type without a body must fail closed")
+        } catch let error as WebMediaDLDomainError {
+            XCTAssertTrue(error.message.contains("request JSON"))
+        }
         XCTAssertFalse(
             WebMediaDLPairedMacEndpoint.isAllowedRelay(URL(string: "http://example.com:8765")!)
         )
@@ -658,6 +668,27 @@ final class ContractTests: XCTestCase {
         XCTAssertEqual(delegate.relay.pending.last?.kind, .history)
         delegate.activateSession()
         delegate.sendResponse(["kind": "response", "body": "ok"])
+        let envelope = try JSONSerialization.data(withJSONObject: [
+            "nonce": "aa",
+            "ciphertext": "bb",
+            "mac": "cc",
+        ])
+        let fields = try WebMediaDLMacCompanionForwarder.requireSealedEnvelope(envelope)
+        XCTAssertEqual(fields.nonce, "aa")
+        XCTAssertEqual(fields.ciphertext, "bb")
+        XCTAssertEqual(fields.mac, "cc")
+        do {
+            _ = try WebMediaDLMacCompanionForwarder.requireSealedEnvelope(Data("{}".utf8))
+            XCTFail("empty envelope fields must fail closed")
+        } catch let error as WebMediaDLDomainError {
+            XCTAssertTrue(error.message.contains("envelope JSON"))
+        }
+        do {
+            _ = try WebMediaDLMacCompanionForwarder.requireSealedEnvelope(Data("nope".utf8))
+            XCTFail("malformed envelope JSON must fail closed")
+        } catch {
+            ()
+        }
     }
 
     func testDomainInvariantsFailClosed() throws {

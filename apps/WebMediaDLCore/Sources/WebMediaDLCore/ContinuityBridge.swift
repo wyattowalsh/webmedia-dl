@@ -207,7 +207,7 @@ public final class WebMediaDLLocalNetworkCompanionTransport: WebMediaDLCompanion
 public final class WebMediaDLWatchConnectivityTransport: NSObject, WebMediaDLCompanionTransport, @unchecked Sendable {
     public var fallback = WebMediaDLQueuedCompanionTransport()
     public var lastResponse: String?
-    public var onReceivedMessage: (@Sendable (WebMediaDLCompanionMessage) -> Void)?
+    public var onReceivedMessage: (@MainActor (WebMediaDLCompanionMessage) -> Void)?
 
     public override init() {
         super.init()
@@ -266,14 +266,15 @@ extension WebMediaDLWatchConnectivityTransport: WCSessionDelegate {
         }
         if let kind = (userInfo["kind"] as? String).flatMap(WebMediaDLCompanionKind.init(rawValue:)) {
             let surface = (userInfo["surface"] as? String).flatMap(WebMediaDLSurface.init(rawValue:)) ?? .watchos
-            onReceivedMessage?(
-                WebMediaDLCompanionMessage(
-                    kind: kind,
-                    locator: userInfo["locator"] as? String,
-                    jobId: userInfo["jobId"] as? String,
-                    surface: surface
-                )
+            let message = WebMediaDLCompanionMessage(
+                kind: kind,
+                locator: userInfo["locator"] as? String,
+                jobId: userInfo["jobId"] as? String,
+                surface: surface
             )
+            Task { @MainActor in
+                onReceivedMessage?(message)
+            }
         }
         _ = session
     }
@@ -421,20 +422,38 @@ public struct WebMediaDLMacCompanionForwarder: Sendable {
                 sessionKey: sessionKey,
                 payload: message.dictionary()
             )
-            let (data, _) = try await URLSession.shared.data(for: wrap)
-            let object = (try JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
+            try WebMediaDLLoopbackClient.requireJSONBody(wrap)
+            let (data, response) = try await URLSession.shared.data(for: wrap)
+            _ = try WebMediaDLLoopbackClient.requireHTTPSuccess(
+                status: (response as? HTTPURLResponse)?.statusCode ?? 0,
+                body: data
+            )
+            let envelope = try Self.requireSealedEnvelope(data)
             let body = try await client.send(
                 client.sealedCompanionRequest(
                     pairingId: pairingId,
                     sessionKey: sessionKey,
-                    nonce: object["nonce"] as? String ?? "",
-                    ciphertext: object["ciphertext"] as? String ?? "",
-                    mac: object["mac"] as? String ?? ""
+                    nonce: envelope.nonce,
+                    ciphertext: envelope.ciphertext,
+                    mac: envelope.mac
                 )
             )
             bodies.append(body)
         }
         return bodies
+    }
+
+    public static func requireSealedEnvelope(
+        _ data: Data
+    ) throws -> (nonce: String, ciphertext: String, mac: String) {
+        guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let nonce = object["nonce"] as? String, !nonce.isEmpty,
+              let ciphertext = object["ciphertext"] as? String, !ciphertext.isEmpty,
+              let mac = object["mac"] as? String, !mac.isEmpty
+        else {
+            throw WebMediaDLDomainError("envelope JSON is not a sealed companion")
+        }
+        return (nonce, ciphertext, mac)
     }
 
     public mutating func receiveWatchConnectivityUserInfo(
@@ -562,10 +581,11 @@ public struct WebMediaDLContinuityBridge: Sendable {
             locator: message.locator,
             jobId: message.jobId
         )
+        try WebMediaDLLoopbackClient.requireJSONBody(request)
         let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse else {
-            return String(data: data, encoding: .utf8) ?? "no response"
-        }
-        return "HTTP \(http.statusCode) \(String(data: data, encoding: .utf8) ?? "")"
+        return try WebMediaDLLoopbackClient.requireHTTPSuccess(
+            status: (response as? HTTPURLResponse)?.statusCode ?? 0,
+            body: data
+        )
     }
 }

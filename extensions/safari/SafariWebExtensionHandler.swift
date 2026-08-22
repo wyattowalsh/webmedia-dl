@@ -31,17 +31,39 @@ public final class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandli
         if !token.isEmpty {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
-        request.httpBody = try? JSONSerialization.data(
-            withJSONObject: [
-                "locator": locator,
-                "surface": "safari",
-                "local_user_confirmed": true,
-                "wait": false,
-                "intake_kind": "browser_evidence",
-                "evidence": evidence,
-            ]
-        )
-        URLSession.shared.dataTask(with: request) { _, _, _ in
+        do {
+            request.httpBody = try JSONSerialization.data(
+                withJSONObject: [
+                    "locator": locator,
+                    "surface": "safari",
+                    "local_user_confirmed": true,
+                    "wait": false,
+                    "intake_kind": "browser_evidence",
+                    "evidence": evidence,
+                ]
+            )
+        } catch {
+            context.cancelRequest(withError: error)
+            return
+        }
+        URLSession.shared.dataTask(with: request) { _, response, error in
+            if let error {
+                context.cancelRequest(withError: error)
+                return
+            }
+            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            guard (200 ..< 300).contains(status) else {
+                context.cancelRequest(
+                    withError: NSError(
+                        domain: "local.webmedia-dl.safari",
+                        code: status,
+                        userInfo: [
+                            NSLocalizedDescriptionKey: "HTTP \(status)",
+                        ]
+                    )
+                )
+                return
+            }
             context.completeRequest(returningItems: [], completionHandler: nil)
         }.resume()
     }

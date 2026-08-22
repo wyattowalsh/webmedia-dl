@@ -384,6 +384,12 @@ def test_companion_transport_and_typed_history() -> None:
     assert "func forward(_ relay: inout" not in continuity
     assert "_ relay: inout WebMediaDLCompanionRelay" not in continuity
     assert "receiveWatchConnectivityUserInfo" in continuity
+    assert "@MainActor (WebMediaDLCompanionMessage)" in continuity
+    assert "Task { @MainActor in" in continuity
+    assert "func requireSealedEnvelope(" in continuity
+    assert "envelope JSON is not a sealed companion" in continuity
+    assert "requireHTTPSuccess" in continuity
+    assert "requireJSONBody" in continuity
     assert "var surface:" in continuity
     watch = (root / ROOT_VIEWS["watchos"]).read_text(encoding="utf-8")
     tv = (root / ROOT_VIEWS["tvos"]).read_text(encoding="utf-8")
@@ -434,6 +440,8 @@ def test_companion_transport_and_typed_history() -> None:
     )
     assert "func historyEntries() async throws -> [WebMediaDLHistoryEntry]" in loopback
     assert "func requireHTTPSuccess(status:" in loopback
+    assert "func requireJSONBody(" in loopback
+    assert "request JSON is not serializable" in loopback
     assert "func requireHistoryEntries(status:" in loopback
     assert "func displayedResponse(" in loopback
     assert "@Sendable () async throws -> String" in loopback
@@ -693,6 +701,11 @@ def test_browser_extension_trees() -> None:
         encoding="utf-8"
     )
     assert "@objc(SafariWebExtensionHandler)" in handler
+    assert "try JSONSerialization.data(" in handler
+    assert "try? JSONSerialization.data(" not in handler
+    assert "cancelRequest(withError:" in handler
+    assert "completeRequest(returningItems:" in handler
+    assert "(200 ..< 300).contains(status)" in handler
 
 
 def test_imagemagick_runtime_policy_exists() -> None:
@@ -800,6 +813,10 @@ def test_github_ci_compiles_apple_packages() -> None:
     assert "TransferError.overflow" in contracts
     assert "invalidLocator" in contracts
     assert "requireHTTPSuccess" in contracts
+    assert "requireJSONBody" in contracts
+    assert "JSON content-type without a body must fail closed" in contracts
+    assert "requireSealedEnvelope" in contracts
+    assert "empty envelope fields must fail closed" in contracts
     assert "requireHistoryEntries" in contracts
     assert "http://cdn.example.com/a.mp4" in contracts
     assert "redirect statuses must not publish HTML" in contracts
@@ -822,6 +839,7 @@ def test_github_ci_compiles_apple_packages() -> None:
     ).read_text(encoding="utf-8")
     assert "func submitDrop(" in paired_mac
     assert "requireHTTPSuccess" in paired_mac
+    assert "requireJSONBody" in paired_mac
     assert "requireHistoryEntries" in paired_mac
     assert 'appendingPathComponent("v1/staging")' in paired_mac
     assert 'destinationKind: "staging_only"' in paired_mac
@@ -1169,6 +1187,7 @@ def test_iphone_forwards_watch_companion_messages() -> None:
     assert "try? await WebMediaDLPairedMacSubmit.companion" not in ios
     assert "displayedResponse" not in ios
     assert "status = error.localizedDescription" in ios
+    assert "Task { @MainActor in" in ios
     mac = (root / ROOT_VIEWS["macos"]).read_text(encoding="utf-8")
     assert "bindWatchDelegate" not in mac
     assert "WebMediaDLMacWatchConnectivityDelegate" not in mac

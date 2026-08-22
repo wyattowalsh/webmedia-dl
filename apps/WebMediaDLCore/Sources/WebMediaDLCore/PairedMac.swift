@@ -370,6 +370,7 @@ public struct WebMediaDLPairedMacEndpoint: Sendable {
     }
 
     public func send(_ request: URLRequest) async throws -> String {
+        try WebMediaDLLoopbackClient.requireJSONBody(request)
         let (data, response) = try await URLSession.shared.data(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         return try WebMediaDLLoopbackClient.requireHTTPSuccess(status: status, body: data)

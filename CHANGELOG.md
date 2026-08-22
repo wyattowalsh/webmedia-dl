@@ -2,6 +2,15 @@
 
 ## 0.1.0
 
+- iPhone watch-forward hops `WCSession` `userInfo` onto the main actor before
+  mutating SwiftUI state (GitHub `32565480088` on `7088fda` compiled Python
+  and failed iOS device Swift 6 with `status` mutated from a nonisolated
+  callback). JSON POSTs without a body, sealed companion envelopes missing
+  nonce/ciphertext/mac, Continuity `send` non-2xx, and Safari native-handler
+  encode/HTTP failures fail closed. GitHub `32565480088` (`7088fda`) Python
+  was 582 tests at 100%; Swift 6 failed the iOS MainActor status mutation.
+  Local `uv run pytest --cov` stays at `fail_under` 99 until GitHub HEAD
+  also reports a green Swift job.
 - On-device `HttpDirect` transfers HTTPS only, disables cookies, bounds
   redirects, and refuses non-2xx (including 3xx) bodies so cancelled redirects
   cannot publish HTML. Loopback and paired-Mac `send` plus history decode fail

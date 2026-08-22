@@ -271,6 +271,13 @@ public struct WebMediaDLLoopbackClient: Sendable {
         return request
     }
 
+    public static func requireJSONBody(_ request: URLRequest) throws {
+        let contentType = request.value(forHTTPHeaderField: "Content-Type") ?? ""
+        if contentType.contains("application/json"), request.httpBody == nil {
+            throw WebMediaDLDomainError("request JSON is not serializable")
+        }
+    }
+
     public static func requireHTTPSuccess(status: Int, body: Data) throws -> String {
         let text = String(data: body, encoding: .utf8) ?? ""
         let summary = "HTTP \(status) \(text)"
@@ -298,6 +305,7 @@ public struct WebMediaDLLoopbackClient: Sendable {
     }
 
     public func send(_ request: URLRequest) async throws -> String {
+        try Self.requireJSONBody(request)
         let (data, response) = try await URLSession.shared.data(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         return try Self.requireHTTPSuccess(status: status, body: data)
@@ -363,7 +371,9 @@ public struct WebMediaDLLoopbackClient: Sendable {
 
     public func startPairing(clientProfileId: String = "personal-restricted") async throws -> WebMediaDLPairingChallenge {
         // Loopback pairing start does not require a stored worker token.
-        let (data, response) = try await URLSession.shared.data(for: pairRequest(clientProfileId: clientProfileId))
+        let request = pairRequest(clientProfileId: clientProfileId)
+        try Self.requireJSONBody(request)
+        let (data, response) = try await URLSession.shared.data(for: request)
         _ = try Self.requireHTTPSuccess(
             status: (response as? HTTPURLResponse)?.statusCode ?? 0,
             body: data

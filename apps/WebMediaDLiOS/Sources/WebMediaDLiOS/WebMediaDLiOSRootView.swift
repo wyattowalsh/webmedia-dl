@@ -312,7 +312,7 @@ public struct WebMediaDLiOSRootView: View {
                     filesBookmark = WebMediaDLSecurityScopedBookmark(path: "", bookmarkData: data).resolve()
                 }
                 watchRelay.onReceivedMessage = { message in
-                    Task {
+                    Task { @MainActor in
                         do {
                             status = try await WebMediaDLPairedMacSubmit.companion(message)
                         } catch {
