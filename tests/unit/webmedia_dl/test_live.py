@@ -145,6 +145,16 @@ def test_dash_directory_baseurl_without_slash() -> None:
     assert recordable_segment_urls(cdata, "https://origin.example.com/manifest.mpd") == [
         "https://cdn.example.com/dash/http-seg1.m4s"
     ]
+    wrapped = """
+    <MPD><Period>
+      <BaseURL>https://cdn.example.com/very/long/
+path/</BaseURL>
+      <SegmentTemplate media="seg$Number$.m4s" startNumber="1"/>
+    </Period></MPD>
+    """
+    assert recordable_segment_urls(wrapped, "https://origin.example.com/manifest.mpd") == [
+        "https://cdn.example.com/very/long/path/seg1.m4s"
+    ]
     encoded = """
     <MPD><Period>
       <SegmentList>

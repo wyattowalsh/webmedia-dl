@@ -52,6 +52,77 @@ def test_dash_adaptationset_binds_self_closing_representation() -> None:
     """
     urls = recordable_segment_urls(text, "https://cdn.example.com/manifest.mpd")
     assert urls == ["https://cdn.example.com/as/v1/seg1.m4s"]
+    token_base = """
+    <MPD>
+      <Period>
+        <AdaptationSet>
+          <BaseURL>https://cdn.example.com/as/</BaseURL>
+          <BaseURL>$RepresentationID$/</BaseURL>
+          <SegmentTemplate media="seg$Number$.m4s" startNumber="1"/>
+          <Representation id="v1"/>
+        </AdaptationSet>
+      </Period>
+    </MPD>
+    """
+    assert recordable_segment_urls(token_base, "https://cdn.example.com/manifest.mpd") == [
+        "https://cdn.example.com/as/v1/seg1.m4s"
+    ]
+    nested = """
+    <MPD>
+      <Period>
+        <AdaptationSet>
+          <BaseURL>https://cdn.example.com/as/</BaseURL>
+          <SegmentTemplate media="seg$Number$.m4s" startNumber="1"/>
+          <Representation id="v1" bandwidth="800000">
+            <BaseURL>$RepresentationID$/</BaseURL>
+          </Representation>
+        </AdaptationSet>
+      </Period>
+    </MPD>
+    """
+    assert recordable_segment_urls(nested, "https://cdn.example.com/manifest.mpd") == [
+        "https://cdn.example.com/as/v1/seg1.m4s"
+    ]
+    bandwidth = """
+    <MPD>
+      <Period>
+        <AdaptationSet>
+          <BaseURL>$Bandwidth$/</BaseURL>
+          <SegmentTemplate media="seg$Number$.m4s" startNumber="1"/>
+          <Representation id="v1" bandwidth="800000"/>
+        </AdaptationSet>
+      </Period>
+    </MPD>
+    """
+    assert recordable_segment_urls(bandwidth, "https://cdn.example.com/manifest.mpd") == [
+        "https://cdn.example.com/800000/seg1.m4s"
+    ]
+    dangling = """
+    <MPD><Period>
+      <BaseURL>$RepresentationID$.mp4</BaseURL>
+      <SegmentTemplate media="seg$Number$.m4s" startNumber="1"/>
+    </Period></MPD>
+    """
+    dangling_urls = recordable_segment_urls(dangling, "https://cdn.example.com/manifest.mpd")
+    assert dangling_urls == ["https://cdn.example.com/seg1.m4s"]
+    assert not any("$RepresentationID$" in item for item in dangling_urls)
+    listed = """
+    <MPD>
+      <Period>
+        <AdaptationSet mimeType="video/mp4">
+          <Representation id="v1" bandwidth="800000">
+            <BaseURL>$RepresentationID$.mp4</BaseURL>
+            <SegmentList>
+              <SegmentURL mediaRange="0-3"/>
+            </SegmentList>
+          </Representation>
+        </AdaptationSet>
+      </Period>
+    </MPD>
+    """
+    assert recordable_segment_urls(listed, "https://cdn.example.com/manifest.mpd") == [
+        "https://cdn.example.com/v1.mp4"
+    ]
 
 
 def test_dynamic_mpd_polls_new_segments(tmp_path: Path) -> None:

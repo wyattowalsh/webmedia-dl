@@ -20,7 +20,7 @@ _XML_NS = r"(?:[A-Za-z_][\w.-]*:)?"
 _HLS_BYTERANGE = re.compile(r"#EXT-X-BYTERANGE:\s*(\d+)\s*(?:@\s*(\d+))?", re.I)
 _DASH_CONTENT_PROTECTION = re.compile(r"ContentProtection", re.I)
 _DASH_BASE_URL = re.compile(
-    rf"<{_XML_NS}BaseURL>\s*(?:<!\[CDATA\[(.*?)\]\]>|([^<\s]+))\s*</{_XML_NS}BaseURL>",
+    rf"<{_XML_NS}BaseURL>\s*(?:<!\[CDATA\[(.*?)\]\]>|(.*?))\s*</{_XML_NS}BaseURL>",
     re.I | re.S,
 )
 _DASH_MEDIA = re.compile(
@@ -304,7 +304,7 @@ def _dash_href(value: str | None) -> str:
 def _dash_baseurls(text: str) -> list[str]:
     found: list[str] = []
     for cdata, plain in _DASH_BASE_URL.findall(text):
-        href = _dash_href(cdata or plain)
+        href = re.sub(r"\s+", "", _dash_href(cdata or plain))
         if href:
             found.append(href)
     return found
@@ -391,6 +391,23 @@ def _expand_dash_template(
     return text.replace("\x00", "$")
 
 
+def _expand_locator_tokens(
+    value: str,
+    *,
+    representation: str | None = None,
+    bandwidth: str | None = None,
+) -> str:
+    """Bind DASH BaseURL `$RepresentationID$` / `$Bandwidth$` once the Representation is known."""
+    if "$" not in value:
+        return value
+    text = value
+    if representation is not None:
+        text = text.replace("$RepresentationID$", representation)
+    if bandwidth is not None:
+        text = text.replace("$Bandwidth$", bandwidth)
+    return text
+
+
 def _template_urls(
     attr_blob: str,
     body: str,
@@ -403,6 +420,7 @@ def _template_urls(
     attrs = _attrs(attr_blob)
     representation = representation or attrs.get("id") or attrs.get("representationid") or "1"
     bandwidth = bandwidth or attrs.get("bandwidth") or "1"
+    base = _expand_locator_tokens(base, representation=representation, bandwidth=bandwidth)
     start = _int_attr(attrs, "startnumber", 1)
     urls: list[str] = []
 
@@ -464,25 +482,49 @@ def _has_indexed_segments(text: str) -> bool:
     return bool(_DASH_SEGMENT_BASE.search(text) or _DASH_SEGMENT_LIST.search(text))
 
 
-def _collect_baseurls(text: str, current: str, add: AddPart, *, emit_files: bool = True) -> str:
+def _advance_base(current: str, href: str) -> tuple[str, str | None]:
+    """Step one BaseURL. Directories (including unexpanded tokens) update the prefix."""
+    resolved = _join(current, href)
+    if _is_directory_base(resolved):
+        next_base = resolved if resolved.endswith("/") else f"{resolved}/"
+        return next_base, None
+    if _UNEXPANDED_DASH.search(resolved):
+        return current, None
+    return current, resolved
+
+
+def _collect_baseurls(
+    text: str,
+    current: str,
+    add: AddPart,
+    *,
+    emit_files: bool = True,
+    representation: str | None = None,
+    bandwidth: str | None = None,
+) -> str:
+    current = _expand_locator_tokens(current, representation=representation, bandwidth=bandwidth)
     for href in _dash_baseurls(text):
-        resolved = _join(current, href)
-        if _is_directory_base(resolved):
-            current = resolved if resolved.endswith("/") else f"{resolved}/"
-            continue
-        if emit_files:
-            add(ManifestPart(resolved))
+        href = _expand_locator_tokens(href, representation=representation, bandwidth=bandwidth)
+        current, file_url = _advance_base(current, href)
+        if file_url is not None and emit_files:
+            add(ManifestPart(file_url))
     return current
 
 
-def _file_baseurl(text: str, current: str) -> str | None:
+def _file_baseurl(
+    text: str,
+    current: str,
+    *,
+    representation: str | None = None,
+    bandwidth: str | None = None,
+) -> str | None:
+    current = _expand_locator_tokens(current, representation=representation, bandwidth=bandwidth)
     file_url = None
     for href in _dash_baseurls(text):
-        resolved = _join(current, href)
-        if _is_directory_base(resolved):
-            current = resolved if resolved.endswith("/") else f"{resolved}/"
-            continue
-        file_url = resolved
+        href = _expand_locator_tokens(href, representation=representation, bandwidth=bandwidth)
+        current, resolved = _advance_base(current, href)
+        if resolved is not None:
+            file_url = resolved
     return file_url
 
 
@@ -515,6 +557,7 @@ def _collect_segments(
     include_templates: bool = True,
     period_seconds: float | None = None,
 ) -> None:
+    current = _expand_locator_tokens(current, representation=representation, bandwidth=bandwidth)
     if include_templates:
         for match in _DASH_TEMPLATE.finditer(text):
             for url in _template_urls(
@@ -526,7 +569,7 @@ def _collect_segments(
                 period_seconds=period_seconds,
             ):
                 add(ManifestPart(url))
-    file_url = _file_baseurl(text, current)
+    file_url = _file_baseurl(text, current, representation=representation, bandwidth=bandwidth)
     for match in _INIT_TAG.finditer(text):
         attrs = _attrs(match.group(1))
         href = attrs.get("sourceurl")
@@ -638,11 +681,28 @@ def _collect_representation(
 ) -> tuple[int, str]:
     rattrs = _attrs(match.group(1))
     body = match.group(2) or ""
+    representation = rattrs.get("id")
+    bandwidth_token = rattrs.get("bandwidth")
     has_segment_base = bool(_DASH_SEGMENT_BASE.search(body))
     has_indexed = has_segment_base or bool(_DASH_SEGMENT_LIST.search(body))
-    local_base = _collect_baseurls(body, current, add, emit_files=not has_indexed)
+    local_base = _collect_baseurls(
+        body,
+        current,
+        add,
+        emit_files=not has_indexed,
+        representation=representation,
+        bandwidth=bandwidth_token,
+    )
     if has_segment_base:
-        file_url = _file_baseurl(body, current) or local_base
+        file_url = (
+            _file_baseurl(
+                body,
+                current,
+                representation=representation,
+                bandwidth=bandwidth_token,
+            )
+            or local_base
+        )
         _collect_segment_base(body, file_url, add)
         try:
             bandwidth = int(rattrs.get("bandwidth") or 0)

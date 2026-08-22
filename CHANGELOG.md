@@ -2,6 +2,14 @@
 
 ## 0.1.0
 
+- Bind DASH AdaptationSet/Representation `BaseURL` `$RepresentationID$` and
+  `$Bandwidth$` tokens to the child Representation so locators are
+  `…/v1/seg1.m4s` instead of a literal `$RepresentationID$` path. Collapse
+  whitespace inside `BaseURL` element text so pretty-printed wrapped CDN
+  prefixes still bind. GitHub Actions `32586743517` on `3c6b579` passed
+  Python (626 pytest, 100%), doctor provider probes, and Swift (18 tests,
+  0 failures; 12× BUILD SUCCEEDED) after skipping script-asset iframe and
+  source locators that steal VIDEO.
 - Ignore script-asset locators (`.js`, `.mjs`, `.cjs`, `.css`, `.wasm`, `.map`)
   from iframe/embed/object, video `source`, JSON-LD, and browser evidence so a
   head embed of `player.js` or a first `<source type="video/mp4" src="fallback.js">`
