@@ -62,6 +62,33 @@ compile_scheme WebMediaDLVision WebMediaDLVisionShareExtension "generic/platform
 compile_scheme WebMediaDLWatch WebMediaDLWatch "generic/platform=watchOS"
 compile_scheme WebMediaDLTV WebMediaDLTV "generic/platform=tvOS"
 
+python3 "$root/scripts/generate_unsigned_appex_xcodeproj.py" --root "$root" --check
+
+compile_unsigned_appex() {
+  local name="$1"
+  local dest="$2"
+  xcodebuild \
+    -project "$root/apps/WebMediaDLShareExtensions/WebMediaDLShareExtensions.xcodeproj" \
+    -scheme "$name" \
+    -destination "$dest" \
+    -derivedDataPath "$root/apps/.ci-derived-appex-xcode" \
+    -skipPackagePluginValidation \
+    CODE_SIGNING_ALLOWED=NO \
+    CODE_SIGNING_REQUIRED=NO \
+    CODE_SIGN_IDENTITY="" \
+    build
+}
+
+echo "Building unsigned com.apple.product-type.app-extension share-sheet products."
+compile_unsigned_appex WebMediaDLiOSShareExtension "generic/platform=iOS"
+compile_unsigned_appex WebMediaDLiPadOSShareExtension "generic/platform=iOS"
+compile_unsigned_appex WebMediaDLVisionShareExtension "generic/platform=visionOS"
+compile_unsigned_appex WebMediaDLMacShareExtension "generic/platform=macOS"
+python3 "$root/scripts/generate_unsigned_appex_xcodeproj.py" \
+  --root "$root" \
+  --inspect-derived "$root/apps/.ci-derived-appex-xcode" \
+  --require-macho
+
 python3 "$root/scripts/assemble_unsigned_appex.py" --dest "$root/apps/.ci-derived-appex"
 for name in \
   WebMediaDLiOSShareExtension \

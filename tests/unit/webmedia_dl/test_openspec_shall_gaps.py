@@ -426,6 +426,10 @@ SCENARIO_EVIDENCE: dict[str, tuple[str, str]] = {
         "tests/unit/webmedia_dl/test_surfaces_inventory.py",
         "test_unsigned_share_extension_appex_layouts",
     ),
+    "unsigned xcode app extension products are built": (
+        "tests/unit/webmedia_dl/test_surfaces_inventory.py",
+        "test_unsigned_xcode_app_extension_products",
+    ),
     "share destination publishes under approved root": (
         "tests/unit/webmedia_dl/test_pack_gaps.py",
         "test_share_destination_publishes_under_approved_root",

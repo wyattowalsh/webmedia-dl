@@ -2,10 +2,13 @@
 
 ## 0.1.0
 
-- GitHub Actions `32561631258` on `3f16c50` and `32561772584` on `31b9296`
-  passed after recording `6d90ce4` evidence. Unsigned share-extension `.appex`
-  layouts are assembled with package type `XPC!` for inspection; signed Xcode
-  NSExtension wrapping stays BLOCKED. Local `uv run pytest --cov` is 577 tests
+- GitHub Actions `32562009351` on `32c8d97` passed Python (577 pytest, 99.97%)
+  and Swift (18 tests, 0 failures; 8× BUILD SUCCEEDED) for unsigned share-extension
+  `.appex` layouts. This follow-up adds a committed unsigned Xcode project whose
+  native targets are `com.apple.product-type.app-extension`, so macOS CI can
+  `xcodebuild` Mach-O `.appex` products and inspect package type `XPC!` without a
+  signing identity. Signed NSExtension wrapping, device UI, PhotoKit writes, and
+  WatchConnectivity radio stay BLOCKED. Local `uv run pytest --cov` is 578 tests
   at 99.99%.
 - GitHub Actions `32561499120` on `6d90ce4` passed Python (574 pytest, 99.97%)
   and Swift (18 tests, 0 failures; 8× BUILD SUCCEEDED). That revision keeps the

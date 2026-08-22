@@ -4,8 +4,18 @@
 <dict>
   <key>CFBundleDisplayName</key>
   <string>WebMedia DL</string>
+  <key>CFBundleExecutable</key>
+  <string>WebMediaDLiPadOSShareExtension</string>
   <key>CFBundleIdentifier</key>
   <string>local.webmedia-dl.ipados.share</string>
+  <key>CFBundleName</key>
+  <string>WebMedia DL</string>
+  <key>CFBundlePackageType</key>
+  <string>XPC!</string>
+  <key>CFBundleShortVersionString</key>
+  <string>0.1.0</string>
+  <key>CFBundleVersion</key>
+  <string>1</string>
   <key>NSLocalNetworkUsageDescription</key>
   <string>WebMedia DL uses the local network to reach a paired Mac worker.</string>
   <key>NSAppTransportSecurity</key>

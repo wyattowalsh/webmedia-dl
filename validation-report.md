@@ -2,8 +2,8 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 577 tests locally; GitHub Actions `ci` run `32561499120` (`6d90ce4`) was 574 pytest at 99.97% with Swift 18/0 and 8× BUILD SUCCEEDED. Docs HEAD `31b9296` / `32561772584` also succeeded. This follow-up assembles unsigned share-extension `.appex` layouts |
-| `uv run pytest --cov` | PASS | 99.99% locally (`fail_under` 99); GitHub `6d90ce4` is 99.97% |
+| `uv run pytest` | PASS | 578 tests locally; GitHub Actions `ci` run `32562009351` (`32c8d97`) was 577 pytest at 99.97% with Swift 18/0 and 8× BUILD SUCCEEDED. This follow-up adds unsigned `xcodebuild` of `com.apple.product-type.app-extension` share-sheet `.appex` products |
+| `uv run pytest --cov` | PASS | 99.99% locally (`fail_under` 99); GitHub `32c8d97` is 99.97% |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
 | `uv run ty check` | PASS | |
@@ -79,7 +79,7 @@
 | Job-detail / run-next helpers | PASS | unrelated history rows are skipped; empty queue returns `job: null`; a queued job returns events |
 | Swift Core CI job | PASS | GitHub Actions `ci` run `32560244195` on `5cb2090`: `IdentityTests` executed 6 tests, 0 failures on `macos-15` |
 | Swift Core contract tests | PASS | `ContractTests.swift` executed 12 tests, 0 failures with IdentityTests (6) on GitHub `macos-15` run `32560244195` (`5cb2090`) |
-| Apple package compile CI | PASS | GitHub Actions `ci` run `32560244195` on `5cb2090`: Core `swift test` 18 tests, 0 failures (`ContractTests` 12 + `IdentityTests` 6); Safari handler `swiftc -typecheck`; 8× `BUILD SUCCEEDED`. Device runtime stays BLOCKED |
+| Apple package compile CI | PASS | GitHub Actions `ci` run `32562009351` on `32c8d97`: Core `swift test` 18 tests, 0 failures (`ContractTests` 12 + `IdentityTests` 6); Safari handler `swiftc -typecheck`; 8× `BUILD SUCCEEDED` plus unsigned `.appex` layouts. This follow-up adds unsigned `xcodebuild` of `com.apple.product-type.app-extension`. Device runtime stays BLOCKED |
 | OpenSpec scenarios | PASS | every capability spec scenario has WHEN/THEN; each scenario title maps to a named Python or Swift test in a pinned source file; popup markup is parsed; drop records `local_path`; local submit does not upload; job submit forbids native argv; queue-level events use a zero UUID; `wmdl` is not the console script; remux precedes transcode; failed derivatives do not block siblings; `run_next` restores cookie grants, HTML, and browser evidence; unsafe format ids are refused; doctor keeps signing/stores/legal BLOCKED |
 | Builtin manifests / profiles | PASS | every shipped provider sets `install_automatic` false and `accepts_user_argv` false; every shipped profile forbids telemetry, DRM circumvention, and delegation |
 | Graph relation schema | PASS | Swift `WebMediaDLGraphRelation` raw values match `GraphEdge.relation` |
@@ -119,7 +119,7 @@
 | App Group + pairing clients | PASS | `group.local.webmedia-dl` on apps and share extensions; unauthenticated loopback `POST /v1/pair` bootstrap; Mac-only confirm parses `session_key`; iPhone/iPad/vision derive SHA256(`nonce:mac-confirm`) locally and restore Files bookmarks; watch/tv `lastJobId` comes from companion history/response |
 | Original planning-pack ZIP byte compare | BLOCKED | zip not in this workspace; 159 overlay files reconstructed |
 | Real WatchConnectivity radio | BLOCKED | WCSession scaffolding + queued fallback; no Apple radio on Linux |
-| Safari wrapping / signed NSExtension | BLOCKED | `swiftc -typecheck` of `SafariWebExtensionHandler.swift` executed on GitHub `macos-15`; unsigned share-extension `.appex` layouts are assembled with package type `XPC!`; signed Xcode NSExtension wrapping is not executed |
+| Safari wrapping / signed NSExtension | BLOCKED | `swiftc -typecheck` of `SafariWebExtensionHandler.swift` executed on GitHub `macos-15`; unsigned share-extension `.appex` layouts are assembled with package type `XPC!`; an unsigned Xcode project now declares `com.apple.product-type.app-extension` targets and macOS CI `xcodebuild`s them for Mach-O inspection; signed Xcode NSExtension wrapping is not executed |
 
 Planning overlay files reconstructed from the 2026-08-18 pack inventory except
 `START_HERE.md`, `product-brief.md`, and `system-architecture.md`, which were

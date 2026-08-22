@@ -1,0 +1,638 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 60;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		2322FE84AD06A40761FD2CDE /* WebMediaDLiOSShareExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 984B1D747F1586FCCC0D18A9 /* WebMediaDLiOSShareExtension.swift */; };
+		341316292B19746D4B390DB9 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 2CE52C1FC392CA9013B9D7EA /* WebMediaDLiOSShareExtension PrivacyInfo.xcprivacy */; };
+		F282EEE7B8DD7BE38C38A59F /* WebMediaDLCore in Frameworks */ = {isa = PBXBuildFile; productRef = C56B93D5742286B234E1513C /* WebMediaDLCore */; };
+		101229E579148F70E0A8ED78 /* WebMediaDLiPadOSShareExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98B895EF456162CA31538CA6 /* WebMediaDLiPadOSShareExtension.swift */; };
+		ED4E512581FAC411CE3F0704 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 3AF55E45BB9B52EDF884D980 /* WebMediaDLiPadOSShareExtension PrivacyInfo.xcprivacy */; };
+		9958B63EF96875FCBC8828E5 /* WebMediaDLCore in Frameworks */ = {isa = PBXBuildFile; productRef = AB1C3254EF65FF7FDCA90335 /* WebMediaDLCore */; };
+		591334964D841DCCE75D7BDB /* WebMediaDLVisionShareExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = F58FF908BDDEE83694673A81 /* WebMediaDLVisionShareExtension.swift */; };
+		DF59C0963CA5F19BD91382C2 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 5C3B5D7911D7BAD42F1227CA /* WebMediaDLVisionShareExtension PrivacyInfo.xcprivacy */; };
+		53AE7FAECA7ED6B749EDC1F0 /* WebMediaDLCore in Frameworks */ = {isa = PBXBuildFile; productRef = CDA22FB95F7541428C3A06AA /* WebMediaDLCore */; };
+		B7F601E11E4F76B508DFEE7B /* WebMediaDLMacShareExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 439B4EF4359DEB4F20871437 /* WebMediaDLMacShareExtension.swift */; };
+		5FB10B0119C6C7276299BE8D /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 74487A62DFE1DFEE424B3BF1 /* WebMediaDLMacShareExtension PrivacyInfo.xcprivacy */; };
+		56474B1AC25F8554077A3A1F /* WebMediaDLCore in Frameworks */ = {isa = PBXBuildFile; productRef = C41191D80250F282EEC1F502 /* WebMediaDLCore */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		900B6C94CCFDFC4BFBE54F35 /* WebMediaDLiOSShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = WebMediaDLiOSShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		984B1D747F1586FCCC0D18A9 /* WebMediaDLiOSShareExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WebMediaDLiOSShareExtension.swift; path = "../WebMediaDLiOS/ShareExtension/WebMediaDLiOSShareExtension.swift"; sourceTree = "<group>"; };
+		DB118FEF37DD87FB72E2CA6A /* WebMediaDLiOSShareExtension Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = "../WebMediaDLiOS/ShareExtension/Info.plist"; sourceTree = "<group>"; };
+		2CE52C1FC392CA9013B9D7EA /* WebMediaDLiOSShareExtension PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = "../WebMediaDLiOS/ShareExtension/PrivacyInfo.xcprivacy"; sourceTree = "<group>"; };
+		0BA21B39EE4E06135BD677CB /* WebMediaDLiPadOSShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = WebMediaDLiPadOSShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		98B895EF456162CA31538CA6 /* WebMediaDLiPadOSShareExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WebMediaDLiPadOSShareExtension.swift; path = "../WebMediaDLiPadOS/ShareExtension/WebMediaDLiPadOSShareExtension.swift"; sourceTree = "<group>"; };
+		4D4B7936E862C9A28F2FE35F /* WebMediaDLiPadOSShareExtension Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = "../WebMediaDLiPadOS/ShareExtension/Info.plist"; sourceTree = "<group>"; };
+		3AF55E45BB9B52EDF884D980 /* WebMediaDLiPadOSShareExtension PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = "../WebMediaDLiPadOS/ShareExtension/PrivacyInfo.xcprivacy"; sourceTree = "<group>"; };
+		1624AD80F788699FEAD90594 /* WebMediaDLVisionShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = WebMediaDLVisionShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		F58FF908BDDEE83694673A81 /* WebMediaDLVisionShareExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WebMediaDLVisionShareExtension.swift; path = "../WebMediaDLVision/ShareExtension/WebMediaDLVisionShareExtension.swift"; sourceTree = "<group>"; };
+		7EABA7485E438D7B6B57542B /* WebMediaDLVisionShareExtension Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = "../WebMediaDLVision/ShareExtension/Info.plist"; sourceTree = "<group>"; };
+		5C3B5D7911D7BAD42F1227CA /* WebMediaDLVisionShareExtension PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = "../WebMediaDLVision/ShareExtension/PrivacyInfo.xcprivacy"; sourceTree = "<group>"; };
+		C59556B5866AACD443B27FDD /* WebMediaDLMacShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = WebMediaDLMacShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		439B4EF4359DEB4F20871437 /* WebMediaDLMacShareExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WebMediaDLMacShareExtension.swift; path = "../WebMediaDLMac/ShareExtension/WebMediaDLMacShareExtension.swift"; sourceTree = "<group>"; };
+		AF9CDAFCAFFF8F171946C0B9 /* WebMediaDLMacShareExtension Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Info.plist; path = "../WebMediaDLMac/ShareExtension/Info.plist"; sourceTree = "<group>"; };
+		74487A62DFE1DFEE424B3BF1 /* WebMediaDLMacShareExtension PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = "../WebMediaDLMac/ShareExtension/PrivacyInfo.xcprivacy"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		01C2BE0D69B0965210EB6EE9 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F282EEE7B8DD7BE38C38A59F /* WebMediaDLCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B0BA72F81C7DD68ABC7F16CA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9958B63EF96875FCBC8828E5 /* WebMediaDLCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7045F0A2A827856E26416E49 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				53AE7FAECA7ED6B749EDC1F0 /* WebMediaDLCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		30549DE55026F16EC397EC50 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				56474B1AC25F8554077A3A1F /* WebMediaDLCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		8050FF0E4A545BC1CB2EBF68 = {
+			isa = PBXGroup;
+			children = (
+				984B1D747F1586FCCC0D18A9 /* WebMediaDLiOSShareExtension.swift */,
+				DB118FEF37DD87FB72E2CA6A /* WebMediaDLiOSShareExtension Info.plist */,
+				2CE52C1FC392CA9013B9D7EA /* WebMediaDLiOSShareExtension PrivacyInfo.xcprivacy */,
+				98B895EF456162CA31538CA6 /* WebMediaDLiPadOSShareExtension.swift */,
+				4D4B7936E862C9A28F2FE35F /* WebMediaDLiPadOSShareExtension Info.plist */,
+				3AF55E45BB9B52EDF884D980 /* WebMediaDLiPadOSShareExtension PrivacyInfo.xcprivacy */,
+				F58FF908BDDEE83694673A81 /* WebMediaDLVisionShareExtension.swift */,
+				7EABA7485E438D7B6B57542B /* WebMediaDLVisionShareExtension Info.plist */,
+				5C3B5D7911D7BAD42F1227CA /* WebMediaDLVisionShareExtension PrivacyInfo.xcprivacy */,
+				439B4EF4359DEB4F20871437 /* WebMediaDLMacShareExtension.swift */,
+				AF9CDAFCAFFF8F171946C0B9 /* WebMediaDLMacShareExtension Info.plist */,
+				74487A62DFE1DFEE424B3BF1 /* WebMediaDLMacShareExtension PrivacyInfo.xcprivacy */,
+				31793280A19CDC7880B10A8E /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		31793280A19CDC7880B10A8E /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				900B6C94CCFDFC4BFBE54F35 /* WebMediaDLiOSShareExtension.appex */,
+				0BA21B39EE4E06135BD677CB /* WebMediaDLiPadOSShareExtension.appex */,
+				1624AD80F788699FEAD90594 /* WebMediaDLVisionShareExtension.appex */,
+				C59556B5866AACD443B27FDD /* WebMediaDLMacShareExtension.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		1F9853B554172BA6DE38A639 /* WebMediaDLiOSShareExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D07B5F1307B139CCDD5721CB /* Build configuration list for PBXNativeTarget "WebMediaDLiOSShareExtension" */;
+			buildPhases = (
+				0E6694A76137482E4F2457A8 /* Sources */,
+				01C2BE0D69B0965210EB6EE9 /* Frameworks */,
+				1523BF6ADC12967DBAA69767 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = WebMediaDLiOSShareExtension;
+			packageProductDependencies = (
+				C56B93D5742286B234E1513C /* WebMediaDLCore */,
+			);
+			productName = WebMediaDLiOSShareExtension;
+			productReference = 900B6C94CCFDFC4BFBE54F35 /* WebMediaDLiOSShareExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		BE4A30474878E8EFCAACA573 /* WebMediaDLiPadOSShareExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B675935EC2165CE4DBD4EFA4 /* Build configuration list for PBXNativeTarget "WebMediaDLiPadOSShareExtension" */;
+			buildPhases = (
+				7F1C5F5E55304B9B87902EC0 /* Sources */,
+				B0BA72F81C7DD68ABC7F16CA /* Frameworks */,
+				CE0044E66A7C03D1BF55F265 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = WebMediaDLiPadOSShareExtension;
+			packageProductDependencies = (
+				AB1C3254EF65FF7FDCA90335 /* WebMediaDLCore */,
+			);
+			productName = WebMediaDLiPadOSShareExtension;
+			productReference = 0BA21B39EE4E06135BD677CB /* WebMediaDLiPadOSShareExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		1921B836C76D96CDC859F810 /* WebMediaDLVisionShareExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BFC79D835CE7E2332139AF01 /* Build configuration list for PBXNativeTarget "WebMediaDLVisionShareExtension" */;
+			buildPhases = (
+				2B3CACBF8F74B60B2285F2F4 /* Sources */,
+				7045F0A2A827856E26416E49 /* Frameworks */,
+				6FC30C21B3BC9B96321AE1DB /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = WebMediaDLVisionShareExtension;
+			packageProductDependencies = (
+				CDA22FB95F7541428C3A06AA /* WebMediaDLCore */,
+			);
+			productName = WebMediaDLVisionShareExtension;
+			productReference = 1624AD80F788699FEAD90594 /* WebMediaDLVisionShareExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		870A2A1AF863EB26BC1CF85F /* WebMediaDLMacShareExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F2D319722F69D50C74BEFA37 /* Build configuration list for PBXNativeTarget "WebMediaDLMacShareExtension" */;
+			buildPhases = (
+				F9B6DEB3C16ADF4EB4980579 /* Sources */,
+				30549DE55026F16EC397EC50 /* Frameworks */,
+				6905EAA5EDCC03B257F05012 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = WebMediaDLMacShareExtension;
+			packageProductDependencies = (
+				C41191D80250F282EEC1F502 /* WebMediaDLCore */,
+			);
+			productName = WebMediaDLMacShareExtension;
+			productReference = C59556B5866AACD443B27FDD /* WebMediaDLMacShareExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		98F54143AB4E86B28C3AFEE0 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+			};
+			buildConfigurationList = 6547E55400B305CFB38A6528 /* Build configuration list for PBXProject "WebMediaDLShareExtensions" */;
+			compatibilityVersion = "Xcode 15.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 8050FF0E4A545BC1CB2EBF68;
+			packageReferences = (
+				DBA26CDC42A5E444D70C3906 /* XCLocalSwiftPackageReference "WebMediaDLCore" */,
+			);
+			productRefGroup = 31793280A19CDC7880B10A8E /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				1F9853B554172BA6DE38A639 /* WebMediaDLiOSShareExtension */,
+				BE4A30474878E8EFCAACA573 /* WebMediaDLiPadOSShareExtension */,
+				1921B836C76D96CDC859F810 /* WebMediaDLVisionShareExtension */,
+				870A2A1AF863EB26BC1CF85F /* WebMediaDLMacShareExtension */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		1523BF6ADC12967DBAA69767 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				341316292B19746D4B390DB9 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CE0044E66A7C03D1BF55F265 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				ED4E512581FAC411CE3F0704 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6FC30C21B3BC9B96321AE1DB /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DF59C0963CA5F19BD91382C2 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6905EAA5EDCC03B257F05012 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5FB10B0119C6C7276299BE8D /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		0E6694A76137482E4F2457A8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2322FE84AD06A40761FD2CDE /* WebMediaDLiOSShareExtension.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7F1C5F5E55304B9B87902EC0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				101229E579148F70E0A8ED78 /* WebMediaDLiPadOSShareExtension.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2B3CACBF8F74B60B2285F2F4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				591334964D841DCCE75D7BDB /* WebMediaDLVisionShareExtension.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F9B6DEB3C16ADF4EB4980579 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B7F601E11E4F76B508DFEE7B /* WebMediaDLMacShareExtension.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		FB8F348875E6E0A19E87C172 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = "DEBUG=1 $(inherited)";
+				IPHONEOS_DEPLOYMENT_TARGET = "17.0";
+				MACOSX_DEPLOYMENT_TARGET = "14.0";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = "6.0";
+				XROS_DEPLOYMENT_TARGET = "1.0";
+			};
+			name = Debug;
+		};
+		B517AD13D159980514CEF1B0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = YES;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = "17.0";
+				MACOSX_DEPLOYMENT_TARGET = "14.0";
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = "6.0";
+				XROS_DEPLOYMENT_TARGET = "1.0";
+			};
+			name = Release;
+		};
+		37DD657C6B50904980460CDA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = NO;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_ENTITLEMENTS = "../WebMediaDLiOS/ShareExtension/WebMediaDL.entitlements";
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = "1";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "../WebMediaDLiOS/ShareExtension/Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = "17.0";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = "0.1.0";
+				PRODUCT_BUNDLE_IDENTIFIER = "local.webmedia-dl.ios.share";
+				PRODUCT_NAME = WebMediaDLiOSShareExtension;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = "6.0";
+				TARGETED_DEVICE_FAMILY = "1";
+				WRAPPER_EXTENSION = appex;
+			};
+			name = Debug;
+		};
+		4F5F990798CB5CFBFD423FDF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = NO;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_ENTITLEMENTS = "../WebMediaDLiOS/ShareExtension/WebMediaDL.entitlements";
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = "1";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "../WebMediaDLiOS/ShareExtension/Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = "17.0";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = "0.1.0";
+				PRODUCT_BUNDLE_IDENTIFIER = "local.webmedia-dl.ios.share";
+				PRODUCT_NAME = WebMediaDLiOSShareExtension;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = "6.0";
+				TARGETED_DEVICE_FAMILY = "1";
+				WRAPPER_EXTENSION = appex;
+			};
+			name = Release;
+		};
+		CA10F1604D892585D9E98EB9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = NO;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_ENTITLEMENTS = "../WebMediaDLiPadOS/ShareExtension/WebMediaDL.entitlements";
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = "1";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "../WebMediaDLiPadOS/ShareExtension/Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = "17.0";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = "0.1.0";
+				PRODUCT_BUNDLE_IDENTIFIER = "local.webmedia-dl.ipados.share";
+				PRODUCT_NAME = WebMediaDLiPadOSShareExtension;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = "6.0";
+				TARGETED_DEVICE_FAMILY = "2";
+				WRAPPER_EXTENSION = appex;
+			};
+			name = Debug;
+		};
+		E6A936CFAB3160CF1C23DFA8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = NO;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_ENTITLEMENTS = "../WebMediaDLiPadOS/ShareExtension/WebMediaDL.entitlements";
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = "1";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "../WebMediaDLiPadOS/ShareExtension/Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = "17.0";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = "0.1.0";
+				PRODUCT_BUNDLE_IDENTIFIER = "local.webmedia-dl.ipados.share";
+				PRODUCT_NAME = WebMediaDLiPadOSShareExtension;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = "6.0";
+				TARGETED_DEVICE_FAMILY = "2";
+				WRAPPER_EXTENSION = appex;
+			};
+			name = Release;
+		};
+		21BA310FC2A97881FDC4615D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = NO;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_ENTITLEMENTS = "../WebMediaDLVision/ShareExtension/WebMediaDL.entitlements";
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = "1";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "../WebMediaDLVision/ShareExtension/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = "0.1.0";
+				PRODUCT_BUNDLE_IDENTIFIER = "local.webmedia-dl.vision.share";
+				PRODUCT_NAME = WebMediaDLVisionShareExtension;
+				SDKROOT = xros;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "xros xrsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = "6.0";
+				TARGETED_DEVICE_FAMILY = "7";
+				WRAPPER_EXTENSION = appex;
+				XROS_DEPLOYMENT_TARGET = "1.0";
+			};
+			name = Debug;
+		};
+		31F3D58A4BC5C1F82405CD12 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = NO;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_ENTITLEMENTS = "../WebMediaDLVision/ShareExtension/WebMediaDL.entitlements";
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = "1";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "../WebMediaDLVision/ShareExtension/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = "0.1.0";
+				PRODUCT_BUNDLE_IDENTIFIER = "local.webmedia-dl.vision.share";
+				PRODUCT_NAME = WebMediaDLVisionShareExtension;
+				SDKROOT = xros;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "xros xrsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = "6.0";
+				TARGETED_DEVICE_FAMILY = "7";
+				WRAPPER_EXTENSION = appex;
+				XROS_DEPLOYMENT_TARGET = "1.0";
+			};
+			name = Release;
+		};
+		4BB13406423172749CDA1D08 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = NO;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_ENTITLEMENTS = "../WebMediaDLMac/ShareExtension/WebMediaDL.entitlements";
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = "1";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "../WebMediaDLMac/ShareExtension/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = "14.0";
+				MARKETING_VERSION = "0.1.0";
+				PRODUCT_BUNDLE_IDENTIFIER = "local.webmedia-dl.mac.share";
+				PRODUCT_NAME = WebMediaDLMacShareExtension;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = "6.0";
+				WRAPPER_EXTENSION = appex;
+			};
+			name = Debug;
+		};
+		B3310F4A2BE660E43EDF918B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = NO;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_ENTITLEMENTS = "../WebMediaDLMac/ShareExtension/WebMediaDL.entitlements";
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = "1";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "../WebMediaDLMac/ShareExtension/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = "14.0";
+				MARKETING_VERSION = "0.1.0";
+				PRODUCT_BUNDLE_IDENTIFIER = "local.webmedia-dl.mac.share";
+				PRODUCT_NAME = WebMediaDLMacShareExtension;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = "6.0";
+				WRAPPER_EXTENSION = appex;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		6547E55400B305CFB38A6528 /* Build configuration list for PBXProject "WebMediaDLShareExtensions" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FB8F348875E6E0A19E87C172 /* Debug */,
+				B517AD13D159980514CEF1B0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D07B5F1307B139CCDD5721CB /* Build configuration list for PBXNativeTarget "WebMediaDLiOSShareExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				37DD657C6B50904980460CDA /* Debug */,
+				4F5F990798CB5CFBFD423FDF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B675935EC2165CE4DBD4EFA4 /* Build configuration list for PBXNativeTarget "WebMediaDLiPadOSShareExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CA10F1604D892585D9E98EB9 /* Debug */,
+				E6A936CFAB3160CF1C23DFA8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		BFC79D835CE7E2332139AF01 /* Build configuration list for PBXNativeTarget "WebMediaDLVisionShareExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				21BA310FC2A97881FDC4615D /* Debug */,
+				31F3D58A4BC5C1F82405CD12 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		F2D319722F69D50C74BEFA37 /* Build configuration list for PBXNativeTarget "WebMediaDLMacShareExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4BB13406423172749CDA1D08 /* Debug */,
+				B3310F4A2BE660E43EDF918B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		DBA26CDC42A5E444D70C3906 /* XCLocalSwiftPackageReference "WebMediaDLCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../WebMediaDLCore";
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		C56B93D5742286B234E1513C /* WebMediaDLCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DBA26CDC42A5E444D70C3906 /* XCLocalSwiftPackageReference "WebMediaDLCore" */;
+			productName = WebMediaDLCore;
+		};
+		AB1C3254EF65FF7FDCA90335 /* WebMediaDLCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DBA26CDC42A5E444D70C3906 /* XCLocalSwiftPackageReference "WebMediaDLCore" */;
+			productName = WebMediaDLCore;
+		};
+		CDA22FB95F7541428C3A06AA /* WebMediaDLCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DBA26CDC42A5E444D70C3906 /* XCLocalSwiftPackageReference "WebMediaDLCore" */;
+			productName = WebMediaDLCore;
+		};
+		C41191D80250F282EEC1F502 /* WebMediaDLCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DBA26CDC42A5E444D70C3906 /* XCLocalSwiftPackageReference "WebMediaDLCore" */;
+			productName = WebMediaDLCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 98F54143AB4E86B28C3AFEE0 /* Project object */;
+}

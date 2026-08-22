@@ -4,7 +4,8 @@
 Signed Xcode NSExtension wrapping stays BLOCKED. This writes inspectable
 unsigned bundle directories so Linux and macOS CI can prove Info.plist,
 PrivacyInfo, package type, and principal-class contracts without a signing
-identity.
+identity. macOS CI separately ``xcodebuild``s ``com.apple.product-type.app-extension``
+targets from ``scripts/generate_unsigned_appex_xcodeproj.py``.
 """
 
 from __future__ import annotations

@@ -165,6 +165,7 @@ DerivedData/
 .build/
 .ci-derived/
 .ci-derived-appex/
+.ci-derived-appex-xcode/
 .swiftpm/
 *.xcuserstate
 *.xccheckout

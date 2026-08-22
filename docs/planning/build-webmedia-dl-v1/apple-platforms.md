@@ -28,7 +28,9 @@ manifests fail closed locally and require a paired Mac. tvOS capture is typed UR
 only (`UIPasteboard` is unavailable). Photos/Files/Share destinations require a
 user-approved root. Swift packages are under `apps/`. GitHub `macos-15` CI runs
 Core `swift test`, builds the Mac package including the share-extension library
-product, and typechecks iOS/iPadOS/visionOS/watchOS/tvOS packages. Share
-extensions are library products depended on by the executable so `xcodebuild`
-compiles them even when SwiftPM does not auto-generate a scheme. Apple device
-runtime, signing, and store submission stay BLOCKED.
+product, typechecks iOS/iPadOS/visionOS/watchOS/tvOS packages, and `xcodebuild`s
+unsigned `com.apple.product-type.app-extension` share-sheet `.appex` products
+from `apps/WebMediaDLShareExtensions`. Share extensions stay library products
+depended on by each executable so SwiftPM scheme gaps still compile, and the
+unsigned app-extension project produces inspectable Mach-O `.appex` bundles.
+Apple device runtime, signing, and store submission stay BLOCKED.

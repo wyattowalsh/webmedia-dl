@@ -59,6 +59,12 @@ to the loopback worker. Those adapters SHALL NOT run provider argv.
 - **THEN** each bundle is named `*.appex`, has package type `XPC!`, and keeps
   the share-services principal class
 
+#### Scenario: unsigned xcode app extension products are built
+- **WHEN** `xcodebuild` builds share-extension targets of product type
+  `com.apple.product-type.app-extension`
+- **THEN** each product is a `.appex` bundle whose executable is Mach-O and
+  whose Info.plist keeps package type `XPC!` and the share-services principal
+
 #### Scenario: share destination publishes under approved root
 
 - **WHEN** `destination_kind` is `share` under an approved root

@@ -3,7 +3,10 @@ from __future__ import annotations
 import importlib.util
 import json
 import plistlib
+import shutil
 from pathlib import Path
+
+import pytest
 
 from webmedia_dl.capabilities import registry
 from webmedia_dl.paths import repo_root
@@ -265,6 +268,8 @@ def test_share_extension_principals_match_plists() -> None:
         extension = payload["NSExtension"]
         assert extension["NSExtensionPointIdentifier"] == "com.apple.share-services"
         assert extension["NSExtensionPrincipalClass"] == principal
+        assert payload["CFBundlePackageType"] == "XPC!"
+        assert payload["CFBundleExecutable"] == source_path.stem
         source = source_path.read_text(encoding="utf-8")
         assert f"@objc({principal})" in source
         assert "NSExtensionRequestHandling" in source
@@ -712,6 +717,12 @@ def test_github_ci_compiles_apple_packages() -> None:
     assert "assemble_unsigned_appex.py" in script
     assert ".ci-derived-appex" in script
     assert "WebMediaDLiOSShareExtension.appex" in script or "${name}.appex" in script
+    assert "WebMediaDLShareExtensions.xcodeproj" in script
+    assert "com.apple.product-type.app-extension" in script
+    assert "--inspect-derived" in script
+    assert "--require-macho" in script
+    assert ".ci-derived-appex-xcode" in script
+    assert "generate_unsigned_appex_xcodeproj.py" in script
     assert 'generic/platform=iOS"' in script or "generic/platform=iOS" in script
     assert "generic/platform=watchOS" in script
     assert "generic/platform=tvOS" in script
@@ -1107,3 +1118,190 @@ def test_unsigned_share_extension_appex_layouts(tmp_path: Path) -> None:
     script = (repo_root() / "scripts/assemble_unsigned_appex.py").read_text(encoding="utf-8")
     assert 'payload["CFBundlePackageType"] = "XPC!"' in script
     assert "Signed Xcode NSExtension wrapping stays BLOCKED" in script
+
+
+def _load_unsigned_appex_xcode():
+    path = repo_root() / "scripts/generate_unsigned_appex_xcodeproj.py"
+    spec = importlib.util.spec_from_file_location("generate_unsigned_appex_xcodeproj", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("unable to load generate_unsigned_appex_xcodeproj.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_unsigned_xcode_app_extension_products(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = repo_root()
+    module = _load_unsigned_appex_xcode()
+    committed = root / "apps/WebMediaDLShareExtensions/WebMediaDLShareExtensions.xcodeproj"
+    assert module.main(["--root", str(root), "--check"]) == 0
+    dest = tmp_path / "WebMediaDLShareExtensions.xcodeproj"
+    written = module.write_xcodeproj(root, dest)
+    assert written.is_file()
+    expected = module.generated_files(root)
+    assert set(expected) == {
+        "project.pbxproj",
+        *(
+            f"xcshareddata/xcschemes/{name}.xcscheme"
+            for _, name, _ in module.load_share_extensions()
+        ),
+    }
+    for relative, text in expected.items():
+        assert (dest / relative).read_text(encoding="utf-8") == text
+        assert (committed / relative).read_text(encoding="utf-8") == text
+    pbxproj = (committed / "project.pbxproj").read_text(encoding="utf-8")
+    assert pbxproj.count('productType = "com.apple.product-type.app-extension"') == 4
+    assert pbxproj.count("WRAPPER_EXTENSION = appex") == 8
+    assert "APPLICATION_EXTENSION_API_ONLY = NO" in pbxproj
+    assert "CODE_SIGNING_ALLOWED = NO" in pbxproj
+    assert 'relativePath = "../WebMediaDLCore"' in pbxproj
+    assert "XCLocalSwiftPackageReference" in pbxproj
+    for _, name, _ in module.load_share_extensions():
+        assert f"{name}.swift" in pbxproj
+        assert (dest / f"xcshareddata/xcschemes/{name}.xcscheme").is_file()
+    script = (root / "scripts/build_apple_packages.sh").read_text(encoding="utf-8")
+    assert "WebMediaDLShareExtensions.xcodeproj" in script
+    assert "com.apple.product-type.app-extension" in script
+    assert "--inspect-derived" in script
+    assert "--require-macho" in script
+    for name, destination in module.destinations():
+        assert name in script
+        assert destination in script
+
+    layouts = _load_assemble_unsigned_appex().assemble(root, tmp_path / "layouts")
+    derived = tmp_path / "derived" / "Build" / "Products" / "Debug-iphoneos"
+    derived.mkdir(parents=True)
+    for bundle in layouts:
+        report = module.inspect_bundle(bundle, require_macho=False)
+        assert report["macho"] is None
+        with pytest.raises(FileNotFoundError, match="Mach-O"):
+            module.inspect_bundle(bundle, require_macho=True)
+        name = bundle.name.removesuffix(".appex")
+        exe = bundle / name
+        exe.write_bytes(b"\xcf\xfa\xed\xfe" + b"\x00" * 8)
+        macho = module.inspect_bundle(bundle, require_macho=True)
+        assert macho["macho"] == "64"
+        copied = derived / bundle.name
+        copied.mkdir()
+        (copied / "Info.plist").write_bytes((bundle / "Info.plist").read_bytes())
+        (copied / "PrivacyInfo.xcprivacy").write_bytes(
+            (bundle / "PrivacyInfo.xcprivacy").read_bytes()
+        )
+        (copied / name).write_bytes(exe.read_bytes())
+    reports = module.inspect_derived(derived, require_macho=True)
+    assert {item["name"] for item in reports} == {
+        item[1] for item in module.load_share_extensions()
+    }
+    assert module.main(["--inspect-derived", str(derived), "--require-macho"]) == 0
+    assert module.main(["--inspect-bundle", str(layouts[0]), "--require-macho"]) == 0
+
+    assert module.macho_kind(exe) == "64"
+    fat = tmp_path / "fat-bin"
+    fat.write_bytes(b"\xca\xfe\xba\xbe")
+    assert module.macho_kind(fat) == "fat"
+    bit32 = tmp_path / "macho32"
+    bit32.write_bytes(b"\xfe\xed\xfa\xce")
+    assert module.macho_kind(bit32) == "32"
+    assert module.macho_kind(tmp_path / "missing-bin") is None
+    text = tmp_path / "not-macho"
+    text.write_bytes(b"notm")
+    assert module.macho_kind(text) is None
+
+    stale = tmp_path / "stale.xcodeproj"
+    module.write_xcodeproj(root, stale)
+    (stale / "project.pbxproj").write_text("stale\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="stale"):
+        module.check_xcodeproj(root, stale)
+    missing = tmp_path / "missing.xcodeproj"
+    missing.mkdir()
+    with pytest.raises(FileNotFoundError, match="missing generated"):
+        module.check_xcodeproj(root, missing)
+    with pytest.raises(ValueError, match=r"not an \.appex"):
+        module.inspect_bundle(tmp_path / "not-an-appex")
+    empty = tmp_path / "Empty.appex"
+    empty.mkdir()
+    with pytest.raises(FileNotFoundError, match=r"Info\.plist"):
+        module.inspect_bundle(empty)
+    unknown = tmp_path / "UnknownShare.appex"
+    unknown.mkdir()
+    (unknown / "Info.plist").write_bytes((layouts[0] / "Info.plist").read_bytes())
+    with pytest.raises(ValueError, match="unexpected"):
+        module.inspect_bundle(unknown)
+    broken = tmp_path / "WebMediaDLiOSShareExtension.appex"
+    broken.mkdir()
+    (broken / "Info.plist").write_bytes(plistlib.dumps({"CFBundlePackageType": "APPL"}))
+    with pytest.raises(ValueError, match="package type"):
+        module.inspect_bundle(broken)
+    missing_ext = tmp_path / "WebMediaDLMacShareExtension.appex"
+    missing_ext.mkdir()
+    (missing_ext / "Info.plist").write_bytes(
+        plistlib.dumps(
+            {
+                "CFBundlePackageType": "XPC!",
+                "CFBundleExecutable": "WebMediaDLMacShareExtension",
+            }
+        )
+    )
+    with pytest.raises(ValueError, match="NSExtension"):
+        module.inspect_bundle(missing_ext)
+    nested = tmp_path / "nested-mac" / "WebMediaDLMacShareExtension.appex"
+    (nested / "Contents" / "MacOS").mkdir(parents=True)
+    (nested / "Contents" / "Resources").mkdir(parents=True)
+    mac = next(item for item in layouts if item.name == "WebMediaDLMacShareExtension.appex")
+    shutil.copy2(mac / "Info.plist", nested / "Contents" / "Info.plist")
+    shutil.copy2(
+        mac / "PrivacyInfo.xcprivacy",
+        nested / "Contents" / "Resources" / "PrivacyInfo.xcprivacy",
+    )
+    shutil.copy2(
+        mac / "WebMediaDLMacShareExtension",
+        nested / "Contents" / "MacOS" / "WebMediaDLMacShareExtension",
+    )
+    nested_report = module.inspect_bundle(nested, require_macho=True)
+    assert nested_report["macho"] == "64"
+    wrong_exe = tmp_path / "wrong-exe" / "WebMediaDLiOSShareExtension.appex"
+    wrong_exe.mkdir(parents=True)
+    payload = plistlib.loads((layouts[0] / "Info.plist").read_bytes())
+    payload["CFBundleExecutable"] = "Other"
+    (wrong_exe / "Info.plist").write_bytes(plistlib.dumps(payload))
+    with pytest.raises(ValueError, match="executable"):
+        module.inspect_bundle(wrong_exe)
+    no_privacy = tmp_path / "no-privacy" / "WebMediaDLiOSShareExtension.appex"
+    no_privacy.mkdir(parents=True)
+    shutil.copy2(layouts[0] / "Info.plist", no_privacy / "Info.plist")
+    with pytest.raises(FileNotFoundError, match="PrivacyInfo"):
+        module.inspect_bundle(no_privacy)
+    point = tmp_path / "point" / "WebMediaDLiOSShareExtension.appex"
+    point.mkdir(parents=True)
+    point_payload = plistlib.loads((layouts[0] / "Info.plist").read_bytes())
+    point_payload["NSExtension"]["NSExtensionPointIdentifier"] = "com.apple.widget-extension"
+    (point / "Info.plist").write_bytes(plistlib.dumps(point_payload))
+    shutil.copy2(layouts[0] / "PrivacyInfo.xcprivacy", point / "PrivacyInfo.xcprivacy")
+    with pytest.raises(ValueError, match="share-services"):
+        module.inspect_bundle(point)
+    principal = tmp_path / "principal" / "WebMediaDLiOSShareExtension.appex"
+    principal.mkdir(parents=True)
+    principal_payload = plistlib.loads((layouts[0] / "Info.plist").read_bytes())
+    principal_payload["NSExtension"]["NSExtensionPrincipalClass"] = "OtherPrincipal"
+    (principal / "Info.plist").write_bytes(plistlib.dumps(principal_payload))
+    shutil.copy2(layouts[0] / "PrivacyInfo.xcprivacy", principal / "PrivacyInfo.xcprivacy")
+    with pytest.raises(ValueError, match="principal"):
+        module.inspect_bundle(principal)
+    with pytest.raises(FileNotFoundError, match=r"unsigned \.appex products"):
+        module.inspect_derived(tmp_path / "empty-derived", require_macho=True)
+    with pytest.raises(FileNotFoundError, match="missing share-extension file"):
+        module.extension_rows(tmp_path / "empty-root")
+    validator = (root / "scripts/validate_bundle.py").read_text(encoding="utf-8")
+    assert '".ci-derived-appex-xcode"' in validator
+    monkeypatch.setattr(module.plistlib, "loads", lambda *_args, **_kwargs: {})
+    with pytest.raises(ValueError, match="CFBundleIdentifier"):
+        module.extension_rows(root)
+    monkeypatch.undo()
+    monkeypatch.setattr(module, "oid", lambda *_parts: "A" * 24)
+    with pytest.raises(RuntimeError, match="object id collision"):
+        module.render_pbxproj(root)
+    monkeypatch.setattr(module, "PLATFORM", {})
+    with pytest.raises(KeyError, match="no unsigned xcode platform mapping"):
+        module.extension_rows(root)

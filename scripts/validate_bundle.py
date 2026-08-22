@@ -346,6 +346,10 @@ def main() -> int:
         ".ty",
         "htmlcov",
         "dist-bundle",
+        ".build",
+        ".ci-derived",
+        ".ci-derived-appex",
+        ".ci-derived-appex-xcode",
     }
     skip_names = {".coverage", "CACHEDIR.TAG"}
     skip_suffix = {".pyc", ".pyo", ".whl", ".so", ".zip"}
