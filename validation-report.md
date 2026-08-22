@@ -2,7 +2,7 @@
 
 | Gate | Status | Evidence |
 |---|---|---|
-| `uv run pytest` | PASS | 529 tests on GitHub Actions `ci` run `32552988266` (`f3fd795`), including DASH `endNumber` / presentation-duration expansion and provider stdio bounds |
+| `uv run pytest` | PASS | 529 tests on GitHub Actions `ci` run `32552988266` (`f3fd795`); local follow-up adds companion UUID / extra=forbid, doctor probe, and intake URL-as-path tests |
 | `uv run pytest --cov` | PASS | 99.48% on `f3fd795` (`fail_under` 99) |
 | `uv run ruff check` | PASS | `src/`, `tests/`, `scripts/` |
 | `uv run ruff format --check` | PASS | |
