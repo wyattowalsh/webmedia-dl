@@ -45,3 +45,8 @@ registered sources, and `resume_job` SHALL skip kinds already acquired.
 - **WHEN** a mixed-media job is paused after the first kind is registered
 - **THEN** the job state is `PAUSED`, the checkpoint lists that source, and resume
   acquires remaining kinds without deleting the first source
+
+#### Scenario: queue-level events use a zero uuid
+
+- **WHEN** the operator pauses and resumes the queue
+- **THEN** those events use job id `00000000-0000-0000-0000-000000000000`

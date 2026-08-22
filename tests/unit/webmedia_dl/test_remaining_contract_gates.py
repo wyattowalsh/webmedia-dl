@@ -158,6 +158,35 @@ def test_empty_output_paths_fall_back_to_output_path(
     assert job.state is JobState.COMPLETED
 
 
+def test_acquire_registers_output_paths_when_primary_missing(
+    tmp_data: Path, png_bytes: bytes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    html = '<html><body><video src="https://example.com/watch?v=1"></video></body></html>'
+    runtime = ProviderRuntime(
+        which=lambda name: "/usr/bin/yt-dlp" if name == "yt-dlp" else None,
+        run=lambda _argv, _cwd: (0, b"", b""),
+    )
+    original = runtime.execute
+
+    def wrapped(request: ProviderRequest, staging: Path) -> ProviderResult:
+        result = original(request, staging)
+        dest = staging / "clip.jpg"
+        dest.write_bytes(png_bytes)
+        return ProviderResult(
+            0,
+            result.stdout,
+            result.stderr,
+            None,
+            result.argv,
+            output_paths=(dest,),
+        )
+
+    monkeypatch.setattr(runtime, "execute", wrapped)
+    pipeline = Pipeline(data_dir=tmp_data, runtime=runtime)
+    job = pipeline.submit("https://example.com/watch", html=html)
+    assert job.state is JobState.COMPLETED
+
+
 def test_export_preset_override_and_lossy_without_container(tmp_path: Path) -> None:
     video = Artifact(
         artifact_id="sha256:" + "ab" * 32,

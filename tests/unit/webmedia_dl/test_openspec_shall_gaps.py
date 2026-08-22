@@ -495,6 +495,10 @@ SCENARIO_EVIDENCE: dict[str, tuple[str, str]] = {
         "tests/unit/webmedia_dl/test_companion_checkpoint.py",
         "test_pause_during_acquire_checkpoints_and_resume_skips_done_kind",
     ),
+    "queue-level events use a zero uuid": (
+        "tests/unit/webmedia_dl/test_openspec_shall_gaps.py",
+        "test_queue_events_use_zero_uuid",
+    ),
     "doctor JSON": ("tests/unit/webmedia_dl/test_cli.py", "test_doctor_json"),
     "support bundle is local-only": (
         "tests/unit/webmedia_dl/test_cli.py",
@@ -570,6 +574,10 @@ SCENARIO_EVIDENCE: dict[str, tuple[str, str]] = {
         "test_capture_popup_has_accessible_markup",
     ),
     "CLI help uses canonical name": ("tests/unit/webmedia_dl/test_cli.py", "test_help"),
+    "wmdl is not the console script": (
+        "tests/e2e/test_wheel_install.py",
+        "test_wheel_contains_runtime_and_cli",
+    ),
     "bundle zip uses a fixed timestamp": (
         "tests/unit/webmedia_dl/test_openspec_shall_gaps.py",
         "test_package_bundle_uses_fixed_timestamp",

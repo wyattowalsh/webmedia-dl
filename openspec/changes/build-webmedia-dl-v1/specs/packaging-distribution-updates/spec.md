@@ -12,6 +12,11 @@ Public names SHALL be WebMedia DL / `webmedia-dl` / `webmedia_dl` / `WebMediaDL`
 - **WHEN** `webmedia-dl --help` runs
 - **THEN** the usage line contains `webmedia-dl`
 
+#### Scenario: wmdl is not the console script
+
+- **WHEN** the packaged wheel is installed in an isolated venv
+- **THEN** `wmdl` is not a console script and help usage is `webmedia-dl`
+
 ### Requirement: Reproducible bundle
 
 `scripts/package_bundle.py` SHALL write a zip with a fixed timestamp.

@@ -324,7 +324,7 @@ def test_pipeline_ytdlp_produces_no_source_files(tmp_data: Path) -> None:
     job = pipeline.submit("https://example.com/watch", html=html)
     assert job.state is JobState.FAILED
     assert job.error is not None
-    assert "exited 0" in job.error
+    assert "produced no source files" in job.error
 
 
 def test_queue_pause_claim_and_cancel_intercept(

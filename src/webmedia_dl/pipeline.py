@@ -600,11 +600,7 @@ class Pipeline:
                     extra_args=tuple(strategy.extra_args),
                 )
                 result = self.runtime.execute(request, staging)
-                if (
-                    result.exit_code != 0
-                    or result.output_path is None
-                    or not result.output_path.exists()
-                ):
+                if result.exit_code != 0:
                     if result.output_path is not None and result.output_path.exists():
                         quarantined = self.store.register(
                             result.output_path,
@@ -626,7 +622,7 @@ class Pipeline:
                     continue
                 registered: list = []
                 paths = [path for path in result.output_paths if path.exists()]
-                if not paths and result.output_path is not None:
+                if not paths and result.output_path is not None and result.output_path.exists():
                     paths = [result.output_path]
                 for path in paths:
                     suffix = path.suffix.lower()
@@ -652,10 +648,8 @@ class Pipeline:
                 last_error = exc
                 continue
         if artifact is None:
-            if last_error:
-                raise last_error
-            msg = "Acquisition produced no source artifact."
-            raise ProviderPolicyError(msg)
+            assert last_error is not None, "Acquisition produced no source artifact."
+            raise last_error
         return artifact
 
     def _record_live(self, job: Job, candidate: MediaCandidate, staging: Path):

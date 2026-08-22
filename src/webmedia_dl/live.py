@@ -956,7 +956,8 @@ def record_clear_stream(
     polls = max(1, min(live_polls, MAX_LIVE_POLLS))
     written = 0
     live_mode = polls > 1 or manifest_is_live(playlist)
-    for round_index in range(polls):
+    round_index = 0
+    while True:
         try:
             inspect_manifest(playlist)
             if rendition_kind and ("<MPD" in playlist or "<mpd" in playlist):
@@ -992,6 +993,7 @@ def record_clear_stream(
         if status >= 400:
             break
         playlist = data.decode("utf-8", errors="replace")
+        round_index += 1
     if not dest.exists() or dest.stat().st_size == 0 or written == 0:
         msg = "Live recording produced an empty artifact."
         raise DiscoveryError(msg)

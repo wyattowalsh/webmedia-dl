@@ -196,6 +196,11 @@ provider console output as its public API. Default telemetry SHALL be false.
 
 - **WHEN** `webmedia-dl submit` completes a local file job
 - **THEN** `job` JSON includes a non-empty `events` list and no telemetry upload
+
+#### Scenario: queue-level events use a zero uuid
+
+- **WHEN** the operator pauses and resumes the queue
+- **THEN** those events use job id `00000000-0000-0000-0000-000000000000`
 """,
     "security-privacy-policy": """
 # Delta: security-privacy-policy
@@ -355,6 +360,11 @@ Public names SHALL be WebMedia DL / `webmedia-dl` / `webmedia_dl` / `WebMediaDL`
 
 - **WHEN** `webmedia-dl --help` runs
 - **THEN** the usage line contains `webmedia-dl`
+
+#### Scenario: wmdl is not the console script
+
+- **WHEN** the packaged wheel is installed in an isolated venv
+- **THEN** `wmdl` is not a console script and help usage is `webmedia-dl`
 
 ### Requirement: Reproducible bundle
 
