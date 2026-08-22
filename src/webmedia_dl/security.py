@@ -211,7 +211,19 @@ class CookieGrantLedger:
         if profile_id is None or profile_id != grant.profile_id:
             msg = "Cookie grants are bound to the issuing policy profile."
             raise CookiePolicyError(msg)
-        if not grant.path.is_file():
-            msg = f"Cookie file does not exist: {grant.path}"
+        from webmedia_dl.paths import repo_root
+        from webmedia_dl.policy.profiles import get_profile
+
+        profile = get_profile(grant.profile_id)
+        try:
+            cookie_root = repo_root()
+        except FileNotFoundError:
+            cookie_root = None
+        resolved = resolve_cookie_path(profile, str(grant.path), repo_root=cookie_root)
+        if resolved is None:
+            msg = "Cookie files must be user-owned absolute paths."
             raise CookiePolicyError(msg)
-        return grant.path
+        if resolved != grant.path.resolve():
+            msg = "Cookie grant path changed after issue."
+            raise CookiePolicyError(msg)
+        return resolved

@@ -209,6 +209,12 @@ def check_archive_safety_and_extract(errors: list[str], inventory: list[str]) ->
                 if info.is_dir():
                     continue
             extract_root = tmp / "extracted"
+            unsafe = any(
+                bundle.archive_member_is_unsafe(info.filename) for info in archive.infolist()
+            )
+            if unsafe:
+                errors.append("refusing to extract archive with unsafe members")
+                return
             archive.extractall(extract_root)
         for rel in inventory:
             if not (extract_root / rel).exists():
@@ -288,6 +294,12 @@ def main() -> int:
         )
         if len(inventory_paths) != 159:
             errors.append(f"pack inventory count is {len(inventory_paths)}, expected 159")
+        if len(inventory_paths) != len(set(inventory_paths)):
+            errors.append("pack inventory has duplicate paths")
+        for rel in inventory_paths:
+            overlay = Path(str(rel).replace("\\", "/"))
+            if overlay.is_absolute() or ".." in overlay.parts:
+                errors.append(f"pack inventory path is not a relative overlay {rel}")
         missing = [rel for rel in inventory_paths if not (ROOT / rel).exists()]
         for rel in missing:
             errors.append(f"pack inventory missing {rel}")

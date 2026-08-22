@@ -99,7 +99,9 @@ def doctor(*, data_dir: Path | None = None) -> dict[str, Any]:
             False, False, blocked_reason="Browser store submission not executed"
         ),
         "signing_notarization": _status(
-            False, False, blocked_reason="Signing and notarization require Apple hardware"
+            False,
+            False,
+            blocked_reason="Signing and notarization require an Apple signing identity and notary credentials",
         ),
         "app_review": _status(False, False, blocked_reason="Human App Review is not automated"),
         "legal_review": _status(False, False, blocked_reason="Human legal review is not automated"),

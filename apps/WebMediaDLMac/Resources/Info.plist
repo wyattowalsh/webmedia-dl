@@ -12,10 +12,14 @@
   <string>APPL</string>
   <key>LSMinimumSystemVersion</key>
   <string>14.0</string>
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>WebMedia DL uses the local network so complete clients can reach this Mac worker.</string>
   <key>NSAppTransportSecurity</key>
   <dict>
     <key>NSAllowsArbitraryLoads</key>
     <false/>
+    <key>NSAllowsLocalNetworking</key>
+    <true/>
     <key>NSExceptionDomains</key>
     <dict>
       <key>127.0.0.1</key>

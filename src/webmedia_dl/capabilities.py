@@ -99,7 +99,7 @@ def _container_health() -> str:
     if path is None:
         return "missing"
     if not Path(path).exists():
-        return "healthy"
+        return "missing"
     return "healthy" if provider_version_ok(path, "ffprobe") else "unhealthy"
 
 

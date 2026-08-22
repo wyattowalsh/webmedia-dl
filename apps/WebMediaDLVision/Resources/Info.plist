@@ -6,10 +6,14 @@
   <string>WebMedia DL</string>
   <key>CFBundleIdentifier</key>
   <string>local.webmedia-dl.visionos</string>
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>WebMedia DL uses the local network to reach a paired Mac worker.</string>
   <key>NSAppTransportSecurity</key>
   <dict>
     <key>NSAllowsArbitraryLoads</key>
     <false/>
+    <key>NSAllowsLocalNetworking</key>
+    <true/>
     <key>NSExceptionDomains</key>
     <dict>
       <key>127.0.0.1</key>

@@ -444,14 +444,14 @@ def test_container_capability_health_follows_ffprobe(monkeypatch: pytest.MonkeyP
     assert container.health == "missing"
 
 
-def test_container_capability_health_stub_path_is_healthy(
+def test_container_capability_health_stub_path_is_missing(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     stub = str(tmp_path / "missing-ffprobe")
     monkeypatch.setattr("webmedia_dl.capabilities.resolve_provider_binary", lambda _name: stub)
     container = next(item for item in registry() if item.capability_id == "validate.container")
     assert not Path(stub).exists()
-    assert container.health == "healthy"
+    assert container.health == "missing"
 
 
 def test_registry_skips_platforms_missing_from_matrix(monkeypatch: pytest.MonkeyPatch) -> None:

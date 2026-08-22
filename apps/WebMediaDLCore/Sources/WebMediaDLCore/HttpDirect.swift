@@ -275,7 +275,6 @@ public enum WebMediaDLHttpDirect {
             throw TransferError.drmRefused(bodySignals.joined(separator: ", "))
         }
         let destRoot = URL(fileURLWithPath: root, isDirectory: true)
-        try FileManager.default.createDirectory(at: destRoot, withIntermediateDirectories: true)
         let ext = suffix(url: url, headers: headers, body: body)
         let final = destRoot.appendingPathComponent(outputStem(from: url) + ext)
         if !resolved.allows(final.path) {
@@ -287,11 +286,15 @@ public enum WebMediaDLHttpDirect {
         }
         try withSecurityScope(resolved) {
             do {
+                try FileManager.default.createDirectory(at: destRoot, withIntermediateDirectories: true)
                 try body.write(to: tmp, options: .atomic)
                 if FileManager.default.fileExists(atPath: final.path) {
                     try FileManager.default.removeItem(at: final)
                 }
                 try FileManager.default.moveItem(at: tmp, to: final)
+            } catch let error as TransferError {
+                try? FileManager.default.removeItem(at: tmp)
+                throw error
             } catch {
                 try? FileManager.default.removeItem(at: tmp)
                 throw TransferError.writeFailed(error.localizedDescription)
@@ -344,13 +347,19 @@ public enum WebMediaDLHttpDirect {
                 bookmarkDataIsStale: &stale
             )
         } catch {
-            return try work()
+            throw TransferError.destinationDenied
+        }
+        if stale {
+            throw TransferError.destinationDenied
         }
         let accessed = scoped.startAccessingSecurityScopedResource()
         defer {
             if accessed {
                 scoped.stopAccessingSecurityScopedResource()
             }
+        }
+        guard accessed else {
+            throw TransferError.destinationDenied
         }
         return try work()
     }

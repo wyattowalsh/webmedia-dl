@@ -17,6 +17,23 @@ def test_restricted_cannot_delegate_ytdlp() -> None:
         assert_no_privilege_escalation(client, worker, "acquire.ytdlp")
 
 
+def test_macos_hosts_the_full_local_worker() -> None:
+    from webmedia_dl.policy.profiles import FULL_CAPABILITIES
+
+    worker = default_worker_for_surface(Surface.MACOS)
+    profile = get_profile(worker.profile_id)
+    assert worker.subprocess_capable is True
+    assert worker.profile_id == "personal-full"
+    assert set(FULL_CAPABILITIES) <= set(profile.allowed_capabilities)
+    for capability in (
+        "acquire.ytdlp",
+        "acquire.gallery_dl",
+        "process.ffmpeg.remux",
+        "live.record_clear_manifest",
+    ):
+        assert_worker_capability(worker, profile, capability)
+
+
 def test_watch_is_not_a_subprocess_worker() -> None:
     worker = default_worker_for_surface(Surface.WATCHOS)
     assert worker.subprocess_capable is False

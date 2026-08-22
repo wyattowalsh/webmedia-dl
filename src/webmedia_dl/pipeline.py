@@ -223,9 +223,12 @@ class Pipeline:
                     },
                 )
             self.queue.put_context(job.job_id, html=html, cookies=cookie_value, evidence=evidence)
-            if self.queue.is_paused() or not wait:
+            if not wait:
                 return job
-            return self._run(job, html=html, cookies=cookie_value, evidence=evidence)
+            claimed = self.queue.claim(job.job_id)
+            if claimed is None:
+                return self.queue.get_job(job.job_id)
+            return self._run(claimed, html=html, cookies=cookie_value, evidence=evidence)
         except PauseRequested:
             return self.queue.get_job(job.job_id)
         except CancelledError:
@@ -254,6 +257,10 @@ class Pipeline:
             except KeyError as exc:
                 msg = "Resume checkpoint refers to a missing source artifact."
                 raise ProviderPolicyError(msg) from exc
+        restored_kinds = {item.media_kind.value for item in sources}
+        if acquired_kinds - restored_kinds:
+            msg = "Resume checkpoint acquired_kinds do not match restored source artifacts."
+            raise ProviderPolicyError(msg)
 
         self.queue.set_state(job.job_id, JobState.DISCOVERING)
 
@@ -492,6 +499,14 @@ class Pipeline:
             )
 
         self._check_control(job.job_id)
+        self._save_acquire_checkpoint(
+            job,
+            sources,
+            acquired_kinds,
+            stage="validating",
+            produced_ids=[item.artifact_id for item, _path in produced],
+            failed_kinds=failed_kinds,
+        )
         self.queue.set_state(job.job_id, JobState.VALIDATING)
         publishable: list[tuple[Any, Path, list]] = []
         for item, path in produced:
@@ -522,6 +537,15 @@ class Pipeline:
             msg = "No publishable artifacts remained after validation."
             raise ProviderPolicyError(msg)
 
+        self._check_control(job.job_id)
+        self._save_acquire_checkpoint(
+            job,
+            sources,
+            acquired_kinds,
+            stage="publishing",
+            produced_ids=[item.artifact_id for item, _path, _results in publishable],
+            failed_kinds=failed_kinds,
+        )
         self.queue.set_state(job.job_id, JobState.PUBLISHING)
         try:
             published = publish_artifacts(publishable, job.intent)
@@ -814,9 +838,10 @@ class Pipeline:
         if job.state is JobState.PAUSED:
             self.queue.set_state(job_id, JobState.ACCEPTED)
         self.queue.emit(job_id, EventType.JOB_RESUMED, {"state": "resumed"})
-        if self.queue.is_paused():
+        claimed = self.queue.claim(job_id)
+        if claimed is None:
             return self.queue.get_job(job_id)
-        return self._execute_stored(self.queue.get_job(job_id))
+        return self._execute_stored(claimed)
 
     def run_next(self) -> Job | None:
         job = self.queue.claim_next()
@@ -825,8 +850,8 @@ class Pipeline:
         return self._execute_stored(job)
 
     def _execute_stored(self, job: Job) -> Job:
-        ctx = self.queue.get_context(job.job_id)
         try:
+            ctx = self.queue.get_context(job.job_id)
             return self._run(
                 job,
                 html=ctx.html,

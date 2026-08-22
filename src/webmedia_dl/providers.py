@@ -369,7 +369,7 @@ class ProviderRuntime:
         if path is None:
             return "missing"
         if not Path(path).exists():
-            return "healthy"
+            return "missing"
         return "healthy" if provider_version_ok(path, manifest.binary_name) else "unhealthy"
 
     def execute(self, request: ProviderRequest, staging: Path) -> ProviderResult:

@@ -34,6 +34,21 @@ JSON-LD `@type` when the locator has no media extension.
 - **WHEN** a page contains `amp-img[src]` and `twitter:player`
 - **THEN** image and video candidates exist for those locators
 
+#### Scenario: HTML discovery is size capped
+
+- **WHEN** HTML discovery exceeds the profile byte cap
+- **THEN** fetching stops at the cap and discovery continues on the truncated page
+
+#### Scenario: fetch redirects are bounded
+
+- **WHEN** a discovery fetch exceeds the profile redirect bound
+- **THEN** the fetch fails closed
+
+#### Scenario: discovery does not select acquisition
+
+- **WHEN** discovery modules are imported
+- **THEN** they do not import acquisition planners or provider execution
+
 ### Requirement: Candidate graph grouping
 
 Candidates SHALL be grouped by host/identity. Duplicate identities SHALL be recorded

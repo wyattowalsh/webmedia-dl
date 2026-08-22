@@ -2,6 +2,17 @@
 
 ## 0.1.0
 
+- Queue `submit`/`resume_job` claim accepted jobs with the same `BEGIN IMMEDIATE`
+  pause check as `run_next`. Cookie grants are revalidated on resolve. Malformed
+  browser evidence fails the job. Checkpoint `acquired_kinds` must match restored
+  sources. Missing resolved provider binaries are `missing`, not `healthy`.
+  Bundle validation refuses to extract unsafe zip members. HttpDirect fails closed
+  on unresolvable bookmark data; share extensions `cancelRequest` on submit
+  errors; LAN relay refuses unclassified peers; Mac entitlements include
+  `network.server`; complete-client plists declare local-network use. OpenSpec
+  binds remaining Linux-provable SHALLs to named tests. GitHub Actions run
+  `32555270688` on `89f7492` passed Python (550 pytest, 99.98%) and Swift
+  (18 tests, 0 failures; 8× BUILD SUCCEEDED).
 - Provider `_tracked_run` clips stdout/stderr to 8 MiB on every return.
   OpenSpec binds remux-before-transcode, sibling publication isolation,
   cookie-grant restore, unsafe format ids, and doctor BLOCKED release
@@ -19,7 +30,7 @@
   `_record_probe`. Lossy transcode skips semantic-parity. HLS byte-range
   clocks always advance after a parsed `#EXT-X-BYTERANGE` length. Staging
   skips resolved paths outside the job root. GitHub Actions run
-  `32554681071` on `fc10e4d` passed Python (549 pytest, 99.89%) and Swift
+  `32554995796` on `b6a1cc6` passed Python (550 pytest, 99.98%) and Swift
   (18 tests, 0 failures; 8× BUILD SUCCEEDED).
 - Envelope nonce ledger prunes rows older than 24h on open and consume so
   `nonces.sqlite` cannot grow without bound. OpenSpec scenario titles map to

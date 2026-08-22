@@ -476,6 +476,24 @@ def test_companion_transport_and_typed_history() -> None:
     ):
         payload = plistlib.loads((root / rel).read_bytes())
         assert "group.local.webmedia-dl" in payload["com.apple.security.application-groups"]
+    mac_entitlements = plistlib.loads(
+        (root / "apps/WebMediaDLMac/Resources/WebMediaDL.entitlements").read_bytes()
+    )
+    assert mac_entitlements.get("com.apple.security.network.server") is True
+    for rel in (
+        "apps/WebMediaDLMac/Resources/Info.plist",
+        "apps/WebMediaDLiOS/Resources/Info.plist",
+        "apps/WebMediaDLiPadOS/Resources/Info.plist",
+        "apps/WebMediaDLVision/Resources/Info.plist",
+        "apps/WebMediaDLTV/Resources/Info.plist",
+        "apps/WebMediaDLMac/ShareExtension/Info.plist",
+        "apps/WebMediaDLiOS/ShareExtension/Info.plist",
+        "apps/WebMediaDLiPadOS/ShareExtension/Info.plist",
+        "apps/WebMediaDLVision/ShareExtension/Info.plist",
+    ):
+        info = plistlib.loads((root / rel).read_bytes())
+        assert "NSLocalNetworkUsageDescription" in info
+        assert info["NSAppTransportSecurity"].get("NSAllowsLocalNetworking") is True
     for rel in (
         "apps/WebMediaDLMac/Resources/Info.plist",
         "apps/WebMediaDLiOS/Resources/Info.plist",
@@ -701,7 +719,10 @@ def test_github_ci_compiles_apple_packages() -> None:
         "apps/WebMediaDLiPadOS/ShareExtension/WebMediaDLiPadOSShareExtension.swift",
         "apps/WebMediaDLVision/ShareExtension/WebMediaDLVisionShareExtension.swift",
     ):
-        assert "WebMediaDLUncheckedBox(context)" in (repo_root() / rel).read_text(encoding="utf-8")
+        text = (repo_root() / rel).read_text(encoding="utf-8")
+        assert "WebMediaDLUncheckedBox(context)" in text
+        assert "cancelRequest(withError:" in text
+        assert "try? await" not in text
     continuity = (
         repo_root() / "apps/WebMediaDLCore/Sources/WebMediaDLCore/ContinuityBridge.swift"
     ).read_text(encoding="utf-8")

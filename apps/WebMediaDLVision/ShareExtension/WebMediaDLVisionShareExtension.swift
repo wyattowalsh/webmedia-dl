@@ -8,8 +8,12 @@ public final class WebMediaDLVisionShareExtensionPrincipal: NSObject, NSExtensio
         Task {
             let context = boxed.value
             let values = await WebMediaDLShareExtensionLoader.loadSharedValues(from: context)
-            _ = try? await WebMediaDLVisionShareExtension.submitShared(values)
-            context.completeRequest(returningItems: [], completionHandler: nil)
+            do {
+                _ = try await WebMediaDLVisionShareExtension.submitShared(values)
+                context.completeRequest(returningItems: [], completionHandler: nil)
+            } catch {
+                context.cancelRequest(withError: error)
+            }
         }
     }
 }

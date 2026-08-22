@@ -13,6 +13,11 @@ unwrap DRM.
 - **WHEN** a playlist contains `EXT-X-KEY:METHOD=AES-128`
 - **THEN** `DrmRefused` is raised before any segment is fetched
 
+#### Scenario: session key fairplay is refused before fetch
+
+- **WHEN** a playlist contains `#EXT-X-SESSION-KEY` SAMPLE-AES/FairPlay
+- **THEN** recording refuses closed before any segment is fetched
+
 ### Requirement: Concatenate clear segments
 
 Clear HLS (and nested media playlists referenced by a master playlist) SHALL be

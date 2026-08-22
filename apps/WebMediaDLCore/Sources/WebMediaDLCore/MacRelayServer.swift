@@ -293,7 +293,7 @@ public final class WebMediaDLMacRelayServer: @unchecked Sendable {
         connection: NWConnection
     ) async {
         if !localOnly {
-            if let host = Self.peerHost(connection), !Self.isAllowedPeer(host) {
+            guard let host = Self.peerHost(connection), Self.isAllowedPeer(host) else {
                 reply(
                     connection,
                     status: 403,

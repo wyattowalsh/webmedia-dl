@@ -76,6 +76,17 @@ def test_cookie_grants_are_job_and_profile_bound(tmp_path: Path) -> None:
         ledger.issue(job_a, cookies, "personal-restricted")
 
 
+def test_cookie_grant_rejects_html_replacement(tmp_path: Path) -> None:
+    cookies = tmp_path / "user-cookies.txt"
+    cookies.write_text("# Netscape HTTP Cookie File\n", encoding="utf-8")
+    ledger = CookieGrantLedger()
+    job_id = uuid4()
+    grant = ledger.issue(job_id, cookies, "personal-full")
+    cookies.write_text("<html>not cookies</html>", encoding="utf-8")
+    with pytest.raises(CookiePolicyError, match="HTML"):
+        ledger.resolve(grant.grant_id, job_id=job_id, profile_id="personal-full")
+
+
 def test_probe_encrypted_stream_refuses_closed(tmp_data: Path, tmp_path: Path, monkeypatch) -> None:
     media = tmp_path / "clip.mp4"
     media.write_bytes(b"not-a-real-mp4")

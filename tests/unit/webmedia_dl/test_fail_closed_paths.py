@@ -1215,3 +1215,71 @@ def test_lifespan_without_dispatcher(tmp_path: Path) -> None:
         response = client.get("/health")
         assert response.status_code == 200
         assert response.json()["status"] == "ok"
+
+
+def test_queue_claim_is_atomic_with_pause(tmp_data: Path, tmp_path: Path, png_bytes: bytes) -> None:
+    media = _png(tmp_path, png_bytes)
+    pipeline = Pipeline(data_dir=tmp_data)
+    job = pipeline.submit(str(media), wait=False)
+    pipeline.pause_queue()
+    assert pipeline.queue.claim(job.job_id) is None
+    assert pipeline.queue.get_job(job.job_id).state is JobState.ACCEPTED
+    pipeline.resume_queue()
+    claimed = pipeline.queue.claim(job.job_id)
+    assert claimed is not None
+    assert claimed.state is JobState.DISCOVERING
+    assert pipeline.queue.claim(job.job_id) is None
+
+
+def test_malformed_browser_evidence_fails_closed(
+    tmp_data: Path, tmp_path: Path, png_bytes: bytes
+) -> None:
+    media = _png(tmp_path, png_bytes)
+    pipeline = Pipeline(data_dir=tmp_data)
+    job = pipeline.submit(str(media), wait=False)
+    with pipeline.queue.engine.begin() as conn:
+        conn.execute(
+            text("UPDATE job_context SET evidence_json = :payload WHERE job_id = :job_id"),
+            {"payload": "not-json", "job_id": str(job.job_id)},
+        )
+    result = pipeline.run_next()
+    assert result is not None
+    assert result.state is JobState.FAILED
+    assert result.error is not None
+    assert "evidence" in result.error.lower()
+
+
+def test_checkpoint_kinds_must_match_restored_sources(
+    tmp_data: Path, tmp_path: Path, png_bytes: bytes
+) -> None:
+    media = tmp_path / "hero.png"
+    media.write_bytes(png_bytes)
+    pipeline = Pipeline(
+        data_dir=tmp_data,
+        runtime=ProviderRuntime(which=lambda _name: None),
+        fetch=lambda url: (_ for _ in ()).throw(AssertionError(url)),
+    )
+    job = pipeline.submit(
+        "https://cdn.example.com/hero.png",
+        wait=False,
+        html='<html><img src="https://cdn.example.com/hero.png"></html>',
+    )
+    source = pipeline.store.register(
+        media,
+        role=ArtifactRole.SOURCE,
+        media_kind=MediaKind.IMAGE,
+        provenance={"job_id": str(job.job_id)},
+    )
+    pipeline.queue.put_checkpoint(
+        job.job_id,
+        {
+            "stage": "acquired",
+            "source_ids": [source.artifact_id],
+            "acquired_kinds": ["video"],
+        },
+    )
+    result = pipeline.run_next()
+    assert result is not None
+    assert result.state is JobState.FAILED
+    assert result.error is not None
+    assert "acquired_kinds" in result.error

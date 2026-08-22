@@ -55,3 +55,28 @@ registered sources, and `resume_job` SHALL skip kinds already acquired.
 
 - **WHEN** a queued job has a cookie grant in context
 - **THEN** `run_next` attaches `--cookies` from that grant
+
+#### Scenario: queue pause survives a new reader
+
+- **WHEN** a second `Pipeline` opens the same data dir after pause
+- **THEN** `run_next` returns nothing until resume
+
+#### Scenario: run_next restores deferred HTML
+
+- **WHEN** a queued job has HTML in context
+- **THEN** `run_next` completes using that HTML
+
+#### Scenario: run_next restores browser evidence
+
+- **WHEN** a queued job has browser evidence in context
+- **THEN** `run_next` uses that evidence
+
+#### Scenario: malformed browser evidence fails closed
+
+- **WHEN** `evidence_json` is not valid `BrowserEvidence` JSON
+- **THEN** `run_next` fails the job instead of leaving it discovering
+
+#### Scenario: acquired kinds must match restored sources
+
+- **WHEN** a checkpoint lists video `acquired_kinds` but only an image source
+- **THEN** resume fails closed

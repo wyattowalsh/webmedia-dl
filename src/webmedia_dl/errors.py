@@ -70,6 +70,10 @@ class PauseRequested(WebMediaError):
     code = "job.paused"
 
 
+class QueueIntegrityError(WebMediaError):
+    code = "queue.integrity"
+
+
 class RequiredOperationFailed(WebMediaError):
     code = "export.required_operation_failed"
 

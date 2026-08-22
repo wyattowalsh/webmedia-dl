@@ -6,6 +6,15 @@
   <string>WebMedia DL</string>
   <key>CFBundleIdentifier</key>
   <string>local.webmedia-dl.vision.share</string>
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>WebMedia DL uses the local network to reach a paired Mac worker.</string>
+  <key>NSAppTransportSecurity</key>
+  <dict>
+    <key>NSAllowsArbitraryLoads</key>
+    <false/>
+    <key>NSAllowsLocalNetworking</key>
+    <true/>
+  </dict>
   <key>NSExtension</key>
   <dict>
     <key>NSExtensionPointIdentifier</key>

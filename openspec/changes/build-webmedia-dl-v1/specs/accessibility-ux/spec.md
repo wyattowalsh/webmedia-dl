@@ -12,3 +12,13 @@ a keyboard-focusable button, and `aria-live` status.
 
 - **WHEN** `extensions/chromium/popup.html` is inspected
 - **THEN** it has `html lang`, a `label for="token"`, and `role="status"`
+
+#### Scenario: one-tap extension submit
+
+- **WHEN** the capture popup send button is clicked
+- **THEN** the extension POSTs page URLs to the loopback worker in one tap
+
+#### Scenario: expert output is JSON events
+
+- **WHEN** `webmedia-dl submit` completes a local file job
+- **THEN** stdout JSON includes a `job` object and a non-empty `events` list

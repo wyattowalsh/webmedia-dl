@@ -23,6 +23,11 @@ Arbitrary `extra_args` SHALL be rejected. Format ids SHALL match
 - **WHEN** `format_id` is `--cookies` or `-best`
 - **THEN** the format id is refused and yt-dlp is not executed
 
+#### Scenario: every provider argv is allowlisted
+
+- **WHEN** a shipped provider builds argv from typed inputs
+- **THEN** every flag is on that provider's allowlist
+
 ### Requirement: No automatic install
 
 Provider manifests SHALL set `install_automatic` false. Missing binaries SHALL be
@@ -32,6 +37,16 @@ reported as `BLOCKED` by `doctor`, not silently downloaded.
 
 - **WHEN** `yt-dlp` is absent
 - **THEN** doctor reports BLOCKED for that provider and does not fetch it
+
+#### Scenario: shipped providers never auto-install
+
+- **WHEN** builtin provider manifests are loaded
+- **THEN** `install_automatic` is false and `accepts_user_argv` is false
+
+#### Scenario: missing provider binary is not healthy
+
+- **WHEN** a resolved provider path does not exist
+- **THEN** capability health is `missing`, not `healthy`
 
 ### Requirement: HTTP-direct is only for direct media locators
 

@@ -15,6 +15,11 @@ and legal review SHALL be `BLOCKED`, never `PASS`.
   `apple_devices.macos`, `signing_notarization`, `browser_stores`, `app_review`,
   `legal_review`, and `original_planning_pack` are `BLOCKED`
 
+#### Scenario: provider version probe oserror is fail
+
+- **WHEN** an executed provider version probe raises `OSError`
+- **THEN** doctor reports `FAIL`, not `PASS` or `BLOCKED`
+
 ### Requirement: Local support bundle
 
 `webmedia-dl support-bundle` SHALL write a local zip of doctor output, jobs, and

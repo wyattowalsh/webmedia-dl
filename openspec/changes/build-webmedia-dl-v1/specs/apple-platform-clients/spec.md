@@ -15,6 +15,12 @@ and resume_job SHALL include a job UUID. The Mac worker
 job host-owned so heavy work runs on the Mac without granting the watch a
 subprocess runtime.
 
+#### Scenario: macos hosts the full local worker
+
+- **WHEN** the default worker for macOS is constructed
+- **THEN** it uses `personal-full`, is subprocess capable, and allows yt-dlp,
+  gallery-dl, ffmpeg remux, and clear live recording
+
 #### Scenario: companion capture has no native command
 
 - **WHEN** a watch companion message is built for capture
@@ -44,6 +50,11 @@ subprocess runtime.
   and a confirmed pairing
 - **THEN** it opens the envelope once, rejects replay, and still refuses
   `nativeCommand`
+
+#### Scenario: companion endpoint requires the mac actor
+
+- **WHEN** a non-Mac actor POSTs `/v1/companion`
+- **THEN** the worker refuses the request
 
 ### Requirement: Paired Mac confirmation
 

@@ -210,3 +210,39 @@ def test_openspec_capabilities_match_bundle_inventory() -> None:
     )
     mod = _load("validate_bundle", "scripts/validate_bundle.py")
     assert specs == sorted(mod.CAPABILITIES)
+
+
+def test_validate_bundle_refuses_to_extract_unsafe_members(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import zipfile
+    from types import SimpleNamespace
+
+    mod = _load("validate_bundle_unsafe", "scripts/validate_bundle.py")
+    pkg = _load("package_bundle_unsafe", "scripts/package_bundle.py")
+    extracted: list[bool] = []
+    original = zipfile.ZipFile.extractall
+
+    def write_bundle(_root: Path, output: Path) -> str:
+        with zipfile.ZipFile(output, "w") as archive:
+            archive.writestr("../etc/passwd", "x")
+        return "deadbeef"
+
+    def extractall(self, *args: object, **kwargs: object) -> None:
+        extracted.append(True)
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(
+        mod,
+        "_load_package_bundle",
+        lambda: SimpleNamespace(
+            write_bundle=write_bundle,
+            archive_member_is_unsafe=pkg.archive_member_is_unsafe,
+        ),
+    )
+    monkeypatch.setattr(zipfile.ZipFile, "extractall", extractall)
+    errors: list[str] = []
+    mod.check_archive_safety_and_extract(errors, ["keep.txt"])
+    assert any("unsafe zip member" in item for item in errors)
+    assert any("refusing to extract" in item for item in errors)
+    assert extracted == []

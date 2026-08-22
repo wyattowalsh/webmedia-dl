@@ -22,6 +22,16 @@ MUST NOT live inside the repository. Restricted profiles SHALL set cookie access
 - **WHEN** `--cookies` points at a file inside the repo
 - **THEN** `CookiePolicyError` is raised
 
+#### Scenario: cookie grant is revalidated on resolve
+
+- **WHEN** a granted cookie file is later replaced with HTML
+- **THEN** `resolve` raises `CookiePolicyError`
+
+#### Scenario: restricted profiles forbid cookies
+
+- **WHEN** a restricted profile is asked to attach cookies
+- **THEN** `CookiePolicyError` is raised
+
 ### Requirement: No default telemetry or auto-install
 
 Policy profiles SHALL forbid `telemetry_default` and automatic provider installation.
@@ -30,3 +40,8 @@ Policy profiles SHALL forbid `telemetry_default` and automatic provider installa
 
 - **WHEN** a policy profile sets `telemetry_default` true
 - **THEN** validation fails closed
+
+#### Scenario: shipped profiles forbid telemetry drm and delegation
+
+- **WHEN** builtin policy profiles are loaded
+- **THEN** telemetry, DRM circumvention, and delegation stay forbidden

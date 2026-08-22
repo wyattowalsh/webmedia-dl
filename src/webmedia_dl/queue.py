@@ -8,13 +8,14 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
+from pydantic import ValidationError
 from sqlalchemy import event, text
 from sqlalchemy.pool import NullPool
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 
 from webmedia_dl.domain.enums import EventType, JobState
 from webmedia_dl.domain.models import BrowserEvidence, EventRecord, Job, sanitize_event_payload
-from webmedia_dl.errors import CancelledError, PauseRequested
+from webmedia_dl.errors import CancelledError, PauseRequested, QueueIntegrityError
 
 QUEUE_EVENT_JOB_ID = UUID(int=0)
 _QUEUE_TABLES = frozenset({"jobs", "events", "queue_control", "job_context"})
@@ -195,6 +196,42 @@ class QueueStore:
                     return claimed
         return None
 
+    def claim(self, job_id: UUID) -> Job | None:
+        """Atomically claim one accepted job unless the queue is paused."""
+        for _ in range(8):
+            with self.engine.begin() as conn:
+                paused = conn.execute(
+                    text("SELECT paused FROM queue_control WHERE id = 1")
+                ).scalar()
+                if paused:
+                    return None
+                row = conn.execute(
+                    text(
+                        "SELECT job_id, payload FROM jobs WHERE job_id = :job_id AND state = :state"
+                    ),
+                    {"job_id": str(job_id), "state": JobState.ACCEPTED.value},
+                ).fetchone()
+                if row is None:
+                    return None
+                job = Job.model_validate_json(row[1])
+                claimed = job.model_copy(update={"state": JobState.DISCOVERING})
+                returned = conn.execute(
+                    text(
+                        "UPDATE jobs SET state = :new_state, payload = :payload "
+                        "WHERE job_id = :job_id AND state = :old_state "
+                        "RETURNING job_id"
+                    ),
+                    {
+                        "new_state": JobState.DISCOVERING.value,
+                        "payload": claimed.model_dump_json(),
+                        "job_id": row[0],
+                        "old_state": JobState.ACCEPTED.value,
+                    },
+                ).fetchone()
+                if returned is not None:
+                    return claimed
+        return None
+
     def set_state(self, job_id: UUID, state: JobState, error: str | None = None) -> Job:
         ctx = self.get_context(job_id)
         job = self.get_job(job_id)
@@ -325,8 +362,19 @@ class QueueStore:
             row = session.get(JobContextRow, str(job_id))
         if row is None:
             return JobContext()
-        raw = json.loads(row.evidence_json or "[]")
-        evidence = tuple(BrowserEvidence.model_validate(item) for item in raw)
+        try:
+            raw = json.loads(row.evidence_json or "[]")
+        except (TypeError, json.JSONDecodeError) as exc:
+            msg = "Job browser evidence is not valid JSON."
+            raise QueueIntegrityError(msg) from exc
+        if not isinstance(raw, list):
+            msg = "Job browser evidence must be a JSON array."
+            raise QueueIntegrityError(msg)
+        try:
+            evidence = tuple(BrowserEvidence.model_validate(item) for item in raw)
+        except ValidationError as exc:
+            msg = "Job browser evidence failed validation."
+            raise QueueIntegrityError(msg) from exc
         try:
             checkpoint = json.loads(row.checkpoint_json or "{}")
         except (TypeError, json.JSONDecodeError):

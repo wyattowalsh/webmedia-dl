@@ -606,6 +606,102 @@ SCENARIO_EVIDENCE: dict[str, tuple[str, str]] = {
         "tests/unit/webmedia_dl/test_invariants.py",
         "test_policy_profile_forbids_drm_and_default_telemetry",
     ),
+    "one-tap extension submit": (
+        "tests/unit/extensions/capture.test.mjs",
+        "popup send button posts one-tap capture to the loopback worker",
+    ),
+    "expert output is JSON events": (
+        "tests/e2e/test_cli_e2e.py",
+        "test_submit_history_job_roundtrip",
+    ),
+    "every provider argv is allowlisted": (
+        "tests/unit/webmedia_dl/test_openspec_shall_gaps.py",
+        "test_every_provider_argv_is_allowlisted",
+    ),
+    "shipped providers never auto-install": (
+        "tests/unit/webmedia_dl/test_openspec_shall_gaps.py",
+        "test_builtin_manifests_never_auto_install_or_accept_argv",
+    ),
+    "missing provider binary is not healthy": (
+        "tests/unit/webmedia_dl/test_pack_gaps.py",
+        "test_container_capability_health_stub_path_is_missing",
+    ),
+    "macos hosts the full local worker": (
+        "tests/unit/webmedia_dl/test_policy.py",
+        "test_macos_hosts_the_full_local_worker",
+    ),
+    "companion endpoint requires the mac actor": (
+        "tests/unit/webmedia_dl/test_companion_checkpoint.py",
+        "test_companion_endpoint_requires_mac_actor",
+    ),
+    "pairing challenges expire": (
+        "tests/unit/webmedia_dl/test_compat_transport.py",
+        "test_pairing_expiry",
+    ),
+    "provider version probe oserror is fail": (
+        "tests/unit/webmedia_dl/test_openspec_shall_gaps.py",
+        "test_doctor_version_probe_oserror_is_fail",
+    ),
+    "HTML discovery is size capped": (
+        "tests/unit/webmedia_dl/test_pack_gap_fixes.py",
+        "test_discovery_picture_amp_jsonld_list_and_html_cap",
+    ),
+    "fetch redirects are bounded": (
+        "tests/unit/webmedia_dl/test_remainder_gates.py",
+        "test_bound_fetch_redirect_bound_fails_closed",
+    ),
+    "discovery does not select acquisition": (
+        "tests/unit/webmedia_dl/test_openspec_shall_gaps.py",
+        "test_discovery_does_not_import_acquisition",
+    ),
+    "missing capability spec fails validation": (
+        "tests/unit/webmedia_dl/test_openspec_shall_gaps.py",
+        "test_validate_bundle_fails_when_one_spec_is_missing",
+    ),
+    "missing overlay path fails validation": (
+        "tests/unit/webmedia_dl/test_openspec_shall_gaps.py",
+        "test_validate_bundle_fails_when_overlay_is_missing",
+    ),
+    "unsafe zip members abort extraction": (
+        "tests/unit/webmedia_dl/test_pack_executed_gates.py",
+        "test_validate_bundle_refuses_to_extract_unsafe_members",
+    ),
+    "queue pause survives a new reader": (
+        "tests/unit/webmedia_dl/test_queue_manifest.py",
+        "test_queue_pause_survives_new_pipeline_reader",
+    ),
+    "run_next restores deferred HTML": (
+        "tests/unit/webmedia_dl/test_queue_manifest.py",
+        "test_wait_false_preserves_html_for_run_next",
+    ),
+    "run_next restores browser evidence": (
+        "tests/unit/webmedia_dl/test_fail_closed_followups.py",
+        "test_run_next_restores_browser_evidence",
+    ),
+    "malformed browser evidence fails closed": (
+        "tests/unit/webmedia_dl/test_fail_closed_paths.py",
+        "test_malformed_browser_evidence_fails_closed",
+    ),
+    "acquired kinds must match restored sources": (
+        "tests/unit/webmedia_dl/test_fail_closed_paths.py",
+        "test_checkpoint_kinds_must_match_restored_sources",
+    ),
+    "cookie grant is revalidated on resolve": (
+        "tests/unit/webmedia_dl/test_pack_gap_fixes.py",
+        "test_cookie_grant_rejects_html_replacement",
+    ),
+    "restricted profiles forbid cookies": (
+        "tests/unit/webmedia_dl/test_security.py",
+        "test_restricted_profile_forbids_cookies",
+    ),
+    "shipped profiles forbid telemetry drm and delegation": (
+        "tests/unit/webmedia_dl/test_openspec_shall_gaps.py",
+        "test_shipped_profiles_forbid_telemetry_drm_and_auto_delegate",
+    ),
+    "session key fairplay is refused before fetch": (
+        "tests/unit/webmedia_dl/test_openspec_shall_gaps.py",
+        "test_session_key_fairplay_is_refused_before_fetch",
+    ),
 }
 
 

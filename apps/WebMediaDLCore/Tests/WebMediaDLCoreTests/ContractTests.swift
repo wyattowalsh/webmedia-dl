@@ -262,6 +262,7 @@ final class ContractTests: XCTestCase {
         XCTAssertTrue(WebMediaDLMacRelayServer.isAllowedBindHost("0.0.0.0"))
         XCTAssertTrue(WebMediaDLMacRelayServer.isAllowedPeer("192.168.1.9"))
         XCTAssertFalse(WebMediaDLMacRelayServer.isAllowedPeer("8.8.8.8"))
+        XCTAssertFalse(WebMediaDLMacRelayServer.isAllowedPeer(""))
         let paste = WebMediaDLMacRelayServer.clientPasteURLs(
             port: 8766,
             lanAddresses: ["192.168.1.9", "8.8.8.8", "127.0.0.1"]
@@ -807,6 +808,19 @@ final class ContractTests: XCTestCase {
             bookmarkData: nil
         )
         XCTAssertNil(skipped)
+        do {
+            _ = try await WebMediaDLHttpDirect.transfer(
+                locator: "https://cdn.example.com/photo.png",
+                bookmark: WebMediaDLSecurityScopedBookmark(
+                    path: root.path,
+                    bookmarkData: Data("not-a-bookmark".utf8)
+                ),
+                fetch: { _ in (200, ["Content-Type": "image/png"], Data(png)) }
+            )
+            XCTFail("unresolvable bookmark data must fail closed")
+        } catch WebMediaDLHttpDirect.TransferError.destinationDenied {
+            ()
+        }
 
         XCTAssertEqual(
             WebMediaDLHttpDirect.outputStem(from: URL(string: "https://cdn.example.com/a.mp4")!),

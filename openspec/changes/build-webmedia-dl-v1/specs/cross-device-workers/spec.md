@@ -13,6 +13,11 @@ Companion/Continuity transport SHALL NOT decide capability policy.
 - **WHEN** `personal-restricted` asks `personal-full` to run `acquire.ytdlp`
 - **THEN** `DelegationDenied` is raised
 
+#### Scenario: pairing challenges expire
+
+- **WHEN** a pairing challenge TTL elapses
+- **THEN** `expired` is true and confirm/require fail closed
+
 #### Scenario: consumed envelope nonces expire from the ledger
 
 - **WHEN** a consumed pairing envelope nonce is older than the ledger retention window

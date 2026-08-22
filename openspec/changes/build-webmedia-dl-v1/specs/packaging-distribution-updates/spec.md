@@ -26,3 +26,18 @@ Public names SHALL be WebMedia DL / `webmedia-dl` / `webmedia_dl` / `WebMediaDL`
 
 - **WHEN** `scripts/package_bundle.py` writes an archive
 - **THEN** every zip member timestamp is `2026-08-18 00:00:00`
+
+#### Scenario: missing capability spec fails validation
+
+- **WHEN** `scripts/validate_bundle.py` runs without a required capability spec
+- **THEN** validation fails closed
+
+#### Scenario: missing overlay path fails validation
+
+- **WHEN** `scripts/validate_bundle.py` runs without a required overlay file
+- **THEN** validation fails closed
+
+#### Scenario: unsafe zip members abort extraction
+
+- **WHEN** a bundle zip contains a path that escapes the extract root
+- **THEN** validation records the unsafe member and does not extract it
