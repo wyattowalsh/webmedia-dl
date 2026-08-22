@@ -1307,10 +1307,14 @@ def _hls_rendition_playlist_urls(
     """MEDIA URIs of one TYPE, filtered to a STREAM-INF group when named.
 
     `DEFAULT=YES` is first; `AUTOSELECT=YES` is next when no default exists.
-    Masters that do not name a group keep every unique URI in playlist order.
+    A DEFAULT or AUTOSELECT rendition without URI is muxed into the variant
+    playlist, so alternate URIs are not returned as a sidecar. Masters that
+    do not name a group keep every unique URI in playlist order.
     """
     renditions: list[tuple[bool, bool, str]] = []
     seen: set[str] = set()
+    muxed_default = False
+    muxed_autoselect = False
     wanted = media_type.upper()
     for line in text.splitlines():
         stripped = _hls_line(line)
@@ -1321,16 +1325,25 @@ def _hls_rendition_playlist_urls(
             continue
         if group is not None and attrs.get("GROUP-ID") != group:
             continue
+        default = attrs.get("DEFAULT", "").upper() == "YES"
+        autoselect = attrs.get("AUTOSELECT", "").upper() == "YES"
         uri = attrs.get("URI")
         if not uri:
+            if default:
+                muxed_default = True
+            elif autoselect:
+                muxed_autoselect = True
             continue
         resolved = _join(base, uri)
         if resolved in seen:
             continue
         seen.add(resolved)
-        default = attrs.get("DEFAULT", "").upper() == "YES"
-        autoselect = attrs.get("AUTOSELECT", "").upper() == "YES"
         renditions.append((default, autoselect, resolved))
+    if muxed_default:
+        return []
+    has_default_uri = any(default for default, _auto, _url in renditions)
+    if muxed_autoselect and not has_default_uri:
+        return []
     if not renditions:
         return []
     preferred = next((url for default, _auto, url in renditions if default), None)

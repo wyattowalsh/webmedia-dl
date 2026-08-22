@@ -991,6 +991,40 @@ def test_hls_audio_media_skips_non_audio_and_duplicates() -> None:
         "video.m3u8\n"
     )
     assert hls_subtitle_playlist_urls(missing_subs, "https://cdn.example.com/") == []
+    muxed_default = (
+        "#EXTM3U\n"
+        '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="eng",DEFAULT=YES,AUTOSELECT=YES\n'
+        '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="commentary",URI="comment.m3u8"\n'
+        '#EXT-X-STREAM-INF:BANDWIDTH=800000,AUDIO="aac"\n'
+        "video.m3u8\n"
+    )
+    assert hls_audio_playlist_urls(muxed_default, "https://cdn.example.com/") == []
+    muxed_autoselect = (
+        "#EXTM3U\n"
+        '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="eng",AUTOSELECT=YES\n'
+        '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="commentary",URI="comment.m3u8"\n'
+        '#EXT-X-STREAM-INF:BANDWIDTH=800000,AUDIO="aac"\n'
+        "video.m3u8\n"
+    )
+    assert hls_audio_playlist_urls(muxed_autoselect, "https://cdn.example.com/") == []
+    default_uri_wins = (
+        "#EXTM3U\n"
+        '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="eng",DEFAULT=YES,URI="eng.m3u8"\n'
+        '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="desc",AUTOSELECT=YES\n'
+        '#EXT-X-STREAM-INF:BANDWIDTH=800000,AUDIO="aac"\n'
+        "video.m3u8\n"
+    )
+    assert hls_audio_playlist_urls(default_uri_wins, "https://cdn.example.com/") == [
+        "https://cdn.example.com/eng.m3u8"
+    ]
+    muxed_subs = (
+        "#EXTM3U\n"
+        '#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="eng",DEFAULT=YES\n'
+        '#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="commentary",URI="comment.vtt"\n'
+        '#EXT-X-STREAM-INF:BANDWIDTH=800000,SUBTITLES="subs"\n'
+        "video.m3u8\n"
+    )
+    assert hls_subtitle_playlist_urls(muxed_subs, "https://cdn.example.com/") == []
 
 
 def test_hls_audio_playlist_fetch_failure(tmp_path: Path) -> None:

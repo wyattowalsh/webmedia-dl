@@ -2,6 +2,14 @@
 
 ## 0.1.0
 
+- Skip HLS `#EXT-X-MEDIA` AUDIO/SUBTITLES sidecars when the preferred
+  `DEFAULT=YES` or `AUTOSELECT=YES` rendition has no `URI` (muxed into the
+  variant playlist), so commentary listed with a URI is not recorded instead of
+  the muxed default. A `DEFAULT=YES` URI still wins over a muxed autoselect.
+  GitHub Actions `32600194038` on `c1d3d12` passed Python (626 pytest, 100%),
+  doctor provider probes, and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED)
+  after recording nested HLS `TYPE=SUBTITLES` playlists as a SUBTITLE sidecar.
+
 - Record nested HLS `#EXT-X-MEDIA:TYPE=SUBTITLES` playlists (and direct
   WebVTT/SRT objects) as a separate SUBTITLE artifact. Selection follows the
   preferred STREAM-INF `SUBTITLES` group with `DEFAULT=YES` first and
