@@ -67,16 +67,13 @@ export function pageCollector(doc) {
     if (tag === "TRACK") {
       return "subtitle";
     }
+    if (mime.includes("mpegurl") || mime.includes("dash+xml")) {
+      return "live_stream";
+    }
     if (tag === "AUDIO" || tag === "AMP-AUDIO" || mime.startsWith("audio/")) {
       return "audio";
     }
-    if (
-      tag === "VIDEO" ||
-      tag === "AMP-VIDEO" ||
-      mime.startsWith("video/") ||
-      mime.includes("mpegurl") ||
-      mime.includes("dash+xml")
-    ) {
+    if (tag === "VIDEO" || tag === "AMP-VIDEO" || mime.startsWith("video/")) {
       return "video";
     }
     if (tag === "SOURCE") {
@@ -182,7 +179,9 @@ export function pageCollector(doc) {
       mime.includes("dash+xml")
     ) {
       let kind = "video";
-      if (asAttr === "audio" || mime.startsWith("audio/")) {
+      if (mime.includes("mpegurl") || mime.includes("dash+xml")) {
+        kind = "live_stream";
+      } else if (asAttr === "audio" || mime.startsWith("audio/")) {
         kind = "audio";
       } else if (asAttr === "image" || mime.startsWith("image/")) {
         kind = "image";

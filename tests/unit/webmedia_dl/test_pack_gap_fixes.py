@@ -305,8 +305,22 @@ def test_live_watch_page_plans_ytdlp_not_clear_recorder() -> None:
     )
     live_plan = plan_acquisition(uuid4(), direct, get_profile("personal-full"))
     assert any(item.capability_id == "live.record_clear_manifest" for item in live_plan.strategies)
+    extensionless = MediaCandidate(
+        source_id=uuid4(),
+        media_kind=MediaKind.LIVE_STREAM,
+        identity_key="host:cdn.example.com:path:/plain-live",
+        retrieval_urls=["https://cdn.example.com/plain-live"],
+    )
+    extensionless_plan = plan_acquisition(uuid4(), extensionless, get_profile("personal-full"))
+    assert any(
+        item.capability_id == "live.record_clear_manifest" for item in extensionless_plan.strategies
+    )
+    assert all(item.strategy_id != "http-direct" for item in extensionless_plan.strategies)
+    assert all(item.capability_id != "acquire.http" for item in extensionless_plan.strategies)
+    assert all(item.capability_id != "acquire.ytdlp" for item in extensionless_plan.strategies)
     restricted = get_profile("personal-restricted")
     assert plan_acquisition(uuid4(), direct, restricted).strategies == []
+    assert plan_acquisition(uuid4(), extensionless, restricted).strategies == []
     gallery = MediaCandidate(
         source_id=uuid4(),
         media_kind=MediaKind.GALLERY,

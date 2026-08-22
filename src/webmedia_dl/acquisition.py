@@ -72,7 +72,7 @@ def plan_acquisition(
             job_id=job_id, candidate_id=candidate.candidate_id, strategies=strategies
         )
     url = candidate.retrieval_urls[0]
-    if candidate.media_kind == MediaKind.LIVE_STREAM and is_direct_media_url(url):
+    if candidate.media_kind == MediaKind.LIVE_STREAM:
         try:
             assert_capability(profile, "live.record_clear_manifest")
             strategies.append(

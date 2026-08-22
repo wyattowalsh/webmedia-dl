@@ -2,6 +2,13 @@
 
 ## 0.1.0
 
+- Plan `live.record_clear_manifest` for every `live_stream` candidate, including
+  MIME-typed HLS/DASH locators without `.m3u8` / `.mpd`. Those URLs were falling
+  through to yt-dlp (or no strategy) instead of the clear recorder, and capture
+  labelled `mpegurl` / `dash+xml` as `video` so browser evidence could hide the
+  live kind. GitHub Actions `32583436133` on `66fff1f` passed Python (624
+  pytest, 100%), doctor provider probes, and Swift (18 tests, 0 failures; 12×
+  BUILD SUCCEEDED) after decoding HTML-escaped JSON-LD.
 - Decode HTML entities in JSON-LD script bodies after comment/CDATA unwrap
   so CMS-escaped `&quot;contentUrl&quot;` locators are collected. GitHub
   Actions `32583153141` on `969b440` passed Python (624 pytest, 100%),

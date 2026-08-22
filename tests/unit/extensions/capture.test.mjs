@@ -108,6 +108,15 @@ describe("collectMediaEvidence", () => {
               name === "src" ? "https://cdn.example.com/via-source.mp4" : null,
           },
           {
+            tagName: "SOURCE",
+            parentElement: { tagName: "VIDEO" },
+            getAttribute: (name) => {
+              if (name === "src") return "https://cdn.example.com/plain-live";
+              if (name === "type") return "application/vnd.apple.mpegurl";
+              return null;
+            },
+          },
+          {
             tagName: "AMP-IMG",
             getAttribute: (name) =>
               name === "src" ? "https://cdn.example.com/amp.png" : name === "data-src" ? "https://cdn.example.com/lazy.png" : null,
@@ -118,6 +127,7 @@ describe("collectMediaEvidence", () => {
     const result = collectMediaEvidence(doc);
     const byUrl = Object.fromEntries(result.evidence.map((item) => [item.url, item.kind]));
     assert.equal(byUrl["https://cdn.example.com/via-source.mp4"], "video");
+    assert.equal(byUrl["https://cdn.example.com/plain-live"], "live_stream");
     assert.equal(byUrl["https://cdn.example.com/amp.png"], "image");
     assert.equal(byUrl["https://cdn.example.com/lazy.png"], "image");
     assert.equal(byUrl["https://cdn.example.com/player.html"], "video");
@@ -156,6 +166,13 @@ describe("collectMediaEvidence", () => {
                 return null;
               },
             },
+            {
+              getAttribute: (name) => {
+                if (name === "href") return "https://cdn.example.com/plain-live";
+                if (name === "type") return "application/vnd.apple.mpegurl;charset=utf-8";
+                return null;
+              },
+            },
           ];
         }
         return [];
@@ -163,10 +180,15 @@ describe("collectMediaEvidence", () => {
     };
     const result = collectMediaEvidence(doc);
     const urls = result.evidence.map((item) => item.url);
+    const byUrl = Object.fromEntries(result.evidence.map((item) => [item.url, item.kind]));
     assert.ok(urls.includes("https://cdn.example.com/live.m3u8"));
     assert.ok(urls.includes("https://cdn.example.com/pre.mp4"));
     assert.ok(urls.includes("https://cdn.example.com/still.png"));
     assert.ok(urls.includes("https://cdn.example.com/alt.mpd"));
+    assert.ok(urls.includes("https://cdn.example.com/plain-live"));
+    assert.equal(byUrl["https://cdn.example.com/alt.mpd"], "live_stream");
+    assert.equal(byUrl["https://cdn.example.com/plain-live"], "live_stream");
+    assert.equal(byUrl["https://cdn.example.com/pre.mp4"], "video");
     assert.equal(result.nativeCommand, null);
   });
 

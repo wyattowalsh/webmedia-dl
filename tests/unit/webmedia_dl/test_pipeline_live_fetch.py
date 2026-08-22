@@ -28,6 +28,23 @@ def test_pipeline_records_clear_hls(tmp_data: Path) -> None:
     path = pipeline.store.resolve(artifacts[0])
     assert path.read_bytes() == b"SEGMENT"
 
+    html = (
+        "<html><body>"
+        '<source type="application/vnd.apple.mpegurl" '
+        'src="https://cdn.example.com/plain-live">'
+        "</body></html>"
+    )
+    bodies["https://cdn.example.com/plain-live"] = playlist.encode()
+    job = pipeline.submit("https://example.com/watch", html=html)
+    assert job.state is JobState.COMPLETED
+    live_sources = [
+        item
+        for item in pipeline.store._records.values()
+        if item.media_kind is MediaKind.LIVE_STREAM
+    ]
+    assert len(live_sources) >= 2
+    assert all(pipeline.store.resolve(item).read_bytes() == b"SEGMENT" for item in live_sources)
+
 
 def test_pipeline_fetches_html_when_no_fixture(tmp_data: Path, png_bytes: bytes) -> None:
     html = b'<html><body><img src="https://cdn.example.com/hero.png"></body></html>'
