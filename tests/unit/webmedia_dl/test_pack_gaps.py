@@ -269,6 +269,37 @@ def test_files_app_publishes_under_approved_root(tmp_path: Path) -> None:
     assert published[0].is_relative_to(dest)
 
 
+def test_share_destination_publishes_under_approved_root(tmp_path: Path) -> None:
+    src = tmp_path / "src.bin"
+    src.write_bytes(b"data")
+    digest = sha256_file(str(src))
+    artifact = Artifact(
+        artifact_id=f"sha256:{digest}",
+        role=ArtifactRole.SOURCE,
+        sha256=digest,
+        byte_size=4,
+        media_kind=MediaKind.UNKNOWN,
+        storage_relpath="src.bin",
+    )
+    dest = tmp_path / "share"
+    dest.mkdir()
+    intent = ExportIntent(
+        destination_kind=DestinationKind.SHARE,
+        destination_path=str(dest),
+        approved_roots=[str(dest)],
+    )
+    published = publish_artifacts(
+        [(artifact, src, validate_artifact(uuid4(), artifact, src))],
+        intent,
+    )
+    assert published
+    assert published[0].is_relative_to(dest)
+    outside = tmp_path / "escape"
+    outside.mkdir()
+    with pytest.raises(ValueError, match="approved path and root"):
+        ExportIntent(destination_kind=DestinationKind.SHARE, destination_path=str(outside))
+
+
 def test_photos_library_stays_blocked(tmp_path: Path) -> None:
     src = tmp_path / "src.bin"
     src.write_bytes(b"data")

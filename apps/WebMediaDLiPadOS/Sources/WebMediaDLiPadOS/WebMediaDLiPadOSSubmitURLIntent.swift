@@ -19,11 +19,17 @@ public struct WebMediaDLiPadOSSubmitURLIntent: AppIntent {
         if try await WebMediaDLHttpDirect.saveIfDirect(locator: locator, surface: .ipados) != nil {
             return .result()
         }
+        let intake = WebMediaDLShareIntake.fromSavedBookmark(locator: locator)
+        let files = intake.filesDestination
         _ = try await WebMediaDLPairedMacSubmit.submit(
             locator: locator,
             surface: .ipados,
             credentials: client,
-            intakeKind: "intent"
+            intakeKind: "intent",
+            destinationKind: files == nil ? nil : "files_app",
+            destinationPath: files?.approvedRoot,
+            approvedRoots: files.map { [$0.approvedRoot] } ?? [],
+            bookmarkData: files?.bookmark.bookmarkData ?? intake.bookmarkData
         )
         return .result()
     }
@@ -46,11 +52,17 @@ public struct WebMediaDLiPadOSSpeakURLIntent: AppIntent {
         if try await WebMediaDLHttpDirect.saveIfDirect(locator: locator, surface: .ipados) != nil {
             return .result()
         }
+        let intake = WebMediaDLShareIntake.fromSavedBookmark(locator: locator)
+        let files = intake.filesDestination
         _ = try await WebMediaDLPairedMacSubmit.submit(
             locator: locator,
             surface: .ipados,
             credentials: client,
-            intakeKind: "speak"
+            intakeKind: "speak",
+            destinationKind: files == nil ? nil : "files_app",
+            destinationPath: files?.approvedRoot,
+            approvedRoots: files.map { [$0.approvedRoot] } ?? [],
+            bookmarkData: files?.bookmark.bookmarkData ?? intake.bookmarkData
         )
         return .result()
     }

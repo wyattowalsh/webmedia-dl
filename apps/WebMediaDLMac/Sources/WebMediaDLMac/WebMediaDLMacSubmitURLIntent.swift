@@ -16,7 +16,17 @@ public struct WebMediaDLMacSubmitURLIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let client = WebMediaDLWorkerCredentials.loadClient()
-        _ = try await client.submit(locator: locator, surface: .macos, intakeKind: "intent")
+        let intake = WebMediaDLShareIntake.fromSavedBookmark(locator: locator)
+        let files = intake.filesDestination
+        _ = try await client.submit(
+            locator: locator,
+            surface: .macos,
+            intakeKind: "intent",
+            destinationKind: files == nil ? nil : "files_app",
+            destinationPath: files?.approvedRoot,
+            approvedRoots: files.map { [$0.approvedRoot] } ?? [],
+            bookmarkData: files?.bookmark.bookmarkData ?? intake.bookmarkData
+        )
         return .result()
     }
 }
@@ -35,7 +45,17 @@ public struct WebMediaDLMacSpeakURLIntent: AppIntent {
 
     public func perform() async throws -> some IntentResult {
         let client = WebMediaDLWorkerCredentials.loadClient()
-        _ = try await client.submit(locator: locator, surface: .macos, intakeKind: "speak")
+        let intake = WebMediaDLShareIntake.fromSavedBookmark(locator: locator)
+        let files = intake.filesDestination
+        _ = try await client.submit(
+            locator: locator,
+            surface: .macos,
+            intakeKind: "speak",
+            destinationKind: files == nil ? nil : "files_app",
+            destinationPath: files?.approvedRoot,
+            approvedRoots: files.map { [$0.approvedRoot] } ?? [],
+            bookmarkData: files?.bookmark.bookmarkData ?? intake.bookmarkData
+        )
         return .result()
     }
 }

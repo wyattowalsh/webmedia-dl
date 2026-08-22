@@ -42,3 +42,8 @@ to the loopback worker. Those adapters SHALL NOT run provider argv.
 #### Scenario: complete clients carry files destinations
 - **WHEN** iPhone, iPad, or visionOS submit with an approved Files path
 - **THEN** the job intent uses `files_app` and the security-scoped path boundary
+
+#### Scenario: share destination publishes under approved root
+
+- **WHEN** `destination_kind` is `share` under an approved root
+- **THEN** publication writes under that root and Photos library writes stay closed

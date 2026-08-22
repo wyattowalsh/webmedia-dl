@@ -2,6 +2,10 @@
 
 ## 0.1.0
 
+- App Intents restore the same App Group Files bookmark as share sheets.
+  `destination_kind=share` publishes under approved roots. GitHub `macos-15`
+  run `32549540515` executed Core `swift test` (18 tests, 0 failures) on
+  `7edfb8e`.
 - Share sheets restore the App Group Files bookmark through
   `WebMediaDLShareIntake.fromSavedBookmark` so complete-client share adapters
   carry `files_app` destinations. OpenSpec scenarios cover Mac-relay history,

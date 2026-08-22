@@ -353,6 +353,7 @@ SCENARIO_EVIDENCE = {
     "photos without approval": "testPhotosDestinationRequiresApprovedRoot",
     "share sheet url versus file": "testContinuityIsNotASubprocessWorker",
     "complete clients carry files destinations": "testPhotosDestinationRequiresApprovedRoot",
+    "share destination publishes under approved root": "test_share_destination_publishes_under_approved_root",
     "AES-128 playlist": "test_aes128_playlist_refused_before_any_segment_fetch",
     "two clear transport segments": "test_record_clear_stream_concatenates_segments",
     "DASH SegmentList byte ranges": "test_dash_segment_timeline",

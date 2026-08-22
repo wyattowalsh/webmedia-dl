@@ -19,14 +19,18 @@ public struct WebMediaDLSubmitURLIntent: AppIntent {
         if try await WebMediaDLHttpDirect.saveIfDirect(locator: locator, surface: .ios) != nil {
             return .result()
         }
+        let intake = WebMediaDLShareIntake.fromSavedBookmark(locator: locator)
+        let files = intake.filesDestination
         _ = try await WebMediaDLPairedMacSubmit.submit(
             locator: locator,
             surface: .ios,
             credentials: client,
-            intakeKind: "intent"
+            intakeKind: "intent",
+            destinationKind: files == nil ? nil : "files_app",
+            destinationPath: files?.approvedRoot,
+            approvedRoots: files.map { [$0.approvedRoot] } ?? [],
+            bookmarkData: files?.bookmark.bookmarkData ?? intake.bookmarkData
         )
-        let intake = WebMediaDLShareIntake(locator: locator)
-        _ = intake.canPublishToPhotos
         return .result()
     }
 }
@@ -48,11 +52,17 @@ public struct WebMediaDLiOSSpeakURLIntent: AppIntent {
         if try await WebMediaDLHttpDirect.saveIfDirect(locator: locator, surface: .ios) != nil {
             return .result()
         }
+        let intake = WebMediaDLShareIntake.fromSavedBookmark(locator: locator)
+        let files = intake.filesDestination
         _ = try await WebMediaDLPairedMacSubmit.submit(
             locator: locator,
             surface: .ios,
             credentials: client,
-            intakeKind: "speak"
+            intakeKind: "speak",
+            destinationKind: files == nil ? nil : "files_app",
+            destinationPath: files?.approvedRoot,
+            approvedRoots: files.map { [$0.approvedRoot] } ?? [],
+            bookmarkData: files?.bookmark.bookmarkData ?? intake.bookmarkData
         )
         return .result()
     }
