@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import math
 import re
 from collections.abc import Callable
@@ -18,7 +19,10 @@ from webmedia_dl.security import DRM_PATTERNS, detect_drm_signals, refuse_drm
 _XML_NS = r"(?:[A-Za-z_][\w.-]*:)?"
 _HLS_BYTERANGE = re.compile(r"#EXT-X-BYTERANGE:(\d+)(?:@(\d+))?", re.I)
 _DASH_CONTENT_PROTECTION = re.compile(r"ContentProtection", re.I)
-_DASH_BASE_URL = re.compile(rf"<{_XML_NS}BaseURL>\s*([^<\s]+)\s*</{_XML_NS}BaseURL>", re.I)
+_DASH_BASE_URL = re.compile(
+    rf"<{_XML_NS}BaseURL>\s*(?:<!\[CDATA\[(.*?)\]\]>|([^<\s]+))\s*</{_XML_NS}BaseURL>",
+    re.I | re.S,
+)
 _DASH_MEDIA = re.compile(
     r"""\b(?:media|initialization|sourceURL)=(?:"([^"]+)"|'([^']+)')""",
     re.I,
@@ -289,8 +293,21 @@ def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
 def _attrs(blob: str) -> dict[str, str]:
     parsed: dict[str, str] = {}
     for key, double, single in _DASH_ATTR.findall(blob):
-        parsed[key.lower()] = double or single
+        parsed[key.lower()] = html.unescape(double or single)
     return parsed
+
+
+def _dash_href(value: str | None) -> str:
+    return html.unescape((value or "").strip())
+
+
+def _dash_baseurls(text: str) -> list[str]:
+    found: list[str] = []
+    for cdata, plain in _DASH_BASE_URL.findall(text):
+        href = _dash_href(cdata or plain)
+        if href:
+            found.append(href)
+    return found
 
 
 def _int_attr(attrs: dict[str, str], name: str, default: int) -> int:
@@ -448,8 +465,8 @@ def _has_indexed_segments(text: str) -> bool:
 
 
 def _collect_baseurls(text: str, current: str, add: AddPart, *, emit_files: bool = True) -> str:
-    for href in _DASH_BASE_URL.findall(text):
-        resolved = _join(current, href.strip())
+    for href in _dash_baseurls(text):
+        resolved = _join(current, href)
         if _is_directory_base(resolved):
             current = resolved if resolved.endswith("/") else f"{resolved}/"
             continue
@@ -460,8 +477,8 @@ def _collect_baseurls(text: str, current: str, add: AddPart, *, emit_files: bool
 
 def _file_baseurl(text: str, current: str) -> str | None:
     file_url = None
-    for href in _DASH_BASE_URL.findall(text):
-        resolved = _join(current, href.strip())
+    for href in _dash_baseurls(text):
+        resolved = _join(current, href)
         if _is_directory_base(resolved):
             current = resolved if resolved.endswith("/") else f"{resolved}/"
             continue
@@ -529,7 +546,7 @@ def _collect_segments(
     if not include_templates or _DASH_TEMPLATE.search(text) or _has_indexed_segments(text):
         return
     for double, single in _DASH_MEDIA.findall(text):
-        media = double or single
+        media = _dash_href(double or single)
         resolved = _expand_dash_template(
             media,
             number=1,

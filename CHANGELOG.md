@@ -2,6 +2,11 @@
 
 ## 0.1.0
 
+- Bind DASH `BaseURL` values wrapped in `CDATA` and unescape XML entities in
+  DASH attributes so templates join the CDN base, not the MPD origin.
+  GitHub Actions `32582502768` on `c7bdfce` passed Python (624 pytest, 100%),
+  doctor provider probes, and Swift (18 tests, 0 failures; 12× BUILD
+  SUCCEEDED) after refusing `data:` / `file:/` locators that lack `://`.
 - Parse locator schemes with `urlparse` so `data:` and `file:/` (no `://`)
   cannot masquerade as relative HTML/JSON-LD/browser-evidence URLs.
   Capture skips the same blocked schemes. GitHub Actions `32581963314` on

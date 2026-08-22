@@ -133,6 +133,28 @@ def test_dash_directory_baseurl_without_slash() -> None:
     """
     urls = recordable_segment_urls(text, "https://cdn.example.com/manifest.mpd")
     assert urls == ["https://cdn.example.com/dash/seg1.m4s"]
+    cdata = """
+    <MPD><Period>
+      <BaseURL><![CDATA[]]></BaseURL>
+      <dash:BaseURL>
+        <![CDATA[https://cdn.example.com/dash/]]>
+      </dash:BaseURL>
+      <SegmentTemplate media="http-seg$Number$.m4s" startNumber="1"/>
+    </Period></MPD>
+    """
+    assert recordable_segment_urls(cdata, "https://origin.example.com/manifest.mpd") == [
+        "https://cdn.example.com/dash/http-seg1.m4s"
+    ]
+    encoded = """
+    <MPD><Period>
+      <SegmentList>
+        <SegmentURL media="https://cdn.example.com/a.m4s?token=1&amp;exp=2"/>
+      </SegmentList>
+    </Period></MPD>
+    """
+    assert recordable_segment_urls(encoded, "https://origin.example.com/manifest.mpd") == [
+        "https://cdn.example.com/a.m4s?token=1&exp=2"
+    ]
 
 
 def test_time_token_without_timeline_is_skipped() -> None:
