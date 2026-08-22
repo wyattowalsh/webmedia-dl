@@ -167,13 +167,13 @@ final class ContractTests: XCTestCase {
             payload: ["stdout": "secret"]
         )
         XCTAssertTrue(noisy.exposesProviderConsole)
-        let shared = URL(string: "https://cdn.example.com/a.mp4")!
+        let shared = "https://cdn.example.com/a.mp4"
         let provider = NSItemProvider(
-            item: shared as NSURL,
-            typeIdentifier: WebMediaDLShareItemExtractor.urlTypeIdentifier
+            item: shared as NSString,
+            typeIdentifier: WebMediaDLShareItemExtractor.textTypeIdentifier
         )
         let loaded = await WebMediaDLShareExtensionLoader.loadItem(from: provider)
-        XCTAssertEqual(loaded, shared.absoluteString)
+        XCTAssertEqual(loaded, shared)
     }
 
     func testLoopbackRequestBuildersStayOnLoopback() {

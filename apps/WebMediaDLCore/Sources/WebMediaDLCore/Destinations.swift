@@ -209,15 +209,33 @@ public enum WebMediaDLShareExtensionLoader {
         for identifier in identifiers where provider.hasItemConformingToTypeIdentifier(identifier) {
             return await withCheckedContinuation { continuation in
                 provider.loadItem(forTypeIdentifier: identifier, options: nil) { loaded, _ in
-                    if let url = loaded as? URL {
-                        continuation.resume(returning: url.absoluteString)
-                    } else if let text = loaded as? String {
-                        continuation.resume(returning: text)
-                    } else {
-                        continuation.resume(returning: nil)
-                    }
+                    continuation.resume(returning: string(from: loaded))
                 }
             }
+        }
+        return nil
+    }
+
+    private static func string(from loaded: NSSecureCoding?) -> String? {
+        if let url = loaded as? URL {
+            return url.absoluteString
+        }
+        if let url = loaded as? NSURL {
+            return url.absoluteString
+        }
+        if let text = loaded as? String {
+            return text
+        }
+        if let text = loaded as? NSString {
+            return text as String
+        }
+        if let data = loaded as? Data {
+            if let text = String(data: data, encoding: .utf8),
+               !text.isEmpty,
+               !text.contains("\0") {
+                return text
+            }
+            return URL(dataRepresentation: data, relativeTo: nil)?.absoluteString
         }
         return nil
     }

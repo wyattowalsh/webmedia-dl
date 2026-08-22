@@ -5,6 +5,8 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 
 swift test --package-path "$root/apps/WebMediaDLCore"
+xcrun --sdk macosx swiftc -typecheck \
+  "$root/extensions/safari/SafariWebExtensionHandler.swift"
 swift build --package-path "$root/apps/WebMediaDLMac"
 swift build --package-path "$root/apps/WebMediaDLMac" --target WebMediaDLMacShareExtension
 

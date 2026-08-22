@@ -652,6 +652,8 @@ def test_github_ci_compiles_apple_packages() -> None:
     assert "generic/platform=watchOS" in script
     assert "generic/platform=tvOS" in script
     assert "generic/platform=visionOS" in script
+    assert "SafariWebExtensionHandler.swift" in script
+    assert "swiftc -typecheck" in script
     for scheme in (
         "WebMediaDLiOS",
         "WebMediaDLiOSShareExtension",
@@ -752,6 +754,8 @@ def test_complete_clients_http_direct_and_shared_domain() -> None:
     watch = (root / ROOT_VIEWS["watchos"]).read_text(encoding="utf-8")
     tv = (root / ROOT_VIEWS["tvos"]).read_text(encoding="utf-8")
     mac = (root / ROOT_VIEWS["macos"]).read_text(encoding="utf-8")
+    for text in (ios, ipad, vision, watch, tv, mac):
+        assert 'accessibilityLabel("History row")' in text
     for text in (ios, ipad, vision):
         assert "Save on this device" in text
         assert "WebMediaDLHttpDirect.transfer" in text

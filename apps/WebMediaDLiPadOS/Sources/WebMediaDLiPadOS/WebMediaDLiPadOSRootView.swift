@@ -135,6 +135,7 @@ public struct WebMediaDLiPadOSRootView: View {
                     .accessibilityLabel("Job history")
                 List(history) { entry in
                     Text("\(entry.jobId.uuidString.prefix(8)) \(entry.state)")
+                        .accessibilityLabel("History row")
                 }
                 Button("Refresh history") {
                     Task {
