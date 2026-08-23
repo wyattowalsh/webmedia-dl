@@ -152,9 +152,11 @@ export function pageCollector(doc) {
       push(el.getAttribute?.("data-src"), kind);
       push(el.currentSrc, kind);
       push(el.getAttribute?.("poster"), "image");
-      const srcset = el.getAttribute?.("srcset");
-      if (srcset) {
-        srcset.split(",").forEach((part) => push(part.trim().split(/\s+/)[0], kind));
+      for (const attr of ["srcset", "data-srcset"]) {
+        const srcset = el.getAttribute?.(attr);
+        if (srcset) {
+          srcset.split(",").forEach((part) => push(part.trim().split(/\s+/)[0], kind));
+        }
       }
     });
   const metaKind = {
@@ -222,11 +224,15 @@ export function pageCollector(doc) {
       "video",
     );
   });
-  root.querySelectorAll?.("link[href]").forEach((el) => {
+  root.querySelectorAll?.("link[href], link[imagesrcset]").forEach((el) => {
     const href = el.getAttribute?.("href");
     const asAttr = (el.getAttribute?.("as") || "").toLowerCase();
     const rel = (el.getAttribute?.("rel") || "").toLowerCase();
     const mime = (el.getAttribute?.("type") || "").toLowerCase();
+    const imageSrcset = el.getAttribute?.("imagesrcset");
+    if (asAttr === "image" && imageSrcset) {
+      imageSrcset.split(",").forEach((part) => push(part.trim().split(/\s+/)[0], "image"));
+    }
     const preloadMedia =
       rel.split(/\s+/).includes("preload") &&
       typeof href === "string" &&

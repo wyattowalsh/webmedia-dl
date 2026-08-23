@@ -296,6 +296,7 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
         <link rel="modulepreload" href="https://cdn.example.com/app.js">
         <link rel="preload" as="script" href="https://cdn.example.com/boot.js">
         <link rel="preload" as="video" type="video/mp4" href="https://cdn.example.com/player.js">
+        <link rel="preload" as="image" imagesrcset="https://cdn.example.com/hero.js 1x">
         <iframe src="https://cdn.example.com/embed.js"></iframe>
         <amp-iframe src="https://cdn.example.com/amp-embed.js"></amp-iframe>
         <embed src="https://cdn.example.com/plugin.js">
@@ -306,6 +307,7 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
           <source type="video/mp4" src="https://cdn.example.com/fallback.js">
           <source src="https://cdn.example.com/clip.mp4">
         </video>
+        <img data-srcset="https://cdn.example.com/lazy.js 1x">
         <script type="application/ld+json">
           {"@type": "VideoObject", "contentUrl": "https://cdn.example.com/ld.js"}
         </script>
@@ -319,11 +321,13 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
     assert videos
     assert videos[0].retrieval_urls[0] == "https://cdn.example.com/clip.mp4"
     assert "https://cdn.example.com/player.js" not in mixed_urls
+    assert "https://cdn.example.com/hero.js" not in mixed_urls
     assert "https://cdn.example.com/embed.js" not in mixed_urls
     assert "https://cdn.example.com/amp-embed.js" not in mixed_urls
     assert "https://cdn.example.com/plugin.js" not in mixed_urls
     assert "https://cdn.example.com/object.js" not in mixed_urls
     assert "https://cdn.example.com/fallback.js" not in mixed_urls
+    assert "https://cdn.example.com/lazy.js" not in mixed_urls
     assert "https://cdn.example.com/ld.js" not in mixed_urls
     slash_assets = """
     <html>
@@ -504,6 +508,9 @@ def test_html_link_audio_image_track_and_jsonld_kinds() -> None:
         <meta property="og:image:secure_url" content="https://cdn.example.com/og-secure.png">
         <link rel="preload" as="audio" href="https://cdn.example.com/a.mp3">
         <link rel="preload" as="image" href="https://cdn.example.com/i.png">
+        <link rel="preload" as="image"
+              imagesrcset="https://cdn.example.com/hero-2x.webp 2x, https://cdn.example.com/hero.webp 1x">
+        <link rel="stylesheet" imagesrcset="https://cdn.example.com/sheet.webp">
         <link rel="preload" as="track" href="https://cdn.example.com/t.vtt">
         <link rel="preload" as="track" href="https://cdn.example.com/t.m3u8">
         <script type="application/ld+json">
@@ -522,6 +529,9 @@ def test_html_link_audio_image_track_and_jsonld_kinds() -> None:
     assert kinds["https://cdn.example.com/og-secure.png"] is MediaKind.IMAGE
     assert kinds["https://cdn.example.com/a.mp3"] is MediaKind.AUDIO
     assert kinds["https://cdn.example.com/i.png"] is MediaKind.IMAGE
+    assert kinds["https://cdn.example.com/hero-2x.webp"] is MediaKind.IMAGE
+    assert kinds["https://cdn.example.com/hero.webp"] is MediaKind.IMAGE
+    assert "https://cdn.example.com/sheet.webp" not in kinds
     assert kinds["https://cdn.example.com/t.vtt"] is MediaKind.SUBTITLE
     assert kinds["https://cdn.example.com/t.m3u8"] is MediaKind.SUBTITLE
     assert kinds["https://example.com/listen"] is MediaKind.AUDIO

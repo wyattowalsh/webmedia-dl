@@ -2,6 +2,14 @@
 
 ## 0.1.0
 
+- Collect `data-srcset` like `srcset` and `link` `imagesrcset` as IMAGE when
+  `as="image"`, so lazy responsive images and preload srcset locators are typed
+  like `srcset` / `data-src`. Stylesheet `imagesrcset` and script-asset tokens
+  stay skipped. GitHub Actions `32606402182` on `6464ae6` passed Python (626
+  pytest, 100%), doctor provider probes, and Swift (18 tests, 0 failures; 12×
+  BUILD SUCCEEDED) after expanding DASH `$SubNumber$` from SegmentTimeline
+  `S@k`.
+
 - Expand DASH `$SubNumber$` from SegmentTimeline `S@k` so subsegment locators
   are recorded instead of leftover `$SubNumber$` tokens. `$SubNumber%0Nd$`
   pads like `$Number%0Nd$`. `k` is ignored when `r` is present; leftover

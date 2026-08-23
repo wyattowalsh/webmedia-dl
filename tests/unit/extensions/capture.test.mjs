@@ -243,7 +243,13 @@ describe("collectMediaEvidence", () => {
           {
             tagName: "AMP-IMG",
             getAttribute: (name) =>
-              name === "src" ? "https://cdn.example.com/amp.png" : name === "data-src" ? "https://cdn.example.com/lazy.png" : null,
+              name === "src"
+                ? "https://cdn.example.com/amp.png"
+                : name === "data-src"
+                  ? "https://cdn.example.com/lazy.png"
+                  : name === "data-srcset"
+                    ? "https://cdn.example.com/lazy-set.webp 1x"
+                    : null,
           },
           {
             tagName: "TRACK",
@@ -260,6 +266,7 @@ describe("collectMediaEvidence", () => {
     assert.equal(byUrl["https://cdn.example.com/plain-live"], "live_stream");
     assert.equal(byUrl["https://cdn.example.com/amp.png"], "image");
     assert.equal(byUrl["https://cdn.example.com/lazy.png"], "image");
+    assert.equal(byUrl["https://cdn.example.com/lazy-set.webp"], "image");
     assert.equal(byUrl["https://cdn.example.com/lazy.vtt"], "subtitle");
     assert.equal(byUrl["https://cdn.example.com/player.html"], "video");
     assert.equal(byUrl["https://cdn.example.com/tw-src.png"], "image");
@@ -377,6 +384,23 @@ describe("collectMediaEvidence", () => {
             },
             {
               getAttribute: (name) => {
+                if (name === "imagesrcset") {
+                  return "https://cdn.example.com/hero-2x.webp 2x, https://cdn.example.com/hero.webp 1x";
+                }
+                if (name === "as") return "image";
+                if (name === "rel") return "preload";
+                return null;
+              },
+            },
+            {
+              getAttribute: (name) => {
+                if (name === "imagesrcset") return "https://cdn.example.com/sheet.webp";
+                if (name === "rel") return "stylesheet";
+                return null;
+              },
+            },
+            {
+              getAttribute: (name) => {
                 if (name === "href") return "https://cdn.example.com/alt.mpd";
                 if (name === "type") return "application/dash+xml";
                 return null;
@@ -424,6 +448,10 @@ describe("collectMediaEvidence", () => {
     assert.ok(urls.includes("https://cdn.example.com/playlist.json"));
     assert.equal(byUrl["https://cdn.example.com/playlist.json"], "live_stream");
     assert.ok(urls.includes("https://cdn.example.com/still.png"));
+    assert.ok(urls.includes("https://cdn.example.com/hero-2x.webp"));
+    assert.ok(urls.includes("https://cdn.example.com/hero.webp"));
+    assert.equal(byUrl["https://cdn.example.com/hero-2x.webp"], "image");
+    assert.ok(!urls.includes("https://cdn.example.com/sheet.webp"));
     assert.ok(urls.includes("https://cdn.example.com/alt.mpd"));
     assert.ok(urls.includes("https://cdn.example.com/plain-live"));
     assert.equal(byUrl["https://cdn.example.com/alt.mpd"], "live_stream");

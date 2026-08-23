@@ -85,6 +85,16 @@ def _locator_has_non_media_suffix(url: str) -> bool:
     return any(path.endswith(ext) for ext in _NON_MEDIA_PATH_SUFFIXES)
 
 
+def _srcset_tokens(value: str) -> list[str]:
+    tokens: list[str] = []
+    for part in value.split(","):
+        pieces = part.strip().split()
+        token = pieces[0] if pieces else ""
+        if token:
+            tokens.append(token)
+    return tokens
+
+
 FetchFn = Callable[[str], tuple[int, str, bytes]]
 
 
@@ -160,12 +170,10 @@ class _MediaHTMLParser(HTMLParser):
                 if value:
                     item_kind = MediaKind.IMAGE if attr == "poster" else kind
                     self.urls.append((value, item_kind))
-            srcset = mapping.get("srcset")
-            if srcset:
-                for part in srcset.split(","):
-                    pieces = part.strip().split()
-                    token = pieces[0] if pieces else ""
-                    if token:
+            for attr in ("srcset", "data-srcset"):
+                srcset = mapping.get(attr)
+                if srcset:
+                    for token in _srcset_tokens(srcset):
                         self.urls.append((token, kind))
         if tag == "track":
             for attr in ("src", "data-src"):
@@ -201,6 +209,9 @@ class _MediaHTMLParser(HTMLParser):
                 elif as_attr == "track":
                     kind = MediaKind.SUBTITLE
                 self.urls.append((href, kind))
+            if as_attr == "image":
+                for token in _srcset_tokens(mapping.get("imagesrcset") or ""):
+                    self.urls.append((token, MediaKind.IMAGE))
         if tag == "meta":
             key = mapping.get("property") or mapping.get("name")
             content = mapping.get("content")

@@ -813,7 +813,8 @@ def test_discovery_picture_embed_gallery_and_jsonld_list() -> None:
       </head>
       <body>
         <picture>
-          <source type="image/webp" srcset="https://cdn.example.com/hero.webp 1x">
+          <source type="image/webp" srcset="https://cdn.example.com/hero.webp 1x"
+                  data-srcset="https://cdn.example.com/lazy.webp 1x">
           <img data-src="https://cdn.example.com/hero.png">
         </picture>
         <img src="https://cdn.example.com/one.jpg">
@@ -832,6 +833,8 @@ def test_discovery_picture_embed_gallery_and_jsonld_list() -> None:
     urls = [item.retrieval_urls[0] for item in found if item.retrieval_urls]
     kinds = {item.retrieval_urls[0]: item.media_kind for item in found if item.retrieval_urls}
     assert "https://cdn.example.com/hero.webp" in urls
+    assert "https://cdn.example.com/lazy.webp" in urls
+    assert kinds["https://cdn.example.com/lazy.webp"] is MediaKind.IMAGE
     assert "https://cdn.example.com/hero.png" in urls
     assert "https://cdn.example.com/og-secure.png" in urls
     assert kinds["https://cdn.example.com/og-secure.png"] is MediaKind.IMAGE
