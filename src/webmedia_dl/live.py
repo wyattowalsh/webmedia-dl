@@ -8,7 +8,7 @@ import re
 from collections.abc import Callable
 from pathlib import Path
 from typing import NamedTuple
-from urllib.parse import urljoin, urlparse
+from urllib.parse import parse_qs, urljoin, urlparse
 
 from tqdm import tqdm
 
@@ -18,6 +18,7 @@ from webmedia_dl.security import DRM_PATTERNS, detect_drm_signals, refuse_drm
 
 _XML_NS = r"(?:[A-Za-z_][\w.-]*:)?"
 _HLS_BYTERANGE = re.compile(r"#EXT-X-BYTERANGE:\s*(\d+)\s*(?:@\s*(\d+))?", re.I)
+_HLS_VAR = re.compile(r"\{\$([A-Za-z0-9_-]+)\}")
 _DASH_CONTENT_PROTECTION = re.compile(r"ContentProtection", re.I)
 _DASH_BASE_URL = re.compile(
     rf"<{_XML_NS}BaseURL>\s*(?:<!\[CDATA\[(.*?)\]\]>|(.*?))\s*</{_XML_NS}BaseURL>",
@@ -126,6 +127,58 @@ def _hls_line(text: str) -> str:
     return text.strip().lstrip("\ufeff")
 
 
+def _hls_substitution_env(
+    text: str,
+    playlist_url: str,
+    inherited: dict[str, str] | None = None,
+) -> dict[str, str]:
+    """Collect RFC 8216bis `#EXT-X-DEFINE` NAME/VALUE, IMPORT, and QUERYPARAM bindings."""
+    env: dict[str, str] = {}
+    parent = inherited or {}
+    query = parse_qs(urlparse(playlist_url).query, keep_blank_values=True)
+    for line in text.splitlines():
+        stripped = _hls_line(line)
+        if not stripped.upper().startswith("#EXT-X-DEFINE:"):
+            continue
+        attrs, duplicates = _hls_attr_map(stripped.split(":", 1)[-1])
+        if duplicates:
+            continue
+        if "QUERYPARAM" in attrs:
+            name = attrs["QUERYPARAM"]
+            values = query.get(name)
+            if values and name not in env:
+                env[name] = values[0]
+        elif "IMPORT" in attrs:
+            name = attrs["IMPORT"]
+            if name in parent and name not in env:
+                env[name] = parent[name]
+        elif "NAME" in attrs and "VALUE" in attrs:
+            name = attrs["NAME"]
+            if name not in env:
+                env[name] = attrs["VALUE"]
+    return env
+
+
+def _expand_hls_substitution(value: str, env: dict[str, str]) -> str | None:
+    """Replace `{$name}` once. Return None when a referenced name is missing."""
+    if "{$" not in value:
+        return value
+    missing = False
+
+    def repl(match: re.Match[str]) -> str:
+        nonlocal missing
+        name = match.group(1)
+        if name not in env:
+            missing = True
+            return match.group(0)
+        return env[name]
+
+    resolved = _HLS_VAR.sub(repl, value)
+    if missing or _HLS_VAR.search(resolved):
+        return None
+    return resolved
+
+
 def _without_bom(text: str) -> str:
     return text.lstrip("\ufeff")
 
@@ -203,7 +256,9 @@ def recordable_segment_urls(text: str, base: str) -> list[str]:
     return [part.url for part in recordable_parts(text, base)]
 
 
-def recordable_parts(text: str, base: str) -> list[ManifestPart]:
+def recordable_parts(
+    text: str, base: str, *, hls_env: dict[str, str] | None = None
+) -> list[ManifestPart]:
     text = _without_bom(text)
     dash = _is_dash_manifest(text)
     if dash:
@@ -213,7 +268,8 @@ def recordable_parts(text: str, base: str) -> list[ManifestPart]:
             raise DrmRefused(msg)
         return _dash_parts(text, base)
     _refuse_hls_playlist_drm(text)
-    parts = _clear_hls_parts(text, base)
+    env = _hls_substitution_env(text, base, inherited=hls_env)
+    parts = _clear_hls_parts(text, base, env=env)
     if not parts:
         _refuse_encrypted_media_key(text)
     return parts
@@ -270,7 +326,9 @@ def _parse_byterange(
     return offset, length
 
 
-def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
+def _clear_hls_parts(
+    text: str, base: str, *, env: dict[str, str] | None = None
+) -> list[ManifestPart]:
     """Collect MAP + PART + URI parts until the first non-NONE EXT-X-KEY.
 
     `#EXT-X-SKIP` advances the media-sequence index so delta playlists keep
@@ -279,7 +337,8 @@ def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
     slot so a later parent URI can replace those prefixes instead of appending
     them twice. `#EXTINF` does not flush: RFC order is PARTs, then EXTINF, then
     the completed segment URI. `#EXT-X-DISCONTINUITY-SEQUENCE` is not a
-    discontinuity and must not flush held PART prefixes.
+    discontinuity and must not flush held PART prefixes. `#EXT-X-DEFINE`
+    substitutions bind `{$name}` in MAP/PART/URI locators.
     """
     parts: list[ManifestPart] = []
     held: list[ManifestPart] = []
@@ -288,6 +347,7 @@ def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
     next_offset: dict[str, int] = {}
     media_sequence = 0
     index = 0
+    substitutions = env if env is not None else _hls_substitution_env(text, base)
 
     def peek_occurrence() -> int:
         return media_sequence + index
@@ -305,6 +365,12 @@ def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
         parts.extend(held)
         held.clear()
         index += 1
+
+    def resolve_href(href: str) -> str | None:
+        expanded = _expand_hls_substitution(href, substitutions)
+        if expanded is None:
+            return None
+        return _join(base, expanded)
 
     for line in text.splitlines():
         stripped = _hls_line(line)
@@ -337,7 +403,9 @@ def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
             href = attrs.get("URI")
             if not href:
                 continue
-            uri = _join(base, href)
+            uri = resolve_href(href)
+            if uri is None:
+                continue
             offset, length = _parse_byterange(attrs.get("BYTERANGE"), default_offset=0)
             parts.append(ManifestPart(uri, offset, length, take_occurrence()))
             if offset is not None and length is not None:
@@ -348,7 +416,9 @@ def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
             href = attrs.get("URI")
             if not href or "URI" in duplicates or attrs.get("GAP", "").upper() == "YES":
                 continue
-            uri = _join(base, href)
+            uri = resolve_href(href)
+            if uri is None:
+                continue
             offset, length = _parse_byterange(attrs.get("BYTERANGE"), default_offset=None)
             if offset is None and length is not None:
                 offset = next_offset.get(uri, 0)
@@ -369,7 +439,12 @@ def _clear_hls_parts(text: str, base: str) -> list[ManifestPart]:
         if stripped.startswith("#"):
             continue
         held.clear()
-        url = _join(base, stripped)
+        url = resolve_href(stripped)
+        if url is None:
+            pending = None
+            pending_gap = False
+            take_occurrence()
+            continue
         occurrence = take_occurrence()
         if pending_gap:
             pending_gap = False
@@ -879,7 +954,10 @@ def _live_playlist_locator(url: str) -> bool:
     return path.endswith(_LIVE_PLAYLIST_SUFFIXES)
 
 
-def _preferred_hls_stream(text: str, base: str) -> tuple[str, dict[str, str]] | None:
+def _preferred_hls_stream(
+    text: str, base: str, *, env: dict[str, str] | None = None
+) -> tuple[str, dict[str, str]] | None:
+    substitutions = env if env is not None else _hls_substitution_env(text, base)
     variants: list[tuple[int, str, dict[str, str]]] = []
     pending: tuple[int, dict[str, str]] | None = None
     for line in text.splitlines():
@@ -895,16 +973,21 @@ def _preferred_hls_stream(text: str, base: str) -> tuple[str, dict[str, str]] | 
             continue
         if pending is not None and stripped and not stripped.startswith("#"):
             bandwidth, attrs = pending
-            variants.append((bandwidth, _join(base, stripped), attrs))
             pending = None
+            expanded = _expand_hls_substitution(stripped, substitutions)
+            if expanded is None:
+                continue
+            variants.append((bandwidth, _join(base, expanded), attrs))
     if not variants:
         return None
     _bandwidth, uri, attrs = max(variants, key=lambda item: item[0])
     return uri, attrs
 
 
-def _preferred_hls_variant(text: str, base: str) -> str | None:
-    chosen = _preferred_hls_stream(text, base)
+def _preferred_hls_variant(
+    text: str, base: str, *, env: dict[str, str] | None = None
+) -> str | None:
+    chosen = _preferred_hls_stream(text, base, env=env)
     return None if chosen is None else chosen[0]
 
 
@@ -1362,6 +1445,7 @@ def _hls_rendition_playlist_urls(
     muxed_default = False
     muxed_autoselect = False
     wanted = media_type.upper()
+    substitutions = _hls_substitution_env(text, base)
     for line in text.splitlines():
         stripped = _hls_line(line)
         if not stripped.startswith("#EXT-X-MEDIA:"):
@@ -1380,7 +1464,10 @@ def _hls_rendition_playlist_urls(
             elif autoselect:
                 muxed_autoselect = True
             continue
-        resolved = _join(base, uri)
+        expanded = _expand_hls_substitution(uri, substitutions)
+        if expanded is None:
+            continue
+        resolved = _join(base, expanded)
         if resolved in seen:
             continue
         seen.add(resolved)
@@ -1509,6 +1596,7 @@ def record_clear_stream(
     parts: list[ManifestPart] | None = None,
     rendition_kind: str | None = None,
     drm_flag: list[bool] | None = None,
+    hls_env: dict[str, str] | None = None,
 ) -> Path:
     dest = output
     playlist = _without_bom(playlist_text)
@@ -1517,13 +1605,17 @@ def record_clear_stream(
         msg = "DASH ContentProtection is refused."
         raise DrmRefused(msg)
     _refuse_hls_playlist_drm(playlist)
-    round_parts = parts if parts is not None else recordable_parts(playlist, playlist_url)
+    inherited = hls_env
+    env = _hls_substitution_env(playlist, playlist_url, inherited=inherited)
+    round_parts = (
+        parts if parts is not None else recordable_parts(playlist, playlist_url, hls_env=inherited)
+    )
     if not round_parts:
         _refuse_encrypted_media_key(playlist)
         msg = "Clear live playlist contained no recordable segments."
         raise DiscoveryError(msg)
     first = round_parts[0].url
-    preferred = _preferred_hls_variant(playlist, playlist_url)
+    preferred = _preferred_hls_variant(playlist, playlist_url, env=env)
     if (
         parts is None
         and depth < MAX_PLAYLIST_NESTING
@@ -1549,6 +1641,7 @@ def record_clear_stream(
             budget=bound,
             rendition_kind=rendition_kind,
             drm_flag=drm_flag,
+            hls_env=env,
         )
     dest.parent.mkdir(parents=True, exist_ok=True)
     if dest.exists():
@@ -1569,7 +1662,7 @@ def record_clear_stream(
             elif parts is not None and round_index == 0:
                 current_parts = parts
             else:
-                current_parts = recordable_parts(playlist, playlist_url)
+                current_parts = recordable_parts(playlist, playlist_url, hls_env=inherited)
         except DrmRefused:
             if drm_flag is not None:
                 drm_flag.append(True)
@@ -1615,6 +1708,7 @@ def _record_hls_sidecar(
     live_polls: int,
     drm_flag: list[bool],
     fail_label: str,
+    hls_env: dict[str, str] | None = None,
 ) -> None:
     """Record a nested AUDIO/VIDEO/SUBTITLES playlist, or a direct WebVTT/SRT object."""
     if should_stop is not None:
@@ -1634,6 +1728,7 @@ def _record_hls_sidecar(
             live_polls=live_polls,
             budget=budget,
             drm_flag=drm_flag,
+            hls_env=hls_env,
         )
         return
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -1701,6 +1796,7 @@ def record_kind_streams(
             budget=bound,
         )
         return [(MediaKind.LIVE_STREAM, output)]
+    env = _hls_substitution_env(playlist_text, playlist_url)
     audio_uris = hls_audio_playlist_urls(playlist_text, playlist_url)
     video_uris = hls_video_playlist_urls(playlist_text, playlist_url)
     subtitle_uris = hls_subtitle_playlist_urls(playlist_text, playlist_url)
@@ -1714,6 +1810,7 @@ def record_kind_streams(
         live_polls=live_polls,
         budget=bound,
         drm_flag=drm_flag,
+        hls_env=env,
     )
     if drm_flag or not (audio_uris or video_uris or subtitle_uris):
         return [(MediaKind.VIDEO, output)] if audio_uris else [(MediaKind.LIVE_STREAM, output)]
@@ -1731,6 +1828,7 @@ def record_kind_streams(
             live_polls=live_polls,
             drm_flag=drm_flag,
             fail_label="video",
+            hls_env=env,
         )
         results.append((MediaKind.VIDEO, video_dest))
     if audio_uris:
@@ -1744,6 +1842,7 @@ def record_kind_streams(
             live_polls=live_polls,
             drm_flag=drm_flag,
             fail_label="audio",
+            hls_env=env,
         )
         results.append((MediaKind.AUDIO, audio_dest))
     if subtitle_uris:
@@ -1757,6 +1856,7 @@ def record_kind_streams(
             live_polls=live_polls,
             drm_flag=drm_flag,
             fail_label="subtitle",
+            hls_env=env,
         )
         results.append((MediaKind.SUBTITLE, sub_dest))
     return results

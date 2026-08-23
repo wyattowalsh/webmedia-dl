@@ -7,6 +7,7 @@ from webmedia_dl.errors import DiscoveryError, DrmRefused, PauseRequested
 from webmedia_dl.live import (
     MAX_PLAYLIST_NESTING,
     ManifestPart,
+    _preferred_hls_variant,
     _select_dash_group,
     inspect_manifest,
     manifest_is_live,
@@ -134,6 +135,60 @@ def test_record_follows_master_playlist(tmp_path: Path) -> None:
         fetch,
     )
     assert upper.read_bytes() == b"SEG"
+    defined_master = (
+        "#EXTM3U\n"
+        '#EXT-X-DEFINE:NAME="base",VALUE="https://cdn.example.com/media"\n'
+        "#EXT-X-STREAM-INF:BANDWIDTH=800000\n"
+        "{$base}/child.m3u8\n"
+    )
+    defined_child = '#EXTM3U\n#EXT-X-DEFINE:IMPORT="base"\n#EXTINF:1,\n{$base}/seg.ts\n'
+    defined_bodies = {
+        "https://cdn.example.com/media/child.m3u8": defined_child.encode(),
+        "https://cdn.example.com/media/seg.ts": b"DEF",
+    }
+
+    def fetch_defined(url: str) -> tuple[int, str, bytes]:
+        if url in defined_bodies:
+            mime = "application/vnd.apple.mpegurl" if url.endswith(".m3u8") else "video/MP2T"
+            return 200, mime, defined_bodies[url]
+        raise AssertionError(url)
+
+    defined_out = tmp_path / "define.ts"
+    record_clear_stream(
+        defined_master, "https://cdn.example.com/master.m3u8", defined_out, fetch_defined
+    )
+    assert defined_out.read_bytes() == b"DEF"
+    leftover_stream = "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=800000\n{$missing}/child.m3u8\n"
+    assert _preferred_hls_variant(leftover_stream, "https://cdn.example.com/master.m3u8") is None
+    mixed_leftover = (
+        "#EXTM3U\n"
+        "#EXT-X-STREAM-INF:BANDWIDTH=900000\n"
+        "{$missing}/skip.m3u8\n"
+        "#EXT-X-STREAM-INF:BANDWIDTH=400000\n"
+        "keep.m3u8\n"
+    )
+    assert (
+        _preferred_hls_variant(mixed_leftover, "https://cdn.example.com/master.m3u8")
+        == "https://cdn.example.com/keep.m3u8"
+    )
+    mixed_out = tmp_path / "mixed-define.ts"
+
+    def fetch_mixed(url: str) -> tuple[int, str, bytes]:
+        if "skip" in url or "missing" in url:
+            raise AssertionError(url)
+        return fetch(url)
+
+    record_clear_stream(
+        mixed_leftover, "https://cdn.example.com/master.m3u8", mixed_out, fetch_mixed
+    )
+    assert mixed_out.read_bytes() == b"SEG"
+    with pytest.raises(DiscoveryError, match="no recordable segments"):
+        record_clear_stream(
+            leftover_stream,
+            "https://cdn.example.com/master.m3u8",
+            tmp_path / "leftover.ts",
+            lambda url: (_ for _ in ()).throw(AssertionError(url)),
+        )
     slashed = tmp_path / "slash.ts"
     record_clear_stream(
         "#EXTM3U\nhttps://cdn.example.com/media.m3u8/\n",
@@ -208,6 +263,61 @@ def test_relative_segment_urls_join_base() -> None:
     assert recordable_segment_urls(
         "\ufeff#EXTM3U\n#EXTINF:1,\nseg.ts\n", "https://cdn.example.com/live.m3u8"
     ) == ["https://cdn.example.com/seg.ts"]
+    defined = (
+        "#EXTM3U\n"
+        '#EXT-X-DEFINE:NAME="dir",VALUE="live"\n'
+        '#EXT-X-DEFINE:NAME="dir",VALUE="other"\n'
+        "{$dir}/seg.ts\n"
+    )
+    assert recordable_segment_urls(defined, "https://cdn.example.com/index.m3u8") == [
+        "https://cdn.example.com/live/seg.ts"
+    ]
+    assert (
+        recordable_segment_urls(
+            "#EXTM3U\n{$missing}/seg.ts\n", "https://cdn.example.com/index.m3u8"
+        )
+        == []
+    )
+    nested_value = '#EXTM3U\n#EXT-X-DEFINE:NAME="dir",VALUE="{$nested}"\n{$dir}/seg.ts\n'
+    assert recordable_segment_urls(nested_value, "https://cdn.example.com/index.m3u8") == []
+    dup_attrs = '#EXTM3U\n#EXT-X-DEFINE:NAME="dir",NAME="alt",VALUE="live"\n{$dir}/seg.ts\n'
+    assert recordable_segment_urls(dup_attrs, "https://cdn.example.com/index.m3u8") == []
+    queried = '#EXTM3U\n#EXT-X-DEFINE:QUERYPARAM="token"\n{$token}/seg.ts\n'
+    assert recordable_segment_urls(queried, "https://cdn.example.com/index.m3u8?token=live") == [
+        "https://cdn.example.com/live/seg.ts"
+    ]
+    assert recordable_segment_urls(queried, "https://cdn.example.com/index.m3u8") == []
+    imported = '#EXTM3U\n#EXT-X-DEFINE:IMPORT="dir"\n{$dir}/seg.ts\n'
+    assert (
+        recordable_parts(imported, "https://cdn.example.com/index.m3u8", hls_env={"dir": "live"})[
+            0
+        ].url
+        == "https://cdn.example.com/live/seg.ts"
+    )
+    assert recordable_segment_urls(imported, "https://cdn.example.com/index.m3u8") == []
+    named_then_query = (
+        "#EXTM3U\n"
+        '#EXT-X-DEFINE:NAME="token",VALUE="live"\n'
+        '#EXT-X-DEFINE:QUERYPARAM="token"\n'
+        "{$token}/seg.ts\n"
+    )
+    assert recordable_segment_urls(
+        named_then_query, "https://cdn.example.com/index.m3u8?token=other"
+    ) == ["https://cdn.example.com/live/seg.ts"]
+    named_then_import = (
+        "#EXTM3U\n"
+        '#EXT-X-DEFINE:NAME="dir",VALUE="live"\n'
+        '#EXT-X-DEFINE:IMPORT="dir"\n'
+        "{$dir}/seg.ts\n"
+    )
+    assert (
+        recordable_parts(
+            named_then_import, "https://cdn.example.com/index.m3u8", hls_env={"dir": "other"}
+        )[0].url
+        == "https://cdn.example.com/live/seg.ts"
+    )
+    nameless = '#EXTM3U\n#EXT-X-DEFINE:NAME="dir"\n{$dir}/seg.ts\n'
+    assert recordable_segment_urls(nameless, "https://cdn.example.com/index.m3u8") == []
 
 
 def test_encrypted_master_refused_before_fetch(tmp_path: Path) -> None:

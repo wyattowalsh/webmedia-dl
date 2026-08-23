@@ -276,6 +276,36 @@ def test_hls_map_and_byterange(tmp_path: Path) -> None:
         fetch_gapped_parts,
     )
     assert gapped_out.read_bytes() == b"INITABCDEF"
+    defined_map = (
+        "#EXTM3U\n"
+        '#EXT-X-DEFINE:NAME="init",VALUE="init.mp4"\n'
+        '#EXT-X-DEFINE:NAME="part",VALUE="p0.m4s"\n'
+        '#EXT-X-MAP:URI="{$init}",BYTERANGE="4@0"\n'
+        '#EXT-X-PART:DURATION=0.5,URI="{$part}"\n'
+        '#EXT-X-PART:DURATION=0.5,URI="p1.m4s"\n'
+    )
+    defined_out = tmp_path / "live-define.bin"
+    record_clear_stream(
+        defined_map, "https://cdn.example.com/live/index.m3u8", defined_out, fetch_parts
+    )
+    assert defined_out.read_bytes() == b"INITAABB"
+    leftover_map = '#EXTM3U\n#EXT-X-MAP:URI="{$missing}"\n#EXTINF:1.0,\nseg.ts\n'
+    leftover_out = tmp_path / "live-leftover-map.bin"
+    record_clear_stream(
+        leftover_map, "https://cdn.example.com/live/index.m3u8", leftover_out, fetch_completed
+    )
+    assert leftover_out.read_bytes() == b"ABCDEF"
+    leftover_part = (
+        "#EXTM3U\n"
+        '#EXT-X-MAP:URI="init.mp4",BYTERANGE="4@0"\n'
+        '#EXT-X-PART:DURATION=0.5,URI="{$missing}"\n'
+        '#EXT-X-PART:DURATION=0.5,URI="p1.m4s"\n'
+    )
+    leftover_part_out = tmp_path / "live-leftover-part.bin"
+    record_clear_stream(
+        leftover_part, "https://cdn.example.com/live/index.m3u8", leftover_part_out, fetch_parts
+    )
+    assert leftover_part_out.read_bytes() == b"INITBB"
 
 
 def test_dash_segment_timeline(tmp_path: Path) -> None:

@@ -2,6 +2,14 @@
 
 ## 0.1.0
 
+- Expand HLS `#EXT-X-DEFINE` `{$name}` substitutions in MAP, PART, URI,
+  STREAM-INF, and MEDIA locators. NAME/VALUE is first-wins, IMPORT copies
+  the parent playlist, and QUERYPARAM reads the playlist URL. Leftover
+  `{$name}` is skipped fail-closed. GitHub Actions `32606782092` on
+  `128d9d2` passed Python (626 pytest, 100%), doctor provider probes, and
+  Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after collecting
+  `data-srcset` and `link` `imagesrcset` as IMAGE.
+
 - Collect `data-srcset` like `srcset` and `link` `imagesrcset` as IMAGE when
   `as="image"`, so lazy responsive images and preload srcset locators are typed
   like `srcset` / `data-src`. Stylesheet `imagesrcset` and script-asset tokens

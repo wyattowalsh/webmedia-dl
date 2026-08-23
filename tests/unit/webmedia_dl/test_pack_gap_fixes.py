@@ -250,6 +250,37 @@ def test_hls_and_dash_keep_alternate_audio(tmp_path: Path) -> None:
     assert payloads[MediaKind.VIDEO] == b"VIDEO"
     assert payloads[MediaKind.AUDIO] == b"AUDIO"
     assert b"VIDEOAUDIO" not in payloads[MediaKind.VIDEO]
+    defined_master = (
+        "#EXTM3U\n"
+        '#EXT-X-DEFINE:NAME="aud",VALUE="audio.m3u8"\n'
+        '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="eng",DEFAULT=YES,URI="{$aud}"\n'
+        '#EXT-X-STREAM-INF:BANDWIDTH=800000,AUDIO="aac"\n'
+        "video.m3u8\n"
+    )
+    defined_recorded = record_kind_streams(
+        defined_master,
+        "https://cdn.example.com/master.m3u8",
+        tmp_path / "define.bin",
+        fetch,
+    )
+    defined_payloads = {kind: path.read_bytes() for kind, path in defined_recorded}
+    assert defined_payloads[MediaKind.VIDEO] == b"VIDEO"
+    assert defined_payloads[MediaKind.AUDIO] == b"AUDIO"
+    leftover_audio = (
+        "#EXTM3U\n"
+        '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="eng",DEFAULT=YES,URI="{$missing}"\n'
+        '#EXT-X-STREAM-INF:BANDWIDTH=800000,AUDIO="aac"\n'
+        "video.m3u8\n"
+    )
+    leftover_recorded = record_kind_streams(
+        leftover_audio,
+        "https://cdn.example.com/master.m3u8",
+        tmp_path / "leftover-audio.bin",
+        fetch,
+    )
+    leftover_kinds = {kind for kind, _path in leftover_recorded}
+    assert MediaKind.LIVE_STREAM in leftover_kinds
+    assert MediaKind.AUDIO not in leftover_kinds
     comment_first = (
         "#EXTM3U\n"
         '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aac",NAME="commentary",URI="comment.m3u8"\n'
