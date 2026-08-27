@@ -2,6 +2,14 @@
 
 ## 0.1.0
 
+- Collect HTML microdata `itemprop` `contentUrl` / `embedUrl` locators as
+  VIDEO and `caption` / `transcript` / `subtitle` locators as SUBTITLE,
+  matching JSON-LD. Caption text, `thumbnailUrl`, `itemprop="url"`, and
+  script-asset values stay skipped. GitHub Actions `33026897900` on
+  `ebdceb2` passed Python (626 pytest, 100%), doctor provider probes, and
+  Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED) after recording HLS
+  IMAGE-STREAM-INF nested playlists as IMAGE. That SHA is `origin/main`.
+
 - Record HLS `#EXT-X-IMAGE-STREAM-INF` nested playlists as an IMAGE sidecar,
   matching `#EXT-X-I-FRAME-STREAM-INF` VIDEO sidecars. Highest `BANDWIDTH`
   wins. Duplicate `URI`, invalid `BANDWIDTH`, and leftover `{$name}` stay

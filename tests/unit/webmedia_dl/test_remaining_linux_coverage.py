@@ -120,9 +120,12 @@ def test_discovery_skips_empty_tokens_and_jsonld_kinds() -> None:
           {"@type": "Photograph", "embedUrl": "https://cdn.example.com/photo", "url": "https://cdn.example.com/photo-url"}
         </script>
         <link rel="preload" as="track" href="https://cdn.example.com/sub.vtt">
+        <meta itemprop="contentUrl" content="https://cdn.example.com/itemprop.mp4">
+        <meta itemprop="caption" content="https://cdn.example.com/itemprop.vtt">
       </head>
       <body>
-        <video poster="" data-poster="https://cdn.example.com/lazy-poster.jpg" src="https://cdn.example.com/clip.mp4"
+        <video poster="" data-poster="https://cdn.example.com/lazy-poster.jpg" itemprop="contentUrl"
+               src="https://cdn.example.com/clip.mp4"
                srcset=",  , https://cdn.example.com/poster.jpg 1x"></video>
         <picture>
           <source srcset="https://cdn.example.com/plain.jpg">
@@ -150,6 +153,8 @@ def test_discovery_skips_empty_tokens_and_jsonld_kinds() -> None:
     assert kinds["https://cdn.example.com/photo-url"] is MediaKind.IMAGE
     assert kinds["https://cdn.example.com/plain.jpg"] is MediaKind.IMAGE
     assert kinds["https://cdn.example.com/sub.vtt"] is MediaKind.SUBTITLE
+    assert kinds["https://cdn.example.com/itemprop.mp4"] is MediaKind.VIDEO
+    assert kinds["https://cdn.example.com/itemprop.vtt"] is MediaKind.SUBTITLE
     assert kinds["https://cdn.example.com/typed.mp4"] is MediaKind.VIDEO
     assert not any(item == "" for item in urls)
     assert found[0].title_display == "Album"

@@ -211,6 +211,26 @@ describe("collectMediaEvidence", () => {
         if (selector.includes("iframe") || selector.includes("link[href]") || selector.includes("ld+json")) {
           return [];
         }
+        if (selector.includes("itemprop")) {
+          return [
+            {
+              getAttribute: (name) =>
+                name === "itemprop"
+                  ? "embedUrl"
+                  : name === "href"
+                    ? "https://cdn.example.com/itemprop-embed.mp4"
+                    : null,
+            },
+            {
+              getAttribute: (name) =>
+                name === "itemprop"
+                  ? "contentUrl"
+                  : name === "href"
+                    ? "https://cdn.example.com/itemprop.js"
+                    : null,
+            },
+          ];
+        }
         if (selector === "meta") {
           return [
             {
@@ -227,6 +247,38 @@ describe("collectMediaEvidence", () => {
                   ? "twitter:image:src"
                   : name === "content"
                     ? "https://cdn.example.com/tw-src.png"
+                    : null,
+            },
+            {
+              getAttribute: (name) =>
+                name === "itemprop"
+                  ? "contentUrl"
+                  : name === "content"
+                    ? "https://cdn.example.com/itemprop.mp4"
+                    : null,
+            },
+            {
+              getAttribute: (name) =>
+                name === "itemprop"
+                  ? "caption"
+                  : name === "content"
+                    ? "https://cdn.example.com/itemprop.vtt"
+                    : null,
+            },
+            {
+              getAttribute: (name) =>
+                name === "itemprop"
+                  ? "thumbnailUrl"
+                  : name === "content"
+                    ? "https://cdn.example.com/itemprop-thumb.jpg"
+                    : null,
+            },
+            {
+              getAttribute: (name) =>
+                name === "itemprop"
+                  ? "caption"
+                  : name === "content"
+                    ? "English closed captions"
                     : null,
             },
           ];
@@ -300,6 +352,11 @@ describe("collectMediaEvidence", () => {
     assert.equal(byUrl["https://cdn.example.com/clip.mp4"], "video");
     assert.equal(byUrl["https://cdn.example.com/player.html"], "video");
     assert.equal(byUrl["https://cdn.example.com/tw-src.png"], "image");
+    assert.equal(byUrl["https://cdn.example.com/itemprop.mp4"], "video");
+    assert.equal(byUrl["https://cdn.example.com/itemprop-embed.mp4"], "video");
+    assert.equal(byUrl["https://cdn.example.com/itemprop.vtt"], "subtitle");
+    assert.equal(byUrl["https://cdn.example.com/itemprop-thumb.jpg"], undefined);
+    assert.equal(byUrl["https://cdn.example.com/itemprop.js"], undefined);
     assert.equal(result.nativeCommand, null);
   });
 

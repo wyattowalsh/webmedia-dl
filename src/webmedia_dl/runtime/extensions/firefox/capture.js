@@ -199,12 +199,36 @@ export function pageCollector(doc) {
     "og:audio:url": "audio",
     "og:audio:secure_url": "audio",
   };
+  const captionHref = /\.(vtt|srt|m3u8|m3u|mpd)\/*(?:\?|#|$)/i;
+  const pushItemprop = (itemprop, locator) => {
+    String(itemprop || "")
+      .split(/\s+/)
+      .forEach((prop) => {
+        if (prop === "caption" || prop === "transcript" || prop === "subtitle") {
+          const trimmed = typeof locator === "string" ? locator.trim() : "";
+          if (trimmed && !/\s/.test(trimmed) && captionHref.test(trimmed)) {
+            push(trimmed, "subtitle");
+          }
+          return;
+        }
+        if (prop === "contentUrl" || prop === "embedUrl") {
+          push(locator, "video");
+        }
+      });
+  };
   root.querySelectorAll?.("meta").forEach((el) => {
     const key = el.getAttribute?.("property") || el.getAttribute?.("name");
     const kind = metaKind[key];
     if (kind) {
       push(el.getAttribute?.("content"), kind);
     }
+    const itemprop = el.getAttribute?.("itemprop");
+    if (itemprop) {
+      pushItemprop(itemprop, el.getAttribute?.("content"));
+    }
+  });
+  root.querySelectorAll?.("link[itemprop], a[itemprop]").forEach((el) => {
+    pushItemprop(el.getAttribute?.("itemprop"), el.getAttribute?.("href"));
   });
   root.querySelectorAll?.('script[type^="application/ld+json"]').forEach((el) => {
     const parseJsonLd = (raw) => {

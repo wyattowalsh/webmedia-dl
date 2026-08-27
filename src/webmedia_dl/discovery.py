@@ -225,6 +225,20 @@ class _MediaHTMLParser(HTMLParser):
             content = mapping.get("content")
             if key and content:
                 self.meta[key] = content
+        prop_names = (mapping.get("itemprop") or "").split()
+        if prop_names:
+            locator = (
+                mapping.get("content")
+                if tag == "meta"
+                else mapping.get("href")
+                if tag in {"link", "a"}
+                else None
+            )
+            if locator:
+                for prop in prop_names:
+                    guessed = _itemprop_guess(prop, locator)
+                    if guessed is not None:
+                        self.urls.append((locator, guessed))
         if tag == "script" and _is_jsonld_script_type(mapping.get("type")):
             self._in_json_ld = True
             self._json_ld_parts = []
@@ -470,6 +484,16 @@ def _jsonld_caption_locator(value: str) -> bool:
     if not text or any(ch.isspace() for ch in text):
         return False
     return _kind_from_url(text) in {MediaKind.SUBTITLE, MediaKind.LIVE_STREAM}
+
+
+def _itemprop_guess(prop: str, value: str) -> MediaKind | None:
+    """Kind for microdata itemprop locators that match JSON-LD media keys."""
+    key = prop.strip()
+    if key in _JSONLD_CAPTION_KEYS:
+        return MediaKind.SUBTITLE if _jsonld_caption_locator(value) else None
+    if key in {"contentUrl", "embedUrl"}:
+        return MediaKind.VIDEO
+    return None
 
 
 def _walk_jsonld(node: object):

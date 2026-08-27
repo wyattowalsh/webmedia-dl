@@ -50,6 +50,7 @@ def test_srcset_poster_and_browser_evidence() -> None:
     html = """
     <video poster="/poster.jpg" data-poster="/lazy-poster.jpg" srcset="https://cdn.example.com/clip.mp4 1x"></video>
     <meta name="twitter:image" content="https://cdn.example.com/tw.png">
+    <meta itemprop="contentUrl" content="https://cdn.example.com/itemprop.mp4">
     """
     evidence = [
         BrowserEvidence(url="https://cdn.example.com/captured.mp4", kind=MediaKind.VIDEO),
@@ -80,6 +81,8 @@ def test_srcset_poster_and_browser_evidence() -> None:
     assert "https://example.com/lazy-poster.jpg" in urls
     assert kinds["https://example.com/lazy-poster.jpg"] is MediaKind.IMAGE
     assert "https://cdn.example.com/tw.png" in urls
+    assert "https://cdn.example.com/itemprop.mp4" in urls
+    assert kinds["https://cdn.example.com/itemprop.mp4"] is MediaKind.VIDEO
     assert not any(item.startswith("javascript:") for item in urls)
     assert not any(item.startswith("data:") for item in urls)
     assert not any(item.startswith("file:") for item in urls)

@@ -330,6 +330,34 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
     assert caption_kinds["https://cdn.example.com/ld-subs.m3u8"] is MediaKind.SUBTITLE
     assert "English closed captions" not in caption_kinds
     assert "https://cdn.example.com/thumb.jpg" not in caption_kinds
+    itemprop = """
+    <html>
+      <head>
+        <meta itemprop="contentUrl" content="https://cdn.example.com/itemprop.mp4">
+        <meta itemprop="caption" content="https://cdn.example.com/itemprop.vtt">
+        <meta itemprop="transcript" content="https://cdn.example.com/itemprop-subs.m3u8">
+        <meta itemprop="subtitle" content="English closed captions">
+        <meta itemprop="thumbnailUrl" content="https://cdn.example.com/itemprop-thumb.jpg">
+        <meta itemprop="url" content="https://cdn.example.com/about">
+        <link itemprop="embedUrl" href="https://cdn.example.com/itemprop-embed.mp4">
+        <link itemprop="contentUrl" href="https://cdn.example.com/itemprop.js">
+        <a itemprop="contentUrl" href="https://cdn.example.com/itemprop-a.mp4">clip</a>
+      </head>
+    </html>
+    """
+    itemprop_found = discover(_source(), profile, html=itemprop)
+    itemprop_kinds = {
+        item.retrieval_urls[0]: item.media_kind for item in itemprop_found if item.retrieval_urls
+    }
+    assert itemprop_kinds["https://cdn.example.com/itemprop.mp4"] is MediaKind.VIDEO
+    assert itemprop_kinds["https://cdn.example.com/itemprop-embed.mp4"] is MediaKind.VIDEO
+    assert itemprop_kinds["https://cdn.example.com/itemprop-a.mp4"] is MediaKind.VIDEO
+    assert itemprop_kinds["https://cdn.example.com/itemprop.vtt"] is MediaKind.SUBTITLE
+    assert itemprop_kinds["https://cdn.example.com/itemprop-subs.m3u8"] is MediaKind.SUBTITLE
+    assert "English closed captions" not in itemprop_kinds
+    assert "https://cdn.example.com/itemprop-thumb.jpg" not in itemprop_kinds
+    assert "https://cdn.example.com/about" not in itemprop_kinds
+    assert "https://cdn.example.com/itemprop.js" not in itemprop_kinds
     stolen = """
     <html>
       <head>
