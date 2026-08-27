@@ -1493,11 +1493,54 @@ def hls_audio_playlist_urls(text: str, base: str) -> list[str]:
     return _hls_rendition_playlist_urls(text, base, media_type="AUDIO", group=group or None)
 
 
+def _hls_iframe_playlist_urls(text: str, base: str) -> list[str]:
+    """`#EXT-X-I-FRAME-STREAM-INF` nested playlists, highest BANDWIDTH first.
+
+    These are media playlists referenced by a master. Invalid BANDWIDTH,
+    duplicate URI, and leftover `{$name}` are skipped.
+    """
+    substitutions = _hls_substitution_env(text, base)
+    variants: list[tuple[int, str]] = []
+    seen: set[str] = set()
+    for line in text.splitlines():
+        stripped = _hls_line(line)
+        if not stripped.startswith("#EXT-X-I-FRAME-STREAM-INF:"):
+            continue
+        attrs, duplicates = _hls_attr_map(stripped.split(":", 1)[1])
+        raw = attrs.get("BANDWIDTH")
+        href = attrs.get("URI")
+        if (
+            not href
+            or "URI" in duplicates
+            or raw is None
+            or not raw.isdigit()
+            or "BANDWIDTH" in duplicates
+        ):
+            continue
+        expanded = _expand_hls_substitution(href, substitutions)
+        if expanded is None:
+            continue
+        resolved = _join(base, expanded)
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        variants.append((int(raw), resolved))
+    variants.sort(key=lambda item: item[0], reverse=True)
+    return [url for _bandwidth, url in variants]
+
+
 def hls_video_playlist_urls(text: str, base: str) -> list[str]:
-    """Video rendition playlists referenced by the preferred STREAM-INF group."""
+    """Video rendition playlists referenced by the preferred STREAM-INF group.
+
+    When the master omits TYPE=VIDEO URIs, `#EXT-X-I-FRAME-STREAM-INF` nested
+    playlists are the VIDEO sidecar.
+    """
     chosen = _preferred_hls_stream(text, base)
     group = chosen[1].get("VIDEO") if chosen is not None else None
-    return _hls_rendition_playlist_urls(text, base, media_type="VIDEO", group=group or None)
+    uris = _hls_rendition_playlist_urls(text, base, media_type="VIDEO", group=group or None)
+    if uris:
+        return uris
+    return _hls_iframe_playlist_urls(text, base)
 
 
 def hls_subtitle_playlist_urls(text: str, base: str) -> list[str]:

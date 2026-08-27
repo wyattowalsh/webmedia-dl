@@ -1068,6 +1068,45 @@ def test_hls_audio_media_skips_non_audio_and_duplicates() -> None:
         "video.m3u8\n"
     )
     assert hls_video_playlist_urls(muxed_videos, "https://cdn.example.com/") == []
+    iframes = (
+        "#EXTM3U\n"
+        '#EXT-X-DEFINE:NAME="ifr",VALUE="iframe.m3u8"\n'
+        '#EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=1000,URI="low-iframe.m3u8"\n'
+        '#EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=5000,URI="{$ifr}"\n'
+        '#EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=not-a-number,URI="bad-iframe.m3u8"\n'
+        '#EXT-X-I-FRAME-STREAM-INF:URI="no-bw.m3u8"\n'
+        '#EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=1,BANDWIDTH=2,URI="dup-bw.m3u8"\n'
+        '#EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=1,URI=""\n'
+        '#EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=9000,URI="dup.m3u8",URI="evil.m3u8"\n'
+        '#EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=8000,URI="{$missing}"\n'
+        '#EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=4000,URI="iframe.m3u8"\n'
+        "#EXT-X-STREAM-INF:BANDWIDTH=800000\n"
+        "video.m3u8\n"
+    )
+    assert hls_video_playlist_urls(iframes, "https://cdn.example.com/") == [
+        "https://cdn.example.com/iframe.m3u8",
+        "https://cdn.example.com/low-iframe.m3u8",
+    ]
+    videos_and_iframe = (
+        "#EXTM3U\n"
+        '#EXT-X-MEDIA:TYPE=VIDEO,GROUP-ID="vid",NAME="main",DEFAULT=YES,URI="angle.m3u8"\n'
+        '#EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=99999,URI="iframe.m3u8"\n'
+        '#EXT-X-STREAM-INF:BANDWIDTH=800000,VIDEO="vid"\n'
+        "audio-only.m3u8\n"
+    )
+    assert hls_video_playlist_urls(videos_and_iframe, "https://cdn.example.com/") == [
+        "https://cdn.example.com/angle.m3u8"
+    ]
+    muxed_with_iframe = (
+        "#EXTM3U\n"
+        '#EXT-X-MEDIA:TYPE=VIDEO,GROUP-ID="vid",NAME="main",DEFAULT=YES,AUTOSELECT=YES\n'
+        '#EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=1000,URI="iframe.m3u8"\n'
+        '#EXT-X-STREAM-INF:BANDWIDTH=800000,VIDEO="vid"\n'
+        "video.m3u8\n"
+    )
+    assert hls_video_playlist_urls(muxed_with_iframe, "https://cdn.example.com/") == [
+        "https://cdn.example.com/iframe.m3u8"
+    ]
 
 
 def test_hls_audio_playlist_fetch_failure(tmp_path: Path) -> None:

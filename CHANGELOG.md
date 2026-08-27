@@ -2,6 +2,14 @@
 
 ## 0.1.0
 
+- Record HLS `#EXT-X-I-FRAME-STREAM-INF` nested playlists as a VIDEO sidecar
+  when the master has no TYPE=VIDEO URI, matching TYPE=VIDEO renditions.
+  Highest `BANDWIDTH` wins. Duplicate `URI`, invalid `BANDWIDTH`, leftover
+  `{$name}`, and TYPE=VIDEO URIs stay preferred. GitHub Actions
+  `33026235889` on `837d3ed` passed Python (626 pytest, 100%), doctor
+  provider probes, and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED)
+  after collecting `data-poster` locators. That SHA is `origin/main`.
+
 - Collect `data-poster` locators as IMAGE in HTML discovery and browser
   capture, matching `poster` / `data-src`. Empty poster values and
   script-asset `data-poster` URLs stay skipped. GitHub Actions

@@ -441,6 +441,41 @@ def test_hls_and_dash_keep_alternate_audio(tmp_path: Path) -> None:
     )
     assert muxed_v == [(MediaKind.LIVE_STREAM, tmp_path / "muxed-video.bin")]
     assert (tmp_path / "muxed-video.bin").read_bytes() == b"VIDEO"
+    iframe_master = (
+        "#EXTM3U\n"
+        '#EXT-X-DEFINE:NAME="ifr",VALUE="iframe.m3u8"\n'
+        '#EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=1000,URI="low-iframe.m3u8"\n'
+        '#EXT-X-I-FRAME-STREAM-INF:BANDWIDTH=5000,URI="{$ifr}"\n'
+        "#EXT-X-STREAM-INF:BANDWIDTH=800000\n"
+        "video.m3u8\n"
+    )
+    iframe_bodies = {
+        **bodies,
+        "https://cdn.example.com/iframe.m3u8": b"#EXTM3U\n#EXTINF:1,\niframe.ts\n",
+        "https://cdn.example.com/iframe.ts": b"IFRAME",
+    }
+
+    def fetch_iframe(url: str) -> tuple[int, str, bytes]:
+        if url.endswith("low-iframe.m3u8"):
+            raise AssertionError(url)
+        return 200, "application/vnd.apple.mpegurl", iframe_bodies[url]
+
+    iframe_recorded = record_kind_streams(
+        iframe_master,
+        "https://cdn.example.com/master.m3u8",
+        tmp_path / "iframe.bin",
+        fetch_iframe,
+    )
+    iframe_kinds = {kind for kind, _path in iframe_recorded}
+    assert MediaKind.LIVE_STREAM in iframe_kinds
+    assert MediaKind.VIDEO in iframe_kinds
+    iframe_path = next(path for kind, path in iframe_recorded if kind is MediaKind.VIDEO)
+    assert iframe_path.name == "iframe-video.bin"
+    assert iframe_path.read_bytes() == b"IFRAME"
+    assert any(
+        kind is MediaKind.LIVE_STREAM and path.read_bytes() == b"VIDEO"
+        for kind, path in iframe_recorded
+    )
     dash = """
     <MPD><Period>
       <AdaptationSet contentType="audio">
