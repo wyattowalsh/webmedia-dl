@@ -2,6 +2,14 @@
 
 ## 0.1.0
 
+- Collect `<object>` child `<param name="movie">` / `src` / `url` locators as
+  VIDEO in HTML discovery and browser capture, matching `object` `data` /
+  `src` / `data-src`. Script-asset param values and non-locator names such as
+  `flashvars` stay skipped. GitHub Actions `33025086398` on `fa92600` passed
+  Python (626 pytest, 100%), doctor provider probes, and Swift (18 tests, 0
+  failures; 12× BUILD SUCCEEDED) after expanding HLS `#EXT-X-DEFINE`
+  substitutions. Feature-branch run `32607508952` on the same SHA also passed.
+
 - Expand HLS `#EXT-X-DEFINE` `{$name}` substitutions in MAP, PART, URI,
   STREAM-INF, and MEDIA locators. NAME/VALUE is first-wins, IMPORT copies
   the parent playlist, and QUERYPARAM reads the playlist URL. Leftover

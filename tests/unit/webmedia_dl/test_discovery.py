@@ -259,6 +259,13 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
         <amp-iframe src="https://cdn.example.com/amp-player.m3u8"></amp-iframe>
         <amp-iframe data-src="https://cdn.example.com/amp-lazy.m3u8"></amp-iframe>
         <embed data-src="https://cdn.example.com/lazy-embed.mp4">
+        <object>
+          <param name="movie" value="https://cdn.example.com/param.mp4">
+          <param name="src" value="https://cdn.example.com/param-src.m3u8">
+          <param name="url" value="https://cdn.example.com/param-url.mp4">
+          <param name="movie" value="https://cdn.example.com/param.js">
+          <param name="flashvars" value="https://cdn.example.com/flash.mp4">
+        </object>
         <video src="https://cdn.example.com/classic.m3u"></video>
         <a href="https://cdn.example.com/listed.m3u">playlist</a>
       </body>
@@ -274,6 +281,14 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
     assert "https://cdn.example.com/app.js" not in urls
     assert "https://cdn.example.com/boot.js" not in urls
     assert "https://cdn.example.com/playlist.json" in urls
+    assert "https://cdn.example.com/param.mp4" in urls
+    assert kinds["https://cdn.example.com/param.mp4"] is MediaKind.VIDEO
+    assert "https://cdn.example.com/param-src.m3u8" in urls
+    assert kinds["https://cdn.example.com/param-src.m3u8"] is MediaKind.LIVE_STREAM
+    assert "https://cdn.example.com/param-url.mp4" in urls
+    assert kinds["https://cdn.example.com/param-url.mp4"] is MediaKind.VIDEO
+    assert "https://cdn.example.com/param.js" not in urls
+    assert "https://cdn.example.com/flash.mp4" not in urls
     jsonld_url = """
     <html><body>
       <script type="application/ld+json">
@@ -300,7 +315,9 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
         <iframe src="https://cdn.example.com/embed.js"></iframe>
         <amp-iframe src="https://cdn.example.com/amp-embed.js"></amp-iframe>
         <embed src="https://cdn.example.com/plugin.js">
-        <object data="https://cdn.example.com/object.js"></object>
+        <object data="https://cdn.example.com/object.js">
+          <param name="movie" value="https://cdn.example.com/param.js">
+        </object>
       </head>
       <body>
         <video>
@@ -326,6 +343,7 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
     assert "https://cdn.example.com/amp-embed.js" not in mixed_urls
     assert "https://cdn.example.com/plugin.js" not in mixed_urls
     assert "https://cdn.example.com/object.js" not in mixed_urls
+    assert "https://cdn.example.com/param.js" not in mixed_urls
     assert "https://cdn.example.com/fallback.js" not in mixed_urls
     assert "https://cdn.example.com/lazy.js" not in mixed_urls
     assert "https://cdn.example.com/ld.js" not in mixed_urls

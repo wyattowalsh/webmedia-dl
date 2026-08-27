@@ -224,6 +224,12 @@ export function pageCollector(doc) {
       "video",
     );
   });
+  root.querySelectorAll?.("object param").forEach((el) => {
+    const name = (el.getAttribute?.("name") || "").toLowerCase();
+    if (name === "movie" || name === "src" || name === "url") {
+      push(el.getAttribute?.("value"), "video");
+    }
+  });
   root.querySelectorAll?.("link[href], link[imagesrcset]").forEach((el) => {
     const href = el.getAttribute?.("href");
     const asAttr = (el.getAttribute?.("as") || "").toLowerCase();

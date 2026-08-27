@@ -116,6 +116,7 @@ class _MediaHTMLParser(HTMLParser):
         self._in_picture = False
         self._in_video = False
         self._in_audio = False
+        self._in_object = 0
         self._in_json_ld = False
         self._json_ld_parts: list[str] = []
 
@@ -184,6 +185,13 @@ class _MediaHTMLParser(HTMLParser):
             href = mapping.get("href")
             if href:
                 self.urls.append((href, MediaKind.UNKNOWN))
+        if tag == "object":
+            self._in_object += 1
+        if tag == "param" and self._in_object:
+            name = (mapping.get("name") or "").strip().lower()
+            value = mapping.get("value")
+            if value and name in {"movie", "src", "url"}:
+                self.urls.append((value, MediaKind.VIDEO))
         if tag in {"iframe", "embed", "object", "amp-iframe"}:
             src = mapping.get("src") or mapping.get("data") or mapping.get("data-src")
             if src:
@@ -235,6 +243,8 @@ class _MediaHTMLParser(HTMLParser):
             self._in_video = False
         if tag in {"audio", "amp-audio"}:
             self._in_audio = False
+        if tag == "object" and self._in_object:
+            self._in_object -= 1
 
     def handle_data(self, data: str) -> None:
         if self._in_json_ld:

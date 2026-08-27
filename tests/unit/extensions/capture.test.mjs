@@ -289,6 +289,50 @@ describe("collectMediaEvidence", () => {
             { getAttribute: (name) => (name === "data" ? "https://cdn.example.com/object.js" : null) },
           ];
         }
+        if (selector.includes("param")) {
+          return [
+            {
+              getAttribute: (name) =>
+                name === "name"
+                  ? "movie"
+                  : name === "value"
+                    ? "https://cdn.example.com/param.mp4"
+                    : null,
+            },
+            {
+              getAttribute: (name) =>
+                name === "name"
+                  ? "src"
+                  : name === "value"
+                    ? "https://cdn.example.com/param-src.m3u8"
+                    : null,
+            },
+            {
+              getAttribute: (name) =>
+                name === "name"
+                  ? "url"
+                  : name === "value"
+                    ? "https://cdn.example.com/param-url.mp4"
+                    : null,
+            },
+            {
+              getAttribute: (name) =>
+                name === "name"
+                  ? "movie"
+                  : name === "value"
+                    ? "https://cdn.example.com/param.js"
+                    : null,
+            },
+            {
+              getAttribute: (name) =>
+                name === "name"
+                  ? "flashvars"
+                  : name === "value"
+                    ? "https://cdn.example.com/flash.mp4"
+                    : null,
+            },
+          ];
+        }
         if (selector.includes("a[href]")) {
           return [
             {
@@ -439,6 +483,13 @@ describe("collectMediaEvidence", () => {
     assert.ok(!urls.includes("https://cdn.example.com/lazy.js"));
     assert.ok(!urls.includes("https://cdn.example.com/embed.js/"));
     assert.ok(!urls.includes("https://cdn.example.com/object.js"));
+    assert.ok(urls.includes("https://cdn.example.com/param.mp4"));
+    assert.equal(byUrl["https://cdn.example.com/param.mp4"], "video");
+    assert.ok(urls.includes("https://cdn.example.com/param-src.m3u8"));
+    assert.equal(byUrl["https://cdn.example.com/param-src.m3u8"], "video");
+    assert.ok(urls.includes("https://cdn.example.com/param-url.mp4"));
+    assert.ok(!urls.includes("https://cdn.example.com/param.js"));
+    assert.ok(!urls.includes("https://cdn.example.com/flash.mp4"));
     assert.ok(urls.includes("https://cdn.example.com/pre.mp4"));
     assert.ok(urls.includes("https://cdn.example.com/bare.mp4"));
     assert.ok(!urls.includes("https://cdn.example.com/app.js"));
