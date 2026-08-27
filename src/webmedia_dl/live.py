@@ -1493,18 +1493,17 @@ def hls_audio_playlist_urls(text: str, base: str) -> list[str]:
     return _hls_rendition_playlist_urls(text, base, media_type="AUDIO", group=group or None)
 
 
-def _hls_iframe_playlist_urls(text: str, base: str) -> list[str]:
-    """`#EXT-X-I-FRAME-STREAM-INF` nested playlists, highest BANDWIDTH first.
+def _hls_tagged_stream_inf_urls(text: str, base: str, tag: str) -> list[str]:
+    """Master `STREAM-INF`-style tags with inline URI, highest BANDWIDTH first.
 
-    These are media playlists referenced by a master. Invalid BANDWIDTH,
-    duplicate URI, and leftover `{$name}` are skipped.
+    Invalid BANDWIDTH, duplicate URI, and leftover `{$name}` are skipped.
     """
     substitutions = _hls_substitution_env(text, base)
     variants: list[tuple[int, str]] = []
     seen: set[str] = set()
     for line in text.splitlines():
         stripped = _hls_line(line)
-        if not stripped.startswith("#EXT-X-I-FRAME-STREAM-INF:"):
+        if not stripped.startswith(tag):
             continue
         attrs, duplicates = _hls_attr_map(stripped.split(":", 1)[1])
         raw = attrs.get("BANDWIDTH")
@@ -1529,6 +1528,11 @@ def _hls_iframe_playlist_urls(text: str, base: str) -> list[str]:
     return [url for _bandwidth, url in variants]
 
 
+def _hls_iframe_playlist_urls(text: str, base: str) -> list[str]:
+    """`#EXT-X-I-FRAME-STREAM-INF` nested playlists, highest BANDWIDTH first."""
+    return _hls_tagged_stream_inf_urls(text, base, "#EXT-X-I-FRAME-STREAM-INF:")
+
+
 def hls_video_playlist_urls(text: str, base: str) -> list[str]:
     """Video rendition playlists referenced by the preferred STREAM-INF group.
 
@@ -1548,6 +1552,11 @@ def hls_subtitle_playlist_urls(text: str, base: str) -> list[str]:
     chosen = _preferred_hls_stream(text, base)
     group = chosen[1].get("SUBTITLES") if chosen is not None else None
     return _hls_rendition_playlist_urls(text, base, media_type="SUBTITLES", group=group or None)
+
+
+def hls_image_playlist_urls(text: str, base: str) -> list[str]:
+    """`#EXT-X-IMAGE-STREAM-INF` nested playlists, highest BANDWIDTH first."""
+    return _hls_tagged_stream_inf_urls(text, base, "#EXT-X-IMAGE-STREAM-INF:")
 
 
 def _part_record_key(part: ManifestPart) -> tuple[str, int | None, int | None, int]:
@@ -1843,6 +1852,7 @@ def record_kind_streams(
     audio_uris = hls_audio_playlist_urls(playlist_text, playlist_url)
     video_uris = hls_video_playlist_urls(playlist_text, playlist_url)
     subtitle_uris = hls_subtitle_playlist_urls(playlist_text, playlist_url)
+    image_uris = hls_image_playlist_urls(playlist_text, playlist_url)
     drm_flag: list[bool] = []
     record_clear_stream(
         playlist_text,
@@ -1855,7 +1865,7 @@ def record_kind_streams(
         drm_flag=drm_flag,
         hls_env=env,
     )
-    if drm_flag or not (audio_uris or video_uris or subtitle_uris):
+    if drm_flag or not (audio_uris or video_uris or subtitle_uris or image_uris):
         return [(MediaKind.VIDEO, output)] if audio_uris else [(MediaKind.LIVE_STREAM, output)]
     results: list[tuple[MediaKind, Path]] = (
         [(MediaKind.VIDEO, output)] if audio_uris else [(MediaKind.LIVE_STREAM, output)]
@@ -1902,4 +1912,18 @@ def record_kind_streams(
             hls_env=env,
         )
         results.append((MediaKind.SUBTITLE, sub_dest))
+    if image_uris:
+        image_dest = output.parent / f"{output.stem}-images{output.suffix or '.bin'}"
+        _record_hls_sidecar(
+            image_uris[0],
+            image_dest,
+            fetch,
+            budget=bound,
+            should_stop=should_stop,
+            live_polls=live_polls,
+            drm_flag=drm_flag,
+            fail_label="image",
+            hls_env=env,
+        )
+        results.append((MediaKind.IMAGE, image_dest))
     return results

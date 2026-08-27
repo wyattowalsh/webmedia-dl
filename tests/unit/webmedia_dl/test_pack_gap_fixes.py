@@ -476,6 +476,41 @@ def test_hls_and_dash_keep_alternate_audio(tmp_path: Path) -> None:
         kind is MediaKind.LIVE_STREAM and path.read_bytes() == b"VIDEO"
         for kind, path in iframe_recorded
     )
+    image_master = (
+        "#EXTM3U\n"
+        '#EXT-X-DEFINE:NAME="img",VALUE="thumbs.m3u8"\n'
+        '#EXT-X-IMAGE-STREAM-INF:BANDWIDTH=1000,URI="low-thumbs.m3u8"\n'
+        '#EXT-X-IMAGE-STREAM-INF:BANDWIDTH=5000,URI="{$img}"\n'
+        "#EXT-X-STREAM-INF:BANDWIDTH=800000\n"
+        "video.m3u8\n"
+    )
+    image_bodies = {
+        **bodies,
+        "https://cdn.example.com/thumbs.m3u8": b"#EXTM3U\n#EXT-X-IMAGES-ONLY\n#EXTINF:1,\nthumb.jpg\n",
+        "https://cdn.example.com/thumb.jpg": b"JPEG",
+    }
+
+    def fetch_image(url: str) -> tuple[int, str, bytes]:
+        if url.endswith("low-thumbs.m3u8"):
+            raise AssertionError(url)
+        return 200, "application/vnd.apple.mpegurl", image_bodies[url]
+
+    image_recorded = record_kind_streams(
+        image_master,
+        "https://cdn.example.com/master.m3u8",
+        tmp_path / "images.bin",
+        fetch_image,
+    )
+    image_kinds = {kind for kind, _path in image_recorded}
+    assert MediaKind.LIVE_STREAM in image_kinds
+    assert MediaKind.IMAGE in image_kinds
+    image_path = next(path for kind, path in image_recorded if kind is MediaKind.IMAGE)
+    assert image_path.name == "images-images.bin"
+    assert image_path.read_bytes() == b"JPEG"
+    assert any(
+        kind is MediaKind.LIVE_STREAM and path.read_bytes() == b"VIDEO"
+        for kind, path in image_recorded
+    )
     dash = """
     <MPD><Period>
       <AdaptationSet contentType="audio">

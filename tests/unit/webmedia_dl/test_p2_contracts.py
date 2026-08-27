@@ -30,6 +30,7 @@ from webmedia_dl.live import (
     MAX_TIMELINE_SEGMENTS,
     ManifestPart,
     hls_audio_playlist_urls,
+    hls_image_playlist_urls,
     hls_subtitle_playlist_urls,
     hls_video_playlist_urls,
     manifest_is_live,
@@ -1107,6 +1108,26 @@ def test_hls_audio_media_skips_non_audio_and_duplicates() -> None:
     assert hls_video_playlist_urls(muxed_with_iframe, "https://cdn.example.com/") == [
         "https://cdn.example.com/iframe.m3u8"
     ]
+    images = (
+        "#EXTM3U\n"
+        '#EXT-X-DEFINE:NAME="img",VALUE="thumbs.m3u8"\n'
+        '#EXT-X-IMAGE-STREAM-INF:BANDWIDTH=1000,URI="low-thumbs.m3u8"\n'
+        '#EXT-X-IMAGE-STREAM-INF:BANDWIDTH=5000,URI="{$img}"\n'
+        '#EXT-X-IMAGE-STREAM-INF:BANDWIDTH=not-a-number,URI="bad-thumbs.m3u8"\n'
+        '#EXT-X-IMAGE-STREAM-INF:URI="no-bw-thumbs.m3u8"\n'
+        '#EXT-X-IMAGE-STREAM-INF:BANDWIDTH=1,BANDWIDTH=2,URI="dup-bw-thumbs.m3u8"\n'
+        '#EXT-X-IMAGE-STREAM-INF:BANDWIDTH=1,URI=""\n'
+        '#EXT-X-IMAGE-STREAM-INF:BANDWIDTH=9000,URI="dup-thumbs.m3u8",URI="evil-thumbs.m3u8"\n'
+        '#EXT-X-IMAGE-STREAM-INF:BANDWIDTH=8000,URI="{$missing}"\n'
+        '#EXT-X-IMAGE-STREAM-INF:BANDWIDTH=4000,URI="thumbs.m3u8"\n'
+        "#EXT-X-STREAM-INF:BANDWIDTH=800000\n"
+        "video.m3u8\n"
+    )
+    assert hls_image_playlist_urls(images, "https://cdn.example.com/") == [
+        "https://cdn.example.com/thumbs.m3u8",
+        "https://cdn.example.com/low-thumbs.m3u8",
+    ]
+    assert hls_video_playlist_urls(images, "https://cdn.example.com/") == []
 
 
 def test_hls_audio_playlist_fetch_failure(tmp_path: Path) -> None:

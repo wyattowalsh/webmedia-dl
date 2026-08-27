@@ -2,6 +2,14 @@
 
 ## 0.1.0
 
+- Record HLS `#EXT-X-IMAGE-STREAM-INF` nested playlists as an IMAGE sidecar,
+  matching `#EXT-X-I-FRAME-STREAM-INF` VIDEO sidecars. Highest `BANDWIDTH`
+  wins. Duplicate `URI`, invalid `BANDWIDTH`, and leftover `{$name}` stay
+  skipped. GitHub Actions `33026598266` on `420fd6a` passed Python (626
+  pytest, 100%), doctor provider probes, and Swift (18 tests, 0 failures;
+  12× BUILD SUCCEEDED) after recording HLS I-FRAME-STREAM-INF nested
+  playlists as VIDEO.
+
 - Record HLS `#EXT-X-I-FRAME-STREAM-INF` nested playlists as a VIDEO sidecar
   when the master has no TYPE=VIDEO URI, matching TYPE=VIDEO renditions.
   Highest `BANDWIDTH` wins. Duplicate `URI`, invalid `BANDWIDTH`, leftover
