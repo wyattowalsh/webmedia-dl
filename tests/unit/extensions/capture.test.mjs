@@ -272,6 +272,17 @@ describe("collectMediaEvidence", () => {
             getAttribute: (name) =>
               name === "data-src" ? "https://cdn.example.com/lazy.vtt" : null,
           },
+          {
+            tagName: "VIDEO",
+            getAttribute: (name) =>
+              name === "poster"
+                ? "https://cdn.example.com/poster.jpg"
+                : name === "data-poster"
+                  ? "https://cdn.example.com/lazy-poster.jpg"
+                  : name === "src"
+                    ? "https://cdn.example.com/clip.mp4"
+                    : null,
+          },
         ];
       },
     };
@@ -284,6 +295,9 @@ describe("collectMediaEvidence", () => {
     assert.equal(byUrl["https://cdn.example.com/lazy.png"], "image");
     assert.equal(byUrl["https://cdn.example.com/lazy-set.webp"], "image");
     assert.equal(byUrl["https://cdn.example.com/lazy.vtt"], "subtitle");
+    assert.equal(byUrl["https://cdn.example.com/poster.jpg"], "image");
+    assert.equal(byUrl["https://cdn.example.com/lazy-poster.jpg"], "image");
+    assert.equal(byUrl["https://cdn.example.com/clip.mp4"], "video");
     assert.equal(byUrl["https://cdn.example.com/player.html"], "video");
     assert.equal(byUrl["https://cdn.example.com/tw-src.png"], "image");
     assert.equal(result.nativeCommand, null);

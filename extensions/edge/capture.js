@@ -176,6 +176,7 @@ export function pageCollector(doc) {
       push(el.getAttribute?.("data-src"), kind);
       push(el.currentSrc, kind);
       push(el.getAttribute?.("poster"), "image");
+      push(el.getAttribute?.("data-poster"), "image");
       for (const attr of ["srcset", "data-srcset"]) {
         const srcset = el.getAttribute?.(attr);
         if (srcset) {

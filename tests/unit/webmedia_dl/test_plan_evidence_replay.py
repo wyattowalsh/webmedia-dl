@@ -48,7 +48,7 @@ def test_javascript_urls_are_ignored() -> None:
 
 def test_srcset_poster_and_browser_evidence() -> None:
     html = """
-    <video poster="/poster.jpg" srcset="https://cdn.example.com/clip.mp4 1x"></video>
+    <video poster="/poster.jpg" data-poster="/lazy-poster.jpg" srcset="https://cdn.example.com/clip.mp4 1x"></video>
     <meta name="twitter:image" content="https://cdn.example.com/tw.png">
     """
     evidence = [
@@ -77,6 +77,8 @@ def test_srcset_poster_and_browser_evidence() -> None:
     assert kinds["https://example.com/bare-page"] is MediaKind.PAGE
     assert any(item.endswith("poster.jpg") for item in urls)
     assert "https://example.com/poster.jpg" in urls
+    assert "https://example.com/lazy-poster.jpg" in urls
+    assert kinds["https://example.com/lazy-poster.jpg"] is MediaKind.IMAGE
     assert "https://cdn.example.com/tw.png" in urls
     assert not any(item.startswith("javascript:") for item in urls)
     assert not any(item.startswith("data:") for item in urls)

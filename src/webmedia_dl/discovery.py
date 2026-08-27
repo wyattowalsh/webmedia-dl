@@ -166,10 +166,10 @@ class _MediaHTMLParser(HTMLParser):
                 kind = MediaKind.AUDIO
             elif tag == "source" and self._in_video:
                 kind = MediaKind.VIDEO
-            for attr in ("src", "data-src", "poster"):
+            for attr in ("src", "data-src", "poster", "data-poster"):
                 value = mapping.get(attr)
                 if value:
-                    item_kind = MediaKind.IMAGE if attr == "poster" else kind
+                    item_kind = MediaKind.IMAGE if attr in {"poster", "data-poster"} else kind
                     self.urls.append((value, item_kind))
             for attr in ("srcset", "data-srcset"):
                 srcset = mapping.get(attr)

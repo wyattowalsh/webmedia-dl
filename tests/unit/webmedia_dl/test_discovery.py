@@ -266,7 +266,9 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
           <param name="movie" value="https://cdn.example.com/param.js">
           <param name="flashvars" value="https://cdn.example.com/flash.mp4">
         </object>
-        <video src="https://cdn.example.com/classic.m3u"></video>
+        <video src="https://cdn.example.com/classic.m3u"
+               poster="https://cdn.example.com/poster.jpg"
+               data-poster="https://cdn.example.com/lazy-poster.jpg"></video>
         <a href="https://cdn.example.com/listed.m3u">playlist</a>
       </body>
     </html>
@@ -289,6 +291,10 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
     assert kinds["https://cdn.example.com/param-url.mp4"] is MediaKind.VIDEO
     assert "https://cdn.example.com/param.js" not in urls
     assert "https://cdn.example.com/flash.mp4" not in urls
+    assert "https://cdn.example.com/poster.jpg" in urls
+    assert kinds["https://cdn.example.com/poster.jpg"] is MediaKind.IMAGE
+    assert "https://cdn.example.com/lazy-poster.jpg" in urls
+    assert kinds["https://cdn.example.com/lazy-poster.jpg"] is MediaKind.IMAGE
     jsonld_url = """
     <html><body>
       <script type="application/ld+json">
@@ -339,7 +345,7 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
         </object>
       </head>
       <body>
-        <video>
+        <video data-poster="https://cdn.example.com/poster.js">
           <source type="video/mp4" src="https://cdn.example.com/fallback.js">
           <source src="https://cdn.example.com/clip.mp4">
         </video>
@@ -366,6 +372,7 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
     assert "https://cdn.example.com/fallback.js" not in mixed_urls
     assert "https://cdn.example.com/lazy.js" not in mixed_urls
     assert "https://cdn.example.com/ld.js" not in mixed_urls
+    assert "https://cdn.example.com/poster.js" not in mixed_urls
     slash_assets = """
     <html>
       <head>

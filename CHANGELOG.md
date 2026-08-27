@@ -2,6 +2,13 @@
 
 ## 0.1.0
 
+- Collect `data-poster` locators as IMAGE in HTML discovery and browser
+  capture, matching `poster` / `data-src`. Empty poster values and
+  script-asset `data-poster` URLs stay skipped. GitHub Actions
+  `33025943334` on `1fa13b3` passed Python (626 pytest, 100%), doctor
+  provider probes, and Swift (18 tests, 0 failures; 12× BUILD SUCCEEDED)
+  after collecting JSON-LD caption locators. That SHA is `origin/main`.
+
 - Collect JSON-LD `caption` / `transcript` / `subtitle` locators as SUBTITLE
   when they name a `.vtt` / `.srt` object or an HLS/DASH subtitle playlist,
   matching `track[src]`. Caption text, `thumbnailUrl`, and other non-locator

@@ -825,7 +825,8 @@ def test_discovery_picture_embed_gallery_and_jsonld_list() -> None:
           <param name="movie" value="https://cdn.example.com/param.mp4">
           <param name="flashvars" value="https://cdn.example.com/flash.mp4">
         </object>
-        <amp-video src="https://cdn.example.com/amp.mp4"></amp-video>
+        <amp-video src="https://cdn.example.com/amp.mp4"
+                   data-poster="https://cdn.example.com/lazy-poster.jpg"></amp-video>
         <amp-audio src="https://cdn.example.com/amp.m4a"></amp-audio>
         <a href="javascript:void(0)">skip</a>
       </body>
@@ -849,6 +850,8 @@ def test_discovery_picture_embed_gallery_and_jsonld_list() -> None:
     assert kinds["https://cdn.example.com/param.mp4"] is MediaKind.VIDEO
     assert "https://cdn.example.com/flash.mp4" not in urls
     assert "https://cdn.example.com/amp.mp4" in urls
+    assert "https://cdn.example.com/lazy-poster.jpg" in urls
+    assert kinds["https://cdn.example.com/lazy-poster.jpg"] is MediaKind.IMAGE
     assert "https://cdn.example.com/amp.m4a" in urls
     assert "https://cdn.example.com/x.mp3" in urls
     assert "https://cdn.example.com/a.mp4" in urls

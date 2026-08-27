@@ -122,7 +122,7 @@ def test_discovery_skips_empty_tokens_and_jsonld_kinds() -> None:
         <link rel="preload" as="track" href="https://cdn.example.com/sub.vtt">
       </head>
       <body>
-        <video poster="" src="https://cdn.example.com/clip.mp4"
+        <video poster="" data-poster="https://cdn.example.com/lazy-poster.jpg" src="https://cdn.example.com/clip.mp4"
                srcset=",  , https://cdn.example.com/poster.jpg 1x"></video>
         <picture>
           <source srcset="https://cdn.example.com/plain.jpg">
@@ -140,6 +140,8 @@ def test_discovery_skips_empty_tokens_and_jsonld_kinds() -> None:
     kinds = {item.retrieval_urls[0]: item.media_kind for item in found if item.retrieval_urls}
     assert "https://cdn.example.com/clip.mp4" in urls
     assert "https://cdn.example.com/poster.jpg" in urls
+    assert "https://cdn.example.com/lazy-poster.jpg" in urls
+    assert kinds["https://cdn.example.com/lazy-poster.jpg"] is MediaKind.IMAGE
     assert "https://cdn.example.com/song" in urls
     assert "https://cdn.example.com/photo" in urls
     assert "https://cdn.example.com/photo-url" in urls
