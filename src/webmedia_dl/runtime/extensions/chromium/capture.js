@@ -96,6 +96,30 @@ export function pageCollector(doc) {
     };
     pushJsonLdUrl(node.contentUrl, jsonLdKind);
     pushJsonLdUrl(node.embedUrl, jsonLdKind);
+    const captionHref = /\.(vtt|srt|m3u8|m3u|mpd)\/*(?:\?|#|$)/i;
+    const pushJsonLdCaption = (value) => {
+      if (typeof value === "string") {
+        const trimmed = value.trim();
+        if (trimmed && !/\s/.test(trimmed) && captionHref.test(trimmed)) {
+          push(trimmed, "subtitle");
+        }
+        return;
+      }
+      if (Array.isArray(value)) {
+        value.forEach((item) => pushJsonLdCaption(item));
+        return;
+      }
+      if (value && typeof value === "object") {
+        if (typeof value["@id"] === "string") {
+          pushJsonLdCaption(value["@id"]);
+        } else if (typeof value.url === "string") {
+          pushJsonLdCaption(value.url);
+        }
+      }
+    };
+    pushJsonLdCaption(node.caption);
+    pushJsonLdCaption(node.transcript);
+    pushJsonLdCaption(node.subtitle);
     const mediaType =
       jsonLdType.includes("video") ||
       jsonLdType.includes("movie") ||

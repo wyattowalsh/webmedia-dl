@@ -2,6 +2,13 @@
 
 ## 0.1.0
 
+- Collect JSON-LD `caption` / `transcript` / `subtitle` locators as SUBTITLE
+  when they name a `.vtt` / `.srt` object or an HLS/DASH subtitle playlist,
+  matching `track[src]`. Caption text, `thumbnailUrl`, and other non-locator
+  strings stay skipped. GitHub Actions `33025711001` on `7b79dba` passed
+  Python (626 pytest, 100%), doctor provider probes, and Swift (18 tests, 0
+  failures; 12× BUILD SUCCEEDED) after collecting object param locators.
+
 - Collect `<object>` child `<param name="movie">` / `src` / `url` locators as
   VIDEO in HTML discovery and browser capture, matching `object` `data` /
   `src` / `data-src`. Script-asset param values and non-locator names such as

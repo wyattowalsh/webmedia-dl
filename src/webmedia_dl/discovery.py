@@ -460,6 +460,18 @@ def _jsonld_locator_urls(raw: object) -> list[str]:
     return found
 
 
+_JSONLD_CAPTION_KEYS = frozenset({"caption", "transcript", "subtitle"})
+_JSONLD_MEDIA_KEYS = ("contentUrl", "embedUrl", "url", "caption", "transcript", "subtitle")
+
+
+def _jsonld_caption_locator(value: str) -> bool:
+    """True when a JSON-LD caption string names a subtitle object or playlist."""
+    text = value.strip()
+    if not text or any(ch.isspace() for ch in text):
+        return False
+    return _kind_from_url(text) in {MediaKind.SUBTITLE, MediaKind.LIVE_STREAM}
+
+
 def _walk_jsonld(node: object):
     if isinstance(node, dict):
         yield node
@@ -689,8 +701,10 @@ def discover(
             continue
         items = payload if isinstance(payload, list) else [payload]
         for item in _walk_jsonld(items):
-            for key in ("contentUrl", "embedUrl", "url"):
+            for key in _JSONLD_MEDIA_KEYS:
                 for content_url in _jsonld_locator_urls(item.get(key)):
+                    if key in _JSONLD_CAPTION_KEYS and not _jsonld_caption_locator(content_url):
+                        continue
                     absolute = urljoin(document_base, content_url)
                     if not _usable_url(absolute, profile):
                         continue
@@ -699,6 +713,8 @@ def discover(
                     if _locator_has_script_asset_suffix(absolute):
                         continue
                     kind = _kind_from_jsonld(item, absolute)
+                    if key in _JSONLD_CAPTION_KEYS:
+                        kind = MediaKind.SUBTITLE
                     if key == "url" and kind in {MediaKind.PAGE, MediaKind.UNKNOWN}:
                         continue
                     seen.add(absolute)

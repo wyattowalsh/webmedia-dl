@@ -32,6 +32,10 @@ describe("collectMediaEvidence", () => {
                   {
                     "@type": "VideoObject",
                     url: "https://example.com/watch?v=url-only",
+                    caption: "https://cdn.example.com/ld.vtt",
+                    transcript: "https://cdn.example.com/ld-subs.m3u8",
+                    subtitle: "English closed captions",
+                    thumbnailUrl: "https://cdn.example.com/thumb.jpg",
                   },
                   { "@type": "Organization", url: "https://cdn.example.com/about" },
                 ],
@@ -101,6 +105,18 @@ describe("collectMediaEvidence", () => {
       result.evidence.find((item) => item.url === "https://example.com/watch?v=url-only")?.kind,
       "video",
     );
+    assert.ok(urls.includes("https://cdn.example.com/ld.vtt"));
+    assert.equal(
+      result.evidence.find((item) => item.url === "https://cdn.example.com/ld.vtt")?.kind,
+      "subtitle",
+    );
+    assert.ok(urls.includes("https://cdn.example.com/ld-subs.m3u8"));
+    assert.equal(
+      result.evidence.find((item) => item.url === "https://cdn.example.com/ld-subs.m3u8")?.kind,
+      "subtitle",
+    );
+    assert.ok(!urls.includes("English closed captions"));
+    assert.ok(!urls.includes("https://cdn.example.com/thumb.jpg"));
     assert.ok(!urls.includes("https://cdn.example.com/about"));
     assert.ok(!urls.some((item) => item.startsWith("javascript:")));
     assert.ok(!urls.some((item) => item.startsWith("data:")));

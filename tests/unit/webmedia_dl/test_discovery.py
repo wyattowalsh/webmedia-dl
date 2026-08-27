@@ -305,6 +305,25 @@ def test_html_discovery_extracts_iframe_link_and_jsonld_type() -> None:
     }
     assert url_kinds["https://example.com/watch?v=url-only"] is MediaKind.VIDEO
     assert "https://cdn.example.com/about" not in url_kinds
+    captions = """
+    <html><body>
+      <script type="application/ld+json">
+        {"@type": "VideoObject", "contentUrl": "https://cdn.example.com/clip.mp4",
+         "caption": ["https://cdn.example.com/ld.vtt", "   ", "English closed captions"],
+         "transcript": "https://cdn.example.com/ld-subs.m3u8",
+         "subtitle": "English closed captions",
+         "thumbnailUrl": "https://cdn.example.com/thumb.jpg"}
+      </script>
+    </body></html>
+    """
+    caption_found = discover(_source(), profile, html=captions)
+    caption_kinds = {
+        item.retrieval_urls[0]: item.media_kind for item in caption_found if item.retrieval_urls
+    }
+    assert caption_kinds["https://cdn.example.com/ld.vtt"] is MediaKind.SUBTITLE
+    assert caption_kinds["https://cdn.example.com/ld-subs.m3u8"] is MediaKind.SUBTITLE
+    assert "English closed captions" not in caption_kinds
+    assert "https://cdn.example.com/thumb.jpg" not in caption_kinds
     stolen = """
     <html>
       <head>
